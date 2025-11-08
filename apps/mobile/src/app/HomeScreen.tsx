@@ -1,6 +1,7 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Modal,
   Pressable,
   ScrollView,
@@ -10,11 +11,15 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import {
-  QuickActionMetadata,
+import type {
+  QuickActionPreset,
   TodayPlan,
   WorkoutSessionSummary,
-} from './types/home';
+  GenerationRequest,
+} from '@workout-agent/shared';
+import { useHomeData } from './hooks/useHomeData';
+import { generateWorkout, logWorkout, type ApiError } from './services/api';
+import { setDeviceToken } from './storage/deviceToken';
 import { RootStackParamList } from './navigation';
 
 const palette = {
@@ -31,98 +36,14 @@ const palette = {
   destructive: '#ff6b6b',
 };
 
-const quickActions: QuickActionMetadata[] = [
-  {
-    key: 'time',
-    label: 'Time',
-    description: '15 min',
-  },
-  {
-    key: 'focus',
-    label: 'Focus',
-    description: 'Upper body',
-  },
-  {
-    key: 'equipment',
-    label: 'Equipment',
-    description: 'Dumbbells',
-  },
-  {
-    key: 'energy',
-    label: 'Energy',
-    description: 'Medium',
-  },
-  {
-    key: 'backfill',
-    label: 'Backfill',
-    description: 'Log later',
-  },
-];
-
-type HomeDataState = {
-  status: 'loading' | 'ready' | 'empty';
-  plan: TodayPlan | null;
-  recentSessions: WorkoutSessionSummary[];
-  isOffline: boolean;
-};
-
-const useMockedHomeData = (): HomeDataState => {
-  const [state, setState] = useState<HomeDataState>({
-    status: 'loading',
-    plan: null,
-    recentSessions: [],
-    isOffline: false,
-  });
-
-  useEffect(() => {
-    const timeout = setTimeout(() => {
-      setState({
-        status: 'ready',
-        plan: {
-          id: 'plan-1',
-          focus: 'Upper Body Push',
-          durationMinutes: 32,
-          equipment: ['Dumbbells', 'Bench'],
-          source: 'ai',
-          energy: 'moderate',
-        },
-        recentSessions: [
-          {
-            id: 'session-1',
-            name: 'Lower Body Reset',
-            completedAt: new Date().toISOString(),
-            durationMinutes: 38,
-            focus: 'Legs',
-          },
-          {
-            id: 'session-2',
-            name: 'Intervals + Core',
-            completedAt: new Date(Date.now() - 86400000).toISOString(),
-            durationMinutes: 24,
-            focus: 'Conditioning',
-          },
-          {
-            id: 'session-3',
-            name: 'Push Day Primer',
-            completedAt: new Date(Date.now() - 2 * 86400000).toISOString(),
-            durationMinutes: 30,
-            focus: 'Upper Body',
-          },
-        ],
-        isOffline: false,
-      });
-    }, 600);
-
-    return () => clearTimeout(timeout);
-  }, []);
-
-  return state;
-};
+// Quick actions will come from the API snapshot
 
 type HeroCardProps = {
   status: 'loading' | 'ready' | 'empty';
   plan: TodayPlan | null;
   isOffline: boolean;
+  generating?: boolean;
+  logging?: boolean;
   onGenerate: () => void;
   onCustomize: () => void;
   onStart: () => void;
@@ -134,6 +55,8 @@ const HeroCard = ({
   status,
   plan,
   isOffline,
+  generating = false,
+  logging = false,
   onGenerate,
   onCustomize,
   onStart,
@@ -176,8 +99,16 @@ const HeroCard = ({
           <InlineWarning onConfigure={onConfigure} />
         ) : (
           <View style={styles.heroActions}>
-            <PrimaryButton label="Generate workout" onPress={onGenerate} />
-            <SecondaryButton label="Customize" onPress={onCustomize} />
+            <PrimaryButton
+              label={generating ? 'Generating...' : 'Generate workout'}
+              onPress={onGenerate}
+              disabled={generating}
+            />
+            <SecondaryButton
+              label="Customize"
+              onPress={onCustomize}
+              disabled={generating}
+            />
           </View>
         )}
       </View>
@@ -202,8 +133,16 @@ const HeroCard = ({
         <InlineWarning onConfigure={onConfigure} />
       ) : (
         <View style={styles.heroActions}>
-          <PrimaryButton label="Start workout" onPress={onStart} />
-          <SecondaryButton label="Preview" onPress={onPreview} />
+          <PrimaryButton
+            label={logging ? 'Logging...' : 'Log done'}
+            onPress={onStart}
+            disabled={logging}
+          />
+          <SecondaryButton
+            label="Preview"
+            onPress={onPreview}
+            disabled={logging}
+          />
         </View>
       )}
     </View>
@@ -264,16 +203,20 @@ const PrimaryButton = ({
 const SecondaryButton = ({
   label,
   onPress,
+  disabled,
 }: {
   label: string;
   onPress: () => void;
+  disabled?: boolean;
 }) => (
   <Pressable
     accessibilityRole='button'
     onPress={onPress}
+    disabled={disabled}
     style={({ pressed }) => [
       styles.secondaryButton,
       pressed && { backgroundColor: palette.border },
+      disabled && { opacity: 0.4 },
     ]}
   >
     <Text style={styles.secondaryButtonText}>{label}</Text>
@@ -281,10 +224,11 @@ const SecondaryButton = ({
 );
 
 type QuickActionRailProps = {
-  onActionPress: (action: QuickActionMetadata) => void;
+  onActionPress: (action: QuickActionPreset) => void;
+  quickActions: QuickActionPreset[];
 };
 
-const QuickActionRail = ({ onActionPress }: QuickActionRailProps) => (
+const QuickActionRail = ({ onActionPress, quickActions }: QuickActionRailProps) => (
   <View style={styles.card}>
     <View style={styles.sectionHeader}>
       <Text style={styles.sectionTitle}>Quick actions</Text>
@@ -380,52 +324,271 @@ const ActivitySection = ({ sessions, loading }: ActivitySectionProps) => {
 
 const ActionSheet = ({
   action,
+  quickActions,
   onClose,
+  onGenerate,
+  onUpdateStagedValue,
+  generating,
+  isOffline,
 }: {
-  action: QuickActionMetadata | null;
+  action: QuickActionPreset | null;
+  quickActions: QuickActionPreset[];
   onClose: () => void;
-}) => (
-  <Modal
-    visible={Boolean(action)}
-    transparent
-    animationType="slide"
-    onRequestClose={onClose}
-  >
-    <View style={styles.sheetOverlay}>
-      <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
-      <View style={styles.sheet}>
-        <View style={styles.sheetHandle} />
-        <Text style={styles.sheetTitle}>{action?.label}</Text>
-        <Text style={styles.sheetBody}>
-          {action
-            ? `This is a placeholder control for adjusting ${action.label.toLowerCase()}. Wire it up to the real preset sheet when backend hooks are ready.`
-            : ''}
-        </Text>
-        <PrimaryButton label="Close" onPress={onClose} />
+  onGenerate: () => void;
+  onUpdateStagedValue: (key: string, value: string | null) => void;
+  generating: boolean;
+  isOffline: boolean;
+}) => {
+  const currentStagedValue = action?.stagedValue ?? action?.value ?? '';
+  const [localValue, setLocalValue] = useState<string>(currentStagedValue);
+
+  // Update local value when action changes
+  useEffect(() => {
+    if (action) {
+      const newValue = action.stagedValue ?? action.value ?? '';
+      setLocalValue(newValue);
+    }
+  }, [action]);
+
+  if (!action) return null;
+
+  const handleApply = () => {
+    onUpdateStagedValue(action.key, localValue);
+    onClose();
+  };
+
+  const handleGenerate = () => {
+    onUpdateStagedValue(action.key, localValue);
+    onGenerate();
+    onClose();
+  };
+
+  const renderContent = () => {
+    switch (action.key) {
+      case 'time': {
+        const timeOptions = [15, 20, 30, 45, 60];
+        return (
+          <View style={styles.sheetOptions}>
+            {timeOptions.map((minutes) => (
+              <Pressable
+                key={minutes}
+                style={[
+                  styles.optionButton,
+                  localValue === String(minutes) && styles.optionButtonSelected,
+                ]}
+                onPress={() => setLocalValue(String(minutes))}
+              >
+                <Text
+                  style={[
+                    styles.optionButtonText,
+                    localValue === String(minutes) && styles.optionButtonTextSelected,
+                  ]}
+                >
+                  {minutes} min
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        );
+      }
+      case 'focus': {
+        const focusOptions = [
+          'Full Body',
+          'Upper Body',
+          'Lower Body',
+          'Core',
+          'Cardio',
+          'Strength',
+          'Mobility',
+        ];
+        return (
+          <View style={styles.sheetOptions}>
+            {focusOptions.map((focus) => (
+              <Pressable
+                key={focus}
+                style={[
+                  styles.optionButton,
+                  localValue === focus && styles.optionButtonSelected,
+                ]}
+                onPress={() => setLocalValue(focus)}
+              >
+                <Text
+                  style={[
+                    styles.optionButtonText,
+                    localValue === focus && styles.optionButtonTextSelected,
+                  ]}
+                >
+                  {focus}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        );
+      }
+      case 'equipment': {
+        const equipmentOptions = [
+          'Bodyweight',
+          'Dumbbells',
+          'Barbell',
+          'Resistance Bands',
+          'Kettlebells',
+          'Pull-up Bar',
+          'Yoga Mat',
+        ];
+        const selectedEquipment = localValue ? localValue.split(',').map((e) => e.trim()) : [];
+
+        const toggleEquipment = (equip: string) => {
+          const isSelected = selectedEquipment.includes(equip);
+          const newSelection = isSelected
+            ? selectedEquipment.filter((e) => e !== equip)
+            : [...selectedEquipment, equip];
+          setLocalValue(newSelection.length > 0 ? newSelection.join(', ') : 'Bodyweight');
+        };
+
+        return (
+          <View style={styles.sheetOptions}>
+            {equipmentOptions.map((equip) => {
+              const isSelected = selectedEquipment.includes(equip);
+              return (
+                <Pressable
+                  key={equip}
+                  style={[
+                    styles.optionButton,
+                    isSelected && styles.optionButtonSelected,
+                  ]}
+                  onPress={() => toggleEquipment(equip)}
+                >
+                  <Text
+                    style={[
+                      styles.optionButtonText,
+                      isSelected && styles.optionButtonTextSelected,
+                    ]}
+                  >
+                    {equip}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        );
+      }
+      case 'energy': {
+        const energyOptions = [
+          { value: 'easy', label: 'Easy' },
+          { value: 'moderate', label: 'Moderate' },
+          { value: 'intense', label: 'Intense' },
+        ];
+        return (
+          <View style={styles.sheetOptions}>
+            {energyOptions.map((option) => (
+              <Pressable
+                key={option.value}
+                style={[
+                  styles.optionButton,
+                  localValue === option.value && styles.optionButtonSelected,
+                ]}
+                onPress={() => setLocalValue(option.value)}
+              >
+                <Text
+                  style={[
+                    styles.optionButtonText,
+                    localValue === option.value && styles.optionButtonTextSelected,
+                  ]}
+                >
+                  {option.label}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        );
+      }
+      case 'backfill': {
+        // For backfill, we'll show a simple message for now
+        // TODO: Implement date picker and quick log form
+        return (
+          <View>
+            <Text style={styles.sheetBody}>
+              Log a past workout session. This feature will allow you to backfill your workout history.
+            </Text>
+            <Text style={[styles.sheetBody, { marginTop: 12, fontSize: 13 }]}>
+              Coming soon: Date picker and quick log form.
+            </Text>
+          </View>
+        );
+      }
+      default:
+        return (
+          <Text style={styles.sheetBody}>
+            Select a value for {action.label.toLowerCase()}.
+          </Text>
+        );
+    }
+  };
+
+  return (
+    <Modal
+      visible={Boolean(action)}
+      transparent
+      animationType="slide"
+      onRequestClose={onClose}
+    >
+      <View style={styles.sheetOverlay}>
+        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
+        <View style={styles.sheet}>
+          <View style={styles.sheetHandle} />
+          <Text style={styles.sheetTitle}>{action.label}</Text>
+          {renderContent()}
+          <View style={styles.sheetActions}>
+            {action.key !== 'backfill' && (
+              <>
+                <SecondaryButton
+                  label="Apply"
+                  onPress={handleApply}
+                  disabled={generating || isOffline}
+                />
+                <PrimaryButton
+                  label={generating ? 'Generating...' : 'Generate'}
+                  onPress={handleGenerate}
+                  disabled={generating || isOffline}
+                />
+              </>
+            )}
+            {action.key === 'backfill' && (
+              <PrimaryButton label="Close" onPress={onClose} />
+            )}
+          </View>
+        </View>
       </View>
-    </View>
-  </Modal>
-);
+    </Modal>
+  );
+};
 
 const OfflineBanner = ({
   visible,
+  offlineHint,
   onConfigure,
 }: {
   visible: boolean;
+  offlineHint: { offline: boolean; requiresApiKey: boolean; message?: string };
   onConfigure: () => void;
 }) => {
   if (!visible) return null;
   return (
     <View style={styles.offlineBanner}>
       <View style={{ flex: 1 }}>
-        <Text style={styles.offlineTitle}>Offline mode</Text>
+        <Text style={styles.offlineTitle}>
+          {offlineHint.requiresApiKey ? 'API Key Required' : 'Offline mode'}
+        </Text>
         <Text style={styles.offlineBody}>
-          Add your API key or reconnect to unlock AI workouts anywhere.
+          {offlineHint.message ||
+            'Add your API key or reconnect to unlock AI workouts anywhere.'}
         </Text>
       </View>
-      <Pressable onPress={onConfigure} style={styles.offlineButton}>
-        <Text style={styles.offlineButtonText}>Configure</Text>
-      </Pressable>
+      {offlineHint.requiresApiKey && (
+        <Pressable onPress={onConfigure} style={styles.offlineButton}>
+          <Text style={styles.offlineButtonText}>Configure</Text>
+        </Pressable>
+      )}
     </View>
   );
 };
@@ -494,23 +657,143 @@ type HomeScreenNavigation = NativeStackNavigationProp<
 >;
 
 export const HomeScreen = () => {
-  const { status, plan, recentSessions, isOffline } = useMockedHomeData();
+  const {
+    status,
+    plan,
+    recentSessions,
+    quickActions,
+    isOffline,
+    offlineHint,
+    refetch,
+    setPlan,
+    addSession,
+    updateStagedValue,
+  } = useHomeData();
   const [selectedAction, setSelectedAction] =
-    useState<QuickActionMetadata | null>(null);
+    useState<QuickActionPreset | null>(null);
+  const [generating, setGenerating] = useState(false);
+  const [logging, setLogging] = useState(false);
   const navigation = useNavigation<HomeScreenNavigation>();
 
   const heroStatus = useMemo(() => {
     if (status === 'ready' && plan) return 'ready';
     if (status === 'ready' && !plan) return 'empty';
-    return status;
+    return status === 'error' ? 'empty' : status;
   }, [status, plan]);
 
-  const handleConfigure = () => {
-    // For now we just close the offline notice; actual implementation will open onboarding.
+  const handleConfigure = async () => {
+    // TODO: Open BYOK/API key configuration screen
+    // For now, set a test token if none exists
+    try {
+      const { getDeviceToken } = await import('./storage/deviceToken');
+      const token = await getDeviceToken();
+      if (!token) {
+        await setDeviceToken('test-token-123');
+        await refetch();
+      }
+    } catch (error) {
+      console.error('Failed to set test token:', error);
+    }
   };
 
   const handlePreviewNavigation = () => {
-    navigation.navigate('WorkoutPreview');
+    if (plan) {
+      navigation.navigate('WorkoutPreview', { plan });
+    } else {
+      navigation.navigate('WorkoutPreview');
+    }
+  };
+
+  const handleGenerate = async () => {
+    if (generating || isOffline) return;
+
+    setGenerating(true);
+
+    try {
+      // Build generation request from staged quick actions
+      // For now, use default values if no staged values exist
+      const request: GenerationRequest = {
+        timeMinutes: 30, // Default
+        focus: 'Full Body', // Default
+        equipment: ['Bodyweight'], // Default
+        energy: 'moderate', // Default
+      };
+
+      quickActions.forEach((action) => {
+        if (action.stagedValue !== null && action.stagedValue !== undefined) {
+          switch (action.key) {
+            case 'time':
+              request.timeMinutes = parseInt(action.stagedValue, 10);
+              break;
+            case 'focus':
+              request.focus = action.stagedValue;
+              break;
+            case 'equipment':
+              request.equipment = action.stagedValue.split(',').map((e) => e.trim());
+              break;
+            case 'energy':
+              if (
+                action.stagedValue === 'easy' ||
+                action.stagedValue === 'moderate' ||
+                action.stagedValue === 'intense'
+              ) {
+                request.energy = action.stagedValue;
+              }
+              break;
+          }
+        }
+      });
+
+      console.log('Generating workout with request:', request);
+
+      // Generate workout
+      const newPlan = await generateWorkout(request);
+      console.log('Generated plan:', newPlan);
+
+      // Optimistically update the plan in state
+      // (The server doesn't persist plans yet, so refetch would return null)
+      setPlan(newPlan);
+    } catch (err) {
+      const apiError = err as ApiError;
+      console.error('Failed to generate workout:', apiError);
+
+      // Show error alert to user
+      Alert.alert(
+        'Failed to Generate Workout',
+        apiError.message || 'An error occurred while generating your workout. Please try again.',
+        [{ text: 'OK' }]
+      );
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const handleLogDone = async () => {
+    if (!plan || logging || isOffline) return;
+
+    setLogging(true);
+
+    try {
+      // Log workout and get session summary
+      const sessionSummary = await logWorkout(plan.id);
+      console.log('Logged workout session:', sessionSummary);
+
+      // Optimistically update state: clear plan and add session
+      // (The server doesn't persist plans yet, so refetch would return null)
+      addSession(sessionSummary);
+    } catch (err) {
+      const apiError = err as ApiError;
+      console.error('Failed to log workout:', apiError);
+
+      // Show error alert to user
+      Alert.alert(
+        'Failed to Log Workout',
+        apiError.message || 'An error occurred while logging your workout. Please try again.',
+        [{ text: 'OK' }]
+      );
+    } finally {
+      setLogging(false);
+    }
   };
 
   return (
@@ -522,19 +805,26 @@ export const HomeScreen = () => {
       >
         <Text style={styles.screenEyebrow}>Today</Text>
         <Text style={styles.screenTitle}>Your workout hub</Text>
-        <OfflineBanner visible={isOffline} onConfigure={handleConfigure} />
+        <OfflineBanner
+          visible={isOffline || offlineHint.offline}
+          offlineHint={offlineHint}
+          onConfigure={handleConfigure}
+        />
         <HeroCard
           status={heroStatus as HeroCardProps['status']}
           plan={plan}
           isOffline={isOffline}
-          onGenerate={() => setSelectedAction(quickActions[1])}
+          generating={generating}
+          logging={logging}
+          onGenerate={handleGenerate}
           onCustomize={() => setSelectedAction(quickActions[1])}
-          onStart={() => setSelectedAction(quickActions[1])}
+          onStart={handleLogDone}
           onPreview={handlePreviewNavigation}
           onConfigure={handleConfigure}
         />
         <QuickActionRail
           onActionPress={(action) => setSelectedAction(action)}
+          quickActions={quickActions}
         />
         <ActivitySection
           sessions={recentSessions}
@@ -542,7 +832,15 @@ export const HomeScreen = () => {
         />
       </ScrollView>
       <BottomActionBar onQuickLog={() => setSelectedAction(quickActions[4])} />
-      <ActionSheet action={selectedAction} onClose={() => setSelectedAction(null)} />
+      <ActionSheet
+        action={selectedAction}
+        quickActions={quickActions}
+        onClose={() => setSelectedAction(null)}
+        onGenerate={handleGenerate}
+        onUpdateStagedValue={updateStagedValue}
+        generating={generating}
+        isOffline={isOffline}
+      />
     </View>
   );
 };
@@ -912,5 +1210,37 @@ const styles = StyleSheet.create({
   quickLogButtonText: {
     color: '#031b1b',
     fontWeight: '700',
+  },
+  sheetOptions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginVertical: 12,
+  },
+  optionButton: {
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: palette.border,
+    backgroundColor: palette.cardSecondary,
+  },
+  optionButtonSelected: {
+    borderColor: palette.accent,
+    backgroundColor: `${palette.accent}22`,
+  },
+  optionButtonText: {
+    color: palette.textPrimary,
+    fontSize: 15,
+    fontWeight: '500',
+  },
+  optionButtonTextSelected: {
+    color: palette.accent,
+    fontWeight: '600',
+  },
+  sheetActions: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 8,
   },
 });

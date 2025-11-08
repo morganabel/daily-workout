@@ -1,0 +1,12 @@
+{
+  "name": "@workout-agent-ce/server",
+  "version": "0.0.1",
+  "private": true,
+  "dependencies": {
+    "@workout-agent/shared": "*",
+    "next": "~15.2.4",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "zod": "^4.1.12"
+  }
+}

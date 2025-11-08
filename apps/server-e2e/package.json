@@ -1,0 +1,10 @@
+{
+  "name": "@workout-agent-ce/server-e2e",
+  "version": "0.0.1",
+  "private": true,
+  "nx": {
+    "implicitDependencies": [
+      "@workout-agent-ce/server"
+    ]
+  }
+}

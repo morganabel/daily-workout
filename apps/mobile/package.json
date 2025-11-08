@@ -8,6 +8,9 @@
     "ios": "expo run:ios"
   },
   "dependencies": {
+    "@react-native-community/netinfo": "*",
+    "expo-secure-store": "*",
+    "@workout-agent/shared": "*",
     "@expo/metro-config": "*",
     "@nx/detox": "*",
     "@nx/devkit": "*",

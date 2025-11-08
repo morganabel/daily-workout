@@ -1,5 +1,7 @@
+import type { TodayPlan } from '@workout-agent/shared';
+
 export type RootStackParamList = {
   Home: undefined;
-  WorkoutPreview: undefined;
+  WorkoutPreview: { plan?: TodayPlan } | undefined;
 };
 

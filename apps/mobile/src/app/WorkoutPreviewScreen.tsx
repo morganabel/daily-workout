@@ -6,22 +6,12 @@ import {
   Text,
   View,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { RouteProp } from '@react-navigation/native';
+import type { TodayPlan } from '@workout-agent/shared';
+import { createTodayPlanMock } from '@workout-agent/shared';
 import { RootStackParamList } from './navigation';
-
-type WorkoutBlock = {
-  id: string;
-  title: string;
-  durationMinutes: number;
-  focus: string;
-  exercises: Array<{
-    id: string;
-    name: string;
-    prescription: string;
-    detail?: string;
-  }>;
-};
 
 const palette = {
   background: '#030914',
@@ -35,92 +25,22 @@ const palette = {
   textMuted: '#5c6a85',
 };
 
-const mockWorkout = {
-  id: 'preview-1',
-  title: 'Upper Body Push Primer',
-  durationMinutes: 32,
-  equipment: ['Dumbbells', 'Bench', 'Band'],
-  energy: 'moderate',
-  summary:
-    'Prime your pressing pattern, build volume with compound supersets, and finish with a core burner.',
-  blocks: [
-    {
-      id: 'warmup',
-      title: 'Warm-up & Activation',
-      durationMinutes: 6,
-      focus: 'Prep & mobility',
-      exercises: [
-        {
-          id: 'cat-cow',
-          name: 'Cat / Cow Flow',
-          prescription: '45 seconds',
-          detail: 'Move slowly through the spine and breathe.',
-        },
-        {
-          id: 'band-pull-apart',
-          name: 'Band Pull-Aparts',
-          prescription: '2 x 12',
-          detail: 'Palms down, stop when shoulder blades meet.',
-        },
-      ],
-    },
-    {
-      id: 'strength',
-      title: 'Strength Superset',
-      durationMinutes: 18,
-      focus: 'Compound push + support',
-      exercises: [
-        {
-          id: 'db-bench',
-          name: 'Dumbbell Bench Press',
-          prescription: '3 x 10',
-          detail: 'Tempo 2-1-2, choose load @ RPE 7.',
-        },
-        {
-          id: 'half-kneel-press',
-          name: 'Half-Kneeling Single Arm Press',
-          prescription: '3 x 8 / side',
-          detail: 'Reset ribs between reps.',
-        },
-        {
-          id: 'plank-tap',
-          name: 'Plank Shoulder Taps',
-          prescription: '3 x 20 taps',
-          detail: 'Keep hips square, move slow.',
-        },
-      ],
-    },
-    {
-      id: 'finisher',
-      title: 'Conditioning Finisher',
-      durationMinutes: 8,
-      focus: 'Metabolic push',
-      exercises: [
-        {
-          id: 'push-up-ladder',
-          name: 'Push-up Ladder',
-          prescription: 'EMOM x 4 rounds',
-          detail: 'Add 1 rep each minute. Drop to knees as needed.',
-        },
-        {
-          id: 'hollow-rock',
-          name: 'Hollow Body Rock',
-          prescription: '40 seconds',
-          detail: 'Lower back stays glued to the floor.',
-        },
-      ],
-    },
-  ] satisfies WorkoutBlock[],
-};
-
 type WorkoutPreviewNavigation = NativeStackNavigationProp<
   RootStackParamList,
   'WorkoutPreview'
 >;
 
+type WorkoutPreviewRoute = RouteProp<RootStackParamList, 'WorkoutPreview'>;
+
 export const WorkoutPreviewScreen = () => {
   const navigation = useNavigation<WorkoutPreviewNavigation>();
-  const equipmentList = mockWorkout.equipment.join(' • ');
+  const route = useRoute<WorkoutPreviewRoute>();
+
+  // Get plan from route params, fallback to mock if not provided
+  const plan: TodayPlan = route.params?.plan ?? createTodayPlanMock();
+
+  const equipmentList = plan.equipment.join(' • ');
+  const sourceLabel = plan.source === 'ai' ? 'AI generated' : 'Manual entry';
 
   return (
     <View style={styles.screen}>
@@ -143,19 +63,21 @@ export const WorkoutPreviewScreen = () => {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.heroCard}>
-          <Text style={styles.heroEyebrow}>Suggested workout</Text>
-          <Text style={styles.heroTitle}>{mockWorkout.title}</Text>
+          <Text style={styles.heroEyebrow}>Today's workout</Text>
+          <Text style={styles.heroTitle}>{plan.focus}</Text>
           <Text style={styles.heroMeta}>
-            {mockWorkout.durationMinutes} min · {equipmentList}
+            {plan.durationMinutes} min · {equipmentList}
           </Text>
           <View style={styles.badgeRow}>
-            <Badge text="Suggested plan" />
-            <Badge text={`Energy: ${mockWorkout.energy}`} variant="muted" />
+            <Badge text={sourceLabel} />
+            <Badge text={`Energy: ${plan.energy}`} variant="muted" />
           </View>
-          <Text style={styles.heroSummary}>{mockWorkout.summary}</Text>
+          {plan.summary && (
+            <Text style={styles.heroSummary}>{plan.summary}</Text>
+          )}
         </View>
 
-        {mockWorkout.blocks.map((block) => (
+        {plan.blocks.map((block) => (
           <View key={block.id} style={styles.blockCard}>
             <View style={styles.blockHeader}>
               <View>
