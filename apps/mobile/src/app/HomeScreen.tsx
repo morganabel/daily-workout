@@ -8,11 +8,14 @@ import {
   Text,
   View,
 } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import {
   QuickActionMetadata,
   TodayPlan,
   WorkoutSessionSummary,
 } from './types/home';
+import { RootStackParamList } from './navigation';
 
 const palette = {
   background: '#030914',
@@ -123,7 +126,7 @@ type HeroCardProps = {
   onGenerate: () => void;
   onCustomize: () => void;
   onStart: () => void;
-  onLogDone: () => void;
+  onPreview: () => void;
   onConfigure: () => void;
 };
 
@@ -134,7 +137,7 @@ const HeroCard = ({
   onGenerate,
   onCustomize,
   onStart,
-  onLogDone,
+  onPreview,
   onConfigure,
 }: HeroCardProps) => {
   if (status === 'loading') {
@@ -200,7 +203,7 @@ const HeroCard = ({
       ) : (
         <View style={styles.heroActions}>
           <PrimaryButton label="Start workout" onPress={onStart} />
-          <SecondaryButton label="Log done" onPress={onLogDone} />
+          <SecondaryButton label="Preview" onPress={onPreview} />
         </View>
       )}
     </View>
@@ -485,10 +488,16 @@ const BottomActionBar = ({
   </View>
 );
 
+type HomeScreenNavigation = NativeStackNavigationProp<
+  RootStackParamList,
+  'Home'
+>;
+
 export const HomeScreen = () => {
   const { status, plan, recentSessions, isOffline } = useMockedHomeData();
   const [selectedAction, setSelectedAction] =
     useState<QuickActionMetadata | null>(null);
+  const navigation = useNavigation<HomeScreenNavigation>();
 
   const heroStatus = useMemo(() => {
     if (status === 'ready' && plan) return 'ready';
@@ -498,6 +507,10 @@ export const HomeScreen = () => {
 
   const handleConfigure = () => {
     // For now we just close the offline notice; actual implementation will open onboarding.
+  };
+
+  const handlePreviewNavigation = () => {
+    navigation.navigate('WorkoutPreview');
   };
 
   return (
@@ -517,7 +530,7 @@ export const HomeScreen = () => {
           onGenerate={() => setSelectedAction(quickActions[1])}
           onCustomize={() => setSelectedAction(quickActions[1])}
           onStart={() => setSelectedAction(quickActions[1])}
-          onLogDone={() => setSelectedAction(quickActions[4])}
+          onPreview={handlePreviewNavigation}
           onConfigure={handleConfigure}
         />
         <QuickActionRail

@@ -109,6 +109,10 @@ TypeScript, Zod validation, early returns, Prettier, Nx tasks, etc.
 - **Edition toggle:** `process.env.EDITION=CE|HOSTED`
 - **Usage limits:** enforced server-side via rate limits, quotas, and billing integration (only active in hosted edition)
 
+### Installing packages
+
+For mobile the right command is like this `npx nx run mobile:install --packages=@react-navigation/native,@react-navigation/native-stack`
+
 ---
 
 ## Testing Strategy

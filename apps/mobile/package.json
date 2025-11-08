@@ -9,7 +9,18 @@
   },
   "dependencies": {
     "@expo/metro-config": "*",
+    "@nx/detox": "*",
+    "@nx/devkit": "*",
+    "@nx/eslint": "*",
+    "@nx/eslint-plugin": "*",
+    "@nx/jest": "*",
+    "@nx/js": "*",
+    "@nx/react": "*",
+    "@nx/rollup": "*",
+    "@react-navigation/native": "*",
+    "@react-navigation/native-stack": "*",
     "@testing-library/react-native": "*",
+    "enhanced-resolve": "*",
     "expo": "*",
     "expo-splash-screen": "*",
     "expo-status-bar": "*",
@@ -17,10 +28,16 @@
     "jest-expo": "*",
     "metro-config": "*",
     "metro-resolver": "*",
+    "picocolors": "*",
     "react": "*",
     "react-native": "*",
+    "react-native-safe-area-context": "5.4.0",
     "react-native-svg": "*",
     "react-native-svg-transformer": "*",
-    "react-native-web": "*"
-  }
+    "react-native-web": "*",
+    "tsconfig-paths": "*",
+    "tslib": "*",
+    "react-native-screens": "*"
+  },
+  "devDependencies": {}
 }
