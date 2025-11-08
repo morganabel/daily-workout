@@ -60,3 +60,7 @@ cache/
 
 
 test-output
+
+# Next.js
+.next
+out
