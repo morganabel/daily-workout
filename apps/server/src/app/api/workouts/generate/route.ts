@@ -8,6 +8,8 @@ import {
   type GenerationRequest,
 } from '@workout-agent/shared';
 import { NextResponse } from 'next/server';
+import { generateTodayPlanAI } from '@/lib/generator';
+import { loadGenerationContext } from '@/lib/context';
 
 /**
  * POST /api/workouts/generate
@@ -49,40 +51,42 @@ export async function POST(request: Request) {
 
   const generationRequest: GenerationRequest = parseResult.data;
 
-  // TODO: Check for BYOK/offline requirements
-  // For now, stub: check if OPENAI_API_KEY is missing
-  const hasApiKey = !!process.env.OPENAI_API_KEY;
-  if (!hasApiKey && process.env.EDITION === 'HOSTED') {
+  const headerApiKey = request.headers.get('x-openai-key')?.trim();
+  const envApiKey = process.env.OPENAI_API_KEY?.trim();
+  const apiKey = headerApiKey || envApiKey || null;
+
+  if (!apiKey && process.env.EDITION === 'HOSTED') {
     return createErrorResponse(
       'BYOK_REQUIRED',
       'API key required for workout generation in hosted mode',
+      402,
     );
   }
 
-  // TODO: Check quota limits (when implemented)
-  // if (quotaExceeded) {
-  //   return createErrorResponse(
-  //     'QUOTA_EXCEEDED',
-  //     'Workout generation quota exceeded',
-  //     3600, // retry after 1 hour
-  //   );
-  // }
+  const mockPlan = () =>
+    createTodayPlanMock({
+      durationMinutes: generationRequest.timeMinutes ?? 30,
+      focus: generationRequest.focus ?? 'Full Body',
+      equipment: generationRequest.equipment ?? ['Bodyweight'],
+      energy: generationRequest.energy ?? 'moderate',
+    });
 
-  // TODO: Replace with actual AI generation when provider is set up
-  // For now, return a mock plan based on the request parameters
-  const mockPlan: TodayPlan = createTodayPlanMock({
-    durationMinutes: generationRequest.timeMinutes ?? 30,
-    focus: generationRequest.focus ?? 'Full Body',
-    equipment: generationRequest.equipment ?? ['Bodyweight'],
-    energy: generationRequest.energy ?? 'moderate',
-  });
+  const context = await loadGenerationContext(auth.userId, generationRequest);
 
-  // Validate response against schema
-  const validated = todayPlanSchema.parse(mockPlan);
+  let plan: TodayPlan;
+  if (apiKey) {
+    try {
+      plan = await generateTodayPlanAI(generationRequest, context, { apiKey });
+    } catch (error) {
+      console.warn('[workouts.generate] AI generation failed, falling back to mock', {
+        message: (error as Error).message,
+      });
+      plan = mockPlan();
+    }
+  } else {
+    plan = mockPlan();
+  }
 
-  // TODO: Store plan in database
-  // await prisma.workoutPlan.create({ ... });
-
+  const validated = todayPlanSchema.parse(plan);
   return NextResponse.json(validated);
 }
-

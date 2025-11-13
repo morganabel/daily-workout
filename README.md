@@ -30,6 +30,28 @@ These targets are either [inferred automatically](https://nx.dev/concepts/inferr
 
 [More about running tasks in the docs &raquo;](https://nx.dev/features/run-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
 
+## AI Generation (Local Dev)
+
+- Start dev servers
+  - Backend (Next.js): `npm run dev:server` or `nx dev server`
+  - Mobile (Expo): `npm run dev:mobile` or `nx start mobile`
+
+- Provide an API key (choose one):
+  - Server env: export `OPENAI_API_KEY` before starting the server
+  - BYOK (mobile): tap “BYOK” on Home, paste your key; the client sends `x-openai-key` per request
+
+- Behavior
+  - Server prefers `x-openai-key`, else falls back to `OPENAI_API_KEY`
+  - If no key and `EDITION=HOSTED`, server returns `{ code: 'BYOK_REQUIRED' }`
+  - If generation fails or no key in CE/dev, server returns a deterministic mock plan
+
+- Endpoints
+  - `GET /api/home/snapshot` → plan | null, quickActions, recentSessions
+  - `POST /api/workouts/generate` → TodayPlan (AI or mock)
+  - `POST /api/workouts/{id}/log` → WorkoutSessionSummary
+
+Notes: The server validates structured output with shared Zod schemas. The mobile client sends DeviceToken for auth and optionally a BYOK header.
+
 ## Add new projects
 
 While you could add new projects to your workspace manually, you might want to leverage [Nx plugins](https://nx.dev/concepts/nx-plugins?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) and their [code generation](https://nx.dev/features/generate-code?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) feature.

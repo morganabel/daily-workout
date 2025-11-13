@@ -9,6 +9,7 @@ import type {
   WorkoutSessionSummary,
 } from '@workout-agent/shared';
 import { getDeviceToken } from '../storage/deviceToken';
+import { getByokApiKey } from '../storage/byokKey';
 
 const API_BASE_URL =
   process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:3000';
@@ -27,6 +28,7 @@ async function apiRequest<T>(
   options: RequestInit = {},
 ): Promise<T> {
   const token = await getDeviceToken();
+  const byokKey = await getByokApiKey();
   const url = `${API_BASE_URL}${endpoint}`;
 
   const headers: Record<string, string> = {
@@ -37,9 +39,13 @@ async function apiRequest<T>(
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
   }
+  if (byokKey) {
+    headers['x-openai-key'] = byokKey;
+  }
 
   console.log(`[API] ${options.method || 'GET'} ${url}`, {
     hasToken: !!token,
+    hasByokKey: !!byokKey,
     body: options.body,
   });
 
@@ -109,4 +115,3 @@ export async function logWorkout(
     method: 'POST',
   });
 }
-

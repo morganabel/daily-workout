@@ -2,11 +2,14 @@ import React, { useMemo, useState, useEffect } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
@@ -19,7 +22,11 @@ import type {
 } from '@workout-agent/shared';
 import { useHomeData } from './hooks/useHomeData';
 import { generateWorkout, logWorkout, type ApiError } from './services/api';
-import { setDeviceToken } from './storage/deviceToken';
+import {
+  getByokApiKey,
+  setByokApiKey,
+  removeByokApiKey,
+} from './storage/byokKey';
 import { RootStackParamList } from './navigation';
 
 const palette = {
@@ -595,8 +602,10 @@ const OfflineBanner = ({
 
 const TopBar = ({
   onConfigure,
+  hasByokKey,
 }: {
   onConfigure: () => void;
+  hasByokKey: boolean;
 }) => (
   <View style={styles.topBar}>
     <View>
@@ -605,13 +614,71 @@ const TopBar = ({
     </View>
     <View style={styles.topBarActions}>
       <Pressable style={styles.byokPill} onPress={onConfigure}>
-        <Text style={styles.byokPillText}>BYOK</Text>
+        <Text style={styles.byokPillText}>
+          {hasByokKey ? 'BYOK ✓' : 'BYOK'}
+        </Text>
       </Pressable>
       <Pressable style={styles.iconButton}>
         <Text style={styles.iconButtonText}>⋯</Text>
       </Pressable>
     </View>
   </View>
+);
+
+const ByokSheet = ({
+  visible,
+  value,
+  onChangeValue,
+  onClose,
+  onSave,
+  onRemove,
+  hasKey,
+}: {
+  visible: boolean;
+  value: string;
+  onChangeValue: (val: string) => void;
+  onClose: () => void;
+  onSave: () => void;
+  onRemove?: () => void;
+  hasKey: boolean;
+}) => (
+  <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+    <View style={styles.sheetOverlay}>
+      <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 32 : 0}
+        style={styles.byokSheetContainer}
+      >
+        <View style={styles.byokSheet}>
+          <View style={styles.sheetHandle} />
+          <Text style={styles.sheetTitle}>Add your API key</Text>
+          <Text style={styles.sheetBody}>
+            Paste your OpenAI API key to unlock AI workouts even when the hosted key isn't available.
+          </Text>
+          <TextInput
+            value={value}
+            onChangeText={onChangeValue}
+            placeholder="sk-..."
+            autoCapitalize="none"
+            autoCorrect={false}
+            secureTextEntry
+            style={styles.byokInput}
+          />
+          <View style={styles.sheetActions}>
+            {onRemove && (
+              <SecondaryButton label="Remove key" onPress={onRemove} />
+            )}
+            <PrimaryButton
+              label={hasKey ? 'Update key' : 'Save key'}
+              onPress={onSave}
+              disabled={!value.trim()}
+            />
+          </View>
+        </View>
+      </KeyboardAvoidingView>
+    </View>
+  </Modal>
 );
 
 const bottomActions = [
@@ -673,6 +740,9 @@ export const HomeScreen = () => {
     useState<QuickActionPreset | null>(null);
   const [generating, setGenerating] = useState(false);
   const [logging, setLogging] = useState(false);
+  const [byokSheetVisible, setByokSheetVisible] = useState(false);
+  const [byokInput, setByokInput] = useState('');
+  const [hasByokKey, setHasByokKey] = useState(false);
   const navigation = useNavigation<HomeScreenNavigation>();
 
   const heroStatus = useMemo(() => {
@@ -681,19 +751,62 @@ export const HomeScreen = () => {
     return status === 'error' ? 'empty' : status;
   }, [status, plan]);
 
-  const handleConfigure = async () => {
-    // TODO: Open BYOK/API key configuration screen
-    // For now, set a test token if none exists
-    try {
-      const { getDeviceToken } = await import('./storage/deviceToken');
-      const token = await getDeviceToken();
-      if (!token) {
-        await setDeviceToken('test-token-123');
-        await refetch();
+  useEffect(() => {
+    const checkByok = async () => {
+      try {
+        const existing = await getByokApiKey();
+        setHasByokKey(Boolean(existing));
+      } catch (error) {
+        console.warn('Failed to read BYOK key', error);
       }
-    } catch (error) {
-      console.error('Failed to set test token:', error);
+    };
+    checkByok();
+  }, []);
+
+  const openByokSheet = async () => {
+    try {
+      const existing = await getByokApiKey();
+      setByokInput(existing ?? '');
+    } catch {
+      setByokInput('');
     }
+    setByokSheetVisible(true);
+  };
+
+  const handleSaveByok = async () => {
+    if (!byokInput.trim()) return;
+    try {
+      await setByokApiKey(byokInput.trim());
+      setHasByokKey(true);
+      setByokSheetVisible(false);
+      await refetch();
+    } catch (error) {
+      Alert.alert(
+        'Failed to Save Key',
+        'Could not store your API key. Please try again.',
+      );
+      console.error('Failed to store BYOK key:', error);
+    }
+  };
+
+  const handleRemoveByok = async () => {
+    try {
+      await removeByokApiKey();
+      setHasByokKey(false);
+      setByokInput('');
+      setByokSheetVisible(false);
+      await refetch();
+    } catch (error) {
+      Alert.alert(
+        'Failed to Remove Key',
+        'Could not remove your API key. Please try again.',
+      );
+      console.error('Failed to remove BYOK key:', error);
+    }
+  };
+
+  const handleConfigure = async () => {
+    openByokSheet();
   };
 
   const handlePreviewNavigation = () => {
@@ -719,6 +832,10 @@ export const HomeScreen = () => {
         energy: 'moderate', // Default
       };
 
+      const quickActionMap = Object.fromEntries(
+        quickActions.map((action) => [action.key, action]),
+      );
+
       quickActions.forEach((action) => {
         if (action.stagedValue !== null && action.stagedValue !== undefined) {
           switch (action.key) {
@@ -743,6 +860,37 @@ export const HomeScreen = () => {
           }
         }
       });
+
+      const focusValue =
+        quickActionMap['focus']?.stagedValue || quickActionMap['focus']?.value;
+      const energyValue =
+        quickActionMap['energy']?.stagedValue || quickActionMap['energy']?.value;
+      const equipmentValue =
+        quickActionMap['equipment']?.stagedValue ||
+        quickActionMap['equipment']?.description ||
+        quickActionMap['equipment']?.value;
+
+      const recentSummary = recentSessions.slice(0, 2).map((session) => {
+        const parts = [
+          session.focus,
+          `${session.durationMinutes}m`,
+          session.source ? session.source : null,
+        ].filter(Boolean);
+        return parts.join(' ');
+      });
+
+      const noteParts = [
+        focusValue ? `Preference: ${focusValue}` : null,
+        energyValue ? `Energy: ${energyValue}` : null,
+        equipmentValue ? `Equipment: ${equipmentValue}` : null,
+        recentSummary.length
+          ? `Recent: ${recentSummary.join(' | ')}`
+          : null,
+      ].filter(Boolean);
+
+      if (noteParts.length) {
+        request.notes = noteParts.join(' • ');
+      }
 
       console.log('Generating workout with request:', request);
 
@@ -798,7 +946,7 @@ export const HomeScreen = () => {
 
   return (
     <View style={styles.screen}>
-      <TopBar onConfigure={handleConfigure} />
+      <TopBar onConfigure={handleConfigure} hasByokKey={hasByokKey} />
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -840,6 +988,15 @@ export const HomeScreen = () => {
         onUpdateStagedValue={updateStagedValue}
         generating={generating}
         isOffline={isOffline}
+      />
+      <ByokSheet
+        visible={byokSheetVisible}
+        value={byokInput}
+        onChangeValue={setByokInput}
+        onClose={() => setByokSheetVisible(false)}
+        onSave={handleSaveByok}
+        onRemove={hasByokKey ? handleRemoveByok : undefined}
+        hasKey={hasByokKey}
       />
     </View>
   );
@@ -1057,6 +1214,16 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 24,
     gap: 12,
   },
+  byokSheet: {
+    backgroundColor: palette.card,
+    padding: 24,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    gap: 16,
+  },
+  byokSheetContainer: {
+    justifyContent: 'flex-end',
+  },
   sheetHandle: {
     width: 40,
     height: 4,
@@ -1074,6 +1241,16 @@ const styles = StyleSheet.create({
     color: palette.textSecondary,
     fontSize: 15,
     lineHeight: 22,
+  },
+  byokInput: {
+    backgroundColor: palette.cardSecondary,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: palette.border,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    color: palette.textPrimary,
+    fontSize: 16,
   },
   heroLoadingRow: {
     width: '100%',

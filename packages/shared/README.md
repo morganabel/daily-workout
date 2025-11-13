@@ -18,7 +18,13 @@ Run `nx test @workout-agent/shared` to execute the unit tests via [Jest](https:/
 ## Nx Targets
 
 This package exposes the following Nx targets:
+
 - `build` - Compiles TypeScript to JavaScript in the `dist/` folder
 - `test` - Runs Jest unit tests (depends on `build`)
 - `lint` - Runs ESLint on the project
 - `typecheck` - Runs TypeScript type checking (depends on `build`)
+
+## Run Locally
+
+- Run `npx nx dev server` to start the backend server
+- Run `npx nx run-ios mobile` or `npx nx run-android mobile` to run the app
