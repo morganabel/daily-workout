@@ -42,6 +42,9 @@ describe('useHomeData', () => {
     expect(mockFetchHomeSnapshot).toHaveBeenCalledTimes(1);
     expect(result.current.plan).toBeNull();
     expect(result.current.recentSessions).toEqual(mockSnapshot.recentSessions);
+    expect(result.current.generationStatus.state).toBe(
+      mockSnapshot.generationStatus.state,
+    );
   });
 
   it('should handle offline state when network is disconnected', async () => {
@@ -163,6 +166,55 @@ describe('useHomeData', () => {
     });
   });
 
+  it('should clear staged values when requested', async () => {
+    const mockSnapshot = createHomeSnapshotMock();
+    mockFetchHomeSnapshot.mockResolvedValue(mockSnapshot);
+
+    const { result } = renderHook(() => useHomeData());
+
+    await waitFor(() => {
+      expect(result.current.status).toBe('ready');
+    });
+
+    result.current.updateStagedValue('focus', 'Lower Body');
+    await waitFor(() => {
+      const focusAction = result.current.quickActions.find((a) => a.key === 'focus');
+      expect(focusAction?.stagedValue).toBe('Lower Body');
+    });
+
+    result.current.clearStagedValues();
+
+    await waitFor(() => {
+      const focusAction = result.current.quickActions.find((a) => a.key === 'focus');
+      expect(focusAction?.stagedValue).toBeNull();
+    });
+  });
+
+  it('should clear staged values after setting a new plan', async () => {
+    const mockSnapshot = createHomeSnapshotMock({ plan: null });
+    mockFetchHomeSnapshot.mockResolvedValue(mockSnapshot);
+
+    const { result } = renderHook(() => useHomeData());
+
+    await waitFor(() => {
+      expect(result.current.status).toBe('ready');
+    });
+
+    result.current.updateStagedValue('time', '45');
+
+    await waitFor(() => {
+      const timeAction = result.current.quickActions.find((a) => a.key === 'time');
+      expect(timeAction?.stagedValue).toBe('45');
+    });
+
+    result.current.setPlan(createTodayPlanMock());
+
+    await waitFor(() => {
+      const timeAction = result.current.quickActions.find((a) => a.key === 'time');
+      expect(timeAction?.stagedValue).toBeNull();
+    });
+  });
+
   it('should refetch data when refetch is called', async () => {
     const mockSnapshot = createHomeSnapshotMock();
     mockFetchHomeSnapshot.mockResolvedValue(mockSnapshot);
@@ -180,4 +232,3 @@ describe('useHomeData', () => {
     expect(mockFetchHomeSnapshot).toHaveBeenCalledTimes(2);
   });
 });
-

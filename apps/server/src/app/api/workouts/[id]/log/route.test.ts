@@ -4,7 +4,6 @@
 
 import { POST } from './route';
 import { authenticateRequest } from '@/lib/auth';
-import { createSessionSummaryMock } from '@workout-agent/shared';
 
 // Mock dependencies
 jest.mock('@/lib/auth');
@@ -146,4 +145,3 @@ describe('POST /api/workouts/:id/log', () => {
     expect(data.id).toContain(planId);
   });
 });
-

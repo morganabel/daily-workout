@@ -3,9 +3,16 @@
  * Replaces useMockedHomeData with real API calls
  */
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { fetchHomeSnapshot, type ApiError } from '../services/api';
-import type { HomeSnapshot, TodayPlan, WorkoutSessionSummary, QuickActionPreset } from '@workout-agent/shared';
+import type {
+  GenerationStatus,
+  HomeSnapshot,
+  TodayPlan,
+  WorkoutSessionSummary,
+  QuickActionKey,
+  QuickActionPreset,
+} from '@workout-agent/shared';
 import NetInfo from '@react-native-community/netinfo';
 import { getDeviceToken } from '../storage/deviceToken';
 
@@ -17,6 +24,7 @@ export type HomeDataState = {
   offlineHint: HomeSnapshot['offlineHint'];
   isOffline: boolean;
   error: ApiError | null;
+  generationStatus: GenerationStatus;
 };
 
 /**
@@ -26,8 +34,14 @@ export function useHomeData(): HomeDataState & {
   refetch: () => Promise<void>;
   setPlan: (plan: TodayPlan | null) => void;
   addSession: (session: WorkoutSessionSummary) => void;
-  updateStagedValue: (actionKey: string, stagedValue: string | null) => void;
+  updateStagedValue: (actionKey: QuickActionKey, stagedValue: string | null) => void;
+  clearStagedValues: () => void;
 } {
+  const initialStatus: GenerationStatus = {
+    state: 'idle',
+    submittedAt: null,
+  };
+
   const [state, setState] = useState<HomeDataState>({
     status: 'loading',
     plan: null,
@@ -39,10 +53,14 @@ export function useHomeData(): HomeDataState & {
     },
     isOffline: false,
     error: null,
+    generationStatus: initialStatus,
   });
 
   const [isConnected, setIsConnected] = useState<boolean | null>(null);
   const [hasDeviceToken, setHasDeviceToken] = useState<boolean | null>(null);
+  const [stagedValues, setStagedValues] = useState<
+    Partial<Record<QuickActionKey, string | null>>
+  >({});
 
   // Monitor network connectivity
   useEffect(() => {
@@ -115,6 +133,7 @@ export function useHomeData(): HomeDataState & {
           requiresApiKey: true,
           message: 'Device token required. Please configure your API key.',
         },
+        generationStatus: initialStatus,
       }));
       return;
     }
@@ -130,6 +149,7 @@ export function useHomeData(): HomeDataState & {
           requiresApiKey: false,
           message: 'No internet connection',
         },
+        generationStatus: initialStatus,
       }));
       return;
     }
@@ -146,6 +166,7 @@ export function useHomeData(): HomeDataState & {
         offlineHint: snapshot.offlineHint,
         isOffline: snapshot.offlineHint.offline || false,
         error: null,
+        generationStatus: snapshot.generationStatus,
       });
     } catch (error) {
       const apiError = error as ApiError;
@@ -159,6 +180,7 @@ export function useHomeData(): HomeDataState & {
           requiresApiKey: apiError.code === 'BYOK_REQUIRED' || !hasToken,
           message: apiError.message || (!hasToken ? 'Device token required' : 'Network error'),
         },
+        generationStatus: initialStatus,
       }));
     }
   }, []);
@@ -167,12 +189,22 @@ export function useHomeData(): HomeDataState & {
     fetchData();
   }, [fetchData]);
 
-  const setPlan = useCallback((plan: TodayPlan | null) => {
-    setState((prev) => ({
-      ...prev,
-      plan,
-    }));
+  const clearStagedValues = useCallback(() => {
+    setStagedValues({});
   }, []);
+
+  const setPlan = useCallback(
+    (plan: TodayPlan | null) => {
+      setState((prev) => ({
+        ...prev,
+        plan,
+      }));
+      if (plan) {
+        clearStagedValues();
+      }
+    },
+    [clearStagedValues],
+  );
 
   const addSession = useCallback((session: WorkoutSessionSummary) => {
     setState((prev) => ({
@@ -182,21 +214,37 @@ export function useHomeData(): HomeDataState & {
     }));
   }, []);
 
-  const updateStagedValue = useCallback((actionKey: string, stagedValue: string | null) => {
-    setState((prev) => ({
-      ...prev,
-      quickActions: prev.quickActions.map((action) =>
-        action.key === actionKey ? { ...action, stagedValue } : action
-      ),
-    }));
-  }, []);
+  const updateStagedValue = useCallback(
+    (actionKey: QuickActionKey, stagedValue: string | null) => {
+      setStagedValues((prev) => {
+        const next = { ...prev };
+        if (stagedValue === null || stagedValue === '') {
+          delete next[actionKey];
+        } else {
+          next[actionKey] = stagedValue;
+        }
+        return next;
+      });
+    },
+    [],
+  );
+
+  const quickActionsWithStaged = useMemo(
+    () =>
+      state.quickActions.map((action) => ({
+        ...action,
+        stagedValue: stagedValues[action.key] ?? null,
+      })),
+    [state.quickActions, stagedValues],
+  );
 
   return {
     ...state,
+    quickActions: quickActionsWithStaged,
     refetch: fetchData,
     setPlan,
     addSession,
     updateStagedValue,
+    clearStagedValues,
   };
 }
-

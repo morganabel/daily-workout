@@ -1,9 +1,13 @@
-import { homeSnapshotSchema, createHomeSnapshotMock } from './home-snapshot';
+import {
+  homeSnapshotSchema,
+  createHomeSnapshotMock,
+} from './home-snapshot';
 
 describe('homeSnapshot contract', () => {
   it('parses the default mock without errors', () => {
     const snapshot = createHomeSnapshotMock();
-    expect(() => homeSnapshotSchema.parse(snapshot)).not.toThrow();
+    const parsed = homeSnapshotSchema.parse(snapshot);
+    expect(parsed.generationStatus.state).toBe('idle');
   });
 
   it('allows overriding plan and offline hint for testing edge cases', () => {
@@ -15,6 +19,11 @@ describe('homeSnapshot contract', () => {
         message: 'BYOK required',
       },
       recentSessions: [],
+      generationStatus: {
+        state: 'pending',
+        submittedAt: new Date().toISOString(),
+        etaSeconds: 18,
+      },
     });
 
     const parsed = homeSnapshotSchema.parse(snapshot);
@@ -22,5 +31,6 @@ describe('homeSnapshot contract', () => {
     expect(parsed.offlineHint.offline).toBe(true);
     expect(parsed.offlineHint.requiresApiKey).toBe(true);
     expect(parsed.recentSessions).toHaveLength(0);
+    expect(parsed.generationStatus.state).toBe('pending');
   });
 });
