@@ -11,6 +11,6 @@ describe('App', () => {
     expect(getByText(/Quick actions/i)).toBeTruthy();
     expect(getByText(/Workout Agent/i)).toBeTruthy();
     expect(getByText(/Quick log/i)).toBeTruthy();
-    await findByText(/Start workout/i);
+    await findByText(/No workout queued/i);
   });
 });

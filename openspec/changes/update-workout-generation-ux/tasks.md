@@ -24,4 +24,4 @@
 - [x] 4.1 Cover the new store, snapshot route, generation route, and quick action endpoint with Jest tests and mock timers for duration tracking.
 - [x] 4.2 Add component/hook tests for the mobile loading overlay + chip states (jest-expo + testing-library).
 - [x] 4.3 Write a manual QA script documenting BYOK/offline, stage-only, stage+generate, long-call, and failure recovery flows.
-- [ ] 4.4 Capture generation latency metrics (server logs + client console) and document how to read them before handing off for review; run `nx run-many --target=test --projects=shared,server,mobile`.
+- [x] 4.4 Capture generation latency metrics (server logs + client console) and document how to read them before handing off for review; run `nx run-many --target=test --projects=shared,server,mobile`.

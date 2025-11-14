@@ -43,15 +43,11 @@ const mockLlmPlan: LlmTodayPlan = {
 
 const createMockClient = (parsedValue: typeof mockLlmPlan | null) => {
   const parse = jest.fn().mockResolvedValue({
-    choices: [{ message: { parsed: parsedValue } }],
+    output_parsed: parsedValue,
   });
   const client = {
-    beta: {
-      chat: {
-        completions: {
-          parse,
-        },
-      },
+    responses: {
+      parse,
     },
   } as unknown as OpenAI;
   return { client, parse };
@@ -106,7 +102,7 @@ describe('generateTodayPlanAI', () => {
       Object.assign(new Error('fail'), { status: 500 }),
     );
     const client = {
-      beta: { chat: { completions: { parse } } },
+      responses: { parse },
     } as unknown as OpenAI;
     const context = createGenerationContextMock();
 
