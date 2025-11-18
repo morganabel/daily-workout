@@ -11,7 +11,12 @@ import { authenticateRequest } from '@/lib/auth';
 import { generateTodayPlanAI } from '@/lib/generator';
 import { loadGenerationContext } from '@/lib/context';
 import type { TodayPlan } from '@workout-agent/shared';
-import { createGenerationContextMock } from '@workout-agent/shared';
+import { createGenerationContextMock, createTodayPlanMock } from '@workout-agent/shared';
+import {
+  getGenerationState,
+  resetGenerationStore,
+  persistGeneratedPlan,
+} from '@/lib/generation-store';
 
 // Mock dependencies
 jest.mock('@/lib/auth');
@@ -30,6 +35,7 @@ describe('POST /api/workouts/generate', () => {
     delete process.env.OPENAI_API_KEY;
     mockGenerateTodayPlanAI.mockReset();
     mockLoadGenerationContext.mockResolvedValue(createGenerationContextMock());
+    resetGenerationStore();
   });
 
   it('should generate workout plan when authenticated', async () => {
@@ -65,6 +71,10 @@ describe('POST /api/workouts/generate', () => {
     expect(data).toHaveProperty('blocks');
     expect(data.focus).toBe('Full Body');
     expect(data.durationMinutes).toBe(30);
+
+    const state = getGenerationState('test-token');
+    expect(state.plan).not.toBeNull();
+    expect(state.generationStatus.state).toBe('idle');
   });
 
   it('should call AI provider when API key is available', async () => {
@@ -147,6 +157,35 @@ describe('POST /api/workouts/generate', () => {
     expect(response.status).toBe(200);
     expect(data.focus).toBe('Conditioning');
     expect(data.durationMinutes).toBe(25);
+
+    const state = getGenerationState('test-token');
+    expect(state.generationStatus.state).toBe('error');
+  });
+
+  it('should retain previously persisted plan on provider failure', async () => {
+    process.env.OPENAI_API_KEY = 'test-api-key';
+    mockAuthenticateRequest.mockResolvedValue({
+      userId: 'user-123',
+      deviceToken: 'test-token',
+    });
+    mockGenerateTodayPlanAI.mockRejectedValue(new Error('provider failure'));
+
+    const previousPlan = createTodayPlanMock({ id: 'existing-plan' });
+    persistGeneratedPlan('test-token', previousPlan);
+
+    const request = new Request('http://localhost:3000/api/workouts/generate', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: 'Bearer test-token',
+      },
+      body: JSON.stringify({ timeMinutes: 25 }),
+    });
+
+    await POST(request);
+    const state = getGenerationState('test-token');
+    expect(state.plan?.id).toBe('existing-plan');
+    expect(state.generationStatus.state).toBe('error');
   });
 
   it('should return 401 when not authenticated', async () => {

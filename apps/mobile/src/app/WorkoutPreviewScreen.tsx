@@ -80,7 +80,7 @@ export const WorkoutPreviewScreen = () => {
         {plan.blocks.map((block) => (
           <View key={block.id} style={styles.blockCard}>
             <View style={styles.blockHeader}>
-              <View>
+              <View style={styles.blockHeaderText}>
                 <Text style={styles.blockTitle}>{block.title}</Text>
                 <Text style={styles.blockFocus}>{block.focus}</Text>
               </View>
@@ -234,11 +234,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  blockHeaderText: {
+    flex: 1,
+    paddingRight: 12,
   },
   blockTitle: {
     color: palette.textPrimary,
     fontSize: 18,
     fontWeight: '600',
+    flexShrink: 1,
   },
   blockFocus: {
     color: palette.textMuted,
@@ -249,6 +256,7 @@ const styles = StyleSheet.create({
     color: palette.textPrimary,
     fontSize: 14,
     fontWeight: '600',
+    alignSelf: 'flex-start',
   },
   exerciseList: {
     gap: 12,

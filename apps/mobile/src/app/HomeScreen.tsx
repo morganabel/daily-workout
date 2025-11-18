@@ -14,11 +14,13 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import type {
-  QuickActionPreset,
-  TodayPlan,
-  WorkoutSessionSummary,
-  GenerationRequest,
+import {
+  buildGenerationRequestFromQuickActions,
+  type QuickActionPreset,
+  type TodayPlan,
+  type WorkoutSessionSummary,
+  type GenerationRequest,
+  type GenerationStatus,
 } from '@workout-agent/shared';
 import { useHomeData } from './hooks/useHomeData';
 import { generateWorkout, logWorkout, type ApiError } from './services/api';
@@ -51,6 +53,8 @@ type HeroCardProps = {
   isOffline: boolean;
   generating?: boolean;
   logging?: boolean;
+  generationStatus: GenerationStatus;
+  showPendingOverlay?: boolean;
   onGenerate: () => void;
   onCustomize: () => void;
   onStart: () => void;
@@ -64,12 +68,28 @@ const HeroCard = ({
   isOffline,
   generating = false,
   logging = false,
+  generationStatus,
+  showPendingOverlay = false,
   onGenerate,
   onCustomize,
   onStart,
   onPreview,
   onConfigure,
 }: HeroCardProps) => {
+  const isPending = generationStatus.state === 'pending' || generating;
+  const overlayMessage =
+    generationStatus.state === 'pending'
+      ? `Crafting your workout${
+          generationStatus.etaSeconds
+            ? ` (~${generationStatus.etaSeconds}s)`
+            : ' — this can take ~20s'
+        }`
+      : 'Processing your request…';
+  const errorMessage =
+    generationStatus.state === 'error'
+      ? generationStatus.message ?? 'Something went wrong. Please try again.'
+      : null;
+
   if (status === 'loading') {
     return (
       <View style={[styles.card, styles.heroCard]}>
@@ -102,20 +122,37 @@ const HeroCard = ({
         <Text style={styles.heroBody}>
           Pick your focus, set the time box, and we’ll handle the rest.
         </Text>
+        {errorMessage && (
+          <View style={styles.errorPill}>
+            <Text style={styles.errorPillText}>{errorMessage}</Text>
+          </View>
+        )}
         {isOffline ? (
           <InlineWarning onConfigure={onConfigure} />
         ) : (
           <View style={styles.heroActions}>
             <PrimaryButton
-              label={generating ? 'Generating...' : 'Generate workout'}
+              label={
+                isPending
+                  ? 'Generating...'
+                  : errorMessage
+                    ? 'Retry generation'
+                    : 'Generate workout'
+              }
               onPress={onGenerate}
-              disabled={generating}
+              disabled={isPending}
             />
             <SecondaryButton
               label="Customize"
               onPress={onCustomize}
-              disabled={generating}
+              disabled={isPending}
             />
+          </View>
+        )}
+        {showPendingOverlay && (
+          <View style={styles.heroOverlay}>
+            <ActivityIndicator color={palette.textPrimary} />
+            <Text style={styles.heroOverlayText}>{overlayMessage}</Text>
           </View>
         )}
       </View>
@@ -136,6 +173,11 @@ const HeroCard = ({
         <Badge text={sourceLabel} />
         <Badge text={`Energy: ${plan.energy}`} variant="muted" />
       </View>
+      {errorMessage && (
+        <View style={styles.errorPill}>
+          <Text style={styles.errorPillText}>{errorMessage}</Text>
+        </View>
+      )}
       {isOffline ? (
         <InlineWarning onConfigure={onConfigure} />
       ) : (
@@ -143,13 +185,19 @@ const HeroCard = ({
           <PrimaryButton
             label={logging ? 'Logging...' : 'Log done'}
             onPress={onStart}
-            disabled={logging}
+            disabled={logging || isPending}
           />
           <SecondaryButton
             label="Preview"
             onPress={onPreview}
-            disabled={logging}
+            disabled={logging || isPending}
           />
+        </View>
+      )}
+      {showPendingOverlay && (
+        <View style={styles.heroOverlay}>
+          <ActivityIndicator color={palette.textPrimary} />
+          <Text style={styles.heroOverlayText}>{overlayMessage}</Text>
         </View>
       )}
     </View>
@@ -233,32 +281,66 @@ const SecondaryButton = ({
 type QuickActionRailProps = {
   onActionPress: (action: QuickActionPreset) => void;
   quickActions: QuickActionPreset[];
+  disabled?: boolean;
+  onReset: () => void;
+  hasOverrides: boolean;
+  pendingMessage?: string | null;
 };
 
-const QuickActionRail = ({ onActionPress, quickActions }: QuickActionRailProps) => (
+const QuickActionRail = ({
+  onActionPress,
+  quickActions,
+  disabled = false,
+  onReset,
+  hasOverrides,
+  pendingMessage,
+}: QuickActionRailProps) => (
   <View style={styles.card}>
     <View style={styles.sectionHeader}>
       <Text style={styles.sectionTitle}>Quick actions</Text>
-      <Text style={styles.sectionHint}>Tweak context without leaving</Text>
+      <View style={styles.sectionHeaderMeta}>
+        <Text style={styles.sectionHint} numberOfLines={2}>
+          {pendingMessage || 'Tweak context without leaving'}
+        </Text>
+        {hasOverrides && (
+          <Pressable onPress={onReset} style={styles.resetButton}>
+            <Text style={styles.resetButtonText}>Reset</Text>
+          </Pressable>
+        )}
+      </View>
     </View>
     <ScrollView
       horizontal
       showsHorizontalScrollIndicator={false}
       contentContainerStyle={styles.quickActionScroll}
+      style={disabled ? { opacity: 0.5 } : undefined}
+      pointerEvents={disabled ? 'none' : 'auto'}
     >
-      {quickActions.map((action) => (
-        <Pressable
-          key={action.key}
-          style={({ pressed }) => [
-            styles.actionChip,
-            pressed && { opacity: 0.8 },
-          ]}
-          onPress={() => onActionPress(action)}
-        >
-          <Text style={styles.actionChipLabel}>{action.label}</Text>
-          <Text style={styles.actionChipValue}>{action.description}</Text>
-        </Pressable>
-      ))}
+      {quickActions.map((action) => {
+        const staged = Boolean(action.stagedValue);
+        const displayValue = action.stagedValue ?? action.description;
+        return (
+          <Pressable
+            key={action.key}
+            style={({ pressed }) => [
+              styles.actionChip,
+              staged && styles.actionChipStaged,
+              pressed && { opacity: 0.8 },
+            ]}
+            onPress={() => onActionPress(action)}
+          >
+            <View style={styles.actionChipHeader}>
+              <Text style={styles.actionChipLabel} numberOfLines={1}>
+                {action.label}
+              </Text>
+              {staged && <View style={styles.actionChipDot} />}
+            </View>
+            <Text style={styles.actionChipValue} numberOfLines={1}>
+              {displayValue}
+            </Text>
+          </Pressable>
+        );
+      })}
     </ScrollView>
   </View>
 );
@@ -342,12 +424,13 @@ const ActionSheet = ({
   quickActions: QuickActionPreset[];
   onClose: () => void;
   onGenerate: () => void;
-  onUpdateStagedValue: (key: string, value: string | null) => void;
+  onUpdateStagedValue: (key: QuickActionPreset['key'], value: string | null) => void;
   generating: boolean;
   isOffline: boolean;
 }) => {
   const currentStagedValue = action?.stagedValue ?? action?.value ?? '';
   const [localValue, setLocalValue] = useState<string>(currentStagedValue);
+  const disabled = generating || isOffline;
 
   // Update local value when action changes
   useEffect(() => {
@@ -368,6 +451,11 @@ const ActionSheet = ({
     onUpdateStagedValue(action.key, localValue);
     onGenerate();
     onClose();
+  };
+
+  const handleReset = () => {
+    setLocalValue(action.value ?? '');
+    onUpdateStagedValue(action.key, null);
   };
 
   const renderContent = () => {
@@ -545,18 +633,28 @@ const ActionSheet = ({
           <View style={styles.sheetHandle} />
           <Text style={styles.sheetTitle}>{action.label}</Text>
           {renderContent()}
+          {action.key !== 'backfill' && !disabled && (
+            <Pressable onPress={handleReset}>
+              <Text style={styles.resetLink}>Reset to defaults</Text>
+            </Pressable>
+          )}
+          {disabled && action.key !== 'backfill' && (
+            <Text style={styles.sheetBody}>
+              Finish configuring your API key or wait for the current generation to complete before changing presets.
+            </Text>
+          )}
           <View style={styles.sheetActions}>
             {action.key !== 'backfill' && (
               <>
                 <SecondaryButton
                   label="Apply"
                   onPress={handleApply}
-                  disabled={generating || isOffline}
+                  disabled={disabled}
                 />
                 <PrimaryButton
-                  label={generating ? 'Generating...' : 'Generate'}
+                  label={generating ? 'Generating...' : 'Apply & Generate'}
                   onPress={handleGenerate}
-                  disabled={generating || isOffline}
+                  disabled={disabled}
                 />
               </>
             )}
@@ -735,6 +833,8 @@ export const HomeScreen = () => {
     setPlan,
     addSession,
     updateStagedValue,
+    generationStatus,
+    clearStagedValues,
   } = useHomeData();
   const [selectedAction, setSelectedAction] =
     useState<QuickActionPreset | null>(null);
@@ -743,6 +843,7 @@ export const HomeScreen = () => {
   const [byokSheetVisible, setByokSheetVisible] = useState(false);
   const [byokInput, setByokInput] = useState('');
   const [hasByokKey, setHasByokKey] = useState(false);
+  const [showPendingOverlay, setShowPendingOverlay] = useState(false);
   const navigation = useNavigation<HomeScreenNavigation>();
 
   const heroStatus = useMemo(() => {
@@ -750,6 +851,20 @@ export const HomeScreen = () => {
     if (status === 'ready' && !plan) return 'empty';
     return status === 'error' ? 'empty' : status;
   }, [status, plan]);
+
+  useEffect(() => {
+    if (generating || generationStatus.state === 'pending') {
+      const timeout = setTimeout(() => setShowPendingOverlay(true), 400);
+      return () => clearTimeout(timeout);
+    }
+    setShowPendingOverlay(false);
+  }, [generating, generationStatus.state]);
+
+  const quickActionsLocked = generating || generationStatus.state === 'pending';
+  const pendingMessage = quickActionsLocked
+    ? 'Hang tight while this workout finishes generating…'
+    : undefined;
+  const hasOverrides = quickActions.some((action) => Boolean(action.stagedValue));
 
   useEffect(() => {
     const checkByok = async () => {
@@ -818,48 +933,26 @@ export const HomeScreen = () => {
   };
 
   const handleGenerate = async () => {
-    if (generating || isOffline) return;
+    if (generating || isOffline || generationStatus.state === 'pending') return;
 
     setGenerating(true);
 
     try {
-      // Build generation request from staged quick actions
-      // For now, use default values if no staged values exist
-      const request: GenerationRequest = {
-        timeMinutes: 30, // Default
-        focus: 'Full Body', // Default
-        equipment: ['Bodyweight'], // Default
-        energy: 'moderate', // Default
+      const baseRequest: Partial<GenerationRequest> = {
+        timeMinutes: 30,
+        focus: 'Full Body',
+        equipment: ['Bodyweight'],
+        energy: 'moderate',
       };
+
+      const request = buildGenerationRequestFromQuickActions(
+        quickActions,
+        baseRequest,
+      );
 
       const quickActionMap = Object.fromEntries(
         quickActions.map((action) => [action.key, action]),
       );
-
-      quickActions.forEach((action) => {
-        if (action.stagedValue !== null && action.stagedValue !== undefined) {
-          switch (action.key) {
-            case 'time':
-              request.timeMinutes = parseInt(action.stagedValue, 10);
-              break;
-            case 'focus':
-              request.focus = action.stagedValue;
-              break;
-            case 'equipment':
-              request.equipment = action.stagedValue.split(',').map((e) => e.trim());
-              break;
-            case 'energy':
-              if (
-                action.stagedValue === 'easy' ||
-                action.stagedValue === 'moderate' ||
-                action.stagedValue === 'intense'
-              ) {
-                request.energy = action.stagedValue;
-              }
-              break;
-          }
-        }
-      });
 
       const focusValue =
         quickActionMap['focus']?.stagedValue || quickActionMap['focus']?.value;
@@ -894,22 +987,17 @@ export const HomeScreen = () => {
 
       console.log('Generating workout with request:', request);
 
-      // Generate workout
       const newPlan = await generateWorkout(request);
       console.log('Generated plan:', newPlan);
-
-      // Optimistically update the plan in state
-      // (The server doesn't persist plans yet, so refetch would return null)
       setPlan(newPlan);
     } catch (err) {
       const apiError = err as ApiError;
       console.error('Failed to generate workout:', apiError);
-
-      // Show error alert to user
       Alert.alert(
         'Failed to Generate Workout',
-        apiError.message || 'An error occurred while generating your workout. Please try again.',
-        [{ text: 'OK' }]
+        apiError.message ||
+          'An error occurred while generating your workout. Please try again.',
+        [{ text: 'OK' }],
       );
     } finally {
       setGenerating(false);
@@ -929,6 +1017,11 @@ export const HomeScreen = () => {
       // Optimistically update state: clear plan and add session
       // (The server doesn't persist plans yet, so refetch would return null)
       addSession(sessionSummary);
+      try {
+        await refetch();
+      } catch (refreshError) {
+        console.warn('Failed to refresh snapshot after logging', refreshError);
+      }
     } catch (err) {
       const apiError = err as ApiError;
       console.error('Failed to log workout:', apiError);
@@ -964,8 +1057,10 @@ export const HomeScreen = () => {
           isOffline={isOffline}
           generating={generating}
           logging={logging}
+          generationStatus={generationStatus}
+          showPendingOverlay={showPendingOverlay}
           onGenerate={handleGenerate}
-          onCustomize={() => setSelectedAction(quickActions[1])}
+          onCustomize={() => setSelectedAction(quickActions[1] ?? null)}
           onStart={handleLogDone}
           onPreview={handlePreviewNavigation}
           onConfigure={handleConfigure}
@@ -973,13 +1068,17 @@ export const HomeScreen = () => {
         <QuickActionRail
           onActionPress={(action) => setSelectedAction(action)}
           quickActions={quickActions}
+          disabled={quickActionsLocked}
+          onReset={clearStagedValues}
+          hasOverrides={hasOverrides}
+          pendingMessage={pendingMessage}
         />
         <ActivitySection
           sessions={recentSessions}
           loading={status === 'loading'}
         />
       </ScrollView>
-      <BottomActionBar onQuickLog={() => setSelectedAction(quickActions[4])} />
+      <BottomActionBar onQuickLog={() => setSelectedAction(quickActions[4] ?? null)} />
       <ActionSheet
         action={selectedAction}
         quickActions={quickActions}
@@ -1054,6 +1153,34 @@ const styles = StyleSheet.create({
     gap: 8,
     marginTop: 8,
   },
+  heroOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderRadius: 20,
+    backgroundColor: '#030914dd',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  heroOverlayText: {
+    color: palette.textPrimary,
+    fontSize: 15,
+  },
+  errorPill: {
+    marginTop: 4,
+    padding: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: palette.warning,
+    backgroundColor: `${palette.warning}22`,
+  },
+  errorPillText: {
+    color: palette.warning,
+    fontSize: 13,
+  },
   heroActions: {
     flexDirection: 'row',
     gap: 12,
@@ -1118,8 +1245,18 @@ const styles = StyleSheet.create({
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
+    flexWrap: 'wrap',
+    gap: 8,
     marginBottom: 12,
+  },
+  sectionHeaderMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flexShrink: 1,
+    flexWrap: 'wrap',
+    justifyContent: 'flex-end',
   },
   sectionTitle: {
     color: palette.textPrimary,
@@ -1129,6 +1266,7 @@ const styles = StyleSheet.create({
   sectionHint: {
     color: palette.textMuted,
     fontSize: 13,
+    flexShrink: 1,
   },
   quickActionScroll: {
     gap: 12,
@@ -1141,6 +1279,21 @@ const styles = StyleSheet.create({
     borderColor: palette.border,
     borderWidth: 1,
     marginRight: 12,
+    minWidth: 110,
+  },
+  actionChipStaged: {
+    borderColor: palette.accent,
+  },
+  actionChipHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  actionChipDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: palette.accent,
   },
   actionChipLabel: {
     color: palette.textPrimary,
@@ -1151,6 +1304,7 @@ const styles = StyleSheet.create({
     color: palette.textMuted,
     fontSize: 12,
     marginTop: 4,
+    flexShrink: 1,
   },
   activityLoading: {
     minHeight: 120,
@@ -1241,6 +1395,12 @@ const styles = StyleSheet.create({
     color: palette.textSecondary,
     fontSize: 15,
     lineHeight: 22,
+  },
+  resetLink: {
+    color: palette.accent,
+    fontSize: 13,
+    fontWeight: '600',
+    marginTop: -4,
   },
   byokInput: {
     backgroundColor: palette.cardSecondary,
@@ -1419,5 +1579,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 12,
     marginTop: 8,
+  },
+  resetButton: {
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+  },
+  resetButtonText: {
+    color: palette.accent,
+    fontSize: 13,
+    fontWeight: '600',
   },
 });

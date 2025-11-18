@@ -15,11 +15,20 @@ export const offlineHintSchema = z.object({
 });
 export type OfflineHint = z.infer<typeof offlineHintSchema>;
 
+export const generationStatusSchema = z.object({
+  state: z.enum(['idle', 'pending', 'error']),
+  submittedAt: z.string().nullable(),
+  etaSeconds: z.number().int().positive().optional(),
+  message: z.string().optional(),
+});
+export type GenerationStatus = z.infer<typeof generationStatusSchema>;
+
 export const homeSnapshotSchema = z.object({
   plan: todayPlanSchema.nullable(),
   quickActions: z.array(quickActionPresetSchema).length(5),
   recentSessions: z.array(workoutSessionSummarySchema).max(3),
   offlineHint: offlineHintSchema,
+  generationStatus: generationStatusSchema,
 });
 export type HomeSnapshot = z.infer<typeof homeSnapshotSchema>;
 
@@ -83,6 +92,12 @@ export const createHomeSnapshotMock = (
   offlineHint: {
     offline: false,
     requiresApiKey: false,
+    message: undefined,
+  },
+  generationStatus: {
+    state: 'idle',
+    submittedAt: null,
+    etaSeconds: undefined,
     message: undefined,
   },
   ...overrides,

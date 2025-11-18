@@ -4,7 +4,6 @@
 
 import { POST } from './route';
 import { authenticateRequest } from '@/lib/auth';
-import { createSessionSummaryMock } from '@workout-agent/shared';
 
 // Mock dependencies
 jest.mock('@/lib/auth');
@@ -74,7 +73,7 @@ describe('POST /api/workouts/:id/log', () => {
 
     const params1 = Promise.resolve({ id: planId1 });
     const response1 = await POST(request1, { params: params1 });
-    const data1 = await response.json();
+    const data1 = await response1.json();
 
     expect(response1.status).toBe(200);
     expect(data1.id).toContain(planId1);
@@ -89,7 +88,7 @@ describe('POST /api/workouts/:id/log', () => {
 
     const params2 = Promise.resolve({ id: planId2 });
     const response2 = await POST(request2, { params: params2 });
-    const data2 = await response.json();
+    const data2 = await response2.json();
 
     expect(response2.status).toBe(200);
     expect(data2.id).toContain(planId2);
@@ -146,4 +145,3 @@ describe('POST /api/workouts/:id/log', () => {
     expect(data.id).toContain(planId);
   });
 });
-

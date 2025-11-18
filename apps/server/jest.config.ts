@@ -1,11 +1,10 @@
-import type { Config } from 'jest';
-import nextJest from 'next/jest.js';
+const nextJest = require('next/jest');
 
 const createJestConfig = nextJest({
-  dir: './apps/server',
+  dir: __dirname,
 });
 
-const config: Config = {
+module.exports = createJestConfig({
   displayName: '@workout-agent-ce/server',
   preset: '../../jest.preset.js',
   transform: {
@@ -20,6 +19,4 @@ const config: Config = {
   coverageDirectory: '../../coverage/apps/server',
   testEnvironment: 'node',
   watchman: false,
-};
-
-export default createJestConfig(config);
+});

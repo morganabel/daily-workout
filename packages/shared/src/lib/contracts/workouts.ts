@@ -83,6 +83,115 @@ export const quickActionPresetSchema = z.object({
 });
 export type QuickActionPreset = z.infer<typeof quickActionPresetSchema>;
 
+const QUICK_ACTION_TIME_MINUTES = [15, 20, 30, 45, 60];
+const WORKOUT_ENERGY_VALUES = new Set(workoutEnergySchema.options);
+const BACKFILL_TRUE_VALUES = new Set(['true', 'yes', '1', 'y']);
+const BACKFILL_FALSE_VALUES = new Set(['false', 'no', '0', 'n']);
+const MAX_FOCUS_LENGTH = 80;
+
+const clampTimeMinutes = (value: number): number | undefined => {
+  const valid = QUICK_ACTION_TIME_MINUTES.find((option) => option === value);
+  if (valid) {
+    return valid;
+  }
+
+  if (Number.isFinite(value)) {
+    const clamped = Math.min(Math.max(value, 5), 120);
+    return Math.round(clamped);
+  }
+
+  return undefined;
+};
+
+const sanitizeFocus = (value: string): string | undefined => {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return undefined;
+  }
+  return trimmed.slice(0, MAX_FOCUS_LENGTH);
+};
+
+const sanitizeEquipmentList = (value: string): string[] | undefined => {
+  const tokens = value
+    .split(',')
+    .map((token) => token.trim())
+    .filter(Boolean);
+
+  if (!tokens.length) {
+    return undefined;
+  }
+  return tokens;
+};
+
+const sanitizeEnergy = (value: string): WorkoutEnergy | undefined => {
+  const normalized = value.trim().toLowerCase() as WorkoutEnergy;
+  return WORKOUT_ENERGY_VALUES.has(normalized) ? normalized : undefined;
+};
+
+const sanitizeBackfill = (value: string): boolean | undefined => {
+  const normalized = value.trim().toLowerCase();
+  if (BACKFILL_TRUE_VALUES.has(normalized)) {
+    return true;
+  }
+  if (BACKFILL_FALSE_VALUES.has(normalized)) {
+    return false;
+  }
+
+  return undefined;
+};
+
+const coerceNumber = (value: string): number | undefined => {
+  const parsed = Number.parseInt(value.trim(), 10);
+  return Number.isFinite(parsed) ? parsed : undefined;
+};
+
+export const normalizeQuickActionValue = (
+  action: QuickActionPreset,
+): Partial<GenerationRequest> => {
+  const source = action.stagedValue ?? action.value;
+  if (!source) {
+    return {};
+  }
+
+  switch (action.key) {
+    case 'time': {
+      const minutes = source ? clampTimeMinutes(coerceNumber(source) ?? NaN) : undefined;
+      return minutes ? { timeMinutes: minutes } : {};
+    }
+    case 'focus': {
+      const focus = sanitizeFocus(source);
+      return focus ? { focus } : {};
+    }
+    case 'equipment': {
+      const equipment = sanitizeEquipmentList(source);
+      return equipment ? { equipment } : {};
+    }
+    case 'energy': {
+      const energy = sanitizeEnergy(source);
+      return energy ? { energy } : {};
+    }
+    case 'backfill': {
+      const backfill = sanitizeBackfill(source);
+      return backfill === undefined ? {} : { backfill };
+    }
+    default:
+      return {};
+  }
+};
+
+export const buildGenerationRequestFromQuickActions = (
+  quickActions: QuickActionPreset[],
+  base: Partial<GenerationRequest> = {},
+): GenerationRequest => {
+  const request: Partial<GenerationRequest> = { ...base };
+
+  quickActions.forEach((action) => {
+    Object.assign(request, normalizeQuickActionValue(action));
+  });
+
+  return request as GenerationRequest;
+};
+
 export const generationRequestSchema = z
   .object({
     timeMinutes: z.number().int().positive().optional(),

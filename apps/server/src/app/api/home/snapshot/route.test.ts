@@ -4,7 +4,14 @@
 
 import { GET } from './route';
 import { authenticateRequest } from '@/lib/auth';
-import { createHomeSnapshotMock } from '@workout-agent/shared';
+import {
+  createTodayPlanMock,
+} from '@workout-agent/shared';
+import {
+  persistGeneratedPlan,
+  resetGenerationStore,
+  markGenerationPending,
+} from '@/lib/generation-store';
 
 // Mock dependencies
 jest.mock('@/lib/auth');
@@ -14,6 +21,7 @@ const mockAuthenticateRequest = authenticateRequest as jest.MockedFunction<typeo
 describe('GET /api/home/snapshot', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    resetGenerationStore();
   });
 
   it('should return snapshot when authenticated', async () => {
@@ -39,6 +47,8 @@ describe('GET /api/home/snapshot', () => {
     expect(data).toHaveProperty('offlineHint');
     expect(Array.isArray(data.quickActions)).toBe(true);
     expect(data.quickActions.length).toBe(5);
+    expect(data).toHaveProperty('generationStatus');
+    expect(data.generationStatus.state).toBe('idle');
   });
 
   it('should return 401 when not authenticated', async () => {
@@ -76,11 +86,19 @@ describe('GET /api/home/snapshot', () => {
     expect(data.plan).toBeNull();
   });
 
-  it('should validate response against schema', async () => {
+  it('should include persisted plan when available', async () => {
     mockAuthenticateRequest.mockResolvedValue({
       userId: 'user-123',
       deviceToken: 'test-token',
     });
+
+    const storedPlan = createTodayPlanMock({
+      id: 'plan-123',
+      focus: 'Lower Body',
+      durationMinutes: 40,
+      equipment: ['Dumbbells', 'Bands'],
+    });
+    persistGeneratedPlan('test-token', storedPlan);
 
     const request = new Request('http://localhost:3000/api/home/snapshot', {
       method: 'GET',
@@ -92,16 +110,32 @@ describe('GET /api/home/snapshot', () => {
     const response = await GET(request);
     const data = await response.json();
 
-    // Should not throw - schema validation happens in route handler
-    expect(data).toMatchObject({
-      plan: expect.anything(),
-      quickActions: expect.any(Array),
-      recentSessions: expect.any(Array),
-      offlineHint: expect.objectContaining({
-        offline: expect.any(Boolean),
-        requiresApiKey: expect.any(Boolean),
-      }),
+    expect(response.status).toBe(200);
+    expect(data.plan).not.toBeNull();
+    expect(data.plan.id).toBe('plan-123');
+    expect(data.quickActions[0].value).toBe('40');
+    expect(data.quickActions[1].value).toBe('Lower Body');
+  });
+
+  it('should surface pending status when generation is in progress', async () => {
+    mockAuthenticateRequest.mockResolvedValue({
+      userId: 'user-123',
+      deviceToken: 'test-token',
     });
+    markGenerationPending('test-token', 25);
+
+    const request = new Request('http://localhost:3000/api/home/snapshot', {
+      method: 'GET',
+      headers: {
+        Authorization: 'Bearer test-token',
+      },
+    });
+
+    const response = await GET(request);
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data.generationStatus.state).toBe('pending');
+    expect(data.generationStatus.etaSeconds).toBe(25);
   });
 });
-

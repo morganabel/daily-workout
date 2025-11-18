@@ -2,7 +2,7 @@
  * Tests for useHomeData hook
  */
 
-import { renderHook, waitFor } from '@testing-library/react-native';
+import { renderHook, waitFor, act } from '@testing-library/react-native';
 import { useHomeData } from './useHomeData';
 import { fetchHomeSnapshot } from '../services/api';
 import { getDeviceToken } from '../storage/deviceToken';
@@ -42,6 +42,9 @@ describe('useHomeData', () => {
     expect(mockFetchHomeSnapshot).toHaveBeenCalledTimes(1);
     expect(result.current.plan).toBeNull();
     expect(result.current.recentSessions).toEqual(mockSnapshot.recentSessions);
+    expect(result.current.generationStatus.state).toBe(
+      mockSnapshot.generationStatus.state,
+    );
   });
 
   it('should handle offline state when network is disconnected', async () => {
@@ -113,7 +116,9 @@ describe('useHomeData', () => {
     });
 
     const newPlan = createTodayPlanMock();
-    result.current.setPlan(newPlan);
+    await act(async () => {
+      result.current.setPlan(newPlan);
+    });
 
     await waitFor(() => {
       expect(result.current.plan).toEqual(newPlan);
@@ -136,7 +141,9 @@ describe('useHomeData', () => {
     });
 
     const session = createSessionSummaryMock();
-    result.current.addSession(session);
+    await act(async () => {
+      result.current.addSession(session);
+    });
 
     await waitFor(() => {
       expect(result.current.plan).toBeNull();
@@ -155,11 +162,70 @@ describe('useHomeData', () => {
       expect(result.current.status).toBe('ready');
     });
 
-    result.current.updateStagedValue('time', '45');
+    await act(async () => {
+      result.current.updateStagedValue('time', '45');
+    });
 
     await waitFor(() => {
       const timeAction = result.current.quickActions.find((a) => a.key === 'time');
       expect(timeAction?.stagedValue).toBe('45');
+    });
+  });
+
+  it('should clear staged values when requested', async () => {
+    const mockSnapshot = createHomeSnapshotMock();
+    mockFetchHomeSnapshot.mockResolvedValue(mockSnapshot);
+
+    const { result } = renderHook(() => useHomeData());
+
+    await waitFor(() => {
+      expect(result.current.status).toBe('ready');
+    });
+
+    await act(async () => {
+      result.current.updateStagedValue('focus', 'Lower Body');
+    });
+    await waitFor(() => {
+      const focusAction = result.current.quickActions.find((a) => a.key === 'focus');
+      expect(focusAction?.stagedValue).toBe('Lower Body');
+    });
+
+    await act(async () => {
+      result.current.clearStagedValues();
+    });
+
+    await waitFor(() => {
+      const focusAction = result.current.quickActions.find((a) => a.key === 'focus');
+      expect(focusAction?.stagedValue).toBeNull();
+    });
+  });
+
+  it('should clear staged values after setting a new plan', async () => {
+    const mockSnapshot = createHomeSnapshotMock({ plan: null });
+    mockFetchHomeSnapshot.mockResolvedValue(mockSnapshot);
+
+    const { result } = renderHook(() => useHomeData());
+
+    await waitFor(() => {
+      expect(result.current.status).toBe('ready');
+    });
+
+    await act(async () => {
+      result.current.updateStagedValue('time', '45');
+    });
+
+    await waitFor(() => {
+      const timeAction = result.current.quickActions.find((a) => a.key === 'time');
+      expect(timeAction?.stagedValue).toBe('45');
+    });
+
+    await act(async () => {
+      result.current.setPlan(createTodayPlanMock());
+    });
+
+    await waitFor(() => {
+      const timeAction = result.current.quickActions.find((a) => a.key === 'time');
+      expect(timeAction?.stagedValue).toBeNull();
     });
   });
 
@@ -175,9 +241,10 @@ describe('useHomeData', () => {
 
     expect(mockFetchHomeSnapshot).toHaveBeenCalledTimes(1);
 
-    await result.current.refetch();
+    await act(async () => {
+      await result.current.refetch();
+    });
 
     expect(mockFetchHomeSnapshot).toHaveBeenCalledTimes(2);
   });
 });
-

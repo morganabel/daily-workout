@@ -6,6 +6,7 @@ import {
   type WorkoutSessionSummary,
 } from '@workout-agent/shared';
 import { NextResponse } from 'next/server';
+import { clearStoredPlan } from '@/lib/generation-store';
 
 /**
  * POST /api/workouts/:id/log
@@ -55,6 +56,8 @@ export async function POST(
     source: 'ai', // Would come from the plan
   });
 
+  clearStoredPlan(auth.deviceToken);
+
   // Validate response against schema
   const validated = workoutSessionSummarySchema.parse(sessionSummary);
 
@@ -62,4 +65,3 @@ export async function POST(
   // For now, return the new session
   return NextResponse.json(validated);
 }
-

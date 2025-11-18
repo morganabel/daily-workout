@@ -10,6 +10,12 @@ import {
 import { NextResponse } from 'next/server';
 import { generateTodayPlanAI } from '@/lib/generator';
 import { loadGenerationContext } from '@/lib/context';
+import {
+  markGenerationPending,
+  persistGeneratedPlan,
+  setGenerationError,
+  DEFAULT_GENERATION_ETA_SECONDS,
+} from '@/lib/generation-store';
 
 /**
  * POST /api/workouts/generate
@@ -50,6 +56,7 @@ export async function POST(request: Request) {
   }
 
   const generationRequest: GenerationRequest = parseResult.data;
+  const deviceToken = auth.deviceToken;
 
   const headerApiKey = request.headers.get('x-openai-key')?.trim();
   const envApiKey = process.env.OPENAI_API_KEY?.trim();
@@ -72,15 +79,27 @@ export async function POST(request: Request) {
     });
 
   const context = await loadGenerationContext(auth.userId, generationRequest);
+  const startedAt = Date.now();
+  console.log('[workouts.generate] generation started', {
+    userId: auth.userId,
+    hasApiKey: Boolean(apiKey),
+  });
+  markGenerationPending(deviceToken, DEFAULT_GENERATION_ETA_SECONDS);
 
   let plan: TodayPlan;
+  let encounteredProviderError = false;
   if (apiKey) {
     try {
       plan = await generateTodayPlanAI(generationRequest, context, { apiKey });
     } catch (error) {
+      encounteredProviderError = true;
       console.warn('[workouts.generate] AI generation failed, falling back to mock', {
         message: (error as Error).message,
       });
+      setGenerationError(
+        deviceToken,
+        'We could not reach the AI provider. Showing a fallback plan.',
+      );
       plan = mockPlan();
     }
   } else {
@@ -88,5 +107,19 @@ export async function POST(request: Request) {
   }
 
   const validated = todayPlanSchema.parse(plan);
+  if (!encounteredProviderError) {
+    persistGeneratedPlan(deviceToken, validated);
+    console.log('[workouts.generate] generation completed', {
+      userId: auth.userId,
+      durationMs: Date.now() - startedAt,
+      source: apiKey ? 'ai' : 'mock',
+    });
+  } else {
+    console.warn('[workouts.generate] generation returned fallback plan', {
+      userId: auth.userId,
+      durationMs: Date.now() - startedAt,
+    });
+  }
+
   return NextResponse.json(validated);
 }

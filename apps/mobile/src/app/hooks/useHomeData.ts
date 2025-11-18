@@ -3,11 +3,56 @@
  * Replaces useMockedHomeData with real API calls
  */
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { fetchHomeSnapshot, type ApiError } from '../services/api';
-import type { HomeSnapshot, TodayPlan, WorkoutSessionSummary, QuickActionPreset } from '@workout-agent/shared';
+import type {
+  GenerationStatus,
+  HomeSnapshot,
+  TodayPlan,
+  WorkoutSessionSummary,
+  QuickActionKey,
+  QuickActionPreset,
+} from '@workout-agent/shared';
 import NetInfo from '@react-native-community/netinfo';
 import { getDeviceToken } from '../storage/deviceToken';
+
+const DEFAULT_QUICK_ACTIONS: QuickActionPreset[] = [
+  {
+    key: 'time',
+    label: 'Time',
+    value: '30',
+    description: '30 min',
+    stagedValue: null,
+  },
+  {
+    key: 'focus',
+    label: 'Focus',
+    value: 'Upper body',
+    description: 'Upper body',
+    stagedValue: null,
+  },
+  {
+    key: 'equipment',
+    label: 'Equipment',
+    value: 'Dumbbells',
+    description: 'Dumbbells',
+    stagedValue: null,
+  },
+  {
+    key: 'energy',
+    label: 'Energy',
+    value: 'Moderate',
+    description: 'Moderate energy',
+    stagedValue: null,
+  },
+  {
+    key: 'backfill',
+    label: 'Backfill',
+    value: 'Today',
+    description: 'Log past session',
+    stagedValue: null,
+  },
+];
 
 export type HomeDataState = {
   status: 'loading' | 'ready' | 'error';
@@ -17,6 +62,7 @@ export type HomeDataState = {
   offlineHint: HomeSnapshot['offlineHint'];
   isOffline: boolean;
   error: ApiError | null;
+  generationStatus: GenerationStatus;
 };
 
 /**
@@ -26,23 +72,33 @@ export function useHomeData(): HomeDataState & {
   refetch: () => Promise<void>;
   setPlan: (plan: TodayPlan | null) => void;
   addSession: (session: WorkoutSessionSummary) => void;
-  updateStagedValue: (actionKey: string, stagedValue: string | null) => void;
+  updateStagedValue: (actionKey: QuickActionKey, stagedValue: string | null) => void;
+  clearStagedValues: () => void;
 } {
+  const initialStatus: GenerationStatus = {
+    state: 'idle',
+    submittedAt: null,
+  };
+
   const [state, setState] = useState<HomeDataState>({
     status: 'loading',
     plan: null,
     recentSessions: [],
-    quickActions: [],
+    quickActions: DEFAULT_QUICK_ACTIONS,
     offlineHint: {
       offline: false,
       requiresApiKey: false,
     },
     isOffline: false,
     error: null,
+    generationStatus: initialStatus,
   });
 
   const [isConnected, setIsConnected] = useState<boolean | null>(null);
   const [hasDeviceToken, setHasDeviceToken] = useState<boolean | null>(null);
+  const [stagedValues, setStagedValues] = useState<
+    Partial<Record<QuickActionKey, string | null>>
+  >({});
 
   // Monitor network connectivity
   useEffect(() => {
@@ -115,6 +171,7 @@ export function useHomeData(): HomeDataState & {
           requiresApiKey: true,
           message: 'Device token required. Please configure your API key.',
         },
+        generationStatus: initialStatus,
       }));
       return;
     }
@@ -130,6 +187,7 @@ export function useHomeData(): HomeDataState & {
           requiresApiKey: false,
           message: 'No internet connection',
         },
+        generationStatus: initialStatus,
       }));
       return;
     }
@@ -138,15 +196,16 @@ export function useHomeData(): HomeDataState & {
 
     try {
       const snapshot = await fetchHomeSnapshot();
-      setState({
+      setState((prev) => ({
+        ...prev,
         status: 'ready',
         plan: snapshot.plan,
         recentSessions: snapshot.recentSessions,
-        quickActions: snapshot.quickActions,
         offlineHint: snapshot.offlineHint,
         isOffline: snapshot.offlineHint.offline || false,
         error: null,
-      });
+        generationStatus: snapshot.generationStatus,
+      }));
     } catch (error) {
       const apiError = error as ApiError;
       setState((prev) => ({
@@ -159,6 +218,7 @@ export function useHomeData(): HomeDataState & {
           requiresApiKey: apiError.code === 'BYOK_REQUIRED' || !hasToken,
           message: apiError.message || (!hasToken ? 'Device token required' : 'Network error'),
         },
+        generationStatus: initialStatus,
       }));
     }
   }, []);
@@ -167,12 +227,22 @@ export function useHomeData(): HomeDataState & {
     fetchData();
   }, [fetchData]);
 
-  const setPlan = useCallback((plan: TodayPlan | null) => {
-    setState((prev) => ({
-      ...prev,
-      plan,
-    }));
+  const clearStagedValues = useCallback(() => {
+    setStagedValues({});
   }, []);
+
+  const setPlan = useCallback(
+    (plan: TodayPlan | null) => {
+      setState((prev) => ({
+        ...prev,
+        plan,
+      }));
+      if (plan) {
+        clearStagedValues();
+      }
+    },
+    [clearStagedValues],
+  );
 
   const addSession = useCallback((session: WorkoutSessionSummary) => {
     setState((prev) => ({
@@ -182,21 +252,37 @@ export function useHomeData(): HomeDataState & {
     }));
   }, []);
 
-  const updateStagedValue = useCallback((actionKey: string, stagedValue: string | null) => {
-    setState((prev) => ({
-      ...prev,
-      quickActions: prev.quickActions.map((action) =>
-        action.key === actionKey ? { ...action, stagedValue } : action
-      ),
-    }));
-  }, []);
+  const updateStagedValue = useCallback(
+    (actionKey: QuickActionKey, stagedValue: string | null) => {
+      setStagedValues((prev) => {
+        const next = { ...prev };
+        if (stagedValue === null || stagedValue === '') {
+          delete next[actionKey];
+        } else {
+          next[actionKey] = stagedValue;
+        }
+        return next;
+      });
+    },
+    [],
+  );
+
+  const quickActionsWithStaged = useMemo(
+    () =>
+      state.quickActions.map((action) => ({
+        ...action,
+        stagedValue: stagedValues[action.key] ?? null,
+      })),
+    [state.quickActions, stagedValues],
+  );
 
   return {
     ...state,
+    quickActions: quickActionsWithStaged,
     refetch: fetchData,
     setPlan,
     addSession,
     updateStagedValue,
+    clearStagedValues,
   };
 }
-

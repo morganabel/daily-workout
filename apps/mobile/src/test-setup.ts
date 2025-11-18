@@ -3,16 +3,17 @@
  */
 
 // Mock React Native modules
+const mockNetInfo = {
+  fetch: jest.fn(() => Promise.resolve({ isConnected: true })),
+  addEventListener: jest.fn(() => () => {}),
+};
+
 jest.mock('@react-native-community/netinfo', () => ({
   __esModule: true,
-  default: {
-    fetch: jest.fn(),
-    addEventListener: jest.fn(),
-  },
+  default: mockNetInfo,
 }));
 
-// Note: expo-secure-store is mocked in jest.config.ts moduleNameMapper
-// Don't mock it here to avoid conflicts
+// expo-secure-store is mocked via moduleNameMapper to a local stub
 
 // Mock global fetch if not available
 if (typeof global.fetch === 'undefined') {
