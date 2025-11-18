@@ -79,10 +79,12 @@ const HeroCard = ({
   const isPending = generationStatus.state === 'pending' || generating;
   const overlayMessage =
     generationStatus.state === 'pending'
-      ? `Generating your workout${
-          generationStatus.etaSeconds ? ` (~${generationStatus.etaSeconds}s)` : '...'
+      ? `Crafting your workout${
+          generationStatus.etaSeconds
+            ? ` (~${generationStatus.etaSeconds}s)`
+            : ' — this can take ~20s'
         }`
-      : 'Finishing up...';
+      : 'Processing your request…';
   const errorMessage =
     generationStatus.state === 'error'
       ? generationStatus.message ?? 'Something went wrong. Please try again.'
@@ -297,11 +299,9 @@ const QuickActionRail = ({
     <View style={styles.sectionHeader}>
       <Text style={styles.sectionTitle}>Quick actions</Text>
       <View style={styles.sectionHeaderMeta}>
-        {pendingMessage ? (
-          <Text style={styles.sectionHint}>{pendingMessage}</Text>
-        ) : (
-          <Text style={styles.sectionHint}>Tweak context without leaving</Text>
-        )}
+        <Text style={styles.sectionHint} numberOfLines={2}>
+          {pendingMessage || 'Tweak context without leaving'}
+        </Text>
         {hasOverrides && (
           <Pressable onPress={onReset} style={styles.resetButton}>
             <Text style={styles.resetButtonText}>Reset</Text>
@@ -330,10 +330,14 @@ const QuickActionRail = ({
             onPress={() => onActionPress(action)}
           >
             <View style={styles.actionChipHeader}>
-              <Text style={styles.actionChipLabel}>{action.label}</Text>
+              <Text style={styles.actionChipLabel} numberOfLines={1}>
+                {action.label}
+              </Text>
               {staged && <View style={styles.actionChipDot} />}
             </View>
-            <Text style={styles.actionChipValue}>{displayValue}</Text>
+            <Text style={styles.actionChipValue} numberOfLines={1}>
+              {displayValue}
+            </Text>
           </Pressable>
         );
       })}
@@ -857,10 +861,9 @@ export const HomeScreen = () => {
   }, [generating, generationStatus.state]);
 
   const quickActionsLocked = generating || generationStatus.state === 'pending';
-  const pendingMessage =
-    generationStatus.state === 'pending'
-      ? 'Finishing current generation…'
-      : undefined;
+  const pendingMessage = quickActionsLocked
+    ? 'Hang tight while this workout finishes generating…'
+    : undefined;
   const hasOverrides = quickActions.some((action) => Boolean(action.stagedValue));
 
   useEffect(() => {
@@ -987,12 +990,6 @@ export const HomeScreen = () => {
       const newPlan = await generateWorkout(request);
       console.log('Generated plan:', newPlan);
       setPlan(newPlan);
-
-      try {
-        await refetch();
-      } catch (refreshError) {
-        console.warn('Failed to refresh snapshot after generation', refreshError);
-      }
     } catch (err) {
       const apiError = err as ApiError;
       console.error('Failed to generate workout:', apiError);
@@ -1248,13 +1245,18 @@ const styles = StyleSheet.create({
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
+    flexWrap: 'wrap',
+    gap: 8,
     marginBottom: 12,
   },
   sectionHeaderMeta: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
+    flexShrink: 1,
+    flexWrap: 'wrap',
+    justifyContent: 'flex-end',
   },
   sectionTitle: {
     color: palette.textPrimary,
@@ -1264,6 +1266,7 @@ const styles = StyleSheet.create({
   sectionHint: {
     color: palette.textMuted,
     fontSize: 13,
+    flexShrink: 1,
   },
   quickActionScroll: {
     gap: 12,
@@ -1276,6 +1279,7 @@ const styles = StyleSheet.create({
     borderColor: palette.border,
     borderWidth: 1,
     marginRight: 12,
+    minWidth: 110,
   },
   actionChipStaged: {
     borderColor: palette.accent,
@@ -1300,6 +1304,7 @@ const styles = StyleSheet.create({
     color: palette.textMuted,
     fontSize: 12,
     marginTop: 4,
+    flexShrink: 1,
   },
   activityLoading: {
     minHeight: 120,

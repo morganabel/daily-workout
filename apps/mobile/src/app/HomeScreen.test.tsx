@@ -66,7 +66,7 @@ describe('HomeScreen', () => {
       jest.advanceTimersByTime(500);
     });
 
-    expect(getByText(/Generating your workout/)).toBeTruthy();
+    expect(getByText(/Crafting your workout/i)).toBeTruthy();
   });
 
   it('renders staged quick action value and reset control', async () => {

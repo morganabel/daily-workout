@@ -16,6 +16,44 @@ import type {
 import NetInfo from '@react-native-community/netinfo';
 import { getDeviceToken } from '../storage/deviceToken';
 
+const DEFAULT_QUICK_ACTIONS: QuickActionPreset[] = [
+  {
+    key: 'time',
+    label: 'Time',
+    value: '30',
+    description: '30 min',
+    stagedValue: null,
+  },
+  {
+    key: 'focus',
+    label: 'Focus',
+    value: 'Upper body',
+    description: 'Upper body',
+    stagedValue: null,
+  },
+  {
+    key: 'equipment',
+    label: 'Equipment',
+    value: 'Dumbbells',
+    description: 'Dumbbells',
+    stagedValue: null,
+  },
+  {
+    key: 'energy',
+    label: 'Energy',
+    value: 'Moderate',
+    description: 'Moderate energy',
+    stagedValue: null,
+  },
+  {
+    key: 'backfill',
+    label: 'Backfill',
+    value: 'Today',
+    description: 'Log past session',
+    stagedValue: null,
+  },
+];
+
 export type HomeDataState = {
   status: 'loading' | 'ready' | 'error';
   plan: HomeSnapshot['plan'];
@@ -46,7 +84,7 @@ export function useHomeData(): HomeDataState & {
     status: 'loading',
     plan: null,
     recentSessions: [],
-    quickActions: [],
+    quickActions: DEFAULT_QUICK_ACTIONS,
     offlineHint: {
       offline: false,
       requiresApiKey: false,
@@ -158,16 +196,16 @@ export function useHomeData(): HomeDataState & {
 
     try {
       const snapshot = await fetchHomeSnapshot();
-      setState({
+      setState((prev) => ({
+        ...prev,
         status: 'ready',
         plan: snapshot.plan,
         recentSessions: snapshot.recentSessions,
-        quickActions: snapshot.quickActions,
         offlineHint: snapshot.offlineHint,
         isOffline: snapshot.offlineHint.offline || false,
         error: null,
         generationStatus: snapshot.generationStatus,
-      });
+      }));
     } catch (error) {
       const apiError = error as ApiError;
       setState((prev) => ({
