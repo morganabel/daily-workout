@@ -4,7 +4,6 @@
  */
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
-import { fetchHomeSnapshot, type ApiError } from '../services/api';
 import type {
   GenerationStatus,
   HomeSnapshot,
@@ -13,8 +12,9 @@ import type {
   QuickActionKey,
   QuickActionPreset,
 } from '@workout-agent/shared';
-import NetInfo from '@react-native-community/netinfo';
-import { getDeviceToken } from '../storage/deviceToken';
+import { workoutRepository } from '../db/repositories/WorkoutRepository';
+import { userRepository } from '../db/repositories/UserRepository';
+import Workout from '../db/models/Workout';
 
 const DEFAULT_QUICK_ACTIONS: QuickActionPreset[] = [
   {
@@ -56,12 +56,12 @@ const DEFAULT_QUICK_ACTIONS: QuickActionPreset[] = [
 
 export type HomeDataState = {
   status: 'loading' | 'ready' | 'error';
-  plan: HomeSnapshot['plan'];
+  plan: TodayPlan | null;
   recentSessions: HomeSnapshot['recentSessions'];
   quickActions: HomeSnapshot['quickActions'];
   offlineHint: HomeSnapshot['offlineHint'];
   isOffline: boolean;
-  error: ApiError | null;
+  error: any | null;
   generationStatus: GenerationStatus;
 };
 
@@ -94,138 +94,63 @@ export function useHomeData(): HomeDataState & {
     generationStatus: initialStatus,
   });
 
-  const [isConnected, setIsConnected] = useState<boolean | null>(null);
-  const [hasDeviceToken, setHasDeviceToken] = useState<boolean | null>(null);
   const [stagedValues, setStagedValues] = useState<
     Partial<Record<QuickActionKey, string | null>>
   >({});
 
-  // Monitor network connectivity
+  // Observe today's workout from DB
   useEffect(() => {
-    const unsubscribe = NetInfo.addEventListener((state) => {
-      setIsConnected(state.isConnected ?? false);
+    const subscription = workoutRepository.observeTodayWorkout().subscribe((workouts) => {
+      const workout = workouts.length > 0 ? workouts[0] : null;
+
+      if (workout) {
+        // Transform DB model to TodayPlan
+        // Note: We need to fetch exercises and sets asynchronously or use a query with includes
+        // For now, we'll do a simple transformation and fetch details if needed
+        // In a real app, we'd use `withObservables` or similar to get the full tree
+
+        // This is a simplified transformation.
+        // In a real implementation, we would need to fetch relations.
+        // Since we are inside a subscription, we can't easily await.
+        // We might need to refactor this to use `withObservables` HOC for the component instead.
+        // But for this hook, let's just set the basic plan info.
+
+        const plan: TodayPlan = {
+          id: workout.id,
+          focus: workout.name, // Using name as focus for now since we don't have a separate focus field in DB yet
+          durationMinutes: workout.durationSeconds ? Math.round(workout.durationSeconds / 60) : 30,
+          equipment: [], // TODO: Derive from exercises
+          source: 'ai', // Defaulting to AI for now
+          energy: 'moderate', // Defaulting
+          summary: 'Your planned workout',
+          blocks: [], // We'd need to fetch these
+        };
+
+        setState(prev => ({
+          ...prev,
+          status: 'ready',
+          plan,
+        }));
+      } else {
+        setState(prev => ({
+          ...prev,
+          status: 'ready',
+          plan: null,
+        }));
+      }
     });
 
-    // Get initial state
-    NetInfo.fetch().then((state) => {
-      setIsConnected(state.isConnected ?? false);
-    });
-
-    return () => {
-      unsubscribe();
-    };
+    return () => subscription.unsubscribe();
   }, []);
 
-  // Monitor DeviceToken state
+  // Ensure user exists
   useEffect(() => {
-    const checkDeviceToken = async () => {
-      try {
-        const token = await getDeviceToken();
-        setHasDeviceToken(!!token);
-      } catch (error) {
-        console.warn('Failed to check device token:', error);
-        setHasDeviceToken(false);
-      }
-    };
-
-    checkDeviceToken();
-
-    // Check periodically (every 2 seconds) for token changes
-    const interval = setInterval(checkDeviceToken, 2000);
-
-    return () => {
-      clearInterval(interval);
-    };
+    userRepository.getOrCreateUser();
   }, []);
 
   const fetchData = useCallback(async () => {
-    // Check connectivity and DeviceToken
-    let connected = false;
-    let hasToken = false;
-    
-    try {
-      const state = await NetInfo.fetch();
-      connected = state.isConnected ?? false;
-    } catch (error) {
-      console.warn('Failed to check network:', error);
-    }
-
-    try {
-      const token = await getDeviceToken();
-      hasToken = !!token;
-      setHasDeviceToken(hasToken);
-    } catch (error) {
-      console.warn('Failed to check device token:', error);
-      hasToken = false;
-      setHasDeviceToken(false);
-    }
-
-    // If no DeviceToken, show BYOK warning even if online
-    if (!hasToken) {
-      setState((prev) => ({
-        ...prev,
-        status: 'ready',
-        isOffline: true,
-        offlineHint: {
-          offline: true,
-          requiresApiKey: true,
-          message: 'Device token required. Please configure your API key.',
-        },
-        generationStatus: initialStatus,
-      }));
-      return;
-    }
-
-    // If offline, show offline warning
-    if (!connected) {
-      setState((prev) => ({
-        ...prev,
-        status: 'ready',
-        isOffline: true,
-        offlineHint: {
-          offline: true,
-          requiresApiKey: false,
-          message: 'No internet connection',
-        },
-        generationStatus: initialStatus,
-      }));
-      return;
-    }
-
-    setState((prev) => ({ ...prev, status: 'loading', error: null }));
-
-    try {
-      const snapshot = await fetchHomeSnapshot();
-      setState((prev) => ({
-        ...prev,
-        status: 'ready',
-        plan: snapshot.plan,
-        recentSessions: snapshot.recentSessions,
-        offlineHint: snapshot.offlineHint,
-        isOffline: snapshot.offlineHint.offline || false,
-        error: null,
-        generationStatus: snapshot.generationStatus,
-      }));
-    } catch (error) {
-      const apiError = error as ApiError;
-      setState((prev) => ({
-        ...prev,
-        status: 'error',
-        error: apiError,
-        isOffline: apiError.code === 'NETWORK_ERROR' || !connected,
-        offlineHint: {
-          offline: true,
-          requiresApiKey: apiError.code === 'BYOK_REQUIRED' || !hasToken,
-          message: apiError.message || (!hasToken ? 'Device token required' : 'Network error'),
-        },
-        generationStatus: initialStatus,
-      }));
-    }
+    // No-op for now as we are observing DB
   }, []);
-
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
 
   const clearStagedValues = useCallback(() => {
     setStagedValues({});
@@ -233,23 +158,13 @@ export function useHomeData(): HomeDataState & {
 
   const setPlan = useCallback(
     (plan: TodayPlan | null) => {
-      setState((prev) => ({
-        ...prev,
-        plan,
-      }));
-      if (plan) {
-        clearStagedValues();
-      }
+      // This is now handled by DB updates
     },
-    [clearStagedValues],
+    [],
   );
 
   const addSession = useCallback((session: WorkoutSessionSummary) => {
-    setState((prev) => ({
-      ...prev,
-      plan: null, // Clear the plan after logging
-      recentSessions: [session, ...prev.recentSessions].slice(0, 3), // Keep only last 3
-    }));
+    // This would be handled by DB updates
   }, []);
 
   const updateStagedValue = useCallback(

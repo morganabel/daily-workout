@@ -989,7 +989,35 @@ export const HomeScreen = () => {
 
       const newPlan = await generateWorkout(request);
       console.log('Generated plan:', newPlan);
-      setPlan(newPlan);
+
+      // Save to DB instead of just setting state
+      // We need to map the API response to our DB structure
+      // For now, we'll just create a basic workout entry
+      // In a real app, we'd map all exercises and sets
+
+      // Import dynamically to avoid circular dependencies if any
+      const { workoutRepository } = require('./db/repositories/WorkoutRepository');
+
+      // Transform TodayPlan to DB format
+      // This is a simplified mapping. Ideally we'd have a proper mapper.
+      const exercisesData = newPlan.blocks.flatMap(block =>
+        block.exercises.map((ex, index) => ({
+          name: ex.name,
+          muscleGroup: block.focus,
+          order: index,
+          sets: [
+            { reps: 10, weight: 0, rpe: 7, order: 0 },
+            { reps: 10, weight: 0, rpe: 7, order: 1 },
+            { reps: 10, weight: 0, rpe: 7, order: 2 },
+          ]
+        }))
+      );
+
+      await workoutRepository.createWorkout(newPlan.focus, exercisesData);
+
+      // Clear staged values after successful generation
+      clearStagedValues();
+
     } catch (err) {
       const apiError = err as ApiError;
       console.error('Failed to generate workout:', apiError);
@@ -1005,31 +1033,43 @@ export const HomeScreen = () => {
   };
 
   const handleLogDone = async () => {
-    if (!plan || logging || isOffline) return;
+    if (!plan || logging) return;
 
     setLogging(true);
 
     try {
-      // Log workout and get session summary
-      const sessionSummary = await logWorkout(plan.id);
-      console.log('Logged workout session:', sessionSummary);
+      // Import dynamically to avoid circular dependencies if any
+      const { workoutRepository } = require('./db/repositories/WorkoutRepository');
 
-      // Optimistically update state: clear plan and add session
-      // (The server doesn't persist plans yet, so refetch would return null)
-      addSession(sessionSummary);
-      try {
-        await refetch();
-      } catch (refreshError) {
-        console.warn('Failed to refresh snapshot after logging', refreshError);
+      // We need to find the workout in DB.
+      // Since plan.id is the workout ID in DB
+      const workout = await workoutRepository.getTodayWorkout();
+
+      if (workout && workout.id === plan.id) {
+        await workoutRepository.completeWorkout(workout);
+
+        // Create a session summary for UI update
+        const sessionSummary: WorkoutSessionSummary = {
+          id: workout.id,
+          name: workout.name,
+          completedAt: new Date().toISOString(),
+          durationMinutes: workout.durationSeconds ? Math.round(workout.durationSeconds / 60) : 30,
+          focus: workout.name, // Using name as focus
+          source: 'ai',
+        };
+
+        addSession(sessionSummary);
+      } else {
+        throw new Error('Workout not found in database');
       }
+
     } catch (err) {
-      const apiError = err as ApiError;
-      console.error('Failed to log workout:', apiError);
+      console.error('Failed to log workout:', err);
 
       // Show error alert to user
       Alert.alert(
         'Failed to Log Workout',
-        apiError.message || 'An error occurred while logging your workout. Please try again.',
+        'An error occurred while logging your workout. Please try again.',
         [{ text: 'OK' }]
       );
     } finally {

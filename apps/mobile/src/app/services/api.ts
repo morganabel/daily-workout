@@ -10,6 +10,7 @@ import type {
 } from '@workout-agent/shared';
 import { getDeviceToken } from '../storage/deviceToken';
 import { getByokApiKey } from '../storage/byokKey';
+import { userRepository } from '../db/repositories/UserRepository';
 
 const API_BASE_URL =
   process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:3000';
@@ -99,9 +100,28 @@ export async function fetchHomeSnapshot(): Promise<HomeSnapshot> {
 export async function generateWorkout(
   request: GenerationRequest,
 ): Promise<TodayPlan> {
+  // Enrich request with user context from DB
+  const user = await userRepository.getUser();
+  let context = {};
+  if (user && user.preferences) {
+    try {
+      context = JSON.parse(user.preferences);
+    } catch (e) {
+      console.warn('Failed to parse user preferences for context', e);
+    }
+  }
+
+  // Merge context into request notes if needed, or send as separate field if API supports it
+  // For now, we'll append to notes
+  const contextString = JSON.stringify(context);
+  const enrichedRequest = {
+    ...request,
+    notes: request.notes ? `${request.notes} \n\n Context: ${contextString}` : `Context: ${contextString}`,
+  };
+
   return apiRequest<TodayPlan>('/api/workouts/generate', {
     method: 'POST',
-    body: JSON.stringify(request),
+    body: JSON.stringify(enrichedRequest),
   });
 }
 

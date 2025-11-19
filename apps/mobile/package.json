@@ -8,10 +8,8 @@
     "ios": "expo run:ios"
   },
   "dependencies": {
-    "@react-native-community/netinfo": "*",
-    "expo-secure-store": "*",
-    "@workout-agent/shared": "*",
     "@expo/metro-config": "*",
+    "@nozbe/watermelondb": "^0.28.0",
     "@nx/detox": "*",
     "@nx/devkit": "*",
     "@nx/eslint": "*",
@@ -20,11 +18,14 @@
     "@nx/js": "*",
     "@nx/react": "*",
     "@nx/rollup": "*",
+    "@react-native-community/netinfo": "*",
     "@react-navigation/native": "*",
     "@react-navigation/native-stack": "*",
     "@testing-library/react-native": "*",
+    "@workout-agent/shared": "*",
     "enhanced-resolve": "*",
     "expo": "*",
+    "expo-secure-store": "*",
     "expo-splash-screen": "*",
     "expo-status-bar": "*",
     "expo-system-ui": "*",
@@ -35,12 +36,14 @@
     "react": "*",
     "react-native": "*",
     "react-native-safe-area-context": "5.4.0",
+    "react-native-screens": "*",
     "react-native-svg": "*",
     "react-native-svg-transformer": "*",
     "react-native-web": "*",
     "tsconfig-paths": "*",
-    "tslib": "*",
-    "react-native-screens": "*"
+    "tslib": "*"
   },
-  "devDependencies": {}
+  "devDependencies": {
+    "@babel/plugin-proposal-decorators": "^7.28.0"
+  }
 }
