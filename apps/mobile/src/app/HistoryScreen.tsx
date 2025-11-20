@@ -1,13 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-} from 'react-native';
-import { database } from './db';
-import Workout from './db/models/Workout';
-import { Q } from '@nozbe/watermelondb';
+import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
+import type { WorkoutSessionSummary } from '@workout-agent/shared';
+import { workoutRepository } from './db/repositories/WorkoutRepository';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { RootStackParamList } from './navigation';
 
 const palette = {
   background: '#030914',
@@ -23,18 +20,21 @@ const palette = {
   destructive: '#ff6b6b',
 };
 
+type HistoryNav = NativeStackNavigationProp<RootStackParamList, 'History'>;
+
 export const HistoryScreen = () => {
-  const [history, setHistory] = useState<Workout[]>([]);
+  const [history, setHistory] = useState<WorkoutSessionSummary[]>([]);
+  const navigation = useNavigation<HistoryNav>();
 
   useEffect(() => {
-    const subscription = database.collections
-      .get<Workout>('workouts')
-      .query(
-        Q.where('status', 'completed'),
-        Q.sortBy('completed_at', Q.desc)
-      )
-      .observe()
-      .subscribe(setHistory);
+    const subscription = workoutRepository
+      .observeRecentSessions(50)
+      .subscribe((workouts) => {
+        const summaries = workouts.map((workout) =>
+          workoutRepository.toSessionSummary(workout),
+        );
+        setHistory(summaries);
+      });
 
     return () => subscription.unsubscribe();
   }, []);
@@ -42,16 +42,22 @@ export const HistoryScreen = () => {
   return (
     <View style={styles.screen}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        <Text style={styles.screenTitle}>History</Text>
+        <View style={styles.headerRow}>
+          <Pressable style={styles.closeButton} onPress={() => navigation.goBack()}>
+            <Text style={styles.closeButtonText}>Close</Text>
+          </Pressable>
+          <Text style={styles.screenTitle}>History</Text>
+        </View>
 
         {history.length === 0 ? (
           <Text style={styles.emptyText}>No completed workouts yet.</Text>
         ) : (
-          history.map((workout) => (
-            <View key={workout.id} style={styles.card}>
-              <Text style={styles.workoutName}>{workout.name}</Text>
+          history.map((session) => (
+            <View key={session.id} style={styles.card}>
+              <Text style={styles.workoutName}>{session.name}</Text>
+              <Text style={styles.workoutFocus}>{session.focus}</Text>
               <Text style={styles.workoutMeta}>
-                {new Date(workout.completedAt!).toLocaleDateString()} • {Math.round((workout.durationSeconds || 0) / 60)} min
+                {new Date(session.completedAt).toLocaleDateString()} • {session.durationMinutes} min
               </Text>
             </View>
           ))
@@ -70,12 +76,28 @@ const styles = StyleSheet.create({
     padding: 20,
     paddingBottom: 100,
   },
-  screenTitle: {
-    fontSize: 32,
-    fontWeight: '800',
-    color: palette.textPrimary,
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 16,
     marginBottom: 24,
-    marginTop: 60,
+  },
+  screenTitle: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: palette.textPrimary,
+  },
+  closeButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: palette.border,
+  },
+  closeButtonText: {
+    color: palette.textSecondary,
+    fontWeight: '600',
   },
   card: {
     backgroundColor: palette.card,
@@ -90,6 +112,13 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: palette.textPrimary,
     marginBottom: 4,
+  },
+  workoutFocus: {
+    fontSize: 14,
+    color: palette.textMuted,
+    marginBottom: 4,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
   },
   workoutMeta: {
     fontSize: 14,

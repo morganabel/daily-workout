@@ -3,7 +3,7 @@
  * Replaces useMockedHomeData with real API calls
  */
 
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import type {
   GenerationStatus,
   HomeSnapshot,
@@ -12,9 +12,10 @@ import type {
   QuickActionKey,
   QuickActionPreset,
 } from '@workout-agent/shared';
+import NetInfo from '@react-native-community/netinfo';
 import { workoutRepository } from '../db/repositories/WorkoutRepository';
 import { userRepository } from '../db/repositories/UserRepository';
-import Workout from '../db/models/Workout';
+import type Workout from '../db/models/Workout';
 
 const DEFAULT_QUICK_ACTIONS: QuickActionPreset[] = [
   {
@@ -70,8 +71,6 @@ export type HomeDataState = {
  */
 export function useHomeData(): HomeDataState & {
   refetch: () => Promise<void>;
-  setPlan: (plan: TodayPlan | null) => void;
-  addSession: (session: WorkoutSessionSummary) => void;
   updateStagedValue: (actionKey: QuickActionKey, stagedValue: string | null) => void;
   clearStagedValues: () => void;
 } {
@@ -93,78 +92,123 @@ export function useHomeData(): HomeDataState & {
     error: null,
     generationStatus: initialStatus,
   });
+  const isMountedRef = useRef(true);
 
   const [stagedValues, setStagedValues] = useState<
     Partial<Record<QuickActionKey, string | null>>
   >({});
 
-  // Observe today's workout from DB
   useEffect(() => {
-    const subscription = workoutRepository.observeTodayWorkout().subscribe((workouts) => {
-      const workout = workouts.length > 0 ? workouts[0] : null;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
-      if (workout) {
-        // Transform DB model to TodayPlan
-        // Note: We need to fetch exercises and sets asynchronously or use a query with includes
-        // For now, we'll do a simple transformation and fetch details if needed
-        // In a real app, we'd use `withObservables` or similar to get the full tree
+  const hydrateWorkoutPlan = useCallback(
+    async (workout: Workout | null) => {
+      if (!isMountedRef.current) return;
 
-        // This is a simplified transformation.
-        // In a real implementation, we would need to fetch relations.
-        // Since we are inside a subscription, we can't easily await.
-        // We might need to refactor this to use `withObservables` HOC for the component instead.
-        // But for this hook, let's just set the basic plan info.
-
-        const plan: TodayPlan = {
-          id: workout.id,
-          focus: workout.name, // Using name as focus for now since we don't have a separate focus field in DB yet
-          durationMinutes: workout.durationSeconds ? Math.round(workout.durationSeconds / 60) : 30,
-          equipment: [], // TODO: Derive from exercises
-          source: 'ai', // Defaulting to AI for now
-          energy: 'moderate', // Defaulting
-          summary: 'Your planned workout',
-          blocks: [], // We'd need to fetch these
-        };
-
-        setState(prev => ({
-          ...prev,
-          status: 'ready',
-          plan,
-        }));
-      } else {
-        setState(prev => ({
+      if (!workout) {
+        setState((prev) => ({
           ...prev,
           status: 'ready',
           plan: null,
+          error: null,
+        }));
+        return;
+      }
+
+      try {
+        const plan = await workoutRepository.mapWorkoutToPlan(workout);
+        if (!isMountedRef.current) return;
+        setState((prev) => ({
+          ...prev,
+          status: 'ready',
+          plan,
+          error: null,
+        }));
+      } catch (error) {
+        if (!isMountedRef.current) return;
+        console.error('Failed to hydrate workout plan', error);
+        setState((prev) => ({
+          ...prev,
+          status: 'error',
+          error,
         }));
       }
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-
-  // Ensure user exists
-  useEffect(() => {
-    userRepository.getOrCreateUser();
-  }, []);
-
-  const fetchData = useCallback(async () => {
-    // No-op for now as we are observing DB
-  }, []);
-
-  const clearStagedValues = useCallback(() => {
-    setStagedValues({});
-  }, []);
-
-  const setPlan = useCallback(
-    (plan: TodayPlan | null) => {
-      // This is now handled by DB updates
     },
     [],
   );
 
-  const addSession = useCallback((session: WorkoutSessionSummary) => {
-    // This would be handled by DB updates
+  // Observe today's workout from DB
+  useEffect(() => {
+    const subscription = workoutRepository.observeTodayWorkout().subscribe((workouts) => {
+      const workout = workouts.length > 0 ? workouts[0] : null;
+      void hydrateWorkoutPlan(workout);
+    });
+
+    const recentSubscription = workoutRepository
+      .observeRecentSessions()
+      .subscribe((recentWorkouts) => {
+        if (!isMountedRef.current) return;
+        const summaries = recentWorkouts.map((workout) =>
+          workoutRepository.toSessionSummary(workout),
+        );
+        setState((prev) => ({
+          ...prev,
+          recentSessions: summaries,
+        }));
+      });
+
+    return () => {
+      subscription.unsubscribe();
+      recentSubscription.unsubscribe();
+    };
+  }, [hydrateWorkoutPlan]);
+
+  // Offline detection
+  useEffect(() => {
+    const unsubscribe = NetInfo.addEventListener((netInfo) => {
+      const isOffline = !(netInfo.isConnected && netInfo.isInternetReachable !== false);
+      if (!isMountedRef.current) return;
+      setState((prev) => ({
+        ...prev,
+        isOffline,
+        offlineHint: {
+          ...prev.offlineHint,
+          offline: isOffline,
+        },
+      }));
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  // Ensure user exists
+  useEffect(() => {
+    void userRepository.getOrCreateUser();
+  }, []);
+
+  const fetchData = useCallback(async () => {
+    setState((prev) => ({
+      ...prev,
+      status: 'loading',
+    }));
+    try {
+      const workout = await workoutRepository.getTodayWorkout();
+      await hydrateWorkoutPlan(workout);
+    } catch (error) {
+      if (!isMountedRef.current) return;
+      setState((prev) => ({
+        ...prev,
+        status: 'error',
+        error,
+      }));
+    }
+  }, [hydrateWorkoutPlan]);
+
+  const clearStagedValues = useCallback(() => {
+    setStagedValues({});
   }, []);
 
   const updateStagedValue = useCallback(
@@ -195,8 +239,6 @@ export function useHomeData(): HomeDataState & {
     ...state,
     quickActions: quickActionsWithStaged,
     refetch: fetchData,
-    setPlan,
-    addSession,
     updateStagedValue,
     clearStagedValues,
   };

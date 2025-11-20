@@ -6,6 +6,8 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { HomeScreen } from './HomeScreen';
 import { WorkoutPreviewScreen } from './WorkoutPreviewScreen';
 import { RootStackParamList } from './navigation';
+import { HistoryScreen } from './HistoryScreen';
+import { SettingsScreen } from './SettingsScreen';
 
 const backgroundColor = '#030914';
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -25,6 +27,8 @@ export const App = () => (
         >
           <Stack.Screen name="Home" component={HomeScreen} />
           <Stack.Screen name="WorkoutPreview" component={WorkoutPreviewScreen} />
+          <Stack.Screen name="History" component={HistoryScreen} />
+          <Stack.Screen name="Settings" component={SettingsScreen} />
         </Stack.Navigator>
       </SafeAreaView>
     </NavigationContainer>

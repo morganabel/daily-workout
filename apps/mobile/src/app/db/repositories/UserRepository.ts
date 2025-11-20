@@ -27,7 +27,7 @@ export class UserRepository {
     return this.users.query(Q.take(1)).observe();
   }
 
-  async updatePreferences(preferences: any) {
+  async updatePreferences(preferences: Record<string, unknown>) {
     const user = await this.getOrCreateUser();
     await database.write(async () => {
       await user.update(u => {

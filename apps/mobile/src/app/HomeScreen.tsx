@@ -23,13 +23,14 @@ import {
   type GenerationStatus,
 } from '@workout-agent/shared';
 import { useHomeData } from './hooks/useHomeData';
-import { generateWorkout, logWorkout, type ApiError } from './services/api';
+import { generateWorkout, type ApiError } from './services/api';
 import {
   getByokApiKey,
   setByokApiKey,
   removeByokApiKey,
 } from './storage/byokKey';
 import { RootStackParamList } from './navigation';
+import { workoutRepository } from './db/repositories/WorkoutRepository';
 
 const palette = {
   background: '#030914',
@@ -348,9 +349,10 @@ const QuickActionRail = ({
 type ActivitySectionProps = {
   sessions: WorkoutSessionSummary[];
   loading: boolean;
+  onViewHistory: () => void;
 };
 
-const ActivitySection = ({ sessions, loading }: ActivitySectionProps) => {
+const ActivitySection = ({ sessions, loading, onViewHistory }: ActivitySectionProps) => {
   if (loading) {
     return (
       <View style={styles.card}>
@@ -383,7 +385,7 @@ const ActivitySection = ({ sessions, loading }: ActivitySectionProps) => {
     <View style={styles.card}>
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>Recent activity</Text>
-        <Pressable style={styles.historyLink}>
+        <Pressable style={styles.historyLink} onPress={onViewHistory}>
           <Text style={styles.historyLinkText}>View history</Text>
         </Pressable>
       </View>
@@ -701,9 +703,11 @@ const OfflineBanner = ({
 const TopBar = ({
   onConfigure,
   hasByokKey,
+  onOpenMenu,
 }: {
   onConfigure: () => void;
   hasByokKey: boolean;
+  onOpenMenu: () => void;
 }) => (
   <View style={styles.topBar}>
     <View>
@@ -716,7 +720,7 @@ const TopBar = ({
           {hasByokKey ? 'BYOK ✓' : 'BYOK'}
         </Text>
       </Pressable>
-      <Pressable style={styles.iconButton}>
+      <Pressable style={styles.iconButton} onPress={onOpenMenu}>
         <Text style={styles.iconButtonText}>⋯</Text>
       </Pressable>
     </View>
@@ -830,8 +834,6 @@ export const HomeScreen = () => {
     isOffline,
     offlineHint,
     refetch,
-    setPlan,
-    addSession,
     updateStagedValue,
     generationStatus,
     clearStagedValues,
@@ -924,6 +926,14 @@ export const HomeScreen = () => {
     openByokSheet();
   };
 
+  const handleOpenSettings = () => {
+    navigation.navigate('Settings');
+  };
+
+  const handleOpenHistory = () => {
+    navigation.navigate('History');
+  };
+
   const handlePreviewNavigation = () => {
     if (plan) {
       navigation.navigate('WorkoutPreview', { plan });
@@ -986,36 +996,9 @@ export const HomeScreen = () => {
       }
 
       console.log('Generating workout with request:', request);
+      await generateWorkout(request);
+      console.log('Workout plan persisted locally');
 
-      const newPlan = await generateWorkout(request);
-      console.log('Generated plan:', newPlan);
-
-      // Save to DB instead of just setting state
-      // We need to map the API response to our DB structure
-      // For now, we'll just create a basic workout entry
-      // In a real app, we'd map all exercises and sets
-
-      // Import dynamically to avoid circular dependencies if any
-      const { workoutRepository } = require('./db/repositories/WorkoutRepository');
-
-      // Transform TodayPlan to DB format
-      // This is a simplified mapping. Ideally we'd have a proper mapper.
-      const exercisesData = newPlan.blocks.flatMap(block =>
-        block.exercises.map((ex, index) => ({
-          name: ex.name,
-          muscleGroup: block.focus,
-          order: index,
-          sets: [
-            { reps: 10, weight: 0, rpe: 7, order: 0 },
-            { reps: 10, weight: 0, rpe: 7, order: 1 },
-            { reps: 10, weight: 0, rpe: 7, order: 2 },
-          ]
-        }))
-      );
-
-      await workoutRepository.createWorkout(newPlan.focus, exercisesData);
-
-      // Clear staged values after successful generation
       clearStagedValues();
 
     } catch (err) {
@@ -1038,31 +1021,7 @@ export const HomeScreen = () => {
     setLogging(true);
 
     try {
-      // Import dynamically to avoid circular dependencies if any
-      const { workoutRepository } = require('./db/repositories/WorkoutRepository');
-
-      // We need to find the workout in DB.
-      // Since plan.id is the workout ID in DB
-      const workout = await workoutRepository.getTodayWorkout();
-
-      if (workout && workout.id === plan.id) {
-        await workoutRepository.completeWorkout(workout);
-
-        // Create a session summary for UI update
-        const sessionSummary: WorkoutSessionSummary = {
-          id: workout.id,
-          name: workout.name,
-          completedAt: new Date().toISOString(),
-          durationMinutes: workout.durationSeconds ? Math.round(workout.durationSeconds / 60) : 30,
-          focus: workout.name, // Using name as focus
-          source: 'ai',
-        };
-
-        addSession(sessionSummary);
-      } else {
-        throw new Error('Workout not found in database');
-      }
-
+      await workoutRepository.completeWorkoutById(plan.id);
     } catch (err) {
       console.error('Failed to log workout:', err);
 
@@ -1079,7 +1038,11 @@ export const HomeScreen = () => {
 
   return (
     <View style={styles.screen}>
-      <TopBar onConfigure={handleConfigure} hasByokKey={hasByokKey} />
+      <TopBar
+        onConfigure={handleConfigure}
+        hasByokKey={hasByokKey}
+        onOpenMenu={handleOpenSettings}
+      />
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -1116,6 +1079,7 @@ export const HomeScreen = () => {
         <ActivitySection
           sessions={recentSessions}
           loading={status === 'loading'}
+          onViewHistory={handleOpenHistory}
         />
       </ScrollView>
       <BottomActionBar onQuickLog={() => setSelectedAction(quickActions[4] ?? null)} />

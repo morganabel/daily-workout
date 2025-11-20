@@ -1,14 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  Pressable,
-  ScrollView,
-  TextInput,
-  Alert,
-} from 'react-native';
+import { View, Text, StyleSheet, Pressable, ScrollView, TextInput } from 'react-native';
 import { userRepository } from './db/repositories/UserRepository';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { RootStackParamList } from './navigation';
 
 const palette = {
   background: '#030914',
@@ -24,9 +19,11 @@ const palette = {
   destructive: '#ff6b6b',
 };
 
+type SettingsNav = NativeStackNavigationProp<RootStackParamList, 'Settings'>;
+
 export const SettingsScreen = () => {
   const [preferences, setPreferences] = useState<any>({});
-  const [loading, setLoading] = useState(true);
+  const navigation = useNavigation<SettingsNav>();
 
   useEffect(() => {
     const subscription = userRepository.observeUser().subscribe((users) => {
@@ -38,7 +35,6 @@ export const SettingsScreen = () => {
           console.error('Failed to parse preferences', e);
         }
       }
-      setLoading(false);
     });
 
     return () => subscription.unsubscribe();
@@ -53,7 +49,12 @@ export const SettingsScreen = () => {
   return (
     <View style={styles.screen}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        <Text style={styles.screenTitle}>Settings</Text>
+        <View style={styles.headerRow}>
+          <Pressable style={styles.closeButton} onPress={() => navigation.goBack()}>
+            <Text style={styles.closeButtonText}>Close</Text>
+          </Pressable>
+          <Text style={styles.screenTitle}>Settings</Text>
+        </View>
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Preferences</Text>
@@ -91,12 +92,28 @@ const styles = StyleSheet.create({
     padding: 20,
     paddingBottom: 100,
   },
-  screenTitle: {
-    fontSize: 32,
-    fontWeight: '800',
-    color: palette.textPrimary,
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 16,
     marginBottom: 24,
-    marginTop: 60,
+  },
+  screenTitle: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: palette.textPrimary,
+  },
+  closeButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: palette.border,
+  },
+  closeButtonText: {
+    color: palette.textSecondary,
+    fontWeight: '600',
   },
   section: {
     marginBottom: 24,

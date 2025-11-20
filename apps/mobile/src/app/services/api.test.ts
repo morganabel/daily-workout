@@ -4,12 +4,31 @@
 
 import { fetchHomeSnapshot, generateWorkout, logWorkout } from './api';
 import { getDeviceToken } from '../storage/deviceToken';
+import { getByokApiKey } from '../storage/byokKey';
+import { userRepository } from '../db/repositories/UserRepository';
+import { workoutRepository } from '../db/repositories/WorkoutRepository';
 import { createHomeSnapshotMock, createTodayPlanMock, createSessionSummaryMock } from '@workout-agent/shared';
 
 // Mock dependencies
 jest.mock('../storage/deviceToken');
+jest.mock('../storage/byokKey');
+jest.mock('../db/repositories/UserRepository', () => ({
+  userRepository: {
+    getUser: jest.fn(),
+  },
+}));
+jest.mock('../db/repositories/WorkoutRepository', () => ({
+  workoutRepository: {
+    saveGeneratedPlan: jest.fn(),
+  },
+}));
 
 const mockGetDeviceToken = getDeviceToken as jest.MockedFunction<typeof getDeviceToken>;
+const mockGetByokKey = getByokApiKey as jest.MockedFunction<typeof getByokApiKey>;
+const mockGetUser = userRepository.getUser as jest.MockedFunction<typeof userRepository.getUser>;
+const mockSaveGeneratedPlan = workoutRepository.saveGeneratedPlan as jest.MockedFunction<
+  typeof workoutRepository.saveGeneratedPlan
+>;
 
 // Mock global fetch
 global.fetch = jest.fn();
@@ -20,6 +39,9 @@ describe('API client', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockGetDeviceToken.mockResolvedValue('test-token-123');
+    mockGetByokKey.mockResolvedValue(null);
+    mockGetUser.mockResolvedValue(null);
+    mockSaveGeneratedPlan.mockResolvedValue(undefined);
   });
 
   describe('fetchHomeSnapshot', () => {
@@ -89,14 +111,19 @@ describe('API client', () => {
         'http://localhost:3000/api/workouts/generate',
         expect.objectContaining({
           method: 'POST',
-          body: JSON.stringify(request),
+          body: expect.any(String),
           headers: expect.objectContaining({
             'Content-Type': 'application/json',
             Authorization: 'Bearer test-token-123',
           }),
         })
       );
+      const [, options] = mockFetch.mock.calls[0];
+      const body = JSON.parse((options?.body as string) ?? '{}');
+      expect(body.timeMinutes).toEqual(request.timeMinutes);
+      expect(body.notes).toContain('Context: {}');
       expect(result).toEqual(mockPlan);
+      expect(mockSaveGeneratedPlan).toHaveBeenCalledWith(mockPlan);
     });
 
     it('should handle BYOK_REQUIRED error', async () => {
@@ -111,6 +138,7 @@ describe('API client', () => {
       } as unknown as Response);
 
       await expect(generateWorkout({})).rejects.toEqual(errorResponse);
+      expect(mockSaveGeneratedPlan).not.toHaveBeenCalled();
     });
   });
 
@@ -194,4 +222,3 @@ describe('API client', () => {
     });
   });
 });
-

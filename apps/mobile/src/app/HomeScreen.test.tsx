@@ -4,11 +4,21 @@ import { HomeScreen } from './HomeScreen';
 import { useHomeData } from './hooks/useHomeData';
 import { createTodayPlanMock, type QuickActionPreset } from '@workout-agent/shared';
 
-jest.mock('./hooks/useHomeData');
+jest.mock('./hooks/useHomeData', () => ({
+  useHomeData: jest.fn(),
+}));
+jest.mock('./services/api', () => ({
+  generateWorkout: jest.fn(),
+}));
 jest.mock('@react-navigation/native', () => ({
   useNavigation: () => ({
     navigate: jest.fn(),
   }),
+}));
+jest.mock('./db/repositories/WorkoutRepository', () => ({
+  workoutRepository: {
+    completeWorkoutById: jest.fn(),
+  },
 }));
 
 const mockUseHomeData = useHomeData as jest.MockedFunction<typeof useHomeData>;
@@ -34,8 +44,6 @@ const baseHookState = {
     submittedAt: null,
   },
   refetch: jest.fn(),
-  setPlan: jest.fn(),
-  addSession: jest.fn(),
   updateStagedValue: jest.fn(),
   clearStagedValues: jest.fn(),
 };

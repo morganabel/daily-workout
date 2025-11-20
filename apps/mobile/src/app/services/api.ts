@@ -11,6 +11,7 @@ import type {
 import { getDeviceToken } from '../storage/deviceToken';
 import { getByokApiKey } from '../storage/byokKey';
 import { userRepository } from '../db/repositories/UserRepository';
+import { workoutRepository } from '../db/repositories/WorkoutRepository';
 
 const API_BASE_URL =
   process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:3000';
@@ -119,10 +120,13 @@ export async function generateWorkout(
     notes: request.notes ? `${request.notes} \n\n Context: ${contextString}` : `Context: ${contextString}`,
   };
 
-  return apiRequest<TodayPlan>('/api/workouts/generate', {
+  const plan = await apiRequest<TodayPlan>('/api/workouts/generate', {
     method: 'POST',
     body: JSON.stringify(enrichedRequest),
   });
+
+  await workoutRepository.saveGeneratedPlan(plan);
+  return plan;
 }
 
 /**

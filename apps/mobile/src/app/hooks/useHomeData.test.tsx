@@ -1,250 +1,166 @@
-/**
- * Tests for useHomeData hook
- */
-
-import { renderHook, waitFor, act } from '@testing-library/react-native';
-import { useHomeData } from './useHomeData';
-import { fetchHomeSnapshot } from '../services/api';
-import { getDeviceToken } from '../storage/deviceToken';
+import { renderHook, act, waitFor } from '@testing-library/react-native';
 import NetInfo from '@react-native-community/netinfo';
-import { createHomeSnapshotMock, createTodayPlanMock, createSessionSummaryMock } from '@workout-agent/shared';
+import { createSessionSummaryMock, createTodayPlanMock } from '@workout-agent/shared';
+import { useHomeData } from './useHomeData';
+import { workoutRepository } from '../db/repositories/WorkoutRepository';
+import { userRepository } from '../db/repositories/UserRepository';
+import type Workout from '../db/models/Workout';
 
-// Mock dependencies
-jest.mock('../services/api');
-jest.mock('../storage/deviceToken');
-jest.mock('@react-native-community/netinfo');
+jest.mock('../db/repositories/WorkoutRepository', () => {
+  const observeTodayWorkout = jest.fn();
+  const observeRecentSessions = jest.fn();
+  const getTodayWorkout = jest.fn();
+  const mapWorkoutToPlan = jest.fn();
+  const toSessionSummary = jest.fn();
 
-const mockFetchHomeSnapshot = fetchHomeSnapshot as jest.MockedFunction<typeof fetchHomeSnapshot>;
-const mockGetDeviceToken = getDeviceToken as jest.MockedFunction<typeof getDeviceToken>;
-const mockNetInfo = NetInfo as jest.Mocked<typeof NetInfo>;
+  return {
+    workoutRepository: {
+      observeTodayWorkout,
+      observeRecentSessions,
+      getTodayWorkout,
+      mapWorkoutToPlan,
+      toSessionSummary,
+    },
+  };
+});
+
+jest.mock('../db/repositories/UserRepository', () => ({
+  userRepository: {
+    getOrCreateUser: jest.fn(),
+  },
+}));
+
+const mockWorkoutRepository = workoutRepository as jest.Mocked<typeof workoutRepository>;
+const mockUserRepository = userRepository as jest.Mocked<typeof userRepository>;
+const mockNetInfo = NetInfo as unknown as {
+  addEventListener: jest.Mock;
+};
+
+const createObservableMock = <T,>() => {
+  let handler: ((value: T) => void) | null = null;
+  return {
+    observable: {
+      subscribe: (callback: (value: T) => void) => {
+        handler = callback;
+        return {
+          unsubscribe: () => {
+            handler = null;
+          },
+        };
+      },
+    },
+    emit: (value: T) => handler?.(value),
+  };
+};
 
 describe('useHomeData', () => {
+  let planStream: ReturnType<typeof createObservableMock<Workout[]>>;
+  let sessionStream: ReturnType<typeof createObservableMock<Workout[]>>;
+  let mockPlan: ReturnType<typeof createTodayPlanMock>;
+
   beforeEach(() => {
     jest.clearAllMocks();
-    // Default mocks
-    mockGetDeviceToken.mockResolvedValue('test-token-123');
-    mockNetInfo.fetch = jest.fn().mockResolvedValue({ isConnected: true });
-    mockNetInfo.addEventListener = jest.fn().mockReturnValue(() => {});
-  });
+    planStream = createObservableMock<Workout[]>();
+    sessionStream = createObservableMock<Workout[]>();
+    mockPlan = createTodayPlanMock({ id: 'server-plan' });
 
-  it('should fetch data on mount', async () => {
-    const mockSnapshot = createHomeSnapshotMock({ plan: null });
-    mockFetchHomeSnapshot.mockResolvedValue(mockSnapshot);
-
-    const { result } = renderHook(() => useHomeData());
-
-    expect(result.current.status).toBe('loading');
-
-    await waitFor(() => {
-      expect(result.current.status).toBe('ready');
-    });
-
-    expect(mockFetchHomeSnapshot).toHaveBeenCalledTimes(1);
-    expect(result.current.plan).toBeNull();
-    expect(result.current.recentSessions).toEqual(mockSnapshot.recentSessions);
-    expect(result.current.generationStatus.state).toBe(
-      mockSnapshot.generationStatus.state,
+    mockWorkoutRepository.observeTodayWorkout.mockReturnValue(planStream.observable);
+    mockWorkoutRepository.observeRecentSessions.mockReturnValue(sessionStream.observable);
+    mockWorkoutRepository.getTodayWorkout.mockResolvedValue(null);
+    mockWorkoutRepository.mapWorkoutToPlan.mockResolvedValue(mockPlan);
+    mockWorkoutRepository.toSessionSummary.mockImplementation((workout) =>
+      createSessionSummaryMock({ id: workout.id, name: workout.name || 'Workout' }),
     );
-  });
-
-  it('should handle offline state when network is disconnected', async () => {
-    mockNetInfo.fetch = jest.fn().mockResolvedValue({ isConnected: false });
-
-    const { result } = renderHook(() => useHomeData());
-
-    await waitFor(() => {
-      expect(result.current.status).toBe('ready');
-    });
-
-    expect(result.current.isOffline).toBe(true);
-    expect(result.current.offlineHint.offline).toBe(true);
-    expect(result.current.offlineHint.requiresApiKey).toBe(false);
-    expect(mockFetchHomeSnapshot).not.toHaveBeenCalled();
-  });
-
-  it('should handle missing DeviceToken', async () => {
-    mockGetDeviceToken.mockResolvedValue(null);
-
-    const { result } = renderHook(() => useHomeData());
-
-    await waitFor(() => {
-      expect(result.current.status).toBe('ready');
-    });
-
-    expect(result.current.isOffline).toBe(true);
-    expect(result.current.offlineHint.requiresApiKey).toBe(true);
-    expect(result.current.offlineHint.message).toContain('Device token required');
-    expect(mockFetchHomeSnapshot).not.toHaveBeenCalled();
-  });
-
-  it('should handle API errors', async () => {
-    const apiError = { code: 'NETWORK_ERROR', message: 'Failed to fetch' };
-    mockFetchHomeSnapshot.mockRejectedValue(apiError);
-
-    const { result } = renderHook(() => useHomeData());
-
-    await waitFor(() => {
-      expect(result.current.status).toBe('error');
-    });
-
-    expect(result.current.error).toEqual(apiError);
-    expect(result.current.isOffline).toBe(true);
-  });
-
-  it('should handle BYOK_REQUIRED error', async () => {
-    const apiError = { code: 'BYOK_REQUIRED', message: 'API key required' };
-    mockFetchHomeSnapshot.mockRejectedValue(apiError);
-
-    const { result } = renderHook(() => useHomeData());
-
-    await waitFor(() => {
-      expect(result.current.status).toBe('error');
-    });
-
-    expect(result.current.offlineHint.requiresApiKey).toBe(true);
-    expect(result.current.offlineHint.message).toBe('API key required');
-  });
-
-  it('should update plan optimistically', async () => {
-    const mockSnapshot = createHomeSnapshotMock({ plan: null });
-    mockFetchHomeSnapshot.mockResolvedValue(mockSnapshot);
-
-    const { result } = renderHook(() => useHomeData());
-
-    await waitFor(() => {
-      expect(result.current.status).toBe('ready');
-    });
-
-    const newPlan = createTodayPlanMock();
-    await act(async () => {
-      result.current.setPlan(newPlan);
-    });
-
-    await waitFor(() => {
-      expect(result.current.plan).toEqual(newPlan);
+    mockUserRepository.getOrCreateUser.mockResolvedValue(undefined as never);
+    mockNetInfo.addEventListener = jest.fn().mockImplementation((callback) => {
+      callback({ isConnected: true, isInternetReachable: true });
+      return () => {};
     });
   });
 
-  it('should add session and clear plan', async () => {
-    const mockPlan = createTodayPlanMock();
-    const mockSnapshot = createHomeSnapshotMock({ plan: mockPlan });
-    mockFetchHomeSnapshot.mockResolvedValue(mockSnapshot);
-
+  it('hydrates plan emitted from repository', async () => {
     const { result } = renderHook(() => useHomeData());
-
-    await waitFor(() => {
-      expect(result.current.status).toBe('ready');
-    });
-
-    await waitFor(() => {
-      expect(result.current.plan).toEqual(mockPlan);
-    });
-
-    const session = createSessionSummaryMock();
-    await act(async () => {
-      result.current.addSession(session);
-    });
-
-    await waitFor(() => {
-      expect(result.current.plan).toBeNull();
-      expect(result.current.recentSessions).toContainEqual(session);
-      expect(result.current.recentSessions.length).toBeLessThanOrEqual(3);
-    });
-  });
-
-  it('should update staged values for quick actions', async () => {
-    const mockSnapshot = createHomeSnapshotMock();
-    mockFetchHomeSnapshot.mockResolvedValue(mockSnapshot);
-
-    const { result } = renderHook(() => useHomeData());
-
-    await waitFor(() => {
-      expect(result.current.status).toBe('ready');
-    });
 
     await act(async () => {
-      result.current.updateStagedValue('time', '45');
+      planStream.emit([{ id: 'local-workout' } as unknown as Workout]);
     });
-
-    await waitFor(() => {
-      const timeAction = result.current.quickActions.find((a) => a.key === 'time');
-      expect(timeAction?.stagedValue).toBe('45');
-    });
-  });
-
-  it('should clear staged values when requested', async () => {
-    const mockSnapshot = createHomeSnapshotMock();
-    mockFetchHomeSnapshot.mockResolvedValue(mockSnapshot);
-
-    const { result } = renderHook(() => useHomeData());
 
     await waitFor(() => {
       expect(result.current.status).toBe('ready');
     });
-
-    await act(async () => {
-      result.current.updateStagedValue('focus', 'Lower Body');
-    });
-    await waitFor(() => {
-      const focusAction = result.current.quickActions.find((a) => a.key === 'focus');
-      expect(focusAction?.stagedValue).toBe('Lower Body');
-    });
-
-    await act(async () => {
-      result.current.clearStagedValues();
-    });
-
-    await waitFor(() => {
-      const focusAction = result.current.quickActions.find((a) => a.key === 'focus');
-      expect(focusAction?.stagedValue).toBeNull();
-    });
+    expect(mockWorkoutRepository.mapWorkoutToPlan).toHaveBeenCalled();
+    expect(result.current.plan).toEqual(mockPlan);
   });
 
-  it('should clear staged values after setting a new plan', async () => {
-    const mockSnapshot = createHomeSnapshotMock({ plan: null });
-    mockFetchHomeSnapshot.mockResolvedValue(mockSnapshot);
-
+  it('updates recent sessions when repository emits completed workouts', async () => {
     const { result } = renderHook(() => useHomeData());
 
-    await waitFor(() => {
-      expect(result.current.status).toBe('ready');
-    });
-
     await act(async () => {
-      result.current.updateStagedValue('time', '45');
+      sessionStream.emit([
+        { id: 'session-1', name: 'Session One' } as unknown as Workout,
+        { id: 'session-2', name: 'Session Two' } as unknown as Workout,
+      ]);
     });
 
     await waitFor(() => {
-      const timeAction = result.current.quickActions.find((a) => a.key === 'time');
-      expect(timeAction?.stagedValue).toBe('45');
+      expect(result.current.recentSessions).toHaveLength(2);
     });
-
-    await act(async () => {
-      result.current.setPlan(createTodayPlanMock());
-    });
-
-    await waitFor(() => {
-      const timeAction = result.current.quickActions.find((a) => a.key === 'time');
-      expect(timeAction?.stagedValue).toBeNull();
-    });
+    expect(mockWorkoutRepository.toSessionSummary).toHaveBeenCalledTimes(2);
   });
 
-  it('should refetch data when refetch is called', async () => {
-    const mockSnapshot = createHomeSnapshotMock();
-    mockFetchHomeSnapshot.mockResolvedValue(mockSnapshot);
+  it('supports manual refetch by querying the repository', async () => {
+    mockWorkoutRepository.getTodayWorkout.mockResolvedValueOnce({ id: 'refetch' } as unknown as Workout);
+    mockWorkoutRepository.mapWorkoutToPlan.mockResolvedValueOnce(
+      createTodayPlanMock({ id: 'refetched-plan', focus: 'Refetched' }),
+    );
 
     const { result } = renderHook(() => useHomeData());
-
-    await waitFor(() => {
-      expect(result.current.status).toBe('ready');
-    });
-
-    expect(mockFetchHomeSnapshot).toHaveBeenCalledTimes(1);
 
     await act(async () => {
       await result.current.refetch();
     });
 
-    expect(mockFetchHomeSnapshot).toHaveBeenCalledTimes(2);
+    expect(mockWorkoutRepository.getTodayWorkout).toHaveBeenCalled();
+    expect(result.current.plan?.focus).toBe('Refetched');
+  });
+
+  it('tracks staged quick action values', async () => {
+    const { result } = renderHook(() => useHomeData());
+
+    await act(async () => {
+      result.current.updateStagedValue('time', '45');
+    });
+
+    const timeAction = result.current.quickActions.find((action) => action.key === 'time');
+    expect(timeAction?.stagedValue).toBe('45');
+
+    await act(async () => {
+      result.current.clearStagedValues();
+    });
+
+    const clearedAction = result.current.quickActions.find((action) => action.key === 'time');
+    expect(clearedAction?.stagedValue).toBeNull();
+  });
+
+  it('reflects offline status emitted by NetInfo', async () => {
+    let listener: ((state: { isConnected: boolean; isInternetReachable?: boolean }) => void) | null = null;
+    mockNetInfo.addEventListener.mockImplementation((callback) => {
+      listener = callback;
+      callback({ isConnected: true, isInternetReachable: true });
+      return () => {
+        listener = null;
+      };
+    });
+
+    const { result } = renderHook(() => useHomeData());
+
+    act(() => {
+      listener?.({ isConnected: false, isInternetReachable: false });
+    });
+
+    await waitFor(() => {
+      expect(result.current.isOffline).toBe(true);
+      expect(result.current.offlineHint.offline).toBe(true);
+    });
   });
 });
