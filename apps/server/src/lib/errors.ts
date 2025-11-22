@@ -13,7 +13,7 @@ export interface ApiError {
 export function createErrorResponse(
   code: ApiErrorCode,
   message: string,
-  status: number = 400,
+  status = 400,
   retryAfter?: number,
 ): Response {
   const error: ApiError = { code, message };

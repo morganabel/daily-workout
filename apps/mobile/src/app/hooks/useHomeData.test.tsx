@@ -74,7 +74,9 @@ describe('useHomeData', () => {
     mockUserRepository.getOrCreateUser.mockResolvedValue(undefined as never);
     mockNetInfo.addEventListener = jest.fn().mockImplementation((callback) => {
       callback({ isConnected: true, isInternetReachable: true });
-      return () => {};
+      return () => {
+        // Cleanup
+      };
     });
   });
 

@@ -5,7 +5,9 @@
 // Mock React Native modules
 const mockNetInfo = {
   fetch: jest.fn(() => Promise.resolve({ isConnected: true })),
-  addEventListener: jest.fn(() => () => {}),
+  addEventListener: jest.fn(() => () => {
+    // Cleanup
+  }),
 };
 
 jest.mock('@react-native-community/netinfo', () => ({
