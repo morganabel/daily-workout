@@ -125,6 +125,11 @@ android {
     androidResources {
         ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:!CVS:!thumbs.db:!picasa.ini:!*~'
     }
+
+    // Ensure single libc++_shared for JSI native modules (e.g., WatermelonDB)
+    packagingOptions {
+        pickFirsts += ['**/libc++_shared.so']
+    }
 }
 
 // Apply static values from `gradle.properties` to the `android.packagingOptions`
@@ -174,4 +179,7 @@ dependencies {
     } else {
         implementation jscFlavor
     }
+
+    // WatermelonDB JSI native binding
+    implementation project(':watermelondb-jsi')
 }
