@@ -107,9 +107,12 @@ export const WorkoutPreviewScreen = () => {
 
         <View style={styles.footer}>
           <Text style={styles.footerHint}>
-            Starting the workout will unlock timers and logging when this flow is live.
+            Ready to go? Starting the workout will track your time and let you log sets.
           </Text>
-          <DisabledButton label="Start workout" />
+          <PrimaryButton
+            label="Start workout"
+            onPress={() => navigation.navigate('ActiveWorkout', { plan })}
+          />
         </View>
       </ScrollView>
     </View>
@@ -131,6 +134,24 @@ const Badge = ({
   >
     <Text style={styles.badgeText}>{text}</Text>
   </View>
+);
+
+const PrimaryButton = ({
+  label,
+  onPress,
+}: {
+  label: string;
+  onPress: () => void;
+}) => (
+  <Pressable
+    onPress={onPress}
+    style={({ pressed }) => [
+      styles.primaryButton,
+      pressed && { opacity: 0.9 },
+    ]}
+  >
+    <Text style={styles.primaryButtonText}>{label}</Text>
+  </Pressable>
 );
 
 const DisabledButton = ({ label }: { label: string }) => (
@@ -312,6 +333,17 @@ const styles = StyleSheet.create({
   },
   disabledButtonText: {
     color: palette.textSecondary,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  primaryButton: {
+    backgroundColor: palette.accent,
+    paddingVertical: 16,
+    borderRadius: 14,
+    alignItems: 'center',
+  },
+  primaryButtonText: {
+    color: '#031b1b',
     fontSize: 16,
     fontWeight: '600',
   },
