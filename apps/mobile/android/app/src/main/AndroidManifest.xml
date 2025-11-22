@@ -24,7 +24,7 @@
         <action android:name="android.intent.action.VIEW"/>
         <category android:name="android.intent.category.DEFAULT"/>
         <category android:name="android.intent.category.BROWSABLE"/>
-        <data android:scheme="@workout-agent-ce/mobile"/>
+        <data android:scheme="workout-agent-ce-mobile"/>
       </intent-filter>
     </activity>
   </application>
