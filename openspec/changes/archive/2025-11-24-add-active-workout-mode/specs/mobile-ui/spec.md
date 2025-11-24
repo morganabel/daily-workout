@@ -17,3 +17,4 @@ The app SHALL provide an active mode for executing a workout plan, tracking time
 - **WHEN** they tap "Finish Workout"
 - **THEN** the current workout record in the local database is updated with `status: 'completed'` and `completedAt: <now>`, and the user is returned to the Home Screen
 
+

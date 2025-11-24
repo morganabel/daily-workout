@@ -143,6 +143,9 @@ export const ActiveWorkoutScreen = () => {
             styles.finishButtonHeader,
             pressed && { opacity: 0.8 },
           ]}
+          accessibilityRole="button"
+          accessibilityLabel="Finish workout"
+          accessibilityHint="Completes the current workout session"
         >
           <Text style={styles.finishButtonHeaderText}>Finish</Text>
         </Pressable>
@@ -170,6 +173,9 @@ export const ActiveWorkoutScreen = () => {
             styles.finishButton,
             pressed && { opacity: 0.9 },
           ]}
+          accessibilityRole="button"
+          accessibilityLabel="Complete Workout"
+          accessibilityHint="Saves your progress and finishes the session"
         >
           <Text style={styles.finishButtonText}>Complete Workout</Text>
         </Pressable>
@@ -211,7 +217,13 @@ const ExerciseRow = ({
   isCompleted: boolean;
   onToggle: () => void;
 }) => (
-  <Pressable onPress={onToggle} style={styles.exerciseRow}>
+  <Pressable
+    onPress={onToggle}
+    style={styles.exerciseRow}
+    accessibilityRole="checkbox"
+    accessibilityLabel={`Mark ${exercise.name} as completed`}
+    accessibilityState={{ checked: isCompleted }}
+  >
     <View style={[styles.checkbox, isCompleted && styles.checkboxChecked]}>
       {isCompleted && <Text style={styles.checkmark}>✓</Text>}
     </View>
