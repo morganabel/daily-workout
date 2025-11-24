@@ -155,22 +155,25 @@ export class WorkoutRepository {
     };
   }
 
-  async completeWorkoutById(workoutId: string) {
+  async completeWorkoutById(workoutId: string, durationSeconds?: number) {
     try {
       const workout = await this.workouts.find(workoutId);
-      await this.completeWorkout(workout);
+      await this.completeWorkout(workout, durationSeconds);
     } catch (error) {
       console.error('Failed to complete workout', error);
       throw error;
     }
   }
 
-  async completeWorkout(workout: Workout) {
+  async completeWorkout(workout: Workout, durationSeconds?: number) {
     await database.write(async () => {
       const now = Date.now();
       await workout.update((w) => {
         w.status = 'completed';
         w.completedAt = now;
+        if (durationSeconds !== undefined) {
+          w.durationSeconds = durationSeconds;
+        }
       });
     });
   }

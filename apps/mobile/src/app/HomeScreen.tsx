@@ -1021,7 +1021,9 @@ export const HomeScreen = () => {
     setLogging(true);
 
     try {
-      await workoutRepository.completeWorkoutById(plan.id);
+      // Use the planned duration since we don't have a timer for quick logs
+      const durationSeconds = plan.durationMinutes * 60;
+      await workoutRepository.completeWorkoutById(plan.id, durationSeconds);
     } catch (err) {
       console.error('Failed to log workout:', err);
 
