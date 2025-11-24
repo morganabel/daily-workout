@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import type { TodayPlan, WorkoutBlock, WorkoutExercise } from '@workout-agent/shared';
+import type { WorkoutBlock, WorkoutExercise } from '@workout-agent/shared';
 import { workoutRepository } from './db/repositories/WorkoutRepository';
 import { RootStackParamList } from './navigation';
 
@@ -41,6 +41,11 @@ export const ActiveWorkoutScreen = () => {
   const [durationSeconds, setDurationSeconds] = useState(0);
   const [completedItems, setCompletedItems] = useState<Set<string>>(new Set());
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const isSubmittingRef = React.useRef(false);
+
+  useEffect(() => {
+    isSubmittingRef.current = isSubmitting;
+  }, [isSubmitting]);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -48,6 +53,31 @@ export const ActiveWorkoutScreen = () => {
     }, 1000);
     return () => clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('beforeRemove', (e) => {
+      if (isSubmittingRef.current) {
+        return;
+      }
+
+      e.preventDefault();
+
+      Alert.alert(
+        'End workout?',
+        'If you leave now, your progress will be lost. Are you sure?',
+        [
+          { text: 'Stay', style: 'cancel' },
+          {
+            text: 'End Session',
+            style: 'destructive',
+            onPress: () => navigation.dispatch(e.data.action),
+          },
+        ]
+      );
+    });
+
+    return unsubscribe;
+  }, [navigation]); // Removed isSubmitting from dependency array to avoid re-binding listener
 
   const formatTime = (totalSeconds: number) => {
     const minutes = Math.floor(totalSeconds / 60);
