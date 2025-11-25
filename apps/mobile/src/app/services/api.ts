@@ -7,11 +7,14 @@ import type {
   TodayPlan,
   GenerationRequest,
   WorkoutSessionSummary,
+  GenerationContext,
+  UserPreferences,
 } from '@workout-agent/shared';
 import { getDeviceToken } from '../storage/deviceToken';
 import { getByokApiKey } from '../storage/byokKey';
 import { userRepository } from '../db/repositories/UserRepository';
 import { workoutRepository } from '../db/repositories/WorkoutRepository';
+import Workout from '../db/models/Workout';
 
 const API_BASE_URL =
   process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:3000';
@@ -96,28 +99,67 @@ export async function fetchHomeSnapshot(): Promise<HomeSnapshot> {
 }
 
 /**
+ * Build a GenerationContext from user preferences and recent workout history.
+ * This replaces the mock context with real user data.
+ */
+async function buildGenerationContext(
+  request: GenerationRequest,
+): Promise<GenerationContext> {
+  // Get user preferences from local DB
+  const prefs: UserPreferences = await userRepository.getPreferences();
+
+  // Get recent completed sessions (last 5)
+  const recentWorkouts = await new Promise<Workout[]>((resolve) => {
+    const subscription = workoutRepository.observeRecentSessions(5).subscribe((workouts) => {
+      subscription.unsubscribe();
+      resolve(workouts);
+    });
+  });
+
+  const recentSessions = recentWorkouts.map((w) => workoutRepository.toSessionSummary(w));
+
+  // Determine equipment: quick action override > profile default > fallback
+  const equipment = request.equipment ?? prefs.equipment ?? [];
+  const effectiveEquipment = equipment.length > 0 ? equipment : ['Bodyweight'];
+
+  // Build the context
+  const context: GenerationContext = {
+    userProfile: {
+      experienceLevel: prefs.experienceLevel,
+      primaryGoal: prefs.primaryGoal,
+      energyToday: request.energy,
+      preferredStyle: prefs.preferredStyle,
+    },
+    preferences: {
+      focusBias: prefs.focusBias?.slice(0, 3),
+      avoid: prefs.avoid?.slice(0, 5),
+      injuries: prefs.injuries?.slice(0, 3),
+    },
+    environment: {
+      equipment: effectiveEquipment,
+      timeAvailableMinutes: request.timeMinutes,
+    },
+    recentSessions,
+    notes: request.notes,
+  };
+
+  return context;
+}
+
+/**
  * Generate a workout plan
  */
 export async function generateWorkout(
   request: GenerationRequest,
 ): Promise<TodayPlan> {
-  // Enrich request with user context from DB
-  const user = await userRepository.getUser();
-  let context = {};
-  if (user && user.preferences) {
-    try {
-      context = JSON.parse(user.preferences);
-    } catch (e) {
-      console.warn('Failed to parse user preferences for context', e);
-    }
-  }
+  // Build real context from user preferences and history
+  const context = await buildGenerationContext(request);
 
-  // Merge context into request notes if needed, or send as separate field if API supports it
-  // For now, we'll append to notes
-  const contextString = JSON.stringify(context);
+  console.log('[API] Generation context:', JSON.stringify(context, null, 2));
+
   const enrichedRequest = {
     ...request,
-    notes: request.notes ? `${request.notes} \n\n Context: ${contextString}` : `Context: ${contextString}`,
+    context,
   };
 
   const plan = await apiRequest<TodayPlan>('/api/workouts/generate', {
