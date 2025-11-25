@@ -13,10 +13,10 @@ export interface GenerationRequestWithContext extends GenerationRequest {
 
 /**
  * Loads generation context for a user.
- * 
+ *
  * If the client provides a context object (from local DB), we use that.
  * Otherwise, we build a minimal context from the request parameters.
- * 
+ *
  * This approach supports the local-first architecture where the mobile client
  * is the source of truth for user preferences and history.
  */
@@ -52,7 +52,7 @@ export async function loadGenerationContext(
   }
 
   // Fallback: build minimal context from request parameters only
-  // This supports legacy clients or cases where no profile is configured
+  // Used when client doesn't provide context (e.g., no profile configured yet)
   return {
     userProfile: {
       energyToday: request.energy ?? undefined,

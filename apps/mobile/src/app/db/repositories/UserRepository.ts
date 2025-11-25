@@ -92,18 +92,6 @@ export class UserRepository {
       });
     });
   }
-
-  /**
-   * @deprecated Use updatePreferences with typed UserPreferences instead.
-   */
-  async updatePreferencesLegacy(preferences: Record<string, unknown>) {
-    const user = await this.getOrCreateUser();
-    await database.write(async () => {
-      await user.update((u) => {
-        u.preferences = JSON.stringify(preferences);
-      });
-    });
-  }
 }
 
 export const userRepository = new UserRepository();

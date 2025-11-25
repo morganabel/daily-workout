@@ -43,55 +43,6 @@ export class WorkoutRepository {
     return workouts.length > 0 ? workouts[0] : null;
   }
 
-  // Legacy entrypoint retained for future quick-add flows.
-  async createWorkout(
-    name: string,
-    exercisesData: {
-      name: string;
-      muscleGroup?: string;
-      order: number;
-      sets?: {
-        reps?: number;
-        weight?: number;
-        rpe?: number;
-        completed?: boolean;
-        order: number;
-      }[];
-    }[],
-  ) {
-    const now = Date.now();
-    await database.write(async () => {
-      const workout = await this.workouts.create((w) => {
-        w.name = name;
-        w.status = 'planned';
-        w.scheduledDate = now;
-      });
-
-      for (const exData of exercisesData) {
-        const exercise = await this.exercises.create((e) => {
-          e.workout.set(workout);
-          e.name = exData.name;
-          e.muscleGroup = exData.muscleGroup;
-          e.order = exData.order;
-        });
-
-        if (exData.sets?.length) {
-          // Sets table exists but is not currently rendered; populate if provided
-          for (const setData of exData.sets) {
-            await this.sets.create((s) => {
-              s.exercise.set(exercise);
-              s.reps = setData.reps;
-              s.weight = setData.weight;
-              s.rpe = setData.rpe;
-              s.completed = setData.completed ?? false;
-              s.order = setData.order;
-            });
-          }
-        }
-      }
-    });
-  }
-
   async saveGeneratedPlan(plan: TodayPlan) {
     const payload = planToPersistence(plan);
 
