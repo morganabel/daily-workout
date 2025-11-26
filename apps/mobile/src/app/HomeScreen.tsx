@@ -32,6 +32,7 @@ import {
 import { RootStackParamList } from './navigation';
 import { workoutRepository } from './db/repositories/WorkoutRepository';
 import { userRepository } from './db/repositories/UserRepository';
+import { CustomizeSheet } from './components/CustomizeSheet';
 
 const palette = {
   background: '#030914',
@@ -62,6 +63,8 @@ type HeroCardProps = {
   onStart: () => void;
   onPreview: () => void;
   onConfigure: () => void;
+  onTryAnother?: () => void;
+  onDiscard?: () => void;
 };
 
 const HeroCard = ({
@@ -77,6 +80,8 @@ const HeroCard = ({
   onStart,
   onPreview,
   onConfigure,
+  onTryAnother,
+  onDiscard,
 }: HeroCardProps) => {
   const isPending = generationStatus.state === 'pending' || generating;
   const overlayMessage =
@@ -166,8 +171,19 @@ const HeroCard = ({
 
   return (
     <View style={[styles.card, styles.heroCard]}>
-      <Text style={styles.heroEyebrow}>Today’s workout</Text>
-      <Text style={styles.heroHeadline}>{plan.focus}</Text>
+      <View style={styles.heroHeader}>
+        <View style={styles.heroHeaderLeft}>
+          <Text style={styles.heroEyebrow}>Today's workout</Text>
+          <Text style={styles.heroHeadline}>{plan.focus}</Text>
+        </View>
+        {!isOffline && (onTryAnother || onDiscard) && (
+          <OverflowMenu
+            onTryAnother={onTryAnother}
+            onDiscard={onDiscard}
+            disabled={generating || logging || isPending}
+          />
+        )}
+      </View>
       <Text style={styles.heroBody}>
         {plan.durationMinutes} min · {equipment}
       </Text>
@@ -203,6 +219,87 @@ const HeroCard = ({
         </View>
       )}
     </View>
+  );
+};
+
+const OverflowMenu = ({
+  onTryAnother,
+  onDiscard,
+  disabled,
+}: {
+  onTryAnother?: () => void;
+  onDiscard?: () => void;
+  disabled?: boolean;
+}) => {
+  const [visible, setVisible] = useState(false);
+
+  if (!onTryAnother && !onDiscard) return null;
+
+  return (
+    <>
+      <Pressable
+        onPress={() => setVisible(true)}
+        disabled={disabled}
+        style={({ pressed }) => [
+          styles.overflowButton,
+          (pressed || disabled) && { opacity: 0.6 },
+        ]}
+        accessibilityRole="button"
+        accessibilityLabel="Workout options"
+      >
+        <Text style={styles.overflowButtonText}>⋮</Text>
+      </Pressable>
+      <Modal
+        visible={visible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setVisible(false)}
+      >
+        <Pressable
+          style={styles.overflowOverlay}
+          onPress={() => setVisible(false)}
+        >
+          <View style={styles.overflowMenu}>
+            {onTryAnother && (
+              <Pressable
+                style={({ pressed }) => [
+                  styles.overflowMenuItem,
+                  pressed && { opacity: 0.7 },
+                ]}
+                onPress={() => {
+                  setVisible(false);
+                  onTryAnother?.();
+                }}
+              >
+                <Text style={styles.overflowMenuText}>Try another</Text>
+              </Pressable>
+            )}
+            {onDiscard && (
+              <Pressable
+                style={({ pressed }) => [
+                  styles.overflowMenuItem,
+                  pressed && { opacity: 0.7 },
+                  styles.overflowMenuItemDestructive,
+                ]}
+                onPress={() => {
+                  setVisible(false);
+                  onDiscard?.();
+                }}
+              >
+                <Text
+                  style={[
+                    styles.overflowMenuText,
+                    styles.overflowMenuTextDestructive,
+                  ]}
+                >
+                  Discard
+                </Text>
+              </Pressable>
+            )}
+          </View>
+        </Pressable>
+      </Modal>
+    </>
   );
 };
 
@@ -877,6 +974,7 @@ export const HomeScreen = () => {
   const [hasByokKey, setHasByokKey] = useState(false);
   const [showPendingOverlay, setShowPendingOverlay] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [customizeSheetVisible, setCustomizeSheetVisible] = useState(false);
   const navigation = useNavigation<HomeScreenNavigation>();
 
   // Check if profile is configured (re-check on screen focus)
@@ -902,6 +1000,7 @@ export const HomeScreen = () => {
       return () => clearTimeout(timeout);
     }
     setShowPendingOverlay(false);
+    return undefined;
   }, [generating, generationStatus.state]);
 
   const quickActionsLocked = generating || generationStatus.state === 'pending';
@@ -1080,6 +1179,69 @@ export const HomeScreen = () => {
     }
   };
 
+  // Opens the CustomizeSheet for "Try Another"
+  const handleTryAnother = () => {
+    if (isOffline || !plan) return;
+    setCustomizeSheetVisible(true);
+  };
+
+  // Handles regeneration from the CustomizeSheet
+  const handleRegenerateFromSheet = async (request: GenerationRequest) => {
+    if (generating || isOffline || generationStatus.state === 'pending') return;
+
+    setGenerating(true);
+    setCustomizeSheetVisible(false);
+
+    try {
+      console.log('Regenerating workout with request:', request);
+      await generateWorkout(request);
+      console.log('Workout plan persisted locally');
+
+      clearStagedValues();
+    } catch (err) {
+      const apiError = err as ApiError;
+      console.error('Failed to regenerate workout:', apiError);
+      Alert.alert(
+        'Something went wrong',
+        apiError.message ||
+          'We could not create a new workout. Please try again.',
+        [{ text: 'OK' }],
+      );
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const handleDiscard = async () => {
+    if (!plan) return;
+
+    Alert.alert(
+      'Discard Workout',
+      'Are you sure you want to discard this workout? You can generate a new one anytime.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Discard',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await workoutRepository.discardPlannedWorkout();
+              // Refetch will automatically update the UI to show empty state
+              await refetch();
+            } catch (err) {
+              console.error('Failed to discard workout:', err);
+              Alert.alert(
+                'Failed to Discard Workout',
+                'An error occurred while discarding the workout. Please try again.',
+                [{ text: 'OK' }],
+              );
+            }
+          },
+        },
+      ],
+    );
+  };
+
   return (
     <View style={styles.screen}>
       <TopBar
@@ -1115,6 +1277,8 @@ export const HomeScreen = () => {
           onStart={handleLogDone}
           onPreview={handlePreviewNavigation}
           onConfigure={handleConfigure}
+          onTryAnother={plan ? handleTryAnother : undefined}
+          onDiscard={plan ? handleDiscard : undefined}
         />
         <QuickActionRail
           onActionPress={(action) => setSelectedAction(action)}
@@ -1149,6 +1313,15 @@ export const HomeScreen = () => {
         onRemove={hasByokKey ? handleRemoveByok : undefined}
         hasKey={hasByokKey}
       />
+      {plan && (
+        <CustomizeSheet
+          visible={customizeSheetVisible}
+          currentPlan={plan}
+          loading={generating}
+          onRegenerate={handleRegenerateFromSheet}
+          onClose={() => setCustomizeSheetVisible(false)}
+        />
+      )}
     </View>
   );
 };
@@ -1185,6 +1358,15 @@ const styles = StyleSheet.create({
   heroCard: {
     gap: 12,
   },
+  heroHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  heroHeaderLeft: {
+    flex: 1,
+  },
   heroEyebrow: {
     color: palette.textMuted,
     textTransform: 'uppercase',
@@ -1195,6 +1377,52 @@ const styles = StyleSheet.create({
     color: palette.textPrimary,
     fontSize: 26,
     fontWeight: '600',
+  },
+  overflowButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: palette.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  overflowButtonText: {
+    color: palette.textPrimary,
+    fontSize: 20,
+    lineHeight: 20,
+    marginTop: -4,
+  },
+  overflowOverlay: {
+    flex: 1,
+    backgroundColor: '#00000088',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  overflowMenu: {
+    backgroundColor: palette.card,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: palette.border,
+    minWidth: 180,
+    overflow: 'hidden',
+  },
+  overflowMenuItem: {
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: palette.border,
+  },
+  overflowMenuItemDestructive: {
+    borderBottomWidth: 0,
+  },
+  overflowMenuText: {
+    color: palette.textPrimary,
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  overflowMenuTextDestructive: {
+    color: palette.destructive,
   },
   heroBody: {
     color: palette.textSecondary,
