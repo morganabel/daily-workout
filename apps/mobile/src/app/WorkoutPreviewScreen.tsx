@@ -1,17 +1,21 @@
-import React from 'react';
+import React, { useState, useCallback } from 'react';
 import {
+  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
-import type { TodayPlan } from '@workout-agent/shared';
+import type { TodayPlan, GenerationRequest } from '@workout-agent/shared';
 import { createTodayPlanMock } from '@workout-agent/shared';
 import { RootStackParamList } from './navigation';
+import { generateWorkout, type ApiError } from './services/api';
+import { workoutRepository } from './db/repositories/WorkoutRepository';
+import { CustomizeSheet } from './components/CustomizeSheet';
 
 const palette = {
   background: '#030914',
@@ -35,12 +39,58 @@ type WorkoutPreviewRoute = RouteProp<RootStackParamList, 'WorkoutPreview'>;
 export const WorkoutPreviewScreen = () => {
   const navigation = useNavigation<WorkoutPreviewNavigation>();
   const route = useRoute<WorkoutPreviewRoute>();
+  const [regenerating, setRegenerating] = useState(false);
+  const [customizeSheetVisible, setCustomizeSheetVisible] = useState(false);
+  const [plan, setPlan] = useState<TodayPlan>(
+    route.params?.plan ?? createTodayPlanMock(),
+  );
 
-  // Get plan from route params, fallback to mock if not provided
-  const plan: TodayPlan = route.params?.plan ?? createTodayPlanMock();
+  // Refresh plan from DB when screen is focused to ensure we have the latest
+  useFocusEffect(
+    useCallback(() => {
+      const refreshPlan = async () => {
+        try {
+          const workout = await workoutRepository.getTodayWorkout();
+          if (workout) {
+            const latestPlan = await workoutRepository.mapWorkoutToPlan(workout);
+            setPlan(latestPlan);
+          }
+        } catch (error) {
+          console.error('Failed to refresh plan:', error);
+          // If refresh fails, keep the current plan (from route params or state)
+        }
+      };
+      void refreshPlan();
+    }, []),
+  );
 
   const equipmentList = plan.equipment.join(' • ');
   const sourceLabel = plan.source === 'ai' ? 'AI generated' : 'Manual entry';
+
+  const handleRegenerate = async (request: GenerationRequest) => {
+    if (regenerating) return;
+
+    setRegenerating(true);
+    setCustomizeSheetVisible(false);
+
+    try {
+      console.log('Regenerating workout with request:', request);
+      const newPlan = await generateWorkout(request);
+      setPlan(newPlan);
+      console.log('New workout plan loaded');
+    } catch (err) {
+      const apiError = err as ApiError;
+      console.error('Failed to regenerate workout:', apiError);
+      Alert.alert(
+        'Something went wrong',
+        apiError.message ||
+          'We could not create a new workout. Please try again.',
+        [{ text: 'OK' }],
+      );
+    } finally {
+      setRegenerating(false);
+    }
+  };
 
   return (
     <View style={styles.screen}>
@@ -110,11 +160,32 @@ export const WorkoutPreviewScreen = () => {
             Ready to go? Starting the workout will track your time and let you log sets.
           </Text>
           <PrimaryButton
-            label="Start workout"
+            label={regenerating ? 'Loading...' : 'Start workout'}
             onPress={() => navigation.navigate('ActiveWorkout', { plan })}
+            disabled={regenerating}
           />
+          {plan.source === 'ai' && (
+            <Pressable
+              onPress={() => setCustomizeSheetVisible(true)}
+              disabled={regenerating}
+              style={({ pressed }) => [
+                styles.feedbackToggle,
+                pressed && { opacity: 0.8 },
+                regenerating && { opacity: 0.5 },
+              ]}
+            >
+              <Text style={styles.feedbackToggleText}>Not quite right? Customize</Text>
+            </Pressable>
+          )}
         </View>
       </ScrollView>
+      <CustomizeSheet
+        visible={customizeSheetVisible}
+        currentPlan={plan}
+        loading={regenerating}
+        onRegenerate={handleRegenerate}
+        onClose={() => setCustomizeSheetVisible(false)}
+      />
     </View>
   );
 };
@@ -139,25 +210,23 @@ const Badge = ({
 const PrimaryButton = ({
   label,
   onPress,
+  disabled,
 }: {
   label: string;
   onPress: () => void;
+  disabled?: boolean;
 }) => (
   <Pressable
     onPress={onPress}
+    disabled={disabled}
     style={({ pressed }) => [
       styles.primaryButton,
       pressed && { opacity: 0.9 },
+      disabled && { opacity: 0.5 },
     ]}
   >
     <Text style={styles.primaryButtonText}>{label}</Text>
   </Pressable>
-);
-
-const DisabledButton = ({ label }: { label: string }) => (
-  <View style={styles.disabledButton}>
-    <Text style={styles.disabledButtonText}>{label}</Text>
-  </View>
 );
 
 const styles = StyleSheet.create({
@@ -324,6 +393,15 @@ const styles = StyleSheet.create({
     color: palette.textMuted,
     fontSize: 13,
     lineHeight: 18,
+  },
+  feedbackToggle: {
+    paddingVertical: 8,
+    alignItems: 'center',
+  },
+  feedbackToggleText: {
+    color: palette.accent,
+    fontSize: 14,
+    fontWeight: '500',
   },
   disabledButton: {
     backgroundColor: palette.border,
