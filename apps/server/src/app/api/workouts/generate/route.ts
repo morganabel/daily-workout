@@ -8,7 +8,7 @@ import {
   type TodayPlan,
 } from '@workout-agent/shared';
 import { NextResponse } from 'next/server';
-import { generateTodayPlanAI } from '@/lib/generator';
+import { generateTodayPlanAI, type GenerationResult } from '@/lib/generator';
 import { loadGenerationContext, type GenerationRequestWithContext } from '@/lib/context';
 import {
   markGenerationPending,
@@ -85,17 +85,27 @@ export async function POST(request: Request) {
 
   const context = await loadGenerationContext(auth.userId, generationRequest);
   const startedAt = Date.now();
+  const isRegeneration = Boolean(generationRequest.previousResponseId);
   console.log('[workouts.generate] generation started', {
     userId: auth.userId,
     hasApiKey: Boolean(apiKey),
+    isRegeneration,
+    feedback: generationRequest.feedback,
   });
   markGenerationPending(deviceToken, DEFAULT_GENERATION_ETA_SECONDS);
 
   let plan: TodayPlan;
+  let responseId: string | undefined;
   let encounteredProviderError = false;
   if (apiKey) {
     try {
-      plan = await generateTodayPlanAI(generationRequest, context, { apiKey });
+      const result: GenerationResult = await generateTodayPlanAI(
+        generationRequest,
+        context,
+        { apiKey },
+      );
+      plan = result.plan;
+      responseId = result.responseId;
     } catch (error) {
       encounteredProviderError = true;
       console.warn('[workouts.generate] AI generation failed, falling back to mock', {
@@ -118,6 +128,8 @@ export async function POST(request: Request) {
       userId: auth.userId,
       durationMs: Date.now() - startedAt,
       source: apiKey ? 'ai' : 'mock',
+      isRegeneration,
+      responseId,
     });
   } else {
     console.warn('[workouts.generate] generation returned fallback plan', {
