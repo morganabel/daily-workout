@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -12,7 +12,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import {
   buildGenerationRequestFromQuickActions,
@@ -31,6 +31,7 @@ import {
 } from './storage/byokKey';
 import { RootStackParamList } from './navigation';
 import { workoutRepository } from './db/repositories/WorkoutRepository';
+import { userRepository } from './db/repositories/UserRepository';
 
 const palette = {
   background: '#030914',
@@ -700,6 +701,35 @@ const OfflineBanner = ({
   );
 };
 
+const OnboardingBanner = ({
+  visible,
+  onSetupProfile,
+}: {
+  visible: boolean;
+  onSetupProfile: () => void;
+}) => {
+  if (!visible) return null;
+  return (
+    <Pressable
+      style={styles.onboardingBanner}
+      onPress={onSetupProfile}
+      accessibilityRole="button"
+      accessibilityLabel="Set up your profile for better workouts"
+    >
+      <View style={styles.onboardingIcon}>
+        <Text style={styles.onboardingIconText}>✦</Text>
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={styles.onboardingTitle}>Set up your profile</Text>
+        <Text style={styles.onboardingBody}>
+          Tell us about your equipment and goals for personalized workouts.
+        </Text>
+      </View>
+      <Text style={styles.onboardingArrow}>→</Text>
+    </Pressable>
+  );
+};
+
 const TopBar = ({
   onConfigure,
   hasByokKey,
@@ -846,7 +876,19 @@ export const HomeScreen = () => {
   const [byokInput, setByokInput] = useState('');
   const [hasByokKey, setHasByokKey] = useState(false);
   const [showPendingOverlay, setShowPendingOverlay] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
   const navigation = useNavigation<HomeScreenNavigation>();
+
+  // Check if profile is configured (re-check on screen focus)
+  useFocusEffect(
+    useCallback(() => {
+      const checkProfile = async () => {
+        const hasProfile = await userRepository.hasConfiguredProfile();
+        setShowOnboarding(!hasProfile);
+      };
+      checkProfile();
+    }, []),
+  );
 
   const heroStatus = useMemo(() => {
     if (status === 'ready' && plan) return 'ready';
@@ -949,9 +991,9 @@ export const HomeScreen = () => {
 
     try {
       const baseRequest: Partial<GenerationRequest> = {
-        timeMinutes: 30,
-        focus: 'Full Body',
-        equipment: ['Bodyweight'],
+        timeMinutes: 60,
+        focus: 'Full body',
+        // equipment intentionally omitted - will fall back to user profile in api.ts
         energy: 'moderate',
       };
 
@@ -1055,6 +1097,10 @@ export const HomeScreen = () => {
           visible={isOffline || offlineHint.offline}
           offlineHint={offlineHint}
           onConfigure={handleConfigure}
+        />
+        <OnboardingBanner
+          visible={showOnboarding}
+          onSetupProfile={handleOpenSettings}
         />
         <HeroCard
           status={heroStatus as HeroCardProps['status']}
@@ -1437,6 +1483,43 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: palette.border,
     backgroundColor: palette.cardSecondary,
+  },
+  onboardingBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: palette.accent,
+    backgroundColor: `${palette.accent}11`,
+  },
+  onboardingIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: `${palette.accent}22`,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  onboardingIconText: {
+    fontSize: 20,
+    color: palette.accent,
+  },
+  onboardingTitle: {
+    color: palette.textPrimary,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  onboardingBody: {
+    color: palette.textSecondary,
+    fontSize: 14,
+    marginTop: 2,
+  },
+  onboardingArrow: {
+    color: palette.accent,
+    fontSize: 20,
+    fontWeight: '600',
   },
   offlineTitle: {
     color: palette.textPrimary,

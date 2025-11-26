@@ -2,14 +2,14 @@ import { authenticateRequest } from '@/lib/auth';
 import { createErrorResponse } from '@/lib/errors';
 import {
   generationRequestSchema,
+  generationContextSchema,
   todayPlanSchema,
   createTodayPlanMock,
   type TodayPlan,
-  type GenerationRequest,
 } from '@workout-agent/shared';
 import { NextResponse } from 'next/server';
 import { generateTodayPlanAI } from '@/lib/generator';
-import { loadGenerationContext } from '@/lib/context';
+import { loadGenerationContext, type GenerationRequestWithContext } from '@/lib/context';
 import {
   markGenerationPending,
   persistGeneratedPlan,
@@ -17,12 +17,17 @@ import {
   DEFAULT_GENERATION_ETA_SECONDS,
 } from '@/lib/generation-store';
 
+// Extended schema that accepts optional client-provided context
+const generationRequestWithContextSchema = generationRequestSchema.extend({
+  context: generationContextSchema.optional(),
+});
+
 /**
  * POST /api/workouts/generate
- * 
+ *
  * Accepts quick-action parameters and generates a workout plan.
  * Returns the generated TodayPlan.
- * 
+ *
  * Handles BYOK/offline rejection cases.
  */
 export async function POST(request: Request) {
@@ -47,7 +52,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const parseResult = generationRequestSchema.safeParse(body);
+  const parseResult = generationRequestWithContextSchema.safeParse(body);
   if (!parseResult.success) {
     return createErrorResponse(
       'VALIDATION_ERROR',
@@ -55,7 +60,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const generationRequest: GenerationRequest = parseResult.data;
+  const generationRequest: GenerationRequestWithContext = parseResult.data;
   const deviceToken = auth.deviceToken;
 
   const headerApiKey = request.headers.get('x-openai-key')?.trim();

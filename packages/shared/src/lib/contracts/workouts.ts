@@ -148,7 +148,12 @@ const coerceNumber = (value: string): number | undefined => {
 export const normalizeQuickActionValue = (
   action: QuickActionPreset,
 ): Partial<GenerationRequest> => {
-  const source = action.stagedValue ?? action.value;
+  // For equipment, only use stagedValue (explicit user choice), not the default display value.
+  // This allows the API layer to fall back to user profile equipment when not explicitly set.
+  const source = action.key === 'equipment'
+    ? action.stagedValue
+    : (action.stagedValue ?? action.value);
+
   if (!source) {
     return {};
   }
@@ -209,9 +214,52 @@ const generationContextSessionSchema = workoutSessionSummarySchema.extend({
   notes: z.string().optional(),
 });
 
+export const experienceLevelSchema = z.enum(['beginner', 'intermediate', 'advanced']);
+export type ExperienceLevel = z.infer<typeof experienceLevelSchema>;
+
+/**
+ * User preferences stored locally on the device.
+ * This is the source of truth for profile data that feeds into GenerationContext.
+ */
+export const userPreferencesSchema = z.object({
+  // Equipment the user has access to (profile default)
+  equipment: z.array(z.string()).default([]),
+  // Experience level
+  experienceLevel: experienceLevelSchema.optional(),
+  // Primary fitness goal
+  primaryGoal: z.string().optional(),
+  // Injuries or constraints to avoid
+  injuries: z.array(z.string()).default([]),
+  // Preferred workout style (optional)
+  preferredStyle: z.string().optional(),
+  // Focus areas to bias towards
+  focusBias: z.array(z.string()).default([]),
+  // Exercises or movements to avoid
+  avoid: z.array(z.string()).default([]),
+});
+export type UserPreferences = z.infer<typeof userPreferencesSchema>;
+
+/**
+ * Predefined equipment options for the profile selector
+ */
+export const EQUIPMENT_OPTIONS = [
+  'Bodyweight',
+  'Dumbbells',
+  'Barbell',
+  'Kettlebells',
+  'Pull-up Bar',
+  'Resistance Bands',
+  'Cable Machine',
+  'Bench',
+  'Squat Rack',
+  'Treadmill',
+  'Rowing Machine',
+  'Jump Rope',
+] as const;
+
 export const generationContextSchema = z.object({
   userProfile: z.object({
-    experienceLevel: z.enum(['beginner', 'intermediate', 'advanced']).optional(),
+    experienceLevel: experienceLevelSchema.optional(),
     primaryGoal: z.string().optional(),
     energyToday: workoutEnergySchema.optional(),
     preferredStyle: z.string().optional(),
