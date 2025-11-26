@@ -153,20 +153,36 @@ async function buildGenerationContext(
 }
 
 /**
- * Generate a workout plan
+ * Generate a workout plan.
+ *
+ * For initial generation: builds full context from user preferences and history.
+ * For regeneration (when previousResponseId is provided): sends a lighter request
+ * since the LLM already has the conversation context.
  */
 export async function generateWorkout(
   request: GenerationRequest,
 ): Promise<TodayPlan> {
-  // Build real context from user preferences and history
-  const context = await buildGenerationContext(request);
+  const isRegeneration = Boolean(request.previousResponseId);
 
-  console.log('[API] Generation context:', JSON.stringify(context, null, 2));
+  let enrichedRequest: GenerationRequest & { context?: GenerationContext };
 
-  const enrichedRequest = {
-    ...request,
-    context,
-  };
+  if (isRegeneration) {
+    // For regeneration, don't send full context - the LLM has it from the conversation
+    enrichedRequest = { ...request };
+    console.log('[API] Regeneration request:', {
+      previousResponseId: request.previousResponseId,
+      feedback: request.feedback,
+      timeMinutes: request.timeMinutes,
+      focus: request.focus,
+      equipment: request.equipment,
+      energy: request.energy,
+    });
+  } else {
+    // For initial generation, build full context
+    const context = await buildGenerationContext(request);
+    enrichedRequest = { ...request, context };
+    console.log('[API] Generation context:', JSON.stringify(context, null, 2));
+  }
 
   const plan = await apiRequest<TodayPlan>('/api/workouts/generate', {
     method: 'POST',
