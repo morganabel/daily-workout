@@ -21,15 +21,15 @@ const DEFAULT_QUICK_ACTIONS: QuickActionPreset[] = [
   {
     key: 'time',
     label: 'Time',
-    value: '30',
-    description: '30 min',
+    value: '60',
+    description: '60 min',
     stagedValue: null,
   },
   {
     key: 'focus',
     label: 'Focus',
-    value: 'Upper body',
-    description: 'Upper body',
+    value: 'Full body',
+    description: 'Full body',
     stagedValue: null,
   },
   {

@@ -991,8 +991,8 @@ export const HomeScreen = () => {
 
     try {
       const baseRequest: Partial<GenerationRequest> = {
-        timeMinutes: 30,
-        focus: 'Full Body',
+        timeMinutes: 60,
+        focus: 'Full body',
         // equipment intentionally omitted - will fall back to user profile in api.ts
         energy: 'moderate',
       };
