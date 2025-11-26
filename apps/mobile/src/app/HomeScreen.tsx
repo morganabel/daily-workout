@@ -993,7 +993,7 @@ export const HomeScreen = () => {
       const baseRequest: Partial<GenerationRequest> = {
         timeMinutes: 30,
         focus: 'Full Body',
-        equipment: ['Bodyweight'],
+        // equipment intentionally omitted - will fall back to user profile in api.ts
         energy: 'moderate',
       };
 
@@ -1498,12 +1498,13 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: palette.accentMuted,
+    backgroundColor: `${palette.accent}22`,
     alignItems: 'center',
     justifyContent: 'center',
   },
   onboardingIconText: {
     fontSize: 20,
+    color: palette.accent,
   },
   onboardingTitle: {
     color: palette.textPrimary,

@@ -85,4 +85,27 @@ describe('quick action helpers', () => {
     const request = buildGenerationRequestFromQuickActions(quickActions);
     expect(request).toEqual({});
   });
+
+  it('equipment only uses stagedValue, not default value (to allow profile fallback)', () => {
+    // Equipment with a display value but no staged value should NOT be included
+    // This allows the API layer to fall back to user profile equipment
+    const equipmentWithDefaultOnly = normalizeQuickActionValue(
+      createPreset({
+        key: 'equipment',
+        value: 'Dumbbells', // display value
+        stagedValue: null,  // user didn't explicitly select
+      }),
+    );
+    expect(equipmentWithDefaultOnly).toEqual({});
+
+    // Other quick actions still use value as fallback
+    const timeWithDefaultOnly = normalizeQuickActionValue(
+      createPreset({
+        key: 'time',
+        value: '30',
+        stagedValue: null,
+      }),
+    );
+    expect(timeWithDefaultOnly).toEqual({ timeMinutes: 30 });
+  });
 });

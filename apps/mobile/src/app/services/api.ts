@@ -110,8 +110,14 @@ async function buildGenerationContext(
 
   // Get recent completed sessions (last 5)
   const recentWorkouts = await new Promise<Workout[]>((resolve) => {
-    const subscription = workoutRepository.observeRecentSessions(5).subscribe((workouts) => {
-      subscription.unsubscribe();
+    let subscription: { unsubscribe: () => void } | null = null;
+    let resolved = false;
+
+    subscription = workoutRepository.observeRecentSessions(5).subscribe((workouts) => {
+      if (resolved) return;
+      resolved = true;
+      // Defer unsubscribe to avoid race condition if observable emits synchronously
+      setTimeout(() => subscription?.unsubscribe(), 0);
       resolve(workouts);
     });
   });

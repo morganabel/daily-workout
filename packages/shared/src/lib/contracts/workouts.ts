@@ -148,7 +148,12 @@ const coerceNumber = (value: string): number | undefined => {
 export const normalizeQuickActionValue = (
   action: QuickActionPreset,
 ): Partial<GenerationRequest> => {
-  const source = action.stagedValue ?? action.value;
+  // For equipment, only use stagedValue (explicit user choice), not the default display value.
+  // This allows the API layer to fall back to user profile equipment when not explicitly set.
+  const source = action.key === 'equipment'
+    ? action.stagedValue
+    : (action.stagedValue ?? action.value);
+
   if (!source) {
     return {};
   }
