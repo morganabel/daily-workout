@@ -18,6 +18,8 @@ export type WorkoutRowLike = {
   scheduledDate?: number | null;
   completedAt?: number | null;
   durationSeconds?: number | null;
+  // OpenAI response ID for conversation context
+  responseId?: string | null;
   createdAt?: number | null;
   updatedAt?: number | null;
 };
@@ -163,6 +165,8 @@ export const planToPersistence = (
     planJson: JSON.stringify(plan),
     scheduledDate: timestamp,
     durationSeconds: plan.durationMinutes * 60,
+    // Store OpenAI response ID for conversation context
+    responseId: plan.responseId,
     createdAt: timestamp,
     updatedAt: timestamp,
   };
@@ -221,6 +225,8 @@ export const rowsToPlan = (
         parsedPlan.blocks && parsedPlan.blocks.length > 0
           ? parsedPlan.blocks
           : fallbackBlocks,
+      // Preserve responseId for conversation context
+      responseId: parsedPlan.responseId ?? workout.responseId ?? undefined,
     };
   }
 
@@ -233,5 +239,7 @@ export const rowsToPlan = (
     energy: (workout.energy as TodayPlan['energy'] | undefined) ?? 'moderate',
     summary: workout.summary ?? 'Personalized workout',
     blocks: fallbackBlocks,
+    // Preserve responseId for conversation context
+    responseId: workout.responseId ?? undefined,
   };
 };
