@@ -49,6 +49,8 @@ const todayPlanBaseSchema = z.object({
 export const todayPlanSchema = todayPlanBaseSchema.extend({
   id: z.string(),
   blocks: z.array(workoutBlockSchema).min(1),
+  // OpenAI response ID for conversation context when regenerating
+  responseId: z.string().optional(),
 });
 export type TodayPlan = z.infer<typeof todayPlanSchema>;
 
@@ -197,6 +199,17 @@ export const buildGenerationRequestFromQuickActions = (
   return request as GenerationRequest;
 };
 
+/**
+ * Feedback options when regenerating a workout
+ */
+export const regenerationFeedbackSchema = z.enum([
+  'too-hard',
+  'too-easy',
+  'different-exercises',
+  'just-try-again',
+]);
+export type RegenerationFeedback = z.infer<typeof regenerationFeedbackSchema>;
+
 export const generationRequestSchema = z
   .object({
     timeMinutes: z.number().int().positive().optional(),
@@ -205,6 +218,10 @@ export const generationRequestSchema = z
     energy: workoutEnergySchema.optional(),
     backfill: z.boolean().optional(),
     notes: z.string().optional(),
+    // For regeneration: link to previous conversation
+    previousResponseId: z.string().optional(),
+    // For regeneration: user feedback about what was wrong
+    feedback: z.array(regenerationFeedbackSchema).optional(),
   })
   .strict();
 export type GenerationRequest = z.infer<typeof generationRequestSchema>;

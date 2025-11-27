@@ -65,6 +65,8 @@ export class WorkoutRepository {
         w.scheduledDate = payload.workout.scheduledDate ?? Date.now();
         w.completedAt = payload.workout.completedAt ?? undefined;
         w.durationSeconds = payload.workout.durationSeconds ?? undefined;
+        // Store OpenAI response ID for conversation context
+        w.responseId = payload.workout.responseId ?? undefined;
       });
 
       for (const exercisePayload of payload.exercises) {
@@ -126,6 +128,15 @@ export class WorkoutRepository {
           w.durationSeconds = durationSeconds;
         }
       });
+    });
+  }
+
+  async discardPlannedWorkout() {
+    await database.write(async () => {
+      const planned = await this.workouts
+        .query(Q.where('status', 'planned'))
+        .fetch();
+      await Promise.all(planned.map((workout) => workout.destroyPermanently()));
     });
   }
 }
