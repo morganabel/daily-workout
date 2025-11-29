@@ -15,19 +15,31 @@ jest.mock('../storage/byokKey');
 jest.mock('../db/repositories/UserRepository', () => ({
   userRepository: {
     getUser: jest.fn(),
+    getPreferences: jest.fn(),
   },
 }));
 jest.mock('../db/repositories/WorkoutRepository', () => ({
   workoutRepository: {
     saveGeneratedPlan: jest.fn(),
+    observeRecentSessions: jest.fn(),
+    toSessionSummary: jest.fn(),
   },
 }));
 
 const mockGetDeviceToken = getDeviceToken as jest.MockedFunction<typeof getDeviceToken>;
 const mockGetByokKey = getByokApiKey as jest.MockedFunction<typeof getByokApiKey>;
 const mockGetUser = userRepository.getUser as jest.MockedFunction<typeof userRepository.getUser>;
+const mockGetPreferences = userRepository.getPreferences as jest.MockedFunction<
+  typeof userRepository.getPreferences
+>;
 const mockSaveGeneratedPlan = workoutRepository.saveGeneratedPlan as jest.MockedFunction<
   typeof workoutRepository.saveGeneratedPlan
+>;
+const mockObserveRecentSessions = workoutRepository.observeRecentSessions as jest.MockedFunction<
+  typeof workoutRepository.observeRecentSessions
+>;
+const mockToSessionSummary = workoutRepository.toSessionSummary as jest.MockedFunction<
+  typeof workoutRepository.toSessionSummary
 >;
 
 // Mock global fetch
@@ -41,6 +53,28 @@ describe('API client', () => {
     mockGetDeviceToken.mockResolvedValue('test-token-123');
     mockGetByokKey.mockResolvedValue(null);
     mockGetUser.mockResolvedValue(null);
+    mockGetPreferences.mockResolvedValue({
+      equipment: [],
+      injuries: [],
+      focusBias: [],
+      avoid: [],
+    });
+    // Mock observeRecentSessions to return an Observable that emits synchronously
+    mockObserveRecentSessions.mockReturnValue({
+      subscribe: (callback: (workouts: unknown[]) => void) => {
+        // Emit synchronously with empty array
+        callback([]);
+        return { unsubscribe: jest.fn() };
+      },
+    } as any);
+    mockToSessionSummary.mockImplementation((workout: any) => ({
+      id: workout.id || 'session-1',
+      name: workout.name || 'Test Workout',
+      completedAt: new Date().toISOString(),
+      durationMinutes: workout.durationMinutes || 30,
+      focus: workout.focus || 'Full Body',
+      source: workout.source || 'manual',
+    }));
     mockSaveGeneratedPlan.mockResolvedValue(undefined);
   });
 
@@ -121,7 +155,9 @@ describe('API client', () => {
       const [, options] = mockFetch.mock.calls[0];
       const body = JSON.parse((options?.body as string) ?? '{}');
       expect(body.timeMinutes).toEqual(request.timeMinutes);
-      expect(body.notes).toContain('Context: {}');
+      expect(body.context).toBeDefined();
+      expect(body.context.userProfile).toBeDefined();
+      expect(body.context.environment).toBeDefined();
       expect(result).toEqual(mockPlan);
       expect(mockSaveGeneratedPlan).toHaveBeenCalledWith(mockPlan);
     });

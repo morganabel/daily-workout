@@ -7,9 +7,42 @@ import App from './App';
 jest.mock('./hooks/useHomeData', () => ({
   useHomeData: jest.fn(),
 }));
+jest.mock('@react-navigation/native', () => ({
+  useNavigation: () => ({
+    navigate: jest.fn(),
+    goBack: jest.fn(),
+  }),
+  useFocusEffect: jest.fn((callback) => {
+    // Defer callback execution to allow component to mount
+    setTimeout(() => callback(), 0);
+  }),
+  useRoute: () => ({ 
+    params: {},
+    key: 'test-route',
+    name: 'Home',
+  }),
+  NavigationContainer: ({ children }: { children: React.ReactNode }) => children,
+}));
+jest.mock('@react-navigation/native-stack', () => {
+  const React = require('react');
+  const MockNavigator = ({ children }: { children: React.ReactNode }) => <>{children}</>;
+  const MockScreen = ({ component: Component }: { component: React.ComponentType<any> }) => 
+    Component ? <Component /> : null;
+  return {
+    createNativeStackNavigator: jest.fn(() => ({
+      Navigator: MockNavigator,
+      Screen: MockScreen,
+    })),
+  };
+});
 jest.mock('./db/repositories/WorkoutRepository', () => ({
   workoutRepository: {
     completeWorkoutById: jest.fn(),
+  },
+}));
+jest.mock('./db/repositories/UserRepository', () => ({
+  userRepository: {
+    hasConfiguredProfile: jest.fn().mockResolvedValue(false),
   },
 }));
 jest.mock('./services/api', () => ({
@@ -20,6 +53,12 @@ jest.mock('./SettingsScreen', () => ({
 }));
 jest.mock('./HistoryScreen', () => ({
   HistoryScreen: () => null,
+}));
+jest.mock('./WorkoutPreviewScreen', () => ({
+  WorkoutPreviewScreen: () => null,
+}));
+jest.mock('./ActiveWorkoutScreen', () => ({
+  ActiveWorkoutScreen: () => null,
 }));
 
 const mockUseHomeData = useHomeData as jest.MockedFunction<typeof useHomeData>;
@@ -55,12 +94,12 @@ describe('App', () => {
   });
 
   it('renders the home screen shell and hero card', async () => {
-    const { getByText, findByText } = render(<App />);
+    const { findByText } = render(<App />);
 
-    expect(getByText(/Your workout hub/i)).toBeTruthy();
-    expect(getByText(/Quick actions/i)).toBeTruthy();
-    expect(getByText(/Workout Agent/i)).toBeTruthy();
-    expect(getByText(/Quick log/i)).toBeTruthy();
-    await findByText(/Today’s workout/i);
+    await findByText(/Your workout hub/i);
+    await findByText(/Quick actions/i);
+    await findByText(/Workout Agent/i);
+    await findByText(/Quick log/i);
+    await findByText(/Today's workout/i);
   });
 });

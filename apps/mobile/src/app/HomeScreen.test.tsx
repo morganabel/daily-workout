@@ -14,10 +14,16 @@ jest.mock('@react-navigation/native', () => ({
   useNavigation: () => ({
     navigate: jest.fn(),
   }),
+  useFocusEffect: jest.fn((callback) => callback()),
 }));
 jest.mock('./db/repositories/WorkoutRepository', () => ({
   workoutRepository: {
     completeWorkoutById: jest.fn(),
+  },
+}));
+jest.mock('./db/repositories/UserRepository', () => ({
+  userRepository: {
+    hasConfiguredProfile: jest.fn().mockResolvedValue(false),
   },
 }));
 
