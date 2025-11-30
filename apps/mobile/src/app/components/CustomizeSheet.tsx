@@ -29,6 +29,7 @@ const palette = {
 
 const DURATION_OPTIONS = [15, 20, 30, 45, 60];
 const FOCUS_OPTIONS = [
+  'Smart',
   'Full Body',
   'Upper Body',
   'Lower Body',

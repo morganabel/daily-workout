@@ -50,6 +50,14 @@ describe('quick action helpers', () => {
       createPreset({ key: 'backfill', stagedValue: 'YES' }),
     );
     expect(backfillResult).toEqual({ backfill: true });
+
+    const smartFocusResult = normalizeQuickActionValue(
+      createPreset({
+        key: 'focus',
+        stagedValue: 'Smart',
+      }),
+    );
+    expect(smartFocusResult).toEqual({});
   });
 
   it('builds a generation request from quick actions and base defaults', () => {

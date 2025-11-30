@@ -588,6 +588,7 @@ const ActionSheet = ({
       }
       case 'focus': {
         const focusOptions = [
+          'Smart',
           'Full Body',
           'Upper Body',
           'Lower Body',
