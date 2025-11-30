@@ -43,8 +43,8 @@ const defaultQuickActions: QuickActionPreset[] = [
   {
     key: 'focus',
     label: 'Focus',
-    value: 'Upper body',
-    description: 'Upper body',
+    value: 'Smart',
+    description: 'Smart',
     stagedValue: null,
   },
   {

@@ -167,6 +167,7 @@ export const normalizeQuickActionValue = (
     }
     case 'focus': {
       const focus = sanitizeFocus(source);
+      if (focus === 'Smart') return {};
       return focus ? { focus } : {};
     }
     case 'equipment': {
