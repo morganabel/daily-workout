@@ -30,7 +30,7 @@ The app MUST provide a settings interface where users can configure their availa
 - **THEN** they can choose from Beginner, Intermediate, or Advanced
 
 ### Requirement: Real Generation Context
-The workout generation flow MUST use the user's actual profile data instead of mock data when building the `GenerationContext` sent to the AI. Quick Action overrides take precedence over profile defaults for a single generation.
+The workout generation flow MUST use the user's actual profile data instead of mock data when building the `GenerationContext` sent to the AI. Quick Action overrides take precedence over profile defaults for a single generation. Archived workouts MUST be excluded from `recentSessions` and any other history passed to the model.
 
 #### Scenario: Generate with real profile
 - **GIVEN** the user has configured their profile with "Dumbbells, Pull-up Bar" and "Intermediate"
@@ -49,9 +49,14 @@ The workout generation flow MUST use the user's actual profile data instead of m
 - **THEN** the API request uses their profile equipment "Dumbbells, Pull-up Bar"
 
 #### Scenario: Include recent history
-- **GIVEN** the user has completed workouts in the past
+- **GIVEN** the user has completed workouts in the past that are not archived
 - **WHEN** they generate a new workout
-- **THEN** the `recentSessions` field includes their last 3-5 completed sessions
+- **THEN** the `recentSessions` field includes their last 3-5 completed, non-archived sessions and excludes any sessions that have been archived or deleted
+
+#### Scenario: Ignore archived history
+- **GIVEN** the user has archived one or more past workouts
+- **WHEN** they generate a new workout
+- **THEN** the `GenerationContext` and any human-readable history sent to the AI omit those archived sessions entirely
 
 ### Requirement: Onboarding Prompt
 The app MUST prompt new users to configure their profile if they have not done so.

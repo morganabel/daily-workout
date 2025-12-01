@@ -1,6 +1,6 @@
 ## ADDED Requirements
 ### Requirement: Workout History Archiving and Deletion
-The home data layer MUST support archiving (soft delete) and permanent deletion of workout sessions so users can clean up test data and prevent noisy sessions from influencing future plans. Archived sessions remain stored but are excluded from default recency-based views and from any history passed into the AI `GenerationContext`.
+The home data layer SHALL support archiving (soft delete) and permanent deletion of workout sessions so users can clean up test data and prevent noisy sessions from influencing future plans. Archived sessions remain stored but are excluded from default recency-based views and from any history passed into the AI `GenerationContext`.
 
 #### Scenario: Archive workout session
 - **GIVEN** a completed workout session appears in `recentSessions` on the Home snapshot
@@ -21,4 +21,3 @@ The home data layer MUST support archiving (soft delete) and permanent deletion 
 - **GIVEN** the backend (or local-only data layer) powers any endpoint or query that returns workout history or recent activity
 - **WHEN** the client requests the default history (without an explicit "include archived" flag)
 - **THEN** only non-archived, non-deleted sessions are returned so that archived test data does not clutter the UI or model context
-
