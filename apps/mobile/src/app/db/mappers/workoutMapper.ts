@@ -18,6 +18,7 @@ export type WorkoutRowLike = {
   scheduledDate?: number | null;
   completedAt?: number | null;
   durationSeconds?: number | null;
+  archivedAt?: number | null;
   // OpenAI response ID for conversation context
   responseId?: string | null;
   createdAt?: number | null;
@@ -165,6 +166,7 @@ export const planToPersistence = (
     planJson: JSON.stringify(plan),
     scheduledDate: timestamp,
     durationSeconds: plan.durationMinutes * 60,
+    archivedAt: null,
     // Store OpenAI response ID for conversation context
     responseId: plan.responseId,
     createdAt: timestamp,

@@ -2,6 +2,7 @@ import React from 'react';
 import { SafeAreaView, StatusBar } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { RootSiblingParent } from 'react-native-root-siblings';
 
 import { HomeScreen } from './HomeScreen';
 import { WorkoutPreviewScreen } from './WorkoutPreviewScreen';
@@ -14,7 +15,7 @@ const backgroundColor = '#030914';
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export const App = () => (
-  <>
+  <RootSiblingParent>
     <StatusBar barStyle="light-content" backgroundColor={backgroundColor} />
     <NavigationContainer>
       <SafeAreaView style={{ flex: 1, backgroundColor }}>
@@ -34,7 +35,7 @@ export const App = () => (
         </Stack.Navigator>
       </SafeAreaView>
     </NavigationContainer>
-  </>
+  </RootSiblingParent>
 );
 
 export default App;

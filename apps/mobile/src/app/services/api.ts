@@ -14,7 +14,6 @@ import { getDeviceToken } from '../storage/deviceToken';
 import { getByokApiKey } from '../storage/byokKey';
 import { userRepository } from '../db/repositories/UserRepository';
 import { workoutRepository } from '../db/repositories/WorkoutRepository';
-import Workout from '../db/models/Workout';
 
 const API_BASE_URL =
   process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:3000';
@@ -102,26 +101,14 @@ export async function fetchHomeSnapshot(): Promise<HomeSnapshot> {
  * Build a GenerationContext from user preferences and recent workout history.
  * This replaces the mock context with real user data.
  */
-async function buildGenerationContext(
+export async function buildGenerationContext(
   request: GenerationRequest,
 ): Promise<GenerationContext> {
   // Get user preferences from local DB
   const prefs: UserPreferences = await userRepository.getPreferences();
 
-  // Get recent completed sessions (last 5)
-  const recentWorkouts = await new Promise<Workout[]>((resolve) => {
-    let subscription: { unsubscribe: () => void } | null = null;
-    let resolved = false;
-
-    subscription = workoutRepository.observeRecentSessions(5).subscribe((workouts) => {
-      if (resolved) return;
-      resolved = true;
-      // Defer unsubscribe to avoid race condition if observable emits synchronously
-      setTimeout(() => subscription?.unsubscribe(), 0);
-      resolve(workouts);
-    });
-  });
-
+  // Get recent completed sessions (last 5), excluding archived
+  const recentWorkouts = await workoutRepository.listRecentSessions(5, { includeArchived: false });
   const recentSessions = recentWorkouts.map((w) => workoutRepository.toSessionSummary(w));
 
   // Determine equipment: quick action override > profile default > fallback
@@ -202,4 +189,25 @@ export async function logWorkout(
   return apiRequest<WorkoutSessionSummary>(`/api/workouts/${planId}/log`, {
     method: 'POST',
   });
+}
+
+/**
+ * Archive (soft delete) a workout session locally so it no longer appears in recency-based contexts.
+ */
+export async function archiveWorkoutSession(workoutId: string): Promise<void> {
+  await workoutRepository.archiveWorkoutById(workoutId);
+}
+
+/**
+ * Unarchive a previously archived workout session.
+ */
+export async function unarchiveWorkoutSession(workoutId: string): Promise<void> {
+  await workoutRepository.unarchiveWorkoutById(workoutId);
+}
+
+/**
+ * Permanently delete a workout session and its related exercises/sets locally.
+ */
+export async function deleteWorkoutSession(workoutId: string): Promise<void> {
+  await workoutRepository.deleteWorkoutById(workoutId);
 }
