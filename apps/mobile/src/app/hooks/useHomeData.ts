@@ -46,13 +46,6 @@ const DEFAULT_QUICK_ACTIONS: QuickActionPreset[] = [
     description: 'Moderate energy',
     stagedValue: null,
   },
-  {
-    key: 'backfill',
-    label: 'Backfill',
-    value: 'Today',
-    description: 'Log past session',
-    stagedValue: null,
-  },
 ];
 
 export type HomeDataState = {

@@ -209,6 +209,37 @@ export class WorkoutRepository {
       throw error;
     }
   }
+
+  /**
+   * Create a completed manual workout session (quick log).
+   * Used when users want to record an ad-hoc workout without generating a plan.
+   */
+  async quickLogManualSession(params: {
+    name: string;
+    focus: string;
+    durationMinutes: number;
+    completedAt?: number;
+    note?: string;
+  }): Promise<Workout> {
+    const now = Date.now();
+    const completedAt = params.completedAt ?? now;
+    const durationSeconds = params.durationMinutes * 60;
+
+    return database.write(async () => {
+      const workout = await this.workouts.create((w) => {
+        w.name = params.name;
+        w.status = 'completed';
+        w.source = 'manual';
+        w.focus = params.focus;
+        w.summary = params.note ?? undefined;
+        w.scheduledDate = completedAt;
+        w.completedAt = completedAt;
+        w.durationSeconds = durationSeconds;
+        w.archivedAt = null;
+      });
+      return workout;
+    });
+  }
 }
 
 export const workoutRepository = new WorkoutRepository();
