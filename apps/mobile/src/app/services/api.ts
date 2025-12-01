@@ -109,9 +109,7 @@ export async function buildGenerationContext(
 
   // Get recent completed sessions (last 5), excluding archived
   const recentWorkouts = await workoutRepository.listRecentSessions(5, { includeArchived: false });
-  const recentSessions = recentWorkouts
-    .map((w) => workoutRepository.toSessionSummary(w))
-    .filter((session) => !session.archivedAt);
+  const recentSessions = recentWorkouts.map((w) => workoutRepository.toSessionSummary(w));
 
   // Determine equipment: quick action override > profile default > fallback
   const equipment = request.equipment ?? prefs.equipment ?? [];

@@ -36,38 +36,39 @@ describe('buildGenerationContext', () => {
     });
   });
 
-  it('omits archived sessions from recentSessions', async () => {
+  it('fetches recent sessions excluding archived at the query level', async () => {
     const now = new Date().toISOString();
-    const keep: WorkoutSessionSummary = {
-      id: 'keep',
+    const session1: WorkoutSessionSummary = {
+      id: 'session-1',
       name: 'Strength',
       focus: 'Legs',
       durationMinutes: 30,
       completedAt: now,
       source: 'manual',
     };
-    const archived: WorkoutSessionSummary = {
-      id: 'archived',
-      name: 'Test',
-      focus: 'Arms',
-      durationMinutes: 12,
+    const session2: WorkoutSessionSummary = {
+      id: 'session-2',
+      name: 'Cardio',
+      focus: 'Full Body',
+      durationMinutes: 20,
       completedAt: now,
-      source: 'manual',
-      archivedAt: now,
+      source: 'generated',
     };
 
+    // listRecentSessions with includeArchived: false returns only non-archived workouts
+    // (archived workouts are filtered at the database query level)
     mockWorkoutRepository.listRecentSessions.mockResolvedValue([
       { id: 'workout-1' } as any,
       { id: 'workout-2' } as any,
     ]);
     mockWorkoutRepository.toSessionSummary
-      .mockReturnValueOnce(keep)
-      .mockReturnValueOnce(archived);
+      .mockReturnValueOnce(session1)
+      .mockReturnValueOnce(session2);
 
     const context = await buildGenerationContext({ timeMinutes: 30, focus: 'Legs' });
 
-    expect(context.recentSessions).toEqual([keep]);
     expect(mockWorkoutRepository.listRecentSessions).toHaveBeenCalledWith(5, { includeArchived: false });
+    expect(context.recentSessions).toEqual([session1, session2]);
   });
 });
 
