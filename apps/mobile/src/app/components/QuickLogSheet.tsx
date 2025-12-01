@@ -66,7 +66,7 @@ export const QuickLogSheet = ({
   const [when, setWhen] = useState<'now' | 'earlier'>('now');
   const [note, setNote] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [errors, setErrors] = useState<{ name?: string; duration?: string }>({});
+  const [errors, setErrors] = useState<{ name?: string }>({});
 
   const resetForm = () => {
     setName('');
@@ -83,14 +83,10 @@ export const QuickLogSheet = ({
   };
 
   const validate = (): boolean => {
-    const newErrors: { name?: string; duration?: string } = {};
+    const newErrors: { name?: string } = {};
 
     if (!name.trim() && !focus) {
       newErrors.name = 'Please enter what you did or select a focus';
-    }
-
-    if (!durationMinutes) {
-      newErrors.duration = 'Please select a duration';
     }
 
     setErrors(newErrors);
@@ -114,7 +110,7 @@ export const QuickLogSheet = ({
       const payload: QuickLogPayload = {
         name: name.trim() || focus,
         focus: focus || name.trim(),
-        durationMinutes: durationMinutes!,
+        durationMinutes: durationMinutes ?? 60, // Default to 1 hour if not specified
         completedAt,
         note: note.trim() || undefined,
       };
@@ -146,7 +142,7 @@ export const QuickLogSheet = ({
     }
   };
 
-  const canSubmit = (name.trim() || focus) && durationMinutes && !submitting;
+  const canSubmit = (name.trim() || focus) && !submitting;
 
   return (
     <Modal
@@ -199,9 +195,9 @@ export const QuickLogSheet = ({
             {errors.name && <Text style={styles.errorText}>{errors.name}</Text>}
           </View>
 
-          {/* Duration */}
+          {/* Duration (optional) */}
           <View style={styles.fieldGroup}>
-            <Text style={styles.label}>How long?</Text>
+            <Text style={styles.label}>How long? <Text style={styles.labelHint}>(optional, defaults to 1 hr)</Text></Text>
             <View style={styles.chipGrid}>
               {DURATION_OPTIONS.map((minutes) => (
                 <Pressable
@@ -223,9 +219,6 @@ export const QuickLogSheet = ({
                 </Pressable>
               ))}
             </View>
-            {errors.duration && (
-              <Text style={styles.errorText}>{errors.duration}</Text>
-            )}
           </View>
 
           {/* When */}
@@ -340,6 +333,11 @@ const styles = StyleSheet.create({
     color: palette.textPrimary,
     fontSize: 15,
     fontWeight: '600',
+  },
+  labelHint: {
+    color: palette.textMuted,
+    fontSize: 13,
+    fontWeight: '400',
   },
   textInput: {
     backgroundColor: palette.cardSecondary,
