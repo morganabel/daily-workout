@@ -35,6 +35,8 @@
     "picocolors": "*",
     "react": "*",
     "react-native": "*",
+    "react-native-root-siblings": "*",
+    "react-native-root-toast": "*",
     "react-native-safe-area-context": "5.4.0",
     "react-native-screens": "*",
     "react-native-svg": "*",

@@ -38,6 +38,8 @@ jest.mock('@react-navigation/native-stack', () => {
 jest.mock('./db/repositories/WorkoutRepository', () => ({
   workoutRepository: {
     completeWorkoutById: jest.fn(),
+    archiveWorkoutById: jest.fn(),
+    deleteWorkoutById: jest.fn(),
   },
 }));
 jest.mock('./db/repositories/UserRepository', () => ({

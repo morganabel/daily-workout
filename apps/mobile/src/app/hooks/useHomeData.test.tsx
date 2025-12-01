@@ -10,6 +10,7 @@ jest.mock('../db/repositories/WorkoutRepository', () => {
   const observeTodayWorkout = jest.fn();
   const observeRecentSessions = jest.fn();
   const getTodayWorkout = jest.fn();
+  const listRecentSessions = jest.fn();
   const mapWorkoutToPlan = jest.fn();
   const toSessionSummary = jest.fn();
 
@@ -18,8 +19,12 @@ jest.mock('../db/repositories/WorkoutRepository', () => {
       observeTodayWorkout,
       observeRecentSessions,
       getTodayWorkout,
+      listRecentSessions,
       mapWorkoutToPlan,
       toSessionSummary,
+      archiveWorkoutById: jest.fn(),
+      unarchiveWorkoutById: jest.fn(),
+      deleteWorkoutById: jest.fn(),
     },
   };
 });

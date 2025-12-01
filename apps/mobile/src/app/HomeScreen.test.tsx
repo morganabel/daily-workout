@@ -10,6 +10,11 @@ jest.mock('./hooks/useHomeData', () => ({
 jest.mock('./services/api', () => ({
   generateWorkout: jest.fn(),
 }));
+jest.mock('./storage/byokKey', () => ({
+  getByokApiKey: jest.fn().mockResolvedValue(null),
+  setByokApiKey: jest.fn(),
+  removeByokApiKey: jest.fn(),
+}));
 jest.mock('@react-navigation/native', () => ({
   useNavigation: () => ({
     navigate: jest.fn(),
@@ -19,6 +24,8 @@ jest.mock('@react-navigation/native', () => ({
 jest.mock('./db/repositories/WorkoutRepository', () => ({
   workoutRepository: {
     completeWorkoutById: jest.fn(),
+    archiveWorkoutById: jest.fn(),
+    deleteWorkoutById: jest.fn(),
   },
 }));
 jest.mock('./db/repositories/UserRepository', () => ({
@@ -75,6 +82,10 @@ describe('HomeScreen', () => {
     });
 
     const { getByText } = render(<HomeScreen />);
+    await act(async () => {
+      // Flush microtasks triggered by effects (e.g., profile/BYOK checks)
+      await Promise.resolve();
+    });
 
     await act(async () => {
       jest.advanceTimersByTime(500);
@@ -93,6 +104,9 @@ describe('HomeScreen', () => {
     });
 
     const { getByText } = render(<HomeScreen />);
+    await act(async () => {
+      await Promise.resolve();
+    });
 
     expect(getByText('45')).toBeTruthy();
     expect(getByText('Reset')).toBeTruthy();

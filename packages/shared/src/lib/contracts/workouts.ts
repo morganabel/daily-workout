@@ -64,6 +64,8 @@ export const workoutSessionSummarySchema = z.object({
   durationMinutes: z.number().int().positive(),
   focus: z.string(),
   source: workoutSourceSchema.optional(),
+  // When set, the session is archived/hidden from recency contexts
+  archivedAt: z.string().optional(),
 });
 export type WorkoutSessionSummary = z.infer<typeof workoutSessionSummarySchema>;
 
@@ -372,6 +374,7 @@ export const createSessionSummaryMock = (
   durationMinutes: 20,
   focus: 'Full Body',
   source: 'manual',
+  archivedAt: undefined,
   ...overrides,
 });
 

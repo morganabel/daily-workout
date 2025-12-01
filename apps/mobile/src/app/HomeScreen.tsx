@@ -23,7 +23,12 @@ import {
   type GenerationStatus,
 } from '@workout-agent/shared';
 import { useHomeData } from './hooks/useHomeData';
-import { generateWorkout, type ApiError } from './services/api';
+import {
+  archiveWorkoutSession,
+  deleteWorkoutSession,
+  generateWorkout,
+  type ApiError,
+} from './services/api';
 import {
   getByokApiKey,
   setByokApiKey,
@@ -448,9 +453,59 @@ type ActivitySectionProps = {
   sessions: WorkoutSessionSummary[];
   loading: boolean;
   onViewHistory: () => void;
+  onArchiveSession?: (session: WorkoutSessionSummary) => void;
+  onDeleteSession?: (session: WorkoutSessionSummary) => void;
 };
 
-const ActivitySection = ({ sessions, loading, onViewHistory }: ActivitySectionProps) => {
+const ActivitySection = ({
+  sessions,
+  loading,
+  onViewHistory,
+  onArchiveSession,
+  onDeleteSession,
+}: ActivitySectionProps) => {
+  const handleManageSession = (session: WorkoutSessionSummary) => {
+    if (!onArchiveSession && !onDeleteSession) return;
+
+    const actions: Array<{
+      text: string;
+      style?: 'default' | 'cancel' | 'destructive';
+      onPress?: () => void;
+    }> = [];
+
+    if (onArchiveSession) {
+      actions.push({
+        text: 'Archive',
+        onPress: () => onArchiveSession(session),
+      });
+    }
+
+    if (onDeleteSession) {
+      actions.push({
+        text: 'Delete',
+        style: 'destructive',
+        onPress: () => {
+          Alert.alert(
+            'Delete workout?',
+            'This cannot be undone.',
+            [
+              { text: 'Cancel', style: 'cancel' },
+              {
+                text: 'Delete',
+                style: 'destructive',
+                onPress: () => onDeleteSession(session),
+              },
+            ],
+          );
+        },
+      });
+    }
+
+    actions.push({ text: 'Cancel', style: 'cancel' });
+
+    Alert.alert('Manage workout', 'Choose an action', actions);
+  };
+
   if (loading) {
     return (
       <View style={styles.card}>
@@ -503,7 +558,22 @@ const ActivitySection = ({ sessions, loading, onViewHistory }: ActivitySectionPr
                 })}
               </Text>
             </View>
-            <View style={styles.activityIndicator} />
+            <View style={styles.activityActions}>
+              <View style={styles.activityIndicator} />
+              {(onArchiveSession || onDeleteSession) && (
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.activityMenuButton,
+                    pressed && { opacity: 0.7 },
+                  ]}
+                  onPress={() => handleManageSession(session)}
+                  accessibilityRole="button"
+                  accessibilityLabel="Manage workout entry"
+                >
+                  <Text style={styles.activityMenuText}>⋮</Text>
+                </Pressable>
+              )}
+            </View>
           </View>
         ))}
       </View>
@@ -1180,6 +1250,42 @@ export const HomeScreen = () => {
     }
   };
 
+  const handleArchiveSession = async (session: WorkoutSessionSummary) => {
+    try {
+      await archiveWorkoutSession(session.id);
+      Alert.alert(
+        'Workout archived',
+        'It will be hidden from recent activity and future generations.',
+        [{ text: 'OK' }],
+      );
+    } catch (err) {
+      console.error('Failed to archive workout:', err);
+      Alert.alert(
+        'Failed to Archive',
+        'Could not archive this workout. Please try again.',
+        [{ text: 'OK' }],
+      );
+    }
+  };
+
+  const handleDeleteSession = async (session: WorkoutSessionSummary) => {
+    try {
+      await deleteWorkoutSession(session.id);
+      Alert.alert(
+        'Workout deleted',
+        'The workout was removed from your history.',
+        [{ text: 'OK' }],
+      );
+    } catch (err) {
+      console.error('Failed to delete workout:', err);
+      Alert.alert(
+        'Failed to Delete',
+        'Could not delete this workout. Please try again.',
+        [{ text: 'OK' }],
+      );
+    }
+  };
+
   // Opens the CustomizeSheet for "Try Another"
   const handleTryAnother = () => {
     if (isOffline || !plan) return;
@@ -1293,6 +1399,8 @@ export const HomeScreen = () => {
           sessions={recentSessions}
           loading={status === 'loading'}
           onViewHistory={handleOpenHistory}
+          onArchiveSession={handleArchiveSession}
+          onDeleteSession={handleDeleteSession}
         />
       </ScrollView>
       <BottomActionBar onQuickLog={() => setSelectedAction(quickActions[4] ?? null)} />
@@ -1631,11 +1739,31 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 4,
   },
+  activityActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
   activityIndicator: {
     width: 8,
     height: 8,
     borderRadius: 4,
     backgroundColor: palette.accent,
+  },
+  activityMenuButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: palette.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  activityMenuText: {
+    color: palette.textPrimary,
+    fontSize: 16,
+    lineHeight: 16,
+    marginTop: -2,
   },
   sheetOverlay: {
     flex: 1,

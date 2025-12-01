@@ -13,7 +13,17 @@ export const migrations = schemaMigrations({
         }),
       ],
     },
+    {
+      toVersion: 3,
+      steps: [
+        addColumns({
+          table: 'workouts',
+          columns: [
+            { name: 'archived_at', type: 'number', isOptional: true },
+          ],
+        }),
+      ],
+    },
   ],
 });
-
 

@@ -20,25 +20,48 @@ export class WorkoutRepository {
   private exercises = database.collections.get<Exercise>('exercises');
   private sets = database.collections.get<Set>('sets');
 
-  observeTodayWorkout() {
-    return this.workouts
-      .query(Q.where('status', 'planned'), Q.sortBy('scheduled_date', Q.desc), Q.take(1))
-      .observe();
+  private buildCompletedQuery(limit: number, includeArchived = false) {
+    const conditions = [
+      Q.where('status', 'completed'),
+      Q.sortBy('completed_at', Q.desc),
+      Q.take(limit),
+    ];
+
+    if (!includeArchived) {
+      conditions.unshift(Q.where('archived_at', null));
+    }
+
+    return this.workouts.query(...conditions);
   }
 
-  observeRecentSessions(limit = 3) {
+  observeTodayWorkout() {
     return this.workouts
       .query(
-        Q.where('status', 'completed'),
-        Q.sortBy('completed_at', Q.desc),
-        Q.take(limit),
+        Q.where('status', 'planned'),
+        Q.where('archived_at', null),
+        Q.sortBy('scheduled_date', Q.desc),
+        Q.take(1),
       )
       .observe();
   }
 
+  observeRecentSessions(limit = 3, options?: { includeArchived?: boolean }) {
+    return this.buildCompletedQuery(limit, Boolean(options?.includeArchived)).observe();
+  }
+
+  async listRecentSessions(limit = 5, options?: { includeArchived?: boolean }) {
+    const query = this.buildCompletedQuery(limit, Boolean(options?.includeArchived));
+    return query.fetch();
+  }
+
   async getTodayWorkout(): Promise<Workout | null> {
     const workouts = await this.workouts
-      .query(Q.where('status', 'planned'), Q.sortBy('scheduled_date', Q.desc), Q.take(1))
+      .query(
+        Q.where('status', 'planned'),
+        Q.where('archived_at', null),
+        Q.sortBy('scheduled_date', Q.desc),
+        Q.take(1),
+      )
       .fetch();
     return workouts.length > 0 ? workouts[0] : null;
   }
@@ -65,6 +88,7 @@ export class WorkoutRepository {
         w.scheduledDate = payload.workout.scheduledDate ?? Date.now();
         w.completedAt = payload.workout.completedAt ?? undefined;
         w.durationSeconds = payload.workout.durationSeconds ?? undefined;
+        w.archivedAt = null;
         // Store OpenAI response ID for conversation context
         w.responseId = payload.workout.responseId ?? undefined;
       });
@@ -105,6 +129,9 @@ export class WorkoutRepository {
         ? new Date(workout.completedAt).toISOString()
         : new Date().toISOString(),
       source: (workout.source as WorkoutSessionSummary['source']) ?? 'manual',
+      archivedAt: workout.archivedAt
+        ? new Date(workout.archivedAt).toISOString()
+        : undefined,
     };
   }
 
@@ -127,6 +154,7 @@ export class WorkoutRepository {
         if (durationSeconds !== undefined) {
           w.durationSeconds = durationSeconds;
         }
+        w.archivedAt = null;
       });
     });
   }
@@ -138,6 +166,48 @@ export class WorkoutRepository {
         .fetch();
       await Promise.all(planned.map((workout) => workout.destroyPermanently()));
     });
+  }
+
+  async archiveWorkoutById(workoutId: string) {
+    const workout = await this.workouts.find(workoutId);
+    await database.write(async () => {
+      await workout.update((w) => {
+        w.archivedAt = Date.now();
+      });
+    });
+  }
+
+  async unarchiveWorkoutById(workoutId: string) {
+    const workout = await this.workouts.find(workoutId);
+    await database.write(async () => {
+      await workout.update((w) => {
+        w.archivedAt = null;
+      });
+    });
+  }
+
+  async deleteWorkoutById(workoutId: string) {
+    try {
+      const workout = await this.workouts.find(workoutId);
+      await database.write(async () => {
+        const exercises = await this.exercises
+          .query(Q.where('workout_id', workout.id))
+          .fetch();
+
+        for (const exercise of exercises) {
+          const sets = await this.sets
+            .query(Q.where('exercise_id', exercise.id))
+            .fetch();
+          await Promise.all(sets.map((set) => set.destroyPermanently()));
+          await exercise.destroyPermanently();
+        }
+
+        await workout.destroyPermanently();
+      });
+    } catch (error) {
+      console.error('Failed to delete workout', error);
+      throw error;
+    }
   }
 }
 
