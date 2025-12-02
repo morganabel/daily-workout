@@ -143,10 +143,12 @@ export const QuickLogSheet = ({
       const parsedDuration = parseInt(durationInput, 10);
       const durationMinutes = parsedDuration > 0 ? parsedDuration : 60;
 
-      // Use selected date for completedAt (set to noon of that day for consistency)
+      // Use current time for "today", noon for past dates (where exact time is unknown)
       const selectedDate = getSelectedDate();
       const completedAt = new Date(selectedDate);
-      completedAt.setHours(12, 0, 0, 0);
+      if (dateOption !== 'today') {
+        completedAt.setHours(12, 0, 0, 0);
+      }
 
       const payload: QuickLogPayload = {
         name: name.trim() || focus,
