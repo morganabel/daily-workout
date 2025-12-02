@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import {
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -8,6 +9,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import Toast from 'react-native-root-toast';
 
 const palette = {
@@ -49,6 +51,8 @@ const FOCUS_OPTIONS = [
   'Other',
 ];
 
+type DateOption = 'today' | 'yesterday' | 'custom';
+
 // Helper to get start of a day
 const startOfDay = (date: Date): Date => {
   const d = new Date(date);
@@ -64,8 +68,7 @@ const formatDate = (date: Date): string => {
 
   if (diffDays === 0) return 'Today';
   if (diffDays === 1) return 'Yesterday';
-  if (diffDays < 7) return date.toLocaleDateString([], { weekday: 'long' });
-  return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+  return date.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
 };
 
 export const QuickLogSheet = ({
@@ -81,7 +84,9 @@ export const QuickLogSheet = ({
 
   // Details section (collapsed by default)
   const [showDetails, setShowDetails] = useState(false);
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [dateOption, setDateOption] = useState<DateOption>('today');
+  const [customDate, setCustomDate] = useState<Date>(new Date());
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const [durationInput, setDurationInput] = useState('');
 
   const resetForm = () => {
@@ -90,7 +95,9 @@ export const QuickLogSheet = ({
     setNote('');
     setErrors({});
     setShowDetails(false);
-    setSelectedDate(new Date());
+    setDateOption('today');
+    setCustomDate(new Date());
+    setShowDatePicker(false);
     setDurationInput('');
   };
 
@@ -110,6 +117,21 @@ export const QuickLogSheet = ({
     return Object.keys(newErrors).length === 0;
   };
 
+  // Get the actual date based on selection
+  const getSelectedDate = (): Date => {
+    const now = new Date();
+    switch (dateOption) {
+      case 'today':
+        return now;
+      case 'yesterday':
+        const yesterday = new Date(now);
+        yesterday.setDate(yesterday.getDate() - 1);
+        return yesterday;
+      case 'custom':
+        return customDate;
+    }
+  };
+
   const handleSubmit = async () => {
     if (!validate()) return;
     if (submitting) return;
@@ -121,7 +143,8 @@ export const QuickLogSheet = ({
       const parsedDuration = parseInt(durationInput, 10);
       const durationMinutes = parsedDuration > 0 ? parsedDuration : 60;
 
-      // Use selectedDate for completedAt (set to noon of that day for consistency)
+      // Use selected date for completedAt (set to noon of that day for consistency)
+      const selectedDate = getSelectedDate();
       const completedAt = new Date(selectedDate);
       completedAt.setHours(12, 0, 0, 0);
 
@@ -159,17 +182,38 @@ export const QuickLogSheet = ({
     }
   };
 
+  const handleDateOptionPress = (option: DateOption) => {
+    setDateOption(option);
+    if (option === 'custom') {
+      setShowDatePicker(true);
+    }
+  };
+
+  const handleDateChange = (_event: any, selectedDate?: Date) => {
+    // On Android, the picker closes automatically
+    if (Platform.OS === 'android') {
+      setShowDatePicker(false);
+    }
+    if (selectedDate) {
+      setCustomDate(selectedDate);
+    }
+  };
+
   const canSubmit = (name.trim() || focus) && !submitting;
 
-  // Generate date options for the past week
-  const dateOptions = Array.from({ length: 7 }, (_, i) => {
-    const date = new Date();
-    date.setDate(date.getDate() - i);
-    return date;
-  });
+  const hasCustomizations = durationInput.trim() !== '' || dateOption !== 'today';
 
-  const hasCustomizations = durationInput.trim() !== '' || 
-    startOfDay(selectedDate).getTime() !== startOfDay(new Date()).getTime();
+  // Get display text for current date selection
+  const getDateDisplayText = (): string => {
+    switch (dateOption) {
+      case 'today':
+        return 'Today';
+      case 'yesterday':
+        return 'Yesterday';
+      case 'custom':
+        return formatDate(customDate);
+    }
+  };
 
   return (
     <Modal
@@ -187,8 +231,8 @@ export const QuickLogSheet = ({
             Tap a category and save — that's it
           </Text>
 
-          <ScrollView 
-            style={styles.scrollContent} 
+          <ScrollView
+            style={styles.scrollContent}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
           >
@@ -237,7 +281,7 @@ export const QuickLogSheet = ({
               </Text>
               {!showDetails && hasCustomizations && (
                 <Text style={styles.detailsSummary}>
-                  {formatDate(selectedDate)}
+                  {getDateDisplayText()}
                   {durationInput ? ` · ${durationInput} min` : ''}
                 </Text>
               )}
@@ -249,34 +293,85 @@ export const QuickLogSheet = ({
                 {/* Date selection */}
                 <View style={styles.fieldGroup}>
                   <Text style={styles.label}>When?</Text>
-                  <ScrollView 
-                    horizontal 
-                    showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={styles.dateScroll}
-                  >
-                    {dateOptions.map((date, index) => {
-                      const isSelected = startOfDay(date).getTime() === startOfDay(selectedDate).getTime();
-                      return (
-                        <Pressable
-                          key={index}
-                          style={[
-                            styles.dateChip,
-                            isSelected && styles.chipSelected,
-                          ]}
-                          onPress={() => setSelectedDate(date)}
-                        >
-                          <Text
-                            style={[
-                              styles.chipText,
-                              isSelected && styles.chipTextSelected,
-                            ]}
-                          >
-                            {formatDate(date)}
-                          </Text>
-                        </Pressable>
-                      );
-                    })}
-                  </ScrollView>
+                  <View style={styles.dateOptions}>
+                    <Pressable
+                      style={[
+                        styles.dateChip,
+                        dateOption === 'today' && styles.chipSelected,
+                      ]}
+                      onPress={() => handleDateOptionPress('today')}
+                    >
+                      <Text
+                        style={[
+                          styles.chipText,
+                          dateOption === 'today' && styles.chipTextSelected,
+                        ]}
+                      >
+                        Today
+                      </Text>
+                    </Pressable>
+                    <Pressable
+                      style={[
+                        styles.dateChip,
+                        dateOption === 'yesterday' && styles.chipSelected,
+                      ]}
+                      onPress={() => handleDateOptionPress('yesterday')}
+                    >
+                      <Text
+                        style={[
+                          styles.chipText,
+                          dateOption === 'yesterday' && styles.chipTextSelected,
+                        ]}
+                      >
+                        Yesterday
+                      </Text>
+                    </Pressable>
+                    <Pressable
+                      style={[
+                        styles.dateChip,
+                        dateOption === 'custom' && styles.chipSelected,
+                      ]}
+                      onPress={() => handleDateOptionPress('custom')}
+                    >
+                      <Text
+                        style={[
+                          styles.chipText,
+                          dateOption === 'custom' && styles.chipTextSelected,
+                        ]}
+                      >
+                        {dateOption === 'custom' ? formatDate(customDate) : 'Custom...'}
+                      </Text>
+                    </Pressable>
+                  </View>
+
+                  {/* Date picker for iOS (inline) or after selection on Android */}
+                  {showDatePicker && Platform.OS === 'ios' && (
+                    <View style={styles.datePickerContainer}>
+                      <DateTimePicker
+                        value={customDate}
+                        mode="date"
+                        display="spinner"
+                        onChange={handleDateChange}
+                        maximumDate={new Date()}
+                        themeVariant="dark"
+                      />
+                      <Pressable
+                        style={styles.datePickerDone}
+                        onPress={() => setShowDatePicker(false)}
+                      >
+                        <Text style={styles.datePickerDoneText}>Done</Text>
+                      </Pressable>
+                    </View>
+                  )}
+                  {showDatePicker && Platform.OS === 'android' && (
+                    <DateTimePicker
+                      value={customDate}
+                      mode="date"
+                      display="default"
+                      onChange={handleDateChange}
+                      maximumDate={new Date()}
+                    />
+                  )}
                 </View>
 
                 {/* Duration input */}
@@ -423,6 +518,10 @@ const styles = StyleSheet.create({
     borderColor: palette.border,
     backgroundColor: palette.cardSecondary,
   },
+  dateOptions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
   dateChip: {
     paddingHorizontal: 16,
     paddingVertical: 10,
@@ -430,7 +529,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: palette.border,
     backgroundColor: palette.cardSecondary,
-    marginRight: 8,
   },
   chipSelected: {
     borderColor: palette.accent,
@@ -471,8 +569,22 @@ const styles = StyleSheet.create({
     borderTopColor: palette.border,
     paddingTop: 16,
   },
-  dateScroll: {
-    paddingVertical: 4,
+  datePickerContainer: {
+    backgroundColor: palette.cardSecondary,
+    borderRadius: 12,
+    marginTop: 8,
+    overflow: 'hidden',
+  },
+  datePickerDone: {
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderTopColor: palette.border,
+  },
+  datePickerDoneText: {
+    color: palette.accent,
+    fontSize: 16,
+    fontWeight: '600',
   },
   actions: {
     flexDirection: 'row',

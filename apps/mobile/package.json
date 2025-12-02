@@ -18,6 +18,7 @@
     "@nx/js": "*",
     "@nx/react": "*",
     "@nx/rollup": "*",
+    "@react-native-community/datetimepicker": "*",
     "@react-native-community/netinfo": "*",
     "@react-navigation/native": "*",
     "@react-navigation/native-stack": "*",
