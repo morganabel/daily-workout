@@ -65,3 +65,12 @@ test-output
 # Next.js
 .next
 out
+
+# Environment files
+.env
+.env.*
+!.env.example
+apps/server/.env*
+!apps/server/.env.example
+apps/mobile/.env*
+!apps/mobile/.env.example

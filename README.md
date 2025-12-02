@@ -30,25 +30,43 @@ These targets are either [inferred automatically](https://nx.dev/concepts/inferr
 
 [More about running tasks in the docs &raquo;](https://nx.dev/features/run-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
 
-## AI Generation (Local Dev)
+## AI Generation: CE vs Hosted
+
+### Local dev / Community Edition
 
 - Start dev servers
   - Backend (Next.js): `npm run dev:server` or `nx dev server`
   - Mobile (Expo): `npm run dev:mobile` or `nx start mobile`
 
 - Provide an API key (choose one):
-  - Server env: export `OPENAI_API_KEY` before starting the server
-  - BYOK (mobile): tap “BYOK” on Home, paste your key; the client sends `x-openai-key` per request
+  - Server env (managed key for this deployment): set `OPENAI_API_KEY` before starting the server
+  - BYOK from the device: tap “BYOK” on Home, paste your key; the client sends `x-openai-key` per request
 
-- Behavior
+- Behavior in CE (default when `EDITION` is unset or not `HOSTED`):
   - Server prefers `x-openai-key`, else falls back to `OPENAI_API_KEY`
-  - If no key and `EDITION=HOSTED`, server returns `{ code: 'BYOK_REQUIRED' }`
-  - If generation fails or no key in CE/dev, server returns a deterministic mock plan
+  - If no key is available, the server falls back to a deterministic mock `TodayPlan` so the app still works
 
-- Endpoints
-  - `GET /api/home/snapshot` → plan | null, quickActions, recentSessions
-  - `POST /api/workouts/generate` → TodayPlan (AI or mock)
-  - `POST /api/workouts/{id}/log` → WorkoutSessionSummary
+### Hosted edition (separate private repo)
+
+In a hosted environment, the server includes an API key as part of the paid offering:
+
+- Set `EDITION=HOSTED`
+- Provision a managed OpenAI key (or key pool) as `OPENAI_API_KEY` via your hosting platform’s secret manager
+- Optionally still allow BYOK: if the mobile client sends `x-openai-key`, it overrides `OPENAI_API_KEY`
+- If `EDITION=HOSTED` and **no** key is available (neither BYOK nor managed), the server responds with:
+  - `{ code: 'BYOK_REQUIRED' }` (HTTP 402) from `/api/workouts/generate`
+
+This lets the CE repo stay the open core while a private “hosted shell” repo is responsible for:
+
+- Managing and metering `OPENAI_API_KEY` per tenant/user
+- Setting `EDITION=HOSTED` in production environments
+- Keeping mobile builds pointed at the hosted base URL via `EXPO_PUBLIC_BACKEND_URL`
+
+### API Surface
+
+- `GET /api/home/snapshot` → plan | null, quickActions, recentSessions
+- `POST /api/workouts/generate` → TodayPlan (AI or mock)
+- `POST /api/workouts/{id}/log` → WorkoutSessionSummary
 
 Notes: The server validates structured output with shared Zod schemas. The mobile client sends DeviceToken for auth and optionally a BYOK header.
 

@@ -38,6 +38,17 @@ export function useDeviceToken() {
     }
   };
 
+  // Automatically generate a device token if none exists.
+  // This keeps the CE experience simple while remaining compatible
+  // with a future hosted flow that may provision tokens server-side.
+  useEffect(() => {
+    if (!loading && !token) {
+      const newToken = `device_${Date.now().toString(36)}_${Math.random()
+        .toString(36)
+        .slice(2, 10)}`;
+      void updateToken(newToken);
+    }
+  }, [loading, token]);
+
   return { token, loading, setToken: updateToken };
 }
-
