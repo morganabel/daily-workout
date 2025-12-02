@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import {
   Modal,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -48,12 +49,24 @@ const FOCUS_OPTIONS = [
   'Other',
 ];
 
-const DURATION_OPTIONS = [10, 15, 20, 30, 45, 60, 90];
+// Helper to get start of a day
+const startOfDay = (date: Date): Date => {
+  const d = new Date(date);
+  d.setHours(0, 0, 0, 0);
+  return d;
+};
 
-const WHEN_OPTIONS = [
-  { label: 'Just now', value: 'now' },
-  { label: 'Earlier today', value: 'earlier' },
-];
+// Helper to format date for display
+const formatDate = (date: Date): string => {
+  const today = startOfDay(new Date());
+  const target = startOfDay(date);
+  const diffDays = Math.round((today.getTime() - target.getTime()) / (1000 * 60 * 60 * 24));
+
+  if (diffDays === 0) return 'Today';
+  if (diffDays === 1) return 'Yesterday';
+  if (diffDays < 7) return date.toLocaleDateString([], { weekday: 'long' });
+  return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+};
 
 export const QuickLogSheet = ({
   visible,
@@ -62,19 +75,23 @@ export const QuickLogSheet = ({
 }: QuickLogSheetProps) => {
   const [name, setName] = useState('');
   const [focus, setFocus] = useState('');
-  const [durationMinutes, setDurationMinutes] = useState<number | null>(null);
-  const [when, setWhen] = useState<'now' | 'earlier'>('now');
   const [note, setNote] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState<{ name?: string }>({});
 
+  // Details section (collapsed by default)
+  const [showDetails, setShowDetails] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [durationInput, setDurationInput] = useState('');
+
   const resetForm = () => {
     setName('');
     setFocus('');
-    setDurationMinutes(null);
-    setWhen('now');
     setNote('');
     setErrors({});
+    setShowDetails(false);
+    setSelectedDate(new Date());
+    setDurationInput('');
   };
 
   const handleClose = () => {
@@ -100,24 +117,24 @@ export const QuickLogSheet = ({
     setSubmitting(true);
 
     try {
-      // Calculate completedAt based on "when" selection
-      let completedAt: number | undefined;
-      if (when === 'earlier') {
-        // Backdate by 2 hours for "earlier today"
-        completedAt = Date.now() - 2 * 60 * 60 * 1000;
-      }
+      // Parse duration - default to 60 minutes if not specified or invalid
+      const parsedDuration = parseInt(durationInput, 10);
+      const durationMinutes = parsedDuration > 0 ? parsedDuration : 60;
+
+      // Use selectedDate for completedAt (set to noon of that day for consistency)
+      const completedAt = new Date(selectedDate);
+      completedAt.setHours(12, 0, 0, 0);
 
       const payload: QuickLogPayload = {
         name: name.trim() || focus,
         focus: focus || name.trim(),
-        durationMinutes: durationMinutes ?? 60, // Default to 1 hour if not specified
-        completedAt,
+        durationMinutes,
+        completedAt: completedAt.getTime(),
         note: note.trim() || undefined,
       };
 
       await onSubmit(payload);
 
-      // Show success toast
       Toast.show('Workout logged!', {
         duration: Toast.durations.SHORT,
         position: Toast.positions.BOTTOM,
@@ -144,6 +161,16 @@ export const QuickLogSheet = ({
 
   const canSubmit = (name.trim() || focus) && !submitting;
 
+  // Generate date options for the past week
+  const dateOptions = Array.from({ length: 7 }, (_, i) => {
+    const date = new Date();
+    date.setDate(date.getDate() - i);
+    return date;
+  });
+
+  const hasCustomizations = durationInput.trim() !== '' || 
+    startOfDay(selectedDate).getTime() !== startOfDay(new Date()).getTime();
+
   return (
     <Modal
       visible={visible}
@@ -157,110 +184,133 @@ export const QuickLogSheet = ({
           <View style={styles.handle} />
           <Text style={styles.title}>Quick log</Text>
           <Text style={styles.subtitle}>
-            Record an ad-hoc workout in seconds
+            Tap a category and save — that's it
           </Text>
 
-          {/* What did you do? */}
-          <View style={styles.fieldGroup}>
-            <Text style={styles.label}>What did you do?</Text>
-            <TextInput
-              style={styles.textInput}
-              placeholder="e.g., Morning run, Yoga session..."
-              placeholderTextColor={palette.textMuted}
-              value={name}
-              onChangeText={setName}
-              autoCapitalize="sentences"
-            />
-            <View style={styles.chipGrid}>
-              {FOCUS_OPTIONS.map((option) => (
-                <Pressable
-                  key={option}
-                  style={[
-                    styles.chip,
-                    focus === option && styles.chipSelected,
-                  ]}
-                  onPress={() => setFocus(focus === option ? '' : option)}
-                >
-                  <Text
+          <ScrollView 
+            style={styles.scrollContent} 
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
+            {/* What did you do? */}
+            <View style={styles.fieldGroup}>
+              <Text style={styles.label}>What did you do?</Text>
+              <TextInput
+                style={styles.textInput}
+                placeholder="e.g., Morning run, Yoga session..."
+                placeholderTextColor={palette.textMuted}
+                value={name}
+                onChangeText={setName}
+                autoCapitalize="sentences"
+              />
+              <View style={styles.chipGrid}>
+                {FOCUS_OPTIONS.map((option) => (
+                  <Pressable
+                    key={option}
                     style={[
-                      styles.chipText,
-                      focus === option && styles.chipTextSelected,
+                      styles.chip,
+                      focus === option && styles.chipSelected,
                     ]}
+                    onPress={() => setFocus(focus === option ? '' : option)}
                   >
-                    {option}
-                  </Text>
-                </Pressable>
-              ))}
+                    <Text
+                      style={[
+                        styles.chipText,
+                        focus === option && styles.chipTextSelected,
+                      ]}
+                    >
+                      {option}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+              {errors.name && <Text style={styles.errorText}>{errors.name}</Text>}
             </View>
-            {errors.name && <Text style={styles.errorText}>{errors.name}</Text>}
-          </View>
 
-          {/* Duration (optional) */}
-          <View style={styles.fieldGroup}>
-            <Text style={styles.label}>How long? <Text style={styles.labelHint}>(optional, defaults to 1 hr)</Text></Text>
-            <View style={styles.chipGrid}>
-              {DURATION_OPTIONS.map((minutes) => (
-                <Pressable
-                  key={minutes}
-                  style={[
-                    styles.chip,
-                    durationMinutes === minutes && styles.chipSelected,
-                  ]}
-                  onPress={() => setDurationMinutes(minutes)}
-                >
-                  <Text
-                    style={[
-                      styles.chipText,
-                      durationMinutes === minutes && styles.chipTextSelected,
-                    ]}
+            {/* Edit details toggle */}
+            <Pressable
+              style={styles.detailsToggle}
+              onPress={() => setShowDetails(!showDetails)}
+            >
+              <Text style={styles.detailsToggleText}>
+                {showDetails ? '▾ Hide details' : '▸ Edit details'}
+              </Text>
+              {!showDetails && hasCustomizations && (
+                <Text style={styles.detailsSummary}>
+                  {formatDate(selectedDate)}
+                  {durationInput ? ` · ${durationInput} min` : ''}
+                </Text>
+              )}
+            </Pressable>
+
+            {/* Collapsible details section */}
+            {showDetails && (
+              <View style={styles.detailsSection}>
+                {/* Date selection */}
+                <View style={styles.fieldGroup}>
+                  <Text style={styles.label}>When?</Text>
+                  <ScrollView 
+                    horizontal 
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.dateScroll}
                   >
-                    {minutes} min
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
-          </View>
+                    {dateOptions.map((date, index) => {
+                      const isSelected = startOfDay(date).getTime() === startOfDay(selectedDate).getTime();
+                      return (
+                        <Pressable
+                          key={index}
+                          style={[
+                            styles.dateChip,
+                            isSelected && styles.chipSelected,
+                          ]}
+                          onPress={() => setSelectedDate(date)}
+                        >
+                          <Text
+                            style={[
+                              styles.chipText,
+                              isSelected && styles.chipTextSelected,
+                            ]}
+                          >
+                            {formatDate(date)}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </ScrollView>
+                </View>
 
-          {/* When */}
-          <View style={styles.fieldGroup}>
-            <Text style={styles.label}>When?</Text>
-            <View style={styles.chipRow}>
-              {WHEN_OPTIONS.map((option) => (
-                <Pressable
-                  key={option.value}
-                  style={[
-                    styles.chip,
-                    styles.chipWide,
-                    when === option.value && styles.chipSelected,
-                  ]}
-                  onPress={() => setWhen(option.value as 'now' | 'earlier')}
-                >
-                  <Text
-                    style={[
-                      styles.chipText,
-                      when === option.value && styles.chipTextSelected,
-                    ]}
-                  >
-                    {option.label}
+                {/* Duration input */}
+                <View style={styles.fieldGroup}>
+                  <Text style={styles.label}>
+                    Duration <Text style={styles.labelHint}>(minutes, defaults to 60)</Text>
                   </Text>
-                </Pressable>
-              ))}
-            </View>
-          </View>
+                  <TextInput
+                    style={[styles.textInput, styles.durationInput]}
+                    placeholder="60"
+                    placeholderTextColor={palette.textMuted}
+                    value={durationInput}
+                    onChangeText={setDurationInput}
+                    keyboardType="number-pad"
+                    maxLength={3}
+                  />
+                </View>
 
-          {/* Note (optional) */}
-          <View style={styles.fieldGroup}>
-            <Text style={styles.label}>Note (optional)</Text>
-            <TextInput
-              style={[styles.textInput, styles.textInputMultiline]}
-              placeholder="Any details to remember..."
-              placeholderTextColor={palette.textMuted}
-              value={note}
-              onChangeText={setNote}
-              multiline
-              numberOfLines={2}
-            />
-          </View>
+                {/* Note */}
+                <View style={styles.fieldGroup}>
+                  <Text style={styles.label}>Note <Text style={styles.labelHint}>(optional)</Text></Text>
+                  <TextInput
+                    style={[styles.textInput, styles.textInputMultiline]}
+                    placeholder="Any details to remember..."
+                    placeholderTextColor={palette.textMuted}
+                    value={note}
+                    onChangeText={setNote}
+                    multiline
+                    numberOfLines={2}
+                  />
+                </View>
+              </View>
+            )}
+          </ScrollView>
 
           {/* Actions */}
           <View style={styles.actions}>
@@ -305,8 +355,10 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 24,
     padding: 20,
     paddingBottom: 32,
-    gap: 16,
-    maxHeight: '90%',
+    maxHeight: '85%',
+  },
+  scrollContent: {
+    flexGrow: 0,
   },
   handle: {
     width: 40,
@@ -324,10 +376,12 @@ const styles = StyleSheet.create({
   subtitle: {
     color: palette.textSecondary,
     fontSize: 15,
-    marginTop: -8,
+    marginTop: 4,
+    marginBottom: 16,
   },
   fieldGroup: {
     gap: 8,
+    marginBottom: 16,
   },
   label: {
     color: palette.textPrimary,
@@ -353,14 +407,13 @@ const styles = StyleSheet.create({
     minHeight: 60,
     textAlignVertical: 'top',
   },
+  durationInput: {
+    width: 100,
+  },
   chipGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
-  },
-  chipRow: {
-    flexDirection: 'row',
-    gap: 12,
   },
   chip: {
     paddingHorizontal: 16,
@@ -370,9 +423,14 @@ const styles = StyleSheet.create({
     borderColor: palette.border,
     backgroundColor: palette.cardSecondary,
   },
-  chipWide: {
-    flex: 1,
-    alignItems: 'center',
+  dateChip: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: palette.border,
+    backgroundColor: palette.cardSecondary,
+    marginRight: 8,
   },
   chipSelected: {
     borderColor: palette.accent,
@@ -392,10 +450,37 @@ const styles = StyleSheet.create({
     fontSize: 13,
     marginTop: 4,
   },
+  detailsToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    marginBottom: 8,
+  },
+  detailsToggleText: {
+    color: palette.accent,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  detailsSummary: {
+    color: palette.textMuted,
+    fontSize: 13,
+  },
+  detailsSection: {
+    borderTopWidth: 1,
+    borderTopColor: palette.border,
+    paddingTop: 16,
+  },
+  dateScroll: {
+    paddingVertical: 4,
+  },
   actions: {
     flexDirection: 'row',
     gap: 12,
-    marginTop: 8,
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: palette.border,
   },
   primaryButton: {
     flex: 1,
@@ -426,4 +511,3 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
 });
-
