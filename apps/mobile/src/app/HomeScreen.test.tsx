@@ -127,7 +127,7 @@ describe('HomeScreen', () => {
     });
 
     // Quick Log sheet should not be visible initially
-    expect(queryByText('Record an ad-hoc workout in seconds')).toBeNull();
+    expect(queryByText(/Tap a category and save/)).toBeNull();
 
     // Tap the Quick log button in the bottom bar
     const quickLogButton = getByText('Quick log');
@@ -136,7 +136,7 @@ describe('HomeScreen', () => {
     });
 
     // Quick Log sheet should now be visible
-    expect(getByText('Record an ad-hoc workout in seconds')).toBeTruthy();
+    expect(getByText(/Tap a category and save/)).toBeTruthy();
   });
 
   it('does not show Backfill chip in quick actions rail', async () => {
