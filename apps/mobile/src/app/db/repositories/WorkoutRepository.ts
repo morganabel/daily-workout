@@ -88,7 +88,7 @@ export class WorkoutRepository {
         w.scheduledDate = payload.workout.scheduledDate ?? Date.now();
         w.completedAt = payload.workout.completedAt ?? undefined;
         w.durationSeconds = payload.workout.durationSeconds ?? undefined;
-        w.archivedAt = null;
+        w.archivedAt = undefined;
         // Store OpenAI response ID for conversation context
         w.responseId = payload.workout.responseId ?? undefined;
       });
@@ -154,7 +154,7 @@ export class WorkoutRepository {
         if (durationSeconds !== undefined) {
           w.durationSeconds = durationSeconds;
         }
-        w.archivedAt = null;
+        w.archivedAt = undefined;
       });
     });
   }
@@ -181,7 +181,7 @@ export class WorkoutRepository {
     const workout = await this.workouts.find(workoutId);
     await database.write(async () => {
       await workout.update((w) => {
-        w.archivedAt = null;
+        w.archivedAt = undefined;
       });
     });
   }
@@ -231,11 +231,12 @@ export class WorkoutRepository {
         w.status = 'completed';
         w.source = 'manual';
         w.focus = params.focus;
+        // For AI workouts, summary holds the AI description; for manual logs, it holds the user's note
         w.summary = params.note ?? undefined;
         w.scheduledDate = completedAt;
         w.completedAt = completedAt;
         w.durationSeconds = durationSeconds;
-        w.archivedAt = null;
+        w.archivedAt = undefined;
       });
       return workout;
     });
