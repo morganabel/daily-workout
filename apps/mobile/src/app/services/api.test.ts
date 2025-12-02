@@ -1,4 +1,4 @@
-import { buildGenerationContext, archiveWorkoutSession, deleteWorkoutSession, unarchiveWorkoutSession } from './api';
+import { buildGenerationContext, archiveWorkoutSession, deleteWorkoutSession, unarchiveWorkoutSession, quickLogWorkout } from './api';
 import { workoutRepository } from '../db/repositories/WorkoutRepository';
 import { userRepository } from '../db/repositories/UserRepository';
 import type { WorkoutSessionSummary } from '@workout-agent/shared';
@@ -10,6 +10,7 @@ jest.mock('../db/repositories/WorkoutRepository', () => ({
     archiveWorkoutById: jest.fn(),
     unarchiveWorkoutById: jest.fn(),
     deleteWorkoutById: jest.fn(),
+    quickLogManualSession: jest.fn(),
   },
 }));
 
@@ -85,5 +86,72 @@ describe('workout archive/delete mutations', () => {
     expect(mockWorkoutRepository.archiveWorkoutById).toHaveBeenCalledWith('w1');
     expect(mockWorkoutRepository.unarchiveWorkoutById).toHaveBeenCalledWith('w2');
     expect(mockWorkoutRepository.deleteWorkoutById).toHaveBeenCalledWith('w3');
+  });
+});
+
+describe('quickLogWorkout', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('creates a manual workout session and returns the summary', async () => {
+    const mockWorkout = { id: 'quick-log-1', name: 'Morning Run' };
+    const mockSummary: WorkoutSessionSummary = {
+      id: 'quick-log-1',
+      name: 'Morning Run',
+      focus: 'Cardio',
+      durationMinutes: 30,
+      completedAt: new Date().toISOString(),
+      source: 'manual',
+    };
+
+    mockWorkoutRepository.quickLogManualSession.mockResolvedValue(mockWorkout as any);
+    mockWorkoutRepository.toSessionSummary.mockReturnValue(mockSummary);
+
+    const result = await quickLogWorkout({
+      name: 'Morning Run',
+      focus: 'Cardio',
+      durationMinutes: 30,
+    });
+
+    expect(mockWorkoutRepository.quickLogManualSession).toHaveBeenCalledWith({
+      name: 'Morning Run',
+      focus: 'Cardio',
+      durationMinutes: 30,
+    });
+    expect(mockWorkoutRepository.toSessionSummary).toHaveBeenCalledWith(mockWorkout);
+    expect(result).toEqual(mockSummary);
+  });
+
+  it('passes completedAt for earlier-today entries', async () => {
+    const mockWorkout = { id: 'quick-log-2' };
+    const mockSummary: WorkoutSessionSummary = {
+      id: 'quick-log-2',
+      name: 'Yoga',
+      focus: 'Mobility',
+      durationMinutes: 45,
+      completedAt: new Date().toISOString(),
+      source: 'manual',
+    };
+    const completedAt = Date.now() - 2 * 60 * 60 * 1000;
+
+    mockWorkoutRepository.quickLogManualSession.mockResolvedValue(mockWorkout as any);
+    mockWorkoutRepository.toSessionSummary.mockReturnValue(mockSummary);
+
+    await quickLogWorkout({
+      name: 'Yoga',
+      focus: 'Mobility',
+      durationMinutes: 45,
+      completedAt,
+      note: 'Felt great!',
+    });
+
+    expect(mockWorkoutRepository.quickLogManualSession).toHaveBeenCalledWith({
+      name: 'Yoga',
+      focus: 'Mobility',
+      durationMinutes: 45,
+      completedAt,
+      note: 'Felt great!',
+    });
   });
 });

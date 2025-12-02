@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, act } from '@testing-library/react-native';
+import { render, act, fireEvent } from '@testing-library/react-native';
 import { HomeScreen } from './HomeScreen';
 import { useHomeData } from './hooks/useHomeData';
 import { createTodayPlanMock, type QuickActionPreset } from '@workout-agent/shared';
@@ -9,6 +9,7 @@ jest.mock('./hooks/useHomeData', () => ({
 }));
 jest.mock('./services/api', () => ({
   generateWorkout: jest.fn(),
+  quickLogWorkout: jest.fn(),
 }));
 jest.mock('./storage/byokKey', () => ({
   getByokApiKey: jest.fn().mockResolvedValue(null),
@@ -26,12 +27,18 @@ jest.mock('./db/repositories/WorkoutRepository', () => ({
     completeWorkoutById: jest.fn(),
     archiveWorkoutById: jest.fn(),
     deleteWorkoutById: jest.fn(),
+    quickLogManualSession: jest.fn(),
   },
 }));
 jest.mock('./db/repositories/UserRepository', () => ({
   userRepository: {
     hasConfiguredProfile: jest.fn().mockResolvedValue(false),
   },
+}));
+jest.mock('react-native-root-toast', () => ({
+  show: jest.fn(),
+  durations: { SHORT: 2000, LONG: 3500 },
+  positions: { BOTTOM: -20 },
 }));
 
 const mockUseHomeData = useHomeData as jest.MockedFunction<typeof useHomeData>;
@@ -41,7 +48,6 @@ const createBaseQuickActions = (): QuickActionPreset[] => [
   { key: 'focus', label: 'Focus', value: 'Upper', description: 'Upper', stagedValue: null },
   { key: 'equipment', label: 'Equipment', value: 'Bodyweight', description: 'Bodyweight', stagedValue: null },
   { key: 'energy', label: 'Energy', value: 'Moderate', description: 'Moderate', stagedValue: null },
-  { key: 'backfill', label: 'Backfill', value: 'Today', description: 'Log past session', stagedValue: null },
 ];
 
 const baseHookState = {
@@ -110,5 +116,38 @@ describe('HomeScreen', () => {
 
     expect(getByText('45')).toBeTruthy();
     expect(getByText('Reset')).toBeTruthy();
+  });
+
+  it('opens Quick Log sheet when Quick log button is pressed', async () => {
+    mockUseHomeData.mockReturnValue(baseHookState);
+
+    const { getByText, queryByText } = render(<HomeScreen />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    // Quick Log sheet should not be visible initially
+    expect(queryByText(/Tap a category and save/)).toBeNull();
+
+    // Tap the Quick log button in the bottom bar
+    const quickLogButton = getByText('Quick log');
+    await act(async () => {
+      fireEvent.press(quickLogButton);
+    });
+
+    // Quick Log sheet should now be visible
+    expect(getByText(/Tap a category and save/)).toBeTruthy();
+  });
+
+  it('does not show Backfill chip in quick actions rail', async () => {
+    mockUseHomeData.mockReturnValue(baseHookState);
+
+    const { queryByText } = render(<HomeScreen />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    // Backfill chip should not be rendered (removed in favor of Quick Log sheet)
+    expect(queryByText('Backfill')).toBeNull();
   });
 });

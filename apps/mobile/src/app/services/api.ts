@@ -211,3 +211,19 @@ export async function unarchiveWorkoutSession(workoutId: string): Promise<void> 
 export async function deleteWorkoutSession(workoutId: string): Promise<void> {
   await workoutRepository.deleteWorkoutById(workoutId);
 }
+
+/**
+ * Quick log a manual workout session.
+ * Creates a completed workout with source='manual' in the local database.
+ * This is a local-first operation; future server sync can be layered on.
+ */
+export async function quickLogWorkout(params: {
+  name: string;
+  focus: string;
+  durationMinutes: number;
+  completedAt?: number;
+  note?: string;
+}): Promise<WorkoutSessionSummary> {
+  const workout = await workoutRepository.quickLogManualSession(params);
+  return workoutRepository.toSessionSummary(workout);
+}

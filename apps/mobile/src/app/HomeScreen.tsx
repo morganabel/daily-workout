@@ -27,6 +27,7 @@ import {
   archiveWorkoutSession,
   deleteWorkoutSession,
   generateWorkout,
+  quickLogWorkout,
   type ApiError,
 } from './services/api';
 import {
@@ -38,6 +39,7 @@ import { RootStackParamList } from './navigation';
 import { workoutRepository } from './db/repositories/WorkoutRepository';
 import { userRepository } from './db/repositories/UserRepository';
 import { CustomizeSheet } from './components/CustomizeSheet';
+import { QuickLogSheet, type QuickLogPayload } from './components/QuickLogSheet';
 
 const palette = {
   background: '#030914',
@@ -768,20 +770,6 @@ const ActionSheet = ({
           </View>
         );
       }
-      case 'backfill': {
-        // For backfill, we'll show a simple message for now
-        // TODO: Implement date picker and quick log form
-        return (
-          <View>
-            <Text style={styles.sheetBody}>
-              Log a past workout session. This feature will allow you to backfill your workout history.
-            </Text>
-            <Text style={[styles.sheetBody, { marginTop: 12, fontSize: 13 }]}>
-              Coming soon: Date picker and quick log form.
-            </Text>
-          </View>
-        );
-      }
       default:
         return (
           <Text style={styles.sheetBody}>
@@ -804,34 +792,27 @@ const ActionSheet = ({
           <View style={styles.sheetHandle} />
           <Text style={styles.sheetTitle}>{action.label}</Text>
           {renderContent()}
-          {action.key !== 'backfill' && !disabled && (
+          {!disabled && (
             <Pressable onPress={handleReset}>
               <Text style={styles.resetLink}>Reset to defaults</Text>
             </Pressable>
           )}
-          {disabled && action.key !== 'backfill' && (
+          {disabled && (
             <Text style={styles.sheetBody}>
               Finish configuring your API key or wait for the current generation to complete before changing presets.
             </Text>
           )}
           <View style={styles.sheetActions}>
-            {action.key !== 'backfill' && (
-              <>
-                <SecondaryButton
-                  label="Apply"
-                  onPress={handleApply}
-                  disabled={disabled}
-                />
-                <PrimaryButton
-                  label={generating ? 'Generating...' : 'Apply & Generate'}
-                  onPress={handleGenerate}
-                  disabled={disabled}
-                />
-              </>
-            )}
-            {action.key === 'backfill' && (
-              <PrimaryButton label="Close" onPress={onClose} />
-            )}
+            <SecondaryButton
+              label="Apply"
+              onPress={handleApply}
+              disabled={disabled}
+            />
+            <PrimaryButton
+              label={generating ? 'Generating...' : 'Apply & Generate'}
+              onPress={handleGenerate}
+              disabled={disabled}
+            />
           </View>
         </View>
       </View>
@@ -1046,6 +1027,7 @@ export const HomeScreen = () => {
   const [showPendingOverlay, setShowPendingOverlay] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [customizeSheetVisible, setCustomizeSheetVisible] = useState(false);
+  const [quickLogSheetVisible, setQuickLogSheetVisible] = useState(false);
   const navigation = useNavigation<HomeScreenNavigation>();
 
   // Check if profile is configured (re-check on screen focus)
@@ -1286,6 +1268,11 @@ export const HomeScreen = () => {
     }
   };
 
+  const handleQuickLogSubmit = async (payload: QuickLogPayload) => {
+    await quickLogWorkout(payload);
+    // Recent activity updates automatically via useHomeData subscriptions
+  };
+
   // Opens the CustomizeSheet for "Try Another"
   const handleTryAnother = () => {
     if (isOffline || !plan) return;
@@ -1389,7 +1376,7 @@ export const HomeScreen = () => {
         />
         <QuickActionRail
           onActionPress={(action) => setSelectedAction(action)}
-          quickActions={quickActions}
+          quickActions={quickActions.filter((a) => a.key !== 'backfill')}
           disabled={quickActionsLocked}
           onReset={clearStagedValues}
           hasOverrides={hasOverrides}
@@ -1403,7 +1390,7 @@ export const HomeScreen = () => {
           onDeleteSession={handleDeleteSession}
         />
       </ScrollView>
-      <BottomActionBar onQuickLog={() => setSelectedAction(quickActions[4] ?? null)} />
+      <BottomActionBar onQuickLog={() => setQuickLogSheetVisible(true)} />
       <ActionSheet
         action={selectedAction}
         quickActions={quickActions}
@@ -1431,6 +1418,11 @@ export const HomeScreen = () => {
           onClose={() => setCustomizeSheetVisible(false)}
         />
       )}
+      <QuickLogSheet
+        visible={quickLogSheetVisible}
+        onSubmit={handleQuickLogSubmit}
+        onClose={() => setQuickLogSheetVisible(false)}
+      />
     </View>
   );
 };
