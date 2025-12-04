@@ -32,13 +32,15 @@ import {
 } from './services/api';
 import {
   getByokApiKey,
-  setByokApiKey,
-  removeByokApiKey,
+  getByokProviderId,
+  setByokConfiguration,
+  removeByokConfiguration,
 } from './storage/byokKey';
 import { RootStackParamList } from './navigation';
 import { workoutRepository } from './db/repositories/WorkoutRepository';
 import { userRepository } from './db/repositories/UserRepository';
 import { CustomizeSheet } from './components/CustomizeSheet';
+import { ProviderSettingsSheet } from './components/ProviderSettingsSheet';
 import { QuickLogSheet, type QuickLogPayload } from './components/QuickLogSheet';
 
 const palette = {
@@ -906,61 +908,7 @@ const TopBar = ({
   </View>
 );
 
-const ByokSheet = ({
-  visible,
-  value,
-  onChangeValue,
-  onClose,
-  onSave,
-  onRemove,
-  hasKey,
-}: {
-  visible: boolean;
-  value: string;
-  onChangeValue: (val: string) => void;
-  onClose: () => void;
-  onSave: () => void;
-  onRemove?: () => void;
-  hasKey: boolean;
-}) => (
-  <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-    <View style={styles.sheetOverlay}>
-      <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 32 : 0}
-        style={styles.byokSheetContainer}
-      >
-        <View style={styles.byokSheet}>
-          <View style={styles.sheetHandle} />
-          <Text style={styles.sheetTitle}>Add your API key</Text>
-          <Text style={styles.sheetBody}>
-            Paste your OpenAI API key to unlock AI workouts even when the hosted key isn't available.
-          </Text>
-          <TextInput
-            value={value}
-            onChangeText={onChangeValue}
-            placeholder="sk-..."
-            autoCapitalize="none"
-            autoCorrect={false}
-            secureTextEntry
-            style={styles.byokInput}
-          />
-          <View style={styles.sheetActions}>
-            {onRemove && (
-              <SecondaryButton label="Remove key" onPress={onRemove} />
-            )}
-            <PrimaryButton
-              label={hasKey ? 'Update key' : 'Save key'}
-              onPress={onSave}
-              disabled={!value.trim()}
-            />
-          </View>
-        </View>
-      </KeyboardAvoidingView>
-    </View>
-  </Modal>
-);
+// ByokSheet replaced by ProviderSettingsSheet
 
 const bottomActions = [
   { key: 'home', label: 'Home', active: true },
@@ -1023,6 +971,7 @@ export const HomeScreen = () => {
   const [logging, setLogging] = useState(false);
   const [byokSheetVisible, setByokSheetVisible] = useState(false);
   const [byokInput, setByokInput] = useState('');
+  const [byokProvider, setByokProvider] = useState('openai');
   const [hasByokKey, setHasByokKey] = useState(false);
   const [showPendingOverlay, setShowPendingOverlay] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
@@ -1077,17 +1026,20 @@ export const HomeScreen = () => {
   const openByokSheet = async () => {
     try {
       const existing = await getByokApiKey();
+      const provider = await getByokProviderId();
       setByokInput(existing ?? '');
+      setByokProvider(provider ?? 'openai');
     } catch {
       setByokInput('');
+      setByokProvider('openai');
     }
     setByokSheetVisible(true);
   };
 
-  const handleSaveByok = async () => {
-    if (!byokInput.trim()) return;
+  const handleSaveByok = async (key: string, provider: string) => {
+    if (!key.trim()) return;
     try {
-      await setByokApiKey(byokInput.trim());
+      await setByokConfiguration(key.trim(), provider);
       setHasByokKey(true);
       setByokSheetVisible(false);
       await refetch();
@@ -1102,9 +1054,10 @@ export const HomeScreen = () => {
 
   const handleRemoveByok = async () => {
     try {
-      await removeByokApiKey();
+      await removeByokConfiguration();
       setHasByokKey(false);
       setByokInput('');
+      setByokProvider('openai');
       setByokSheetVisible(false);
       await refetch();
     } catch (error) {
@@ -1400,14 +1353,13 @@ export const HomeScreen = () => {
         generating={generating}
         isOffline={isOffline}
       />
-      <ByokSheet
+      <ProviderSettingsSheet
         visible={byokSheetVisible}
-        value={byokInput}
-        onChangeValue={setByokInput}
+        apiKey={byokInput}
+        providerId={byokProvider}
         onClose={() => setByokSheetVisible(false)}
         onSave={handleSaveByok}
         onRemove={hasByokKey ? handleRemoveByok : undefined}
-        hasKey={hasByokKey}
       />
       {plan && (
         <CustomizeSheet

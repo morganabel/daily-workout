@@ -11,7 +11,7 @@ import type {
   UserPreferences,
 } from '@workout-agent/shared';
 import { getDeviceToken } from '../storage/deviceToken';
-import { getByokApiKey } from '../storage/byokKey';
+import { getByokApiKey, getByokProviderId } from '../storage/byokKey';
 import { userRepository } from '../db/repositories/UserRepository';
 import { workoutRepository } from '../db/repositories/WorkoutRepository';
 
@@ -33,6 +33,7 @@ async function apiRequest<T>(
 ): Promise<T> {
   const token = await getDeviceToken();
   const byokKey = await getByokApiKey();
+  const providerId = await getByokProviderId();
   const url = `${API_BASE_URL}${endpoint}`;
 
   const headers: Record<string, string> = {
@@ -44,12 +45,16 @@ async function apiRequest<T>(
     headers['Authorization'] = `Bearer ${token}`;
   }
   if (byokKey) {
+    headers['x-ai-key'] = byokKey;
+    headers['x-ai-provider'] = providerId || 'openai';
+    // Maintain legacy header for backward compatibility
     headers['x-openai-key'] = byokKey;
   }
 
   console.log(`[API] ${options.method || 'GET'} ${url}`, {
     hasToken: !!token,
     hasByokKey: !!byokKey,
+    provider: providerId,
     body: options.body,
   });
 
@@ -149,27 +154,19 @@ export async function buildGenerationContext(
 export async function generateWorkout(
   request: GenerationRequest,
 ): Promise<TodayPlan> {
-  const isRegeneration = Boolean(request.previousResponseId);
+  // Always build full context, as stateless providers (or regeneration) might need it
+  const context = await buildGenerationContext(request);
+  const enrichedRequest = { ...request, context };
 
-  let enrichedRequest: GenerationRequest & { context?: GenerationContext };
-
-  if (isRegeneration) {
-    // For regeneration, don't send full context - the LLM has it from the conversation
-    enrichedRequest = { ...request };
-    console.log('[API] Regeneration request:', {
-      previousResponseId: request.previousResponseId,
-      feedback: request.feedback,
-      timeMinutes: request.timeMinutes,
-      focus: request.focus,
-      equipment: request.equipment,
-      energy: request.energy,
-    });
-  } else {
-    // For initial generation, build full context
-    const context = await buildGenerationContext(request);
-    enrichedRequest = { ...request, context };
-    console.log('[API] Generation context:', JSON.stringify(context, null, 2));
-  }
+  console.log('[API] Generation request:', {
+    isRegeneration: Boolean(request.previousResponseId),
+    previousResponseId: request.previousResponseId,
+    feedback: request.feedback,
+    timeMinutes: request.timeMinutes,
+    focus: request.focus,
+    // Avoid logging full context object to console to reduce noise
+    contextKeys: Object.keys(context),
+  });
 
   const plan = await apiRequest<TodayPlan>('/api/workouts/generate', {
     method: 'POST',

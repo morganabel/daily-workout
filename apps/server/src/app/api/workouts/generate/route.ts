@@ -63,9 +63,43 @@ export async function POST(request: Request) {
   const generationRequest: GenerationRequestWithContext = parseResult.data;
   const deviceToken = auth.deviceToken;
 
-  const headerApiKey = request.headers.get('x-openai-key')?.trim();
-  const envApiKey = process.env.OPENAI_API_KEY?.trim();
-  const apiKey = headerApiKey || envApiKey || null;
+  const headerProvider = request.headers
+    .get('x-ai-provider')
+    ?.trim()
+    .toLowerCase();
+  const envProvider = process.env.AI_PROVIDER?.trim().toLowerCase();
+  const providerId = headerProvider || envProvider || 'openai';
+
+  const headerKey = request.headers.get('x-ai-key')?.trim();
+  const headerOpenAiKey = request.headers.get('x-openai-key')?.trim();
+
+  let apiKey: string | null = null;
+  if (headerKey) {
+    apiKey = headerKey;
+  } else if (headerOpenAiKey) {
+    // Legacy support: map x-openai-key to api key
+    apiKey = headerOpenAiKey;
+  } else {
+    // Env fallback
+    switch (providerId) {
+      case 'gemini':
+        apiKey = process.env.GOOGLE_GENAI_API_KEY ?? null;
+        break;
+      case 'deepseek':
+        apiKey = process.env.DEEPSEEK_API_KEY ?? null;
+        break;
+      case 'mistral':
+        apiKey = process.env.MISTRAL_API_KEY ?? null;
+        break;
+      case 'groq':
+        apiKey = process.env.GROQ_API_KEY ?? null;
+        break;
+      case 'openai':
+      default:
+        apiKey = process.env.OPENAI_API_KEY ?? null;
+        break;
+    }
+  }
 
   if (!apiKey && process.env.EDITION === 'HOSTED') {
     return createErrorResponse(
@@ -102,7 +136,7 @@ export async function POST(request: Request) {
       const result: GenerationResult = await generateTodayPlanAI(
         generationRequest,
         context,
-        { apiKey },
+        { apiKey, providerId },
       );
       plan = result.plan;
       responseId = result.responseId;

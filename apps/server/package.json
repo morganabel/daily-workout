@@ -3,12 +3,13 @@
   "version": "0.0.1",
   "private": true,
   "dependencies": {
+    "@google/genai": "^1.31.0",
     "@workout-agent/shared": "*",
-    "uuid": "*",
-    "openai": "^6.8.1",
     "next": "~15.2.4",
+    "openai": "^6.8.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "uuid": "*",
     "zod": "^4.1.12"
   }
 }

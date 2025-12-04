@@ -105,7 +105,10 @@ describe('POST /api/workouts/generate', () => {
       ],
     };
 
-    mockGenerateTodayPlanAI.mockResolvedValue(providerPlan);
+    mockGenerateTodayPlanAI.mockResolvedValue({
+      plan: providerPlan,
+      responseId: 'mock-response-id',
+    });
 
     const request = new Request('http://localhost:3000/api/workouts/generate', {
       method: 'POST',
@@ -267,22 +270,27 @@ describe('POST /api/workouts/generate', () => {
       deviceToken: 'test-token',
     });
     mockGenerateTodayPlanAI.mockResolvedValue({
-      id: 'plan-from-header',
-      focus: 'Header Plan',
-      durationMinutes: 35,
-      equipment: ['Bands'],
-      source: 'ai',
-      energy: 'moderate',
-      summary: 'Plan',
-      blocks: [
-        {
-          id: 'b1',
-          title: 'Main',
-          durationMinutes: 15,
-          focus: 'Strength',
-          exercises: [{ id: 'e1', name: 'Row', prescription: '3 x 12', detail: null }],
-        },
-      ],
+      plan: {
+        id: 'plan-from-header',
+        focus: 'Header Plan',
+        durationMinutes: 35,
+        equipment: ['Bands'],
+        source: 'ai',
+        energy: 'moderate',
+        summary: 'Plan',
+        blocks: [
+          {
+            id: 'b1',
+            title: 'Main',
+            durationMinutes: 15,
+            focus: 'Strength',
+            exercises: [
+              { id: 'e1', name: 'Row', prescription: '3 x 12', detail: null },
+            ],
+          },
+        ],
+      },
+      responseId: 'mock-response-id',
     });
 
     const request = new Request('http://localhost:3000/api/workouts/generate', {

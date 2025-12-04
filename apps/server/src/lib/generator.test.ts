@@ -66,7 +66,7 @@ describe('generateTodayPlanAI', () => {
     const { client, parse } = createMockClient(mockLlmPlan);
     const context = createGenerationContextMock();
 
-    const plan = await generateTodayPlanAI(
+    const result = await generateTodayPlanAI(
       baseRequest,
       context,
       {
@@ -82,10 +82,10 @@ describe('generateTodayPlanAI', () => {
         model: 'test-model',
       }),
     );
-    expect(plan.focus).toBe(mockLlmPlan.focus);
-    expect(plan.blocks).toHaveLength(mockLlmPlan.blocks.length);
-    expect(plan.blocks[0].exercises[0]).toHaveProperty('id');
-    expect(plan).toHaveProperty('id');
+    expect(result.plan.focus).toBe(mockLlmPlan.focus);
+    expect(result.plan.blocks).toHaveLength(mockLlmPlan.blocks.length);
+    expect(result.plan.blocks[0].exercises[0]).toHaveProperty('id');
+    expect(result.plan).toHaveProperty('id');
   });
 
   it('throws when provider response is invalid', async () => {

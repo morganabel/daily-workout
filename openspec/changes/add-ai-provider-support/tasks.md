@@ -1,0 +1,13 @@
+## 1. Implementation
+- [ ] 1.1 Install `@google/genai` dependency in `apps/server`
+- [ ] 1.2 Create `AiProvider` interface and types in `apps/server/src/lib/ai/providers/types.ts`
+- [ ] 1.3 Implement `OpenAiProvider` in `apps/server/src/lib/ai/providers/openai.ts`
+- [ ] 1.4 Implement `GoogleGenAiProvider` in `apps/server/src/lib/ai/providers/google.ts`
+- [ ] 1.5 Implement `OpenAiCompatibleProvider` in `apps/server/src/lib/ai/providers/openai-compatible.ts`
+- [ ] 1.6 Create provider registry in `apps/server/src/lib/ai/registry.ts`
+- [ ] 1.7 Refactor `apps/server/src/lib/generator.ts` to use provider registry
+- [ ] 1.8 Update `apps/server/src/app/api/workouts/generate/route.ts` to handle `x-ai-provider` header
+- [ ] 1.9 Update `apps/mobile/src/app/storage/byokKey.ts` to store provider ID
+- [ ] 1.10 Create `ProviderSettingsSheet` component in mobile app
+- [ ] 1.11 Update `HomeScreen.tsx` to use `ProviderSettingsSheet`
+- [ ] 1.12 Update `apps/mobile/src/app/services/api.ts` to send provider headers
