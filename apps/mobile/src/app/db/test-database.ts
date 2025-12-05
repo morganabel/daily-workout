@@ -14,7 +14,10 @@ export function createTestDatabase(): Database {
   const adapter = new LokiJSAdapter({
     schema,
     useWebWorker: false,
-    useIncrementalIndexedDB: false,
+    useIncrementalIndexedDB: true,
+    extraLokiOptions: {
+      autosave: false,
+    },
   });
 
   return new Database({

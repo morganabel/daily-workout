@@ -225,6 +225,9 @@ export class WorkoutRepository {
     const completedAt = params.completedAt ?? now;
     const durationSeconds = params.durationMinutes * 60;
 
+    // Calculate start time by subtracting duration from completion time
+    const startTime = completedAt - durationSeconds * 1000;
+
     return database.write(async () => {
       const workout = await this.workouts.create((w) => {
         w.name = params.name;
@@ -233,7 +236,7 @@ export class WorkoutRepository {
         w.focus = params.focus;
         // For AI workouts, summary holds the AI description; for manual logs, it holds the user's note
         w.summary = params.note ?? undefined;
-        w.scheduledDate = completedAt;
+        w.scheduledDate = startTime;
         w.completedAt = completedAt;
         w.durationSeconds = durationSeconds;
         w.archivedAt = undefined;
