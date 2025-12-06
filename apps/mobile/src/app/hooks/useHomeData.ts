@@ -11,42 +11,58 @@ import type {
   WorkoutSessionSummary,
   QuickActionKey,
   QuickActionPreset,
+  UserPreferences,
 } from '@workout-agent/shared';
 import NetInfo from '@react-native-community/netinfo';
 import { workoutRepository } from '../db/repositories/WorkoutRepository';
 import { userRepository } from '../db/repositories/UserRepository';
 import type Workout from '../db/models/Workout';
 
-const DEFAULT_QUICK_ACTIONS: QuickActionPreset[] = [
-  {
-    key: 'time',
-    label: 'Time',
-    value: '60',
-    description: '60 min',
-    stagedValue: null,
-  },
-  {
-    key: 'focus',
-    label: 'Focus',
-    value: 'Full body',
-    description: 'Full body',
-    stagedValue: null,
-  },
-  {
-    key: 'equipment',
-    label: 'Equipment',
-    value: 'Dumbbells',
-    description: 'Dumbbells',
-    stagedValue: null,
-  },
-  {
-    key: 'energy',
-    label: 'Energy',
-    value: 'Moderate',
-    description: 'Moderate energy',
-    stagedValue: null,
-  },
-];
+const buildQuickActionsFromPreferences = (prefs: UserPreferences): QuickActionPreset[] => {
+  const equipmentLabel =
+    prefs.equipment && prefs.equipment.length > 0 ? prefs.equipment.join(', ') : 'Bodyweight';
+
+  const focusLabel =
+    prefs.focusBias && prefs.focusBias.length > 0 ? prefs.focusBias[0] : 'Full body';
+
+  return [
+    {
+      key: 'time',
+      label: 'Time',
+      value: '45',
+      description: '45 min',
+      stagedValue: null,
+    },
+    {
+      key: 'focus',
+      label: 'Focus',
+      value: focusLabel,
+      description: focusLabel,
+      stagedValue: null,
+    },
+    {
+      key: 'equipment',
+      label: 'Equipment',
+      value: equipmentLabel,
+      description: equipmentLabel,
+      stagedValue: null,
+    },
+    {
+      key: 'energy',
+      label: 'Energy',
+      value: 'Moderate',
+      description: 'Moderate energy',
+      stagedValue: null,
+    },
+  ];
+};
+
+const FALLBACK_QUICK_ACTIONS = buildQuickActionsFromPreferences({
+  equipment: [],
+  injuries: [],
+  focusBias: [],
+  avoid: [],
+});
 
 export type HomeDataState = {
   status: 'loading' | 'ready' | 'error';
@@ -76,7 +92,7 @@ export function useHomeData(): HomeDataState & {
     status: 'loading',
     plan: null,
     recentSessions: [],
-    quickActions: DEFAULT_QUICK_ACTIONS,
+    quickActions: FALLBACK_QUICK_ACTIONS,
     offlineHint: {
       offline: false,
       requiresApiKey: false,
@@ -179,7 +195,16 @@ export function useHomeData(): HomeDataState & {
 
   // Ensure user exists
   useEffect(() => {
-    void userRepository.getOrCreateUser();
+    const ensureUserAndPrefs = async () => {
+      await userRepository.getOrCreateUser();
+      const prefs = await userRepository.getPreferences();
+      if (!isMountedRef.current) return;
+      setState((prev) => ({
+        ...prev,
+        quickActions: buildQuickActionsFromPreferences(prefs),
+      }));
+    };
+    void ensureUserAndPrefs();
   }, []);
 
   const fetchData = useCallback(async () => {

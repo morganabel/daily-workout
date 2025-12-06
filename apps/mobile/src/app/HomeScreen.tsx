@@ -1142,17 +1142,7 @@ export const HomeScreen = () => {
     setGenerating(true);
 
     try {
-      const baseRequest: Partial<GenerationRequest> = {
-        timeMinutes: 60,
-        focus: 'Full body',
-        // equipment intentionally omitted - will fall back to user profile in api.ts
-        energy: 'moderate',
-      };
-
-      const request = buildGenerationRequestFromQuickActions(
-        quickActions,
-        baseRequest,
-      );
+      const request = buildGenerationRequestFromQuickActions(quickActions);
 
       const quickActionMap = Object.fromEntries(
         quickActions.map((action) => [action.key, action]),
