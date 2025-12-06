@@ -15,6 +15,9 @@ import { AiGenerationError } from './types';
 
 const DEFAULT_MODEL = process.env.GEMINI_MODEL ?? 'gemini-2.5-flash';
 const DEFAULT_API_BASE = process.env.GEMINI_API_BASE;
+const USE_VERTEX_AI = process.env.GOOGLE_GENAI_USE_VERTEXAI === 'true';
+const VERTEX_PROJECT = process.env.GOOGLE_CLOUD_PROJECT;
+const VERTEX_LOCATION = process.env.GOOGLE_CLOUD_LOCATION;
 
 const SYSTEM_PROMPT =
   'You are a concise workout planner. Only reply with valid JSON that matches the schema and never include code fences, explanations, or markdown.';
@@ -98,17 +101,26 @@ export class GeminiProvider implements AiProvider {
     context: GenerationContext,
     options: AiProviderOptions,
   ): Promise<GenerationResult> {
-    if (!options.apiKey) {
-      throw new AiGenerationError('Missing API key', 'NO_API_KEY');
-    }
+    const useVertex =
+      options.useVertexAi ||
+      (!options.apiKey && USE_VERTEX_AI && VERTEX_PROJECT && VERTEX_LOCATION);
 
-    const clientConfig: { apiKey: string; baseUrl?: string } = {
-      apiKey: options.apiKey,
-    };
-    if (options.apiBaseUrl) {
-      clientConfig.baseUrl = options.apiBaseUrl;
-    } else if (DEFAULT_API_BASE) {
-      clientConfig.baseUrl = DEFAULT_API_BASE;
+    const clientConfig: { apiKey?: string; baseUrl?: string; projectId?: string; location?: string } =
+      {};
+
+    if (useVertex) {
+      clientConfig.projectId = VERTEX_PROJECT;
+      clientConfig.location = VERTEX_LOCATION;
+    } else {
+      if (!options.apiKey) {
+        throw new AiGenerationError('Missing API key', 'NO_API_KEY');
+      }
+      clientConfig.apiKey = options.apiKey;
+      if (options.apiBaseUrl) {
+        clientConfig.baseUrl = options.apiBaseUrl;
+      } else if (DEFAULT_API_BASE) {
+        clientConfig.baseUrl = DEFAULT_API_BASE;
+      }
     }
 
     const genAI = new GoogleGenAI(clientConfig);

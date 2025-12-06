@@ -95,14 +95,23 @@ export async function POST(request: Request) {
 
   // Extract API key based on provider
   let apiKey: string | null = null;
+  const useVertexAi =
+    provider === 'gemini' &&
+    process.env.GOOGLE_GENAI_USE_VERTEXAI === 'true' &&
+    process.env.GOOGLE_CLOUD_PROJECT &&
+    process.env.GOOGLE_CLOUD_LOCATION;
   if (provider === 'openai') {
     apiKey = openaiKeyHeader || genericKeyHeader || process.env.OPENAI_API_KEY?.trim() || null;
   } else if (provider === 'gemini') {
-    apiKey = geminiKeyHeader || genericKeyHeader || process.env.GEMINI_API_KEY?.trim() || null;
+    apiKey =
+      geminiKeyHeader ||
+      genericKeyHeader ||
+      process.env.GEMINI_API_KEY?.trim() ||
+      (useVertexAi ? 'vertex-env' : null);
   }
 
   // Check BYOK requirement for hosted edition
-  if (!apiKey && process.env.EDITION === 'HOSTED') {
+  if (!apiKey && !useVertexAi && process.env.EDITION === 'HOSTED') {
     return createErrorResponse(
       'BYOK_REQUIRED',
       `API key required for ${provider} provider in hosted mode`,
@@ -138,7 +147,7 @@ export async function POST(request: Request) {
       const result: GenerationResult = await generateTodayPlanAI(
         generationRequest,
         context,
-        { apiKey, provider },
+        { apiKey: useVertexAi ? undefined : apiKey ?? undefined, provider, useVertexAi },
       );
       plan = result.plan;
       responseId = result.responseId;

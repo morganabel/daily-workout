@@ -7,9 +7,16 @@ import type {
 export type AiProviderName = 'openai' | 'gemini';
 
 export interface AiProviderOptions {
-  apiKey: string;
+  apiKey?: string;
   model?: string;
   apiBaseUrl?: string;
+  // Optional passthrough client for testing/mocking
+  client?: unknown;
+  /**
+   * When true, use Vertex AI (ADC) instead of API key.
+   * Requires GOOGLE_CLOUD_PROJECT and GOOGLE_CLOUD_LOCATION.
+   */
+  useVertexAi?: boolean;
 }
 
 export interface GenerationResult {
