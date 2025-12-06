@@ -5,7 +5,9 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 import type {
@@ -80,6 +82,8 @@ export const CustomizeSheet = ({
   const [focus, setFocus] = useState(currentPlan.focus);
   const [equipment, setEquipment] = useState<string[]>(currentPlan.equipment);
   const [energy, setEnergy] = useState<WorkoutEnergy>(currentPlan.energy);
+  const [notes, setNotes] = useState('');
+  const [freeFormMode, setFreeFormMode] = useState(false);
 
   // Reset state when sheet opens with new plan
   useEffect(() => {
@@ -89,6 +93,8 @@ export const CustomizeSheet = ({
       setFocus(currentPlan.focus);
       setEquipment(currentPlan.equipment.length > 0 ? currentPlan.equipment : ['Bodyweight']);
       setEnergy(currentPlan.energy);
+      setNotes('');
+      setFreeFormMode(false);
     }
   }, [visible, currentPlan]);
 
@@ -109,6 +115,16 @@ export const CustomizeSheet = ({
   };
 
   const handleRegenerate = () => {
+    const normalizedNotes = notes.trim() || undefined;
+
+    if (freeFormMode) {
+      onRegenerate({
+        previousResponseId: currentPlan.responseId,
+        notes: normalizedNotes,
+      });
+      return;
+    }
+
     const request: GenerationRequest = {
       timeMinutes: duration,
       focus,
@@ -116,6 +132,7 @@ export const CustomizeSheet = ({
       energy,
       previousResponseId: currentPlan.responseId,
       feedback: feedback.length > 0 ? feedback : undefined,
+      notes: normalizedNotes,
     };
     onRegenerate(request);
   };
@@ -136,88 +153,122 @@ export const CustomizeSheet = ({
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
         <View style={styles.sheet}>
           <View style={styles.handle} />
-          <Text style={styles.title}>Customize</Text>
+          <View style={styles.headerRow}>
+            <Text style={styles.title}>Customize</Text>
+            <View style={styles.headerAction}>
+              <Text style={styles.freeFormLabel}>Free form</Text>
+              <Switch
+                value={freeFormMode}
+                onValueChange={setFreeFormMode}
+                trackColor={{ false: palette.border, true: palette.accent }}
+                thumbColor="#031b1b"
+              />
+            </View>
+          </View>
 
           <ScrollView
             style={styles.scrollView}
             contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={false}
           >
-            {/* Feedback Section */}
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>What would you like to change?</Text>
-              <Text style={styles.sectionHint}>Optional - helps the AI understand your feedback</Text>
-              <View style={styles.chipsRow}>
-                {FEEDBACK_OPTIONS.map((option) => (
-                  <Chip
-                    key={option.value}
-                    label={option.label}
-                    selected={feedback.includes(option.value)}
-                    onPress={() => toggleFeedback(option.value)}
-                  />
-                ))}
-              </View>
-            </View>
+            {!freeFormMode && (
+              <View style={styles.sectionGroup}>
+                {/* Feedback Section */}
+                <View style={styles.section}>
+                  <Text style={styles.sectionTitle}>What would you like to change?</Text>
+                  <Text style={styles.sectionHint}>Optional - helps the AI understand your feedback</Text>
+                  <View style={styles.chipsRow}>
+                    {FEEDBACK_OPTIONS.map((option) => (
+                      <Chip
+                        key={option.value}
+                        label={option.label}
+                        selected={feedback.includes(option.value)}
+                        onPress={() => toggleFeedback(option.value)}
+                      />
+                    ))}
+                  </View>
+                </View>
 
-            {/* Duration Section */}
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Duration</Text>
-              <View style={styles.segmentedRow}>
-                {DURATION_OPTIONS.map((mins) => (
-                  <SegmentedButton
-                    key={mins}
-                    label={`${mins}`}
-                    selected={closestDuration === mins}
-                    onPress={() => setDuration(mins)}
-                  />
-                ))}
-              </View>
-            </View>
+                {/* Duration Section */}
+                <View style={styles.section}>
+                  <Text style={styles.sectionTitle}>Duration</Text>
+                  <View style={styles.segmentedRow}>
+                    {DURATION_OPTIONS.map((mins) => (
+                      <SegmentedButton
+                        key={mins}
+                        label={`${mins}`}
+                        selected={closestDuration === mins}
+                        onPress={() => setDuration(mins)}
+                      />
+                    ))}
+                  </View>
+                </View>
 
-            {/* Focus Section */}
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Focus</Text>
-              <View style={styles.chipsRow}>
-                {FOCUS_OPTIONS.map((f) => (
-                  <Chip
-                    key={f}
-                    label={f}
-                    selected={focus === f}
-                    onPress={() => setFocus(f)}
-                  />
-                ))}
-              </View>
-            </View>
+                {/* Focus Section */}
+                <View style={styles.section}>
+                  <Text style={styles.sectionTitle}>Focus</Text>
+                  <View style={styles.chipsRow}>
+                    {FOCUS_OPTIONS.map((f) => (
+                      <Chip
+                        key={f}
+                        label={f}
+                        selected={focus === f}
+                        onPress={() => setFocus(f)}
+                      />
+                    ))}
+                  </View>
+                </View>
 
-            {/* Equipment Section */}
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Equipment</Text>
-              <Text style={styles.sectionHint}>Select all that apply</Text>
-              <View style={styles.chipsRow}>
-                {EQUIPMENT_OPTIONS.map((e) => (
-                  <Chip
-                    key={e}
-                    label={e}
-                    selected={equipment.includes(e)}
-                    onPress={() => toggleEquipment(e)}
-                  />
-                ))}
-              </View>
-            </View>
+                {/* Equipment Section */}
+                <View style={styles.section}>
+                  <Text style={styles.sectionTitle}>Equipment</Text>
+                  <Text style={styles.sectionHint}>Select all that apply</Text>
+                  <View style={styles.chipsRow}>
+                    {EQUIPMENT_OPTIONS.map((e) => (
+                      <Chip
+                        key={e}
+                        label={e}
+                        selected={equipment.includes(e)}
+                        onPress={() => toggleEquipment(e)}
+                      />
+                    ))}
+                  </View>
+                </View>
 
-            {/* Energy Section */}
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Energy Level</Text>
-              <View style={styles.segmentedRow}>
-                {ENERGY_OPTIONS.map((option) => (
-                  <SegmentedButton
-                    key={option.value}
-                    label={option.label}
-                    selected={energy === option.value}
-                    onPress={() => setEnergy(option.value)}
-                  />
-                ))}
+                {/* Energy Section */}
+                <View style={styles.section}>
+                  <Text style={styles.sectionTitle}>Energy Level</Text>
+                  <View style={styles.segmentedRow}>
+                    {ENERGY_OPTIONS.map((option) => (
+                      <SegmentedButton
+                        key={option.value}
+                        label={option.label}
+                        selected={energy === option.value}
+                        onPress={() => setEnergy(option.value)}
+                      />
+                    ))}
+                  </View>
+                </View>
               </View>
+            )}
+
+            {/* Notes Section */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>
+                {freeFormMode ? 'Instructions' : 'Other Instructions'}
+              </Text>
+              <Text style={styles.sectionHint}>
+                Describe goals, limits, equipment, or any requests for this workout.
+              </Text>
+              <TextInput
+                style={styles.textArea}
+                placeholder="Type any extra guidance for the workout..."
+                placeholderTextColor={palette.textMuted}
+                multiline
+                value={notes}
+                onChangeText={setNotes}
+                textAlignVertical="top"
+              />
             </View>
           </ScrollView>
 
@@ -332,8 +383,24 @@ const styles = StyleSheet.create({
     color: palette.textPrimary,
     fontSize: 20,
     fontWeight: '600',
+  },
+  headerRow: {
     paddingHorizontal: 20,
-    paddingVertical: 12,
+    paddingTop: 12,
+    paddingBottom: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  headerAction: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  freeFormLabel: {
+    color: palette.textSecondary,
+    fontSize: 14,
   },
   scrollView: {
     maxHeight: 400,
@@ -406,6 +473,19 @@ const styles = StyleSheet.create({
   segmentedButtonTextSelected: {
     color: palette.accent,
     fontWeight: '600',
+  },
+  sectionGroup: {
+    gap: 24,
+  },
+  textArea: {
+    backgroundColor: palette.cardSecondary,
+    borderColor: palette.border,
+    borderRadius: 12,
+    borderWidth: 1,
+    color: palette.textPrimary,
+    fontSize: 14,
+    minHeight: 96,
+    padding: 14,
   },
   actions: {
     flexDirection: 'row',
