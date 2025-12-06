@@ -4,7 +4,7 @@
 
 ✨ Your new, shiny [Nx workspace](https://nx.dev) is ready ✨.
 
-[Learn more about this workspace setup and its capabilities](https://nx.dev/nx-api/expo?utm_source=nx_project&amp;utm_medium=readme&amp;utm_campaign=nx_projects) or run `npx nx graph` to visually explore what was created. Now, let's get you up to speed!
+[Learn more about this workspace setup and its capabilities](https://nx.dev/nx-api/expo?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) or run `npx nx graph` to visually explore what was created. Now, let's get you up to speed!
 
 ## Run tasks
 
@@ -30,15 +30,38 @@ These targets are either [inferred automatically](https://nx.dev/concepts/inferr
 
 [More about running tasks in the docs &raquo;](https://nx.dev/features/run-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
 
+## Local dev quickstart (server + iOS)
+
+Terminal 1 – start the backend (Next.js):
+
+```sh
+npx nx dev server
+```
+
+Terminal 2 – start the mobile app on iOS:
+
+```sh
+npx nx run mobile:run-ios
+```
+
+Alternative (Expo dev server): `npx nx start mobile` then press `i` to launch the simulator.
+
+API key options:
+
+- Set `OPENAI_API_KEY` in Terminal 1 before starting the server, or
+- Use BYOK in the app (Home → BYOK) to send `x-openai-key` per request.
+
 ## AI Generation: CE vs Hosted
 
 ### Local dev / Community Edition
 
 - Start dev servers
+
   - Backend (Next.js): `npm run dev:server` or `nx dev server`
   - Mobile (Expo): `npm run dev:mobile` or `nx start mobile`
 
 - Provide an API key (choose one):
+
   - Server env (managed key for this deployment): set `OPENAI_API_KEY` before starting the server
   - BYOK from the device: tap “BYOK” on Home, paste your key; the client sends `x-openai-key` per request
 
@@ -129,12 +152,13 @@ Nx Console is an editor extension that enriches your developer experience. It le
 
 Learn more:
 
-- [Learn more about this workspace setup](https://nx.dev/nx-api/expo?utm_source=nx_project&amp;utm_medium=readme&amp;utm_campaign=nx_projects)
+- [Learn more about this workspace setup](https://nx.dev/nx-api/expo?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
 - [Learn about Nx on CI](https://nx.dev/ci/intro/ci-with-nx?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
 - [Releasing Packages with Nx release](https://nx.dev/features/manage-releases?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
 - [What are Nx plugins?](https://nx.dev/concepts/nx-plugins?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
 
 And join the Nx community:
+
 - [Discord](https://go.nx.dev/community)
 - [Follow us on X](https://twitter.com/nxdevtools) or [LinkedIn](https://www.linkedin.com/company/nrwl)
 - [Our Youtube channel](https://www.youtube.com/@nxdevtools)
