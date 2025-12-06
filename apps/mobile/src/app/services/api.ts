@@ -11,7 +11,7 @@ import type {
   UserPreferences,
 } from '@workout-agent/shared';
 import { getDeviceToken } from '../storage/deviceToken';
-import { getByokApiKey } from '../storage/byokKey';
+import { getByokApiKey, getByokConfig } from '../storage/byokKey';
 import { userRepository } from '../db/repositories/UserRepository';
 import { workoutRepository } from '../db/repositories/WorkoutRepository';
 
@@ -32,7 +32,7 @@ async function apiRequest<T>(
   options: RequestInit = {},
 ): Promise<T> {
   const token = await getDeviceToken();
-  const byokKey = await getByokApiKey();
+  const byokConfig = await getByokConfig();
   const url = `${API_BASE_URL}${endpoint}`;
 
   const headers: Record<string, string> = {
@@ -43,13 +43,30 @@ async function apiRequest<T>(
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
   }
-  if (byokKey) {
-    headers['x-openai-key'] = byokKey;
+  
+  // Add BYOK headers based on provider
+  if (byokConfig) {
+    headers['x-ai-provider'] = byokConfig.provider;
+    // Use provider-specific header for backward compatibility, or generic x-ai-key
+    if (byokConfig.provider === 'openai') {
+      headers['x-openai-key'] = byokConfig.apiKey;
+    } else if (byokConfig.provider === 'gemini') {
+      headers['x-gemini-key'] = byokConfig.apiKey;
+    }
+    // Also send generic header
+    headers['x-ai-key'] = byokConfig.apiKey;
+  } else {
+    // Legacy: check for old format
+    const byokKey = await getByokApiKey();
+    if (byokKey) {
+      headers['x-openai-key'] = byokKey;
+    }
   }
 
   console.log(`[API] ${options.method || 'GET'} ${url}`, {
     hasToken: !!token,
-    hasByokKey: !!byokKey,
+    hasByokConfig: !!byokConfig,
+    provider: byokConfig?.provider,
     body: options.body,
   });
 

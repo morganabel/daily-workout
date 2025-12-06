@@ -34,7 +34,11 @@ import {
   getByokApiKey,
   setByokApiKey,
   removeByokApiKey,
+  getByokConfig,
+  setByokConfig,
+  type ByokConfig,
 } from './storage/byokKey';
+import type { AiProvider } from '@workout-agent/shared';
 import { RootStackParamList } from './navigation';
 import { workoutRepository } from './db/repositories/WorkoutRepository';
 import { userRepository } from './db/repositories/UserRepository';
@@ -907,19 +911,25 @@ const TopBar = ({
 const ByokSheet = ({
   visible,
   value,
+  provider,
   onChangeValue,
+  onChangeProvider,
   onClose,
   onSave,
   onRemove,
   hasKey,
+  errorMessage,
 }: {
   visible: boolean;
   value: string;
+  provider: AiProvider['name'];
   onChangeValue: (val: string) => void;
+  onChangeProvider: (provider: AiProvider['name']) => void;
   onClose: () => void;
   onSave: () => void;
   onRemove?: () => void;
   hasKey: boolean;
+  errorMessage?: string;
 }) => (
   <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
     <View style={styles.sheetOverlay}>
@@ -931,19 +941,62 @@ const ByokSheet = ({
       >
         <View style={styles.byokSheet}>
           <View style={styles.sheetHandle} />
-          <Text style={styles.sheetTitle}>Add your API key</Text>
+          <Text style={styles.sheetTitle}>Configure AI Provider</Text>
           <Text style={styles.sheetBody}>
-            Paste your OpenAI API key to unlock AI workouts even when the hosted key isn't available.
+            Choose your AI provider and paste your API key to unlock AI workouts.
           </Text>
+          
+          <Text style={styles.sheetLabel}>Provider</Text>
+          <View style={styles.providerSelector}>
+            <Pressable
+              style={[
+                styles.providerOption,
+                provider === 'openai' && styles.providerOptionActive,
+              ]}
+              onPress={() => onChangeProvider('openai')}
+            >
+              <Text
+                style={[
+                  styles.providerOptionText,
+                  provider === 'openai' && styles.providerOptionTextActive,
+                ]}
+              >
+                OpenAI
+              </Text>
+            </Pressable>
+            <Pressable
+              style={[
+                styles.providerOption,
+                provider === 'gemini' && styles.providerOptionActive,
+              ]}
+              onPress={() => onChangeProvider('gemini')}
+            >
+              <Text
+                style={[
+                  styles.providerOptionText,
+                  provider === 'gemini' && styles.providerOptionTextActive,
+                ]}
+              >
+                Gemini
+              </Text>
+            </Pressable>
+          </View>
+
+          <Text style={styles.sheetLabel}>API Key</Text>
           <TextInput
             value={value}
             onChangeText={onChangeValue}
-            placeholder="sk-..."
+            placeholder={provider === 'openai' ? 'sk-...' : 'Enter your Gemini API key'}
             autoCapitalize="none"
             autoCorrect={false}
             secureTextEntry
             style={styles.byokInput}
           />
+          
+          {errorMessage && (
+            <Text style={styles.errorText}>{errorMessage}</Text>
+          )}
+
           <View style={styles.sheetActions}>
             {onRemove && (
               <SecondaryButton label="Remove key" onPress={onRemove} />
@@ -1021,7 +1074,9 @@ export const HomeScreen = () => {
   const [generating, setGenerating] = useState(false);
   const [byokSheetVisible, setByokSheetVisible] = useState(false);
   const [byokInput, setByokInput] = useState('');
+  const [byokProvider, setByokProvider] = useState<AiProvider['name']>('openai');
   const [hasByokKey, setHasByokKey] = useState(false);
+  const [byokError, setByokError] = useState<string | undefined>();
   const [showPendingOverlay, setShowPendingOverlay] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [customizeSheetVisible, setCustomizeSheetVisible] = useState(false);
@@ -1063,10 +1118,13 @@ export const HomeScreen = () => {
   useEffect(() => {
     const checkByok = async () => {
       try {
-        const existing = await getByokApiKey();
-        setHasByokKey(Boolean(existing));
+        const config = await getByokConfig();
+        setHasByokKey(Boolean(config));
+        if (config) {
+          setByokProvider(config.provider);
+        }
       } catch (error) {
-        console.warn('Failed to read BYOK key', error);
+        console.warn('Failed to read BYOK config', error);
       }
     };
     checkByok();
@@ -1074,27 +1132,51 @@ export const HomeScreen = () => {
 
   const openByokSheet = async () => {
     try {
-      const existing = await getByokApiKey();
-      setByokInput(existing ?? '');
+      const config = await getByokConfig();
+      if (config) {
+        setByokInput(config.apiKey);
+        setByokProvider(config.provider);
+      } else {
+        // Legacy: check for old format
+        const existing = await getByokApiKey();
+        setByokInput(existing ?? '');
+        setByokProvider('openai');
+      }
+      setByokError(undefined);
     } catch {
       setByokInput('');
+      setByokProvider('openai');
+      setByokError(undefined);
     }
     setByokSheetVisible(true);
   };
 
   const handleSaveByok = async () => {
     if (!byokInput.trim()) return;
+    setByokError(undefined);
     try {
-      await setByokApiKey(byokInput.trim());
+      await setByokConfig({
+        apiKey: byokInput.trim(),
+        provider: byokProvider,
+      });
       setHasByokKey(true);
       setByokSheetVisible(false);
       await refetch();
     } catch (error) {
-      Alert.alert(
-        'Failed to Save Key',
-        'Could not store your API key. Please try again.',
-      );
-      console.error('Failed to store BYOK key:', error);
+      // Check if it's an API error with INVALID_PROVIDER code
+      if (
+        typeof error === 'object' &&
+        error !== null &&
+        'code' in error &&
+        error.code === 'INVALID_PROVIDER'
+      ) {
+        setByokError(
+          error.message || 'Invalid provider selected. Please choose a supported provider.',
+        );
+      } else {
+        setByokError('Could not store your API key. Please try again.');
+      }
+      console.error('Failed to store BYOK config:', error);
     }
   };
 
@@ -1405,11 +1487,17 @@ export const HomeScreen = () => {
       <ByokSheet
         visible={byokSheetVisible}
         value={byokInput}
+        provider={byokProvider}
         onChangeValue={setByokInput}
-        onClose={() => setByokSheetVisible(false)}
+        onChangeProvider={setByokProvider}
+        onClose={() => {
+          setByokSheetVisible(false);
+          setByokError(undefined);
+        }}
         onSave={handleSaveByok}
         onRemove={hasByokKey ? handleRemoveByok : undefined}
         hasKey={hasByokKey}
+        errorMessage={byokError}
       />
       {plan && (
         <CustomizeSheet
@@ -1805,6 +1893,41 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginTop: -4,
   },
+  sheetLabel: {
+    color: palette.textPrimary,
+    fontSize: 14,
+    fontWeight: '600',
+    marginTop: 8,
+    marginBottom: 8,
+  },
+  providerSelector: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 8,
+  },
+  providerOption: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: palette.border,
+    backgroundColor: palette.cardSecondary,
+    alignItems: 'center',
+  },
+  providerOptionActive: {
+    borderColor: palette.accent,
+    backgroundColor: palette.accentMuted,
+  },
+  providerOptionText: {
+    color: palette.textSecondary,
+    fontSize: 15,
+    fontWeight: '500',
+  },
+  providerOptionTextActive: {
+    color: palette.accent,
+    fontWeight: '600',
+  },
   byokInput: {
     backgroundColor: palette.cardSecondary,
     borderRadius: 16,
@@ -1814,6 +1937,11 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     color: palette.textPrimary,
     fontSize: 16,
+  },
+  errorText: {
+    color: '#ff6b6b',
+    fontSize: 14,
+    marginTop: -8,
   },
   heroLoadingRow: {
     width: '100%',
