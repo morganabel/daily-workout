@@ -33,6 +33,7 @@ jest.mock('../db/repositories/UserRepository', () => ({
   userRepository: {
     getOrCreateUser: jest.fn(),
     getPreferences: jest.fn(),
+    observeUser: jest.fn(),
   },
 }));
 
@@ -63,15 +64,17 @@ describe('useHomeData', () => {
   let planStream: ReturnType<typeof createObservableMock<Workout[]>>;
   let sessionStream: ReturnType<typeof createObservableMock<Workout[]>>;
   let mockPlan: ReturnType<typeof createTodayPlanMock>;
+  let userStream: ReturnType<typeof createObservableMock<unknown>>;
 
   beforeEach(() => {
     jest.clearAllMocks();
     planStream = createObservableMock<Workout[]>();
     sessionStream = createObservableMock<Workout[]>();
+    userStream = createObservableMock<unknown>();
     mockPlan = createTodayPlanMock({ id: 'server-plan' });
 
-    mockWorkoutRepository.observeTodayWorkout.mockReturnValue(planStream.observable);
-    mockWorkoutRepository.observeRecentSessions.mockReturnValue(sessionStream.observable);
+    mockWorkoutRepository.observeTodayWorkout.mockReturnValue(planStream.observable as any);
+    mockWorkoutRepository.observeRecentSessions.mockReturnValue(sessionStream.observable as any);
     mockWorkoutRepository.getTodayWorkout.mockResolvedValue(null);
     mockWorkoutRepository.mapWorkoutToPlan.mockResolvedValue(mockPlan);
     mockWorkoutRepository.toSessionSummary.mockImplementation((workout) =>
@@ -84,6 +87,7 @@ describe('useHomeData', () => {
       focusBias: [],
       avoid: [],
     });
+    mockUserRepository.observeUser.mockReturnValue(userStream.observable as any);
     mockNetInfo.addEventListener = jest.fn().mockImplementation((callback) => {
       callback({ isConnected: true, isInternetReachable: true });
       return () => {

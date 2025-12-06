@@ -8,7 +8,6 @@ import type {
   GenerationStatus,
   HomeSnapshot,
   TodayPlan,
-  WorkoutSessionSummary,
   QuickActionKey,
   QuickActionPreset,
   UserPreferences,
@@ -71,7 +70,7 @@ export type HomeDataState = {
   quickActions: HomeSnapshot['quickActions'];
   offlineHint: HomeSnapshot['offlineHint'];
   isOffline: boolean;
-  error: any | null;
+  error: unknown | null;
   generationStatus: GenerationStatus;
 };
 
@@ -82,6 +81,7 @@ export function useHomeData(): HomeDataState & {
   refetch: () => Promise<void>;
   updateStagedValue: (actionKey: QuickActionKey, stagedValue: string | null) => void;
   clearStagedValues: () => void;
+  setGenerationStatus: (status: GenerationStatus) => void;
 } {
   const initialStatus: GenerationStatus = {
     state: 'idle',
@@ -193,18 +193,33 @@ export function useHomeData(): HomeDataState & {
     return () => unsubscribe();
   }, []);
 
-  // Ensure user exists
+  // Ensure user exists and keep quick actions in sync with profile changes
   useEffect(() => {
-    const ensureUserAndPrefs = async () => {
+    let subscription: { unsubscribe: () => void } | null = null;
+    let cancelled = false;
+
+    const setup = async () => {
       await userRepository.getOrCreateUser();
-      const prefs = await userRepository.getPreferences();
-      if (!isMountedRef.current) return;
-      setState((prev) => ({
-        ...prev,
-        quickActions: buildQuickActionsFromPreferences(prefs),
-      }));
+      if (!isMountedRef.current || cancelled) return;
+
+      subscription = userRepository.observeUser().subscribe(() => {
+        void (async () => {
+          const prefs = await userRepository.getPreferences();
+          if (!isMountedRef.current || cancelled) return;
+          setState((prev) => ({
+            ...prev,
+            quickActions: buildQuickActionsFromPreferences(prefs),
+          }));
+        })();
+      });
     };
-    void ensureUserAndPrefs();
+
+    void setup();
+
+    return () => {
+      cancelled = true;
+      subscription?.unsubscribe();
+    };
   }, []);
 
   const fetchData = useCallback(async () => {
@@ -227,6 +242,14 @@ export function useHomeData(): HomeDataState & {
 
   const clearStagedValues = useCallback(() => {
     setStagedValues({});
+  }, []);
+
+  const setGenerationStatus = useCallback((status: GenerationStatus) => {
+    if (!isMountedRef.current) return;
+    setState((prev) => ({
+      ...prev,
+      generationStatus: status,
+    }));
   }, []);
 
   const updateStagedValue = useCallback(
@@ -259,5 +282,6 @@ export function useHomeData(): HomeDataState & {
     refetch: fetchData,
     updateStagedValue,
     clearStagedValues,
+    setGenerationStatus,
   };
 }
