@@ -119,6 +119,7 @@ export const CustomizeSheet = ({
 
     if (freeFormMode) {
       onRegenerate({
+        previousResponseId: currentPlan.responseId,
         notes: normalizedNotes,
       });
       return;
