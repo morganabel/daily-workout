@@ -51,6 +51,13 @@ function buildRegenerationMessage(
 ): string {
   const parts: string[] = [];
 
+  const hasStructured =
+    Boolean(request.timeMinutes) ||
+    Boolean(request.focus) ||
+    Boolean(request.energy) ||
+    Boolean(request.equipment && request.equipment.length > 0) ||
+    Boolean(feedback && feedback.length > 0);
+
   parts.push("The user wasn't satisfied with the previous workout.");
 
   // Add feedback if provided
@@ -89,6 +96,19 @@ function buildRegenerationMessage(
 
   if (changes.length > 0) {
     parts.push(`Requested changes: ${changes.join(', ')}.`);
+  }
+
+  if (request.notes) {
+    if (!hasStructured) {
+      parts.push(
+        'The instructions below are free form feedback from the user. Treat the instructions below as the single source of truth. Override any prior context or workout details when there is a conflict.',
+      );
+    } else {
+      parts.push(
+        'Prioritize the user instructions below over any previous context or the earlier workout. If there is a conflict, follow the new instructions.',
+      );
+    }
+    parts.push(`User explicit instructions: ${request.notes}`);
   }
 
   parts.push('Please generate a new workout that addresses these preferences.');
