@@ -29,8 +29,8 @@ const buildQuickActionsFromPreferences = (prefs: UserPreferences): QuickActionPr
     {
       key: 'time',
       label: 'Time',
-      value: '45',
-      description: '45 min',
+      value: '60',
+      description: '60 min',
       stagedValue: null,
     },
     {

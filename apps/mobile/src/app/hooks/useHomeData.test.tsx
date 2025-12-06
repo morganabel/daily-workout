@@ -32,6 +32,7 @@ jest.mock('../db/repositories/WorkoutRepository', () => {
 jest.mock('../db/repositories/UserRepository', () => ({
   userRepository: {
     getOrCreateUser: jest.fn(),
+    getPreferences: jest.fn(),
   },
 }));
 
@@ -77,6 +78,12 @@ describe('useHomeData', () => {
       createSessionSummaryMock({ id: workout.id, name: workout.name || 'Workout' }),
     );
     mockUserRepository.getOrCreateUser.mockResolvedValue(undefined as never);
+    mockUserRepository.getPreferences.mockResolvedValue({
+      equipment: [],
+      injuries: [],
+      focusBias: [],
+      avoid: [],
+    });
     mockNetInfo.addEventListener = jest.fn().mockImplementation((callback) => {
       callback({ isConnected: true, isInternetReachable: true });
       return () => {
