@@ -22,6 +22,9 @@ import {
 jest.mock('@/lib/auth');
 jest.mock('@/lib/generator');
 jest.mock('@/lib/context');
+jest.mock('@/lib/ai-providers/init', () => ({
+  initializeProviders: jest.fn(),
+}));
 
 const mockAuthenticateRequest = authenticateRequest as jest.MockedFunction<typeof authenticateRequest>;
 const mockGenerateTodayPlanAI = generateTodayPlanAI as jest.MockedFunction<typeof generateTodayPlanAI>;
@@ -33,6 +36,8 @@ describe('POST /api/workouts/generate', () => {
     // Reset environment variables
     delete process.env.EDITION;
     delete process.env.OPENAI_API_KEY;
+    delete process.env.GEMINI_API_KEY;
+    delete process.env.AI_PROVIDER;
     mockGenerateTodayPlanAI.mockReset();
     mockLoadGenerationContext.mockResolvedValue(createGenerationContextMock());
     resetGenerationStore();
@@ -105,7 +110,10 @@ describe('POST /api/workouts/generate', () => {
       ],
     };
 
-    mockGenerateTodayPlanAI.mockResolvedValue(providerPlan);
+    mockGenerateTodayPlanAI.mockResolvedValue({
+      plan: providerPlan,
+      responseId: 'test-response-id',
+    });
 
     const request = new Request('http://localhost:3000/api/workouts/generate', {
       method: 'POST',
@@ -126,7 +134,7 @@ describe('POST /api/workouts/generate', () => {
     expect(mockGenerateTodayPlanAI).toHaveBeenCalledWith(
       expect.objectContaining({ timeMinutes: 42 }),
       expect.anything(),
-      expect.objectContaining({ apiKey: 'test-api-key' }),
+      expect.objectContaining({ apiKey: 'test-api-key', provider: 'openai' }),
     );
     expect(response.status).toBe(200);
     expect(data.id).toBe('plan-ai');
@@ -267,22 +275,25 @@ describe('POST /api/workouts/generate', () => {
       deviceToken: 'test-token',
     });
     mockGenerateTodayPlanAI.mockResolvedValue({
-      id: 'plan-from-header',
-      focus: 'Header Plan',
-      durationMinutes: 35,
-      equipment: ['Bands'],
-      source: 'ai',
-      energy: 'moderate',
-      summary: 'Plan',
-      blocks: [
-        {
-          id: 'b1',
-          title: 'Main',
-          durationMinutes: 15,
-          focus: 'Strength',
-          exercises: [{ id: 'e1', name: 'Row', prescription: '3 x 12', detail: null }],
-        },
-      ],
+      plan: {
+        id: 'plan-from-header',
+        focus: 'Header Plan',
+        durationMinutes: 35,
+        equipment: ['Bands'],
+        source: 'ai',
+        energy: 'moderate',
+        summary: 'Plan',
+        blocks: [
+          {
+            id: 'b1',
+            title: 'Main',
+            durationMinutes: 15,
+            focus: 'Strength',
+            exercises: [{ id: 'e1', name: 'Row', prescription: '3 x 12', detail: null }],
+          },
+        ],
+      },
+      responseId: 'test-response-id',
     });
 
     const request = new Request('http://localhost:3000/api/workouts/generate', {
@@ -301,7 +312,7 @@ describe('POST /api/workouts/generate', () => {
     expect(mockGenerateTodayPlanAI).toHaveBeenCalledWith(
       expect.any(Object),
       expect.anything(),
-      expect.objectContaining({ apiKey: 'header-key' }),
+      expect.objectContaining({ apiKey: 'header-key', provider: 'openai' }),
     );
     expect(data.id).toBe('plan-from-header');
   });
