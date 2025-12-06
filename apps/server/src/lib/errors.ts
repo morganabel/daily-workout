@@ -2,7 +2,13 @@
  * Structured error responses for API endpoints
  */
 
-export type ApiErrorCode = 'BYOK_REQUIRED' | 'QUOTA_EXCEEDED' | 'UNAUTHORIZED' | 'VALIDATION_ERROR' | 'NOT_FOUND';
+export type ApiErrorCode =
+  | 'BYOK_REQUIRED'
+  | 'QUOTA_EXCEEDED'
+  | 'UNAUTHORIZED'
+  | 'VALIDATION_ERROR'
+  | 'NOT_FOUND'
+  | 'INVALID_PROVIDER';
 
 export interface ApiError {
   code: ApiErrorCode;

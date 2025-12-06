@@ -10,6 +10,11 @@ export function getProvider(name: AiProviderName): AiProvider | undefined {
   return providers.get(name);
 }
 
+// Test-only helper to clear all registered providers
+export function resetProviders(): void {
+  providers.clear();
+}
+
 export function getDefaultProviderName(): AiProviderName {
   const envProvider = process.env.AI_PROVIDER?.trim().toLowerCase();
   if (envProvider === 'gemini') {
