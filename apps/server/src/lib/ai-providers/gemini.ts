@@ -1,4 +1,5 @@
-import { GoogleGenAI, Type } from '@google/genai';
+import { GoogleGenAI } from '@google/genai';
+import * as z from 'zod';
 import {
   todayPlanSchema,
   llmTodayPlanSchema,
@@ -88,58 +89,8 @@ function attachGeneratedIds(plan: LlmTodayPlan): TodayPlan {
   };
 }
 
-/**
- * Convert Zod schema to Gemini Schema format for structured output
- */
-function buildGeminiSchema(): any {
-  return {
-    type: Type.OBJECT,
-    properties: {
-      focus: { type: Type.STRING },
-      durationMinutes: { type: Type.NUMBER },
-      equipment: {
-        type: Type.ARRAY,
-        items: { type: Type.STRING },
-      },
-      source: { type: Type.STRING },
-      energy: { type: Type.STRING },
-      summary: { type: Type.STRING },
-      blocks: {
-        type: Type.ARRAY,
-        items: {
-          type: Type.OBJECT,
-          properties: {
-            title: { type: Type.STRING },
-            durationMinutes: { type: Type.NUMBER },
-            focus: { type: Type.STRING },
-            exercises: {
-              type: Type.ARRAY,
-              items: {
-                type: Type.OBJECT,
-                properties: {
-                  name: { type: Type.STRING },
-                  prescription: { type: Type.STRING },
-                  detail: { type: Type.STRING, nullable: true },
-                },
-                required: ['name', 'prescription', 'detail'],
-              },
-            },
-          },
-          required: ['title', 'durationMinutes', 'focus', 'exercises'],
-        },
-      },
-    },
-    required: [
-      'focus',
-      'durationMinutes',
-      'equipment',
-      'source',
-      'energy',
-      'summary',
-      'blocks',
-    ],
-  };
-}
+// Convert the shared Zod schema to JSON Schema for Gemini structured output
+const geminiResponseSchema = z.toJSONSchema(llmTodayPlanSchema);
 
 export class GeminiProvider implements AiProvider {
   async generate(
@@ -183,19 +134,18 @@ export class GeminiProvider implements AiProvider {
     const started = Date.now();
     try {
       // Use structured output with JSON schema
-      const responseSchema = buildGeminiSchema();
       const result = await genAI.models.generateContent({
         model,
         contents: prompt,
         config: {
           responseMimeType: 'application/json',
-          responseSchema,
+          responseSchema: geminiResponseSchema,
         },
       });
 
       responseId = `gemini-${Date.now()}`;
 
-      const text = result.text.trim();
+      const text = (result.text ?? '').trim();
       if (!text) {
         throw new Error('Empty response from Gemini');
       }
