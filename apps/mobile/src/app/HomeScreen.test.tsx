@@ -16,12 +16,18 @@ jest.mock('./storage/byokKey', () => ({
   setByokApiKey: jest.fn(),
   removeByokApiKey: jest.fn(),
 }));
-jest.mock('@react-navigation/native', () => ({
-  useNavigation: () => ({
-    navigate: jest.fn(),
-  }),
-  useFocusEffect: jest.fn((callback) => callback()),
-}));
+const mockNavigate = jest.fn();
+
+jest.mock('@react-navigation/native', () => {
+  const actual = jest.requireActual('@react-navigation/native');
+  return {
+    ...actual,
+    useNavigation: () => ({
+      navigate: mockNavigate,
+    }),
+    useFocusEffect: jest.fn((callback) => callback()),
+  };
+});
 jest.mock('./db/repositories/WorkoutRepository', () => ({
   workoutRepository: {
     completeWorkoutById: jest.fn(),
@@ -150,5 +156,25 @@ describe('HomeScreen', () => {
 
     // Backfill chip should not be rendered (removed in favor of Quick Log sheet)
     expect(queryByText('Backfill')).toBeNull();
+  });
+
+  it('navigates to ActiveWorkout when Start workout is pressed', async () => {
+    const plan = createTodayPlanMock({ id: 'plan-123' });
+    mockUseHomeData.mockReturnValue({
+      ...baseHookState,
+      plan,
+    });
+
+    const { getByText } = render(<HomeScreen />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    const startButton = getByText('Start workout');
+    await act(async () => {
+      fireEvent.press(startButton);
+    });
+
+    expect(mockNavigate).toHaveBeenCalledWith('ActiveWorkout', { plan });
   });
 });

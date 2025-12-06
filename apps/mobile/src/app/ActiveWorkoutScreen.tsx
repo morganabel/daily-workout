@@ -132,23 +132,61 @@ export const ActiveWorkoutScreen = () => {
     ]);
   };
 
+  const handleCancel = () => {
+    Alert.alert(
+      'End workout?',
+      'If you leave now, your progress will be lost. Are you sure?',
+      [
+        { text: 'Stay', style: 'cancel' },
+        {
+          text: 'End Session',
+          style: 'destructive',
+          onPress: () => {
+            // Allow navigation without the beforeRemove prompt
+            isSubmittingRef.current = true;
+            navigation.reset({
+              index: 0,
+              routes: [{ name: 'Home' }],
+            });
+          },
+        },
+      ],
+    );
+  };
+
   return (
     <View style={styles.screen}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.timerText}>{formatTime(durationSeconds)}</Text>
-        <Pressable
-          onPress={handleFinish}
-          style={({ pressed }) => [
-            styles.finishButtonHeader,
-            pressed && { opacity: 0.8 },
-          ]}
-          accessibilityRole="button"
-          accessibilityLabel="Finish workout"
-          accessibilityHint="Completes the current workout session"
-        >
-          <Text style={styles.finishButtonHeaderText}>Finish</Text>
-        </Pressable>
+        <View style={styles.headerLeft}>
+          <Text style={styles.timerText}>{formatTime(durationSeconds)}</Text>
+        </View>
+        <View style={styles.headerActions}>
+          <Pressable
+            onPress={handleCancel}
+            style={({ pressed }) => [
+              styles.cancelButtonHeader,
+              pressed && { opacity: 0.8 },
+            ]}
+            accessibilityRole="button"
+            accessibilityLabel="Cancel workout"
+            accessibilityHint="Leave without logging this workout"
+          >
+            <Text style={styles.cancelButtonHeaderText}>Cancel</Text>
+          </Pressable>
+          <Pressable
+            onPress={handleFinish}
+            style={({ pressed }) => [
+              styles.finishButtonHeader,
+              pressed && { opacity: 0.8 },
+            ]}
+            accessibilityRole="button"
+            accessibilityLabel="Finish workout"
+            accessibilityHint="Completes the current workout session"
+          >
+            <Text style={styles.finishButtonHeaderText}>Finish</Text>
+          </Pressable>
+        </View>
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
@@ -257,6 +295,14 @@ const styles = StyleSheet.create({
     borderBottomColor: palette.border,
     backgroundColor: palette.background,
   },
+  headerLeft: {
+    flex: 1,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   timerText: {
     color: palette.accent,
     fontSize: 32,
@@ -273,6 +319,19 @@ const styles = StyleSheet.create({
   },
   finishButtonHeaderText: {
     color: palette.textPrimary,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  cancelButtonHeader: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: palette.border,
+    backgroundColor: palette.cardSecondary,
+  },
+  cancelButtonHeaderText: {
+    color: palette.textSecondary,
     fontSize: 14,
     fontWeight: '600',
   },

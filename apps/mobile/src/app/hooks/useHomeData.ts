@@ -202,7 +202,7 @@ export function useHomeData(): HomeDataState & {
       await userRepository.getOrCreateUser();
       if (!isMountedRef.current || cancelled) return;
 
-      subscription = userRepository.observeUser().subscribe(() => {
+      const sub = userRepository.observeUser().subscribe(() => {
         void (async () => {
           const prefs = await userRepository.getPreferences();
           if (!isMountedRef.current || cancelled) return;
@@ -212,6 +212,11 @@ export function useHomeData(): HomeDataState & {
           }));
         })();
       });
+      if (cancelled) {
+        sub.unsubscribe();
+        return;
+      }
+      subscription = sub;
     };
 
     void setup();
