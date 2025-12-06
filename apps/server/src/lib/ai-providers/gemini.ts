@@ -13,7 +13,7 @@ import { v7 as uuidv7 } from 'uuid';
 import type { AiProvider, AiProviderOptions, GenerationResult } from './types';
 import { AiGenerationError } from './types';
 
-const DEFAULT_MODEL = process.env.GEMINI_MODEL ?? 'gemini-2.0-flash-exp';
+const DEFAULT_MODEL = process.env.GEMINI_MODEL ?? 'gemini-2.5-flash';
 const DEFAULT_API_BASE = process.env.GEMINI_API_BASE;
 
 const SYSTEM_PROMPT =
