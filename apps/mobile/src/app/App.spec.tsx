@@ -88,6 +88,7 @@ const baseHookState = {
   refetch: jest.fn(),
   updateStagedValue: jest.fn(),
   clearStagedValues: jest.fn(),
+  setGenerationStatus: jest.fn(),
 };
 
 describe('App', () => {

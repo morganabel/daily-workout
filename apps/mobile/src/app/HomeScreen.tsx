@@ -1016,6 +1016,7 @@ export const HomeScreen = () => {
     updateStagedValue,
     generationStatus,
     clearStagedValues,
+    setGenerationStatus,
   } = useHomeData();
   const [selectedAction, setSelectedAction] =
     useState<QuickActionPreset | null>(null);
@@ -1139,7 +1140,12 @@ export const HomeScreen = () => {
   const handleGenerate = async () => {
     if (generating || isOffline || generationStatus.state === 'pending') return;
 
+    const submittedAt = new Date().toISOString();
     setGenerating(true);
+    setGenerationStatus({
+      state: 'pending',
+      submittedAt,
+    });
 
     try {
       const request = buildGenerationRequestFromQuickActions(quickActions);
@@ -1184,10 +1190,20 @@ export const HomeScreen = () => {
       console.log('Workout plan persisted locally');
 
       clearStagedValues();
-
+      setGenerationStatus({
+        state: 'idle',
+        submittedAt: null,
+      });
     } catch (err) {
       const apiError = err as ApiError;
       console.error('Failed to generate workout:', apiError);
+      setGenerationStatus({
+        state: 'error',
+        submittedAt,
+        message:
+          apiError.message ||
+          'An error occurred while generating your workout. Please try again.',
+      });
       Alert.alert(
         'Failed to Generate Workout',
         apiError.message ||
@@ -1273,8 +1289,13 @@ export const HomeScreen = () => {
   const handleRegenerateFromSheet = async (request: GenerationRequest) => {
     if (generating || isOffline || generationStatus.state === 'pending') return;
 
+    const submittedAt = new Date().toISOString();
     setGenerating(true);
     setCustomizeSheetVisible(false);
+    setGenerationStatus({
+      state: 'pending',
+      submittedAt,
+    });
 
     try {
       console.log('Regenerating workout with request:', request);
@@ -1282,9 +1303,20 @@ export const HomeScreen = () => {
       console.log('Workout plan persisted locally');
 
       clearStagedValues();
+      setGenerationStatus({
+        state: 'idle',
+        submittedAt: null,
+      });
     } catch (err) {
       const apiError = err as ApiError;
       console.error('Failed to regenerate workout:', apiError);
+      setGenerationStatus({
+        state: 'error',
+        submittedAt,
+        message:
+          apiError.message ||
+          'We could not create a new workout. Please try again.',
+      });
       Alert.alert(
         'Something went wrong',
         apiError.message ||
