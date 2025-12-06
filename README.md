@@ -62,11 +62,16 @@ API key options:
 
 - Provide an API key (choose one):
 
-  - Server env (managed key for this deployment): set `OPENAI_API_KEY` before starting the server
-  - BYOK from the device: tap “BYOK” on Home, paste your key; the client sends `x-openai-key` per request
+  - Server env (managed key for this deployment): set `OPENAI_API_KEY` or `GEMINI_API_KEY` before starting the server
+  - Set `AI_PROVIDER=openai` or `AI_PROVIDER=gemini` to choose the default provider (defaults to `openai`)
+  - BYOK from the device: tap "BYOK" on Home, choose provider (OpenAI or Gemini), paste your key; the client sends provider-specific headers per request
 
 - Behavior in CE (default when `EDITION` is unset or not `HOSTED`):
-  - Server prefers `x-openai-key`, else falls back to `OPENAI_API_KEY`
+  - Server accepts provider selection via `x-ai-provider` header (`openai` or `gemini`)
+  - BYOK keys: `x-openai-key`, `x-gemini-key`, or generic `x-ai-key` (provider-specific takes precedence)
+  - Legacy: `x-openai-key` without `x-ai-provider` defaults to OpenAI provider
+  - Server prefers BYOK headers, else falls back to `OPENAI_API_KEY` or `GEMINI_API_KEY` env vars
+  - Default provider comes from `AI_PROVIDER` env var (defaults to `openai`)
   - If no key is available, the server falls back to a deterministic mock `TodayPlan` so the app still works
 
 ### Hosted edition (separate private repo)
@@ -74,9 +79,10 @@ API key options:
 In a hosted environment, the server includes an API key as part of the paid offering:
 
 - Set `EDITION=HOSTED`
-- Provision a managed OpenAI key (or key pool) as `OPENAI_API_KEY` via your hosting platform’s secret manager
-- Optionally still allow BYOK: if the mobile client sends `x-openai-key`, it overrides `OPENAI_API_KEY`
-- If `EDITION=HOSTED` and **no** key is available (neither BYOK nor managed), the server responds with:
+- Provision managed API keys: `OPENAI_API_KEY` and/or `GEMINI_API_KEY` via your hosting platform's secret manager
+- Set `AI_PROVIDER` to choose the default provider (defaults to `openai`)
+- Optionally still allow BYOK: if the mobile client sends provider headers, they override env keys
+- If `EDITION=HOSTED` and **no** key is available for the selected provider (neither BYOK nor managed), the server responds with:
   - `{ code: 'BYOK_REQUIRED' }` (HTTP 402) from `/api/workouts/generate`
 
 This lets the CE repo stay the open core while a private “hosted shell” repo is responsible for:
@@ -91,7 +97,7 @@ This lets the CE repo stay the open core while a private “hosted shell” repo
 - `POST /api/workouts/generate` → TodayPlan (AI or mock)
 - `POST /api/workouts/{id}/log` → WorkoutSessionSummary
 
-Notes: The server validates structured output with shared Zod schemas. The mobile client sends DeviceToken for auth and optionally a BYOK header.
+Notes: The server validates structured output with shared Zod schemas. The mobile client sends DeviceToken for auth and optionally BYOK headers (`x-ai-provider` + provider-specific key header). Supported providers: OpenAI (via `openai` SDK) and Gemini (via `@google/genai` SDK).
 
 ## Add new projects
 
