@@ -62,7 +62,6 @@ type HeroCardProps = {
   plan: TodayPlan | null;
   isOffline: boolean;
   generating?: boolean;
-  logging?: boolean;
   generationStatus: GenerationStatus;
   showPendingOverlay?: boolean;
   onGenerate: () => void;
@@ -79,7 +78,6 @@ const HeroCard = ({
   plan,
   isOffline,
   generating = false,
-  logging = false,
   generationStatus,
   showPendingOverlay = false,
   onGenerate,
@@ -187,7 +185,7 @@ const HeroCard = ({
           <OverflowMenu
             onTryAnother={onTryAnother}
             onDiscard={onDiscard}
-            disabled={generating || logging || isPending}
+            disabled={generating || isPending}
           />
         )}
       </View>
@@ -208,14 +206,14 @@ const HeroCard = ({
       ) : (
         <View style={styles.heroActions}>
           <PrimaryButton
-            label={logging ? 'Logging...' : 'Log done'}
+            label={isPending ? 'Generating...' : 'Start workout'}
             onPress={onStart}
-            disabled={logging || isPending}
+            disabled={isPending}
           />
           <SecondaryButton
             label="Preview"
             onPress={onPreview}
-            disabled={logging || isPending}
+            disabled={isPending}
           />
         </View>
       )}
@@ -1021,7 +1019,6 @@ export const HomeScreen = () => {
   const [selectedAction, setSelectedAction] =
     useState<QuickActionPreset | null>(null);
   const [generating, setGenerating] = useState(false);
-  const [logging, setLogging] = useState(false);
   const [byokSheetVisible, setByokSheetVisible] = useState(false);
   const [byokInput, setByokInput] = useState('');
   const [hasByokKey, setHasByokKey] = useState(false);
@@ -1215,27 +1212,9 @@ export const HomeScreen = () => {
     }
   };
 
-  const handleLogDone = async () => {
-    if (!plan || logging) return;
-
-    setLogging(true);
-
-    try {
-      // Use the planned duration since we don't have a timer for quick logs
-      const durationSeconds = plan.durationMinutes * 60;
-      await workoutRepository.completeWorkoutById(plan.id, durationSeconds);
-    } catch (err) {
-      console.error('Failed to log workout:', err);
-
-      // Show error alert to user
-      Alert.alert(
-        'Failed to Log Workout',
-        'An error occurred while logging your workout. Please try again.',
-        [{ text: 'OK' }]
-      );
-    } finally {
-      setLogging(false);
-    }
+  const handleStartWorkout = () => {
+    if (!plan) return;
+    navigation.navigate('ActiveWorkout', { plan });
   };
 
   const handleArchiveSession = async (session: WorkoutSessionSummary) => {
@@ -1384,13 +1363,12 @@ export const HomeScreen = () => {
           status={heroStatus as HeroCardProps['status']}
           plan={plan}
           isOffline={isOffline}
-          generating={generating}
-          logging={logging}
+        generating={generating}
           generationStatus={generationStatus}
           showPendingOverlay={showPendingOverlay}
           onGenerate={handleGenerate}
           onCustomize={() => setSelectedAction(quickActions[1] ?? null)}
-          onStart={handleLogDone}
+        onStart={handleStartWorkout}
           onPreview={handlePreviewNavigation}
           onConfigure={handleConfigure}
           onTryAnother={plan ? handleTryAnother : undefined}
