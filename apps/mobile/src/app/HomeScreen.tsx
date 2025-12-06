@@ -1184,6 +1184,7 @@ export const HomeScreen = () => {
 
       console.log('Generating workout with request:', request);
       await generateWorkout(request);
+      await refetch();
       console.log('Workout plan persisted locally');
 
       clearStagedValues();
@@ -1279,6 +1280,7 @@ export const HomeScreen = () => {
     try {
       console.log('Regenerating workout with request:', request);
       await generateWorkout(request);
+      await refetch();
       console.log('Workout plan persisted locally');
 
       clearStagedValues();

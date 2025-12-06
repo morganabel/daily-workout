@@ -91,6 +91,10 @@ function buildRegenerationMessage(
     parts.push(`Requested changes: ${changes.join(', ')}.`);
   }
 
+  if (request.notes) {
+    parts.push(`User instructions: ${request.notes}`);
+  }
+
   parts.push('Please generate a new workout that addresses these preferences.');
 
   return parts.join(' ');
