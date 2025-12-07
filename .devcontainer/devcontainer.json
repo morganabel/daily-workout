@@ -1,0 +1,9 @@
+{
+  "name": "Node.js",
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "22"  // Or "lts", "latest", or specific like "22.5.1"
+    }
+  },
+  "postCreateCommand": "npm install"  // Optional: Install deps after setup
+}
