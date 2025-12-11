@@ -213,6 +213,14 @@ export const regenerationFeedbackSchema = z.enum([
 ]);
 export type RegenerationFeedback = z.infer<typeof regenerationFeedbackSchema>;
 
+export const aiProviderSchema = z
+  .object({
+    name: z.enum(['openai', 'gemini']),
+    model: z.string().optional(),
+  })
+  .strict();
+export type AiProvider = z.infer<typeof aiProviderSchema>;
+
 export const generationRequestSchema = z
   .object({
     timeMinutes: z.number().int().positive().optional(),
@@ -225,6 +233,8 @@ export const generationRequestSchema = z
     previousResponseId: z.string().optional(),
     // For regeneration: user feedback about what was wrong
     feedback: z.array(regenerationFeedbackSchema).optional(),
+    // Optional provider selection and model override
+    provider: aiProviderSchema.optional(),
   })
   .strict();
 export type GenerationRequest = z.infer<typeof generationRequestSchema>;

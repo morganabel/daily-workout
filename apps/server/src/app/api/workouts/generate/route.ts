@@ -16,6 +16,11 @@ import {
   setGenerationError,
   DEFAULT_GENERATION_ETA_SECONDS,
 } from '@/lib/generation-store';
+import { initializeProviders } from '@/lib/ai-providers/init';
+import { isSupportedProvider, getDefaultProviderName } from '@/lib/ai-providers/registry';
+
+// Initialize providers on module load
+initializeProviders();
 
 // Extended schema that accepts optional client-provided context
 const generationRequestWithContextSchema = generationRequestSchema.extend({
@@ -63,14 +68,53 @@ export async function POST(request: Request) {
   const generationRequest: GenerationRequestWithContext = parseResult.data;
   const deviceToken = auth.deviceToken;
 
-  const headerApiKey = request.headers.get('x-openai-key')?.trim();
-  const envApiKey = process.env.OPENAI_API_KEY?.trim();
-  const apiKey = headerApiKey || envApiKey || null;
+  // Extract provider from header (defaults based on legacy header or env)
+  const providerHeader = request.headers.get('x-ai-provider')?.trim().toLowerCase();
+  const openaiKeyHeader = request.headers.get('x-openai-key')?.trim();
+  const geminiKeyHeader = request.headers.get('x-gemini-key')?.trim();
+  const genericKeyHeader = request.headers.get('x-ai-key')?.trim();
 
-  if (!apiKey && process.env.EDITION === 'HOSTED') {
+  // Determine provider: explicit header > legacy x-openai-key inference > env default
+  let provider: 'openai' | 'gemini';
+  if (providerHeader) {
+    if (!isSupportedProvider(providerHeader)) {
+      return createErrorResponse(
+        'INVALID_PROVIDER',
+        `Unsupported provider: ${providerHeader}. Supported providers: openai, gemini`,
+        400,
+      );
+    }
+    provider = providerHeader;
+  } else if (openaiKeyHeader) {
+    // Legacy: x-openai-key implies OpenAI
+    provider = 'openai';
+  } else {
+    // Default from env
+    provider = getDefaultProviderName();
+  }
+
+  // Extract API key based on provider
+  let apiKey: string | null = null;
+  const useVertexAi =
+    provider === 'gemini' &&
+    process.env.GOOGLE_GENAI_USE_VERTEXAI === 'true' &&
+    process.env.GOOGLE_CLOUD_PROJECT &&
+    process.env.GOOGLE_CLOUD_LOCATION;
+  if (provider === 'openai') {
+    apiKey = openaiKeyHeader || genericKeyHeader || process.env.OPENAI_API_KEY?.trim() || null;
+  } else if (provider === 'gemini') {
+    apiKey =
+      geminiKeyHeader ||
+      genericKeyHeader ||
+      process.env.GEMINI_API_KEY?.trim() ||
+      (useVertexAi ? 'vertex-env' : null);
+  }
+
+  // Check BYOK requirement for hosted edition
+  if (!apiKey && !useVertexAi && process.env.EDITION === 'HOSTED') {
     return createErrorResponse(
       'BYOK_REQUIRED',
-      'API key required for workout generation in hosted mode',
+      `API key required for ${provider} provider in hosted mode`,
       402,
     );
   }
@@ -88,6 +132,7 @@ export async function POST(request: Request) {
   const isRegeneration = Boolean(generationRequest.previousResponseId);
   console.log('[workouts.generate] generation started', {
     userId: auth.userId,
+    provider,
     hasApiKey: Boolean(apiKey),
     isRegeneration,
     feedback: generationRequest.feedback,
@@ -102,13 +147,14 @@ export async function POST(request: Request) {
       const result: GenerationResult = await generateTodayPlanAI(
         generationRequest,
         context,
-        { apiKey },
+        { apiKey: useVertexAi ? undefined : apiKey ?? undefined, provider, useVertexAi },
       );
       plan = result.plan;
       responseId = result.responseId;
     } catch (error) {
       encounteredProviderError = true;
       console.warn('[workouts.generate] AI generation failed, falling back to mock', {
+        provider,
         message: (error as Error).message,
       });
       setGenerationError(
