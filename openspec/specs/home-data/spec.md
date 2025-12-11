@@ -37,7 +37,7 @@ The backend MUST expose a single authenticated endpoint that returns today's pla
 
 ### Requirement: Workout Generation Endpoint
 
-The system MUST accept quick-action parameters and return an updated plan payload. When a provider key is present it SHALL invoke the AI provider; otherwise it SHALL fall back to a deterministic mock. The endpoint MUST now update the per-device generation store: set status to `pending` before invoking the provider, persist the resulting plan + metadata when successful, and reset status/error messages appropriately.
+The system MUST accept quick-action parameters and return an updated plan payload. It SHALL route the request to a selectable AI provider (OpenAI or Gemini) using either a managed key or BYOK, applying provider-specific defaults when no override is sent. When no usable key exists it SHALL fall back to a deterministic mock unless hosted BYOK enforcement blocks it. The endpoint MUST update the per-device generation store: set status to `pending` before invoking the provider, persist the resulting plan + metadata when successful, and reset status/error messages appropriately.
 
 #### Scenario: Status transitions to pending
 
@@ -56,6 +56,36 @@ The system MUST accept quick-action parameters and return an updated plan payloa
 - **GIVEN** the provider call throws or returns invalid JSON
 - **WHEN** the route handles the error
 - **THEN** it logs the failure, sets `generationStatus.state` to `error` with a human-readable message, keeps the last good plan available, and returns the deterministic mock plan (unless hosted BYOK enforcement blocks it)
+
+#### Scenario: Default provider selection
+
+- **GIVEN** no provider override is sent
+- **WHEN** the server handles generation
+- **THEN** it chooses the provider from server config (`AI_PROVIDER`, defaulting to OpenAI) and applies per-provider model/base defaults before invoking the call
+
+#### Scenario: BYOK provider override
+
+- **GIVEN** the client sends `x-ai-provider: gemini` plus a BYOK key via `x-ai-key` or `x-gemini-key`
+- **WHEN** the request is processed
+- **THEN** the server uses the Gemini provider with that key (ignoring any OpenAI env key) and returns the validated `TodayPlan`
+
+#### Scenario: Backward-compatible OpenAI BYOK
+
+- **GIVEN** the client only sends `x-openai-key`
+- **WHEN** the request is processed
+- **THEN** the server infers `provider=openai` and uses that key without requiring `x-ai-provider`, preserving existing clients
+
+#### Scenario: Unsupported provider rejected
+
+- **GIVEN** a request declares `x-ai-provider` outside the supported list
+- **WHEN** the server validates the request
+- **THEN** it returns `400 INVALID_PROVIDER`, does not invoke any provider, and the generation status records an error state
+
+#### Scenario: Hosted edition without key
+
+- **GIVEN** `EDITION=HOSTED` and no key for the chosen provider (neither env nor BYOK)
+- **WHEN** the client requests generation
+- **THEN** the server responds with `{ code: 'BYOK_REQUIRED' }` instead of issuing a mock plan
 
 ### Requirement: Workout Logging Endpoint
 
