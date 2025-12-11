@@ -8,7 +8,6 @@ import {
   type LlmTodayPlan,
   type TodayPlan,
 } from '@workout-agent/shared';
-import { v7 as uuidv7 } from 'uuid';
 import type { AiProvider, AiProviderOptions, GenerationResult } from './types';
 import { AiGenerationError } from './types';
 import {
@@ -16,27 +15,13 @@ import {
   INITIAL_GENERATION_INSTRUCTIONS,
   buildRegenerationMessage,
 } from './prompts';
+import { attachGeneratedIds } from './utils';
 
 const DEFAULT_MODEL = process.env.GEMINI_MODEL ?? 'gemini-2.5-flash';
 const DEFAULT_API_BASE = process.env.GEMINI_API_BASE;
 const USE_VERTEX_AI = process.env.GOOGLE_GENAI_USE_VERTEXAI === 'true';
 const VERTEX_PROJECT = process.env.GOOGLE_CLOUD_PROJECT;
 const VERTEX_LOCATION = process.env.GOOGLE_CLOUD_LOCATION;
-
-function attachGeneratedIds(plan: LlmTodayPlan): TodayPlan {
-  return {
-    id: uuidv7(),
-    ...plan,
-    blocks: plan.blocks.map((block) => ({
-      id: uuidv7(),
-      ...block,
-      exercises: block.exercises.map((exercise) => ({
-        id: uuidv7(),
-        ...exercise,
-      })),
-    })),
-  };
-}
 
 // Convert the shared Zod schema to JSON Schema for Gemini structured output
 const geminiResponseSchema = z.toJSONSchema(llmTodayPlanSchema);

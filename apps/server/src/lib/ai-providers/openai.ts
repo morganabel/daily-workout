@@ -8,7 +8,6 @@ import {
   type LlmTodayPlan,
   type TodayPlan,
 } from '@workout-agent/shared';
-import { v7 as uuidv7 } from 'uuid';
 import type { AiProvider, AiProviderOptions, GenerationResult } from './types';
 import { AiGenerationError } from './types';
 import {
@@ -16,25 +15,11 @@ import {
   INITIAL_GENERATION_INSTRUCTIONS,
   buildRegenerationMessage,
 } from './prompts';
+import { attachGeneratedIds } from './utils';
 
 const DEFAULT_MODEL = process.env.OPENAI_MODEL ?? 'gpt-5-mini';
 const DEFAULT_API_BASE =
   process.env.OPENAI_API_BASE ?? 'https://api.openai.com/v1';
-
-function attachGeneratedIds(plan: LlmTodayPlan): TodayPlan {
-  return {
-    id: uuidv7(),
-    ...plan,
-    blocks: plan.blocks.map((block) => ({
-      id: uuidv7(),
-      ...block,
-      exercises: block.exercises.map((exercise) => ({
-        id: uuidv7(),
-        ...exercise,
-      })),
-    })),
-  };
-}
 
 export class OpenAIProvider implements AiProvider {
   async generate(
