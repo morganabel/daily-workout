@@ -10,6 +10,7 @@ import {
   archiveWorkoutSession,
   deleteWorkoutSession,
   unarchiveWorkoutSession,
+  toggleFavoriteWorkout,
 } from './services/api';
 
 const palette = {
@@ -67,6 +68,23 @@ export const HistoryScreen = () => {
       await loadHistory(includeArchived);
     } catch (err) {
       console.error('Failed to toggle archive', err);
+      Alert.alert(
+        'Unable to update',
+        'Please try again.',
+      );
+    }
+  };
+
+  const handleFavoriteToggle = async (session: WorkoutSessionSummary) => {
+    try {
+      await toggleFavoriteWorkout(session.id);
+      Toast.show(session.isFavorite ? 'Removed from favorites' : 'Added to favorites', {
+        duration: Toast.durations.SHORT,
+        position: Toast.positions.BOTTOM - 80,
+      });
+      await loadHistory(includeArchived);
+    } catch (err) {
+      console.error('Failed to toggle favorite', err);
       Alert.alert(
         'Unable to update',
         'Please try again.',
@@ -149,12 +167,33 @@ export const HistoryScreen = () => {
               <Text style={styles.workoutMeta}>
                 {new Date(session.completedAt).toLocaleDateString()} • {session.durationMinutes} min
               </Text>
-              {session.archivedAt && (
-                <View style={styles.archivedBadge}>
-                  <Text style={styles.archivedBadgeText}>Archived</Text>
-                </View>
-              )}
+              <View style={styles.badges}>
+                {session.isFavorite && (
+                  <View style={[styles.badge, styles.favoriteBadge]}>
+                    <Text style={styles.favoriteBadgeText}>Favorite</Text>
+                  </View>
+                )}
+                {session.archivedAt && (
+                  <View style={[styles.badge, styles.archivedBadge]}>
+                    <Text style={styles.archivedBadgeText}>Archived</Text>
+                  </View>
+                )}
+              </View>
               <View style={styles.historyActions}>
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.historyActionButton,
+                    pressed && { opacity: 0.7 },
+                  ]}
+                  onPress={() => handleFavoriteToggle(session)}
+                >
+                  <Text style={[
+                    styles.historyActionText,
+                    session.isFavorite && styles.historyActionActive
+                  ]}>
+                    {session.isFavorite ? 'Unfavorite' : 'Favorite'}
+                  </Text>
+                </Pressable>
                 <Pressable
                   style={({ pressed }) => [
                     styles.historyActionButton,
@@ -267,18 +306,32 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: palette.textSecondary,
   },
-  archivedBadge: {
+  badges: {
+    flexDirection: 'row',
+    gap: 8,
     marginTop: 8,
-    alignSelf: 'flex-start',
+  },
+  badge: {
     paddingVertical: 4,
     paddingHorizontal: 10,
     borderRadius: 10,
-    backgroundColor: palette.accentMuted,
     borderWidth: 1,
+  },
+  archivedBadge: {
+    backgroundColor: palette.accentMuted,
     borderColor: palette.border,
   },
   archivedBadgeText: {
     color: palette.textSecondary,
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  favoriteBadge: {
+    backgroundColor: 'rgba(255, 179, 71, 0.1)',
+    borderColor: 'rgba(255, 179, 71, 0.3)',
+  },
+  favoriteBadgeText: {
+    color: palette.warning,
     fontSize: 12,
     fontWeight: '700',
   },
@@ -295,6 +348,9 @@ const styles = StyleSheet.create({
     color: palette.textMuted,
     fontWeight: '600',
     fontSize: 13,
+  },
+  historyActionActive: {
+    color: palette.warning,
   },
   historyActionDestructive: {
     color: palette.destructive,

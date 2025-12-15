@@ -1,7 +1,7 @@
 import { appSchema, tableSchema } from '@nozbe/watermelondb';
 
 export const schema = appSchema({
-  version: 3,
+  version: 4,
   tables: [
     tableSchema({
       name: 'users',
@@ -27,6 +27,7 @@ export const schema = appSchema({
         { name: 'completed_at', type: 'number', isOptional: true },
         { name: 'duration_seconds', type: 'number', isOptional: true },
         { name: 'archived_at', type: 'number', isOptional: true },
+        { name: 'is_favorite', type: 'boolean', isOptional: true },
         // OpenAI response ID for conversation context when regenerating
         { name: 'response_id', type: 'string', isOptional: true },
         { name: 'created_at', type: 'number' },
