@@ -70,4 +70,4 @@ Use Nx targets to keep the workspace healthy:
 - Several API handlers contain TODOs for ownership checks and persistence—review before relying on them in production.
 
 ## License
-This project is licensed under the [MIT License](./LICENSE).
+This project is licensed under the [GNU Affero General Public License v3.0](./LICENSE).
