@@ -34,7 +34,7 @@ GOOGLE_CLOUD_LOCATION=
 EXPO_PUBLIC_BACKEND_URL=http://localhost:3000
 ```
 
-- Server BYOK headers: `x-ai-provider`, `x-openai-key`, `x-gemini-key`, or `x-ai-key` (generic fallback).
+- Server BYOK headers: `x-ai-provider`, `x-openai-key`, `x-gemini-key`, or `x-ai-key` (generic fallback). When using `x-ai-key`, also send `x-ai-provider` to specify which provider to route to.
 - If `EDITION=HOSTED` and no key is available for the chosen provider, `/api/workouts/generate` responds with `{ code: 'BYOK_REQUIRED' }` (HTTP 402).
 - When no key is present in CE mode, the server falls back to deterministic mock plans so the app still works for demos.
 
@@ -46,7 +46,7 @@ Use Nx targets to keep the workspace healthy:
 - Lint the Expo app: `npx nx lint mobile`
 
 ## API surface
-- `GET /api/home/snapshot` → returns today’s plan (or null), quick actions, and recent sessions. Requires `Authorization: DeviceToken <token>`.
+- `GET /api/home/snapshot` → returns today’s plan (or null), quick actions, and recent sessions. Requires `Authorization: Bearer <DeviceToken>`.
 - `POST /api/workouts/generate` → generates a `TodayPlan` using the selected provider; respects BYOK headers and falls back to mock data in CE mode.
 - `POST /api/workouts/{id}/log` → records a workout session summary (currently stubbed pending persistence).
 
