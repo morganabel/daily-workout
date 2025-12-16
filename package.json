@@ -1,7 +1,7 @@
 {
   "name": "@workout-agent-ce/source",
   "version": "0.0.0",
-  "license": "MIT",
+  "license": "AGPL-3.0-only",
   "scripts": {
     "start": "nx dev server",
     "dev": "nx dev server & nx start mobile",
