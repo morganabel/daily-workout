@@ -2,6 +2,14 @@
 
 Workout Agent CE is the open-source community edition of a daily workout planner. It ships with a Next.js backend and an Expo mobile app that calls AI providers (OpenAI or Gemini) to generate personalized plans.
 
+## Tech stack
+- Nx monorepo tooling
+- Next.js API routes (server)
+- Expo / React Native client
+- TypeScript + Zod contracts
+- Jest + Testing Library for tests
+- ESLint, Prettier, and EditorConfig for consistency
+
 ## Repository layout
 - `apps/server` – Next.js API routes that generate plans and serve home snapshot data.
 - `apps/mobile` – Expo client that renders the plan, quick actions, and BYOK (bring-your-own-key) provider selection.
@@ -9,9 +17,15 @@ Workout Agent CE is the open-source community edition of a daily workout planner
 
 ## Quickstart
 1. Install dependencies: `npm install`
-2. Start the backend: `npx nx dev server` (Next.js on port 3000)
-3. Start the mobile app: `npx nx start mobile` (Expo) and press `i`/`a` for iOS/Android, or use `npx nx run mobile:run-ios` for a simulator build.
+2. Start the backend: `npm run start` (Next.js on port 3000)
+3. Start the mobile app: `npm run dev:mobile` (Expo) and press `i`/`a` for iOS/Android, or use `npx nx run mobile:run-ios` for a simulator build.
 4. Provide an AI key either via environment variables (see below) or BYOK from the app’s Home → BYOK screen.
+
+## Common scripts
+- `npm run lint` – Lint all projects
+- `npm run test` – Run all configured tests
+- `npm run build` – Build server and mobile apps
+- `npm run start` – Start the Next.js API in dev mode
 
 ## Environment configuration
 Create a `.env` file (or `.env.local` for Next.js) using the template below:
@@ -54,3 +68,6 @@ Use Nx targets to keep the workspace healthy:
 - Auth is DeviceToken-only and backed by in-memory stubs—no user database yet.
 - Workout logging/persistence is not implemented; snapshot recent sessions are mocked.
 - Several API handlers contain TODOs for ownership checks and persistence—review before relying on them in production.
+
+## License
+This project is licensed under the [MIT License](./LICENSE).

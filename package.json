@@ -3,9 +3,13 @@
   "version": "0.0.0",
   "license": "MIT",
   "scripts": {
+    "start": "nx dev server",
     "dev": "nx dev server & nx start mobile",
     "dev:server": "nx dev server",
-    "dev:mobile": "nx start mobile"
+    "dev:mobile": "nx start mobile",
+    "lint": "nx run-many --target=lint --all",
+    "test": "nx run-many --target=test --all",
+    "build": "nx run-many --target=build --all"
   },
   "private": true,
   "dependencies": {
