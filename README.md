@@ -1,171 +1,56 @@
-# WorkoutAgentCe
+# Workout Agent CE
 
-<a alt="Nx logo" href="https://nx.dev" target="_blank" rel="noreferrer"><img src="https://raw.githubusercontent.com/nrwl/nx/master/images/nx-logo.png" width="45"></a>
+Workout Agent CE is the open-source community edition of a daily workout planner. It ships with a Next.js backend and an Expo mobile app that calls AI providers (OpenAI or Gemini) to generate personalized plans.
 
-✨ Your new, shiny [Nx workspace](https://nx.dev) is ready ✨.
+## Repository layout
+- `apps/server` – Next.js API routes that generate plans and serve home snapshot data.
+- `apps/mobile` – Expo client that renders the plan, quick actions, and BYOK (bring-your-own-key) provider selection.
+- `packages/shared` – Shared Zod schemas and helpers for requests/responses used by both apps.
 
-[Learn more about this workspace setup and its capabilities](https://nx.dev/nx-api/expo?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) or run `npx nx graph` to visually explore what was created. Now, let's get you up to speed!
+## Quickstart
+1. Install dependencies: `npm install`
+2. Start the backend: `npx nx dev server` (Next.js on port 3000)
+3. Start the mobile app: `npx nx start mobile` (Expo) and press `i`/`a` for iOS/Android, or use `npx nx run mobile:run-ios` for a simulator build.
+4. Provide an AI key either via environment variables (see below) or BYOK from the app’s Home → BYOK screen.
 
-## Run tasks
+## Environment configuration
+Create a `.env` file (or `.env.local` for Next.js) using the template below:
 
-To run the dev server for your app, use:
+```
+# Default provider when BYOK headers are missing
+AI_PROVIDER=openai
+OPENAI_API_KEY=
+GEMINI_API_KEY=
 
-```sh
-npx nx serve mobile
+# Hosted mode toggles an HTTP 402 BYOK_REQUIRED response if no key is available
+EDITION=CE
+
+# Optional: use Vertex AI for Gemini
+GOOGLE_GENAI_USE_VERTEXAI=false
+GOOGLE_CLOUD_PROJECT=
+GOOGLE_CLOUD_LOCATION=
+
+# Mobile app API target
+EXPO_PUBLIC_BACKEND_URL=http://localhost:3000
 ```
 
-To create a production bundle:
+- Server BYOK headers: `x-ai-provider`, `x-openai-key`, `x-gemini-key`, or `x-ai-key` (generic fallback). When using `x-ai-key`, also send `x-ai-provider` to specify which provider to route to.
+- If `EDITION=HOSTED` and no key is available for the chosen provider, `/api/workouts/generate` responds with `{ code: 'BYOK_REQUIRED' }` (HTTP 402).
+- When no key is present in CE mode, the server falls back to deterministic mock plans so the app still works for demos.
 
-```sh
-npx nx build mobile
-```
+## Running tests and lint checks
+Use Nx targets to keep the workspace healthy:
 
-To see all available targets to run for a project, run:
+- Unit tests for shared contracts: `npx nx test @workout-agent/shared`
+- Lint the Next.js API: `npx nx lint server`
+- Lint the Expo app: `npx nx lint mobile`
 
-```sh
-npx nx show project mobile
-```
+## API surface
+- `GET /api/home/snapshot` → returns today’s plan (or null), quick actions, and recent sessions. Requires `Authorization: Bearer <DeviceToken>`.
+- `POST /api/workouts/generate` → generates a `TodayPlan` using the selected provider; respects BYOK headers and falls back to mock data in CE mode.
+- `POST /api/workouts/{id}/log` → records a workout session summary (currently stubbed pending persistence).
 
-These targets are either [inferred automatically](https://nx.dev/concepts/inferred-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) or defined in the `project.json` or `package.json` files.
-
-[More about running tasks in the docs &raquo;](https://nx.dev/features/run-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-
-## Local dev quickstart (server + iOS)
-
-Terminal 1 – start the backend (Next.js):
-
-```sh
-npx nx dev server
-```
-
-Terminal 2 – start the mobile app on iOS:
-
-```sh
-npx nx run mobile:run-ios
-```
-
-Alternative (Expo dev server): `npx nx start mobile` then press `i` to launch the simulator.
-
-API key options:
-
-- Set `OPENAI_API_KEY` in Terminal 1 before starting the server, or
-- Use BYOK in the app (Home → BYOK) to send `x-openai-key` per request.
-
-## AI Generation: CE vs Hosted
-
-### Local dev / Community Edition
-
-- Start dev servers
-
-  - Backend (Next.js): `npm run dev:server` or `nx dev server`
-  - Mobile (Expo): `npm run dev:mobile` or `nx start mobile`
-
-- Provide an API key (choose one):
-
-  - Server env (managed key for this deployment): set `OPENAI_API_KEY` or `GEMINI_API_KEY` before starting the server
-  - Set `AI_PROVIDER=openai` or `AI_PROVIDER=gemini` to choose the default provider (defaults to `openai`)
-  - BYOK from the device: tap "BYOK" on Home, choose provider (OpenAI or Gemini), paste your key; the client sends provider-specific headers per request
-
-- Behavior in CE (default when `EDITION` is unset or not `HOSTED`):
-  - Server accepts provider selection via `x-ai-provider` header (`openai` or `gemini`)
-  - BYOK keys: `x-openai-key`, `x-gemini-key`, or generic `x-ai-key` (provider-specific takes precedence)
-  - Legacy: `x-openai-key` without `x-ai-provider` defaults to OpenAI provider
-  - Server prefers BYOK headers, else falls back to `OPENAI_API_KEY` or `GEMINI_API_KEY` env vars
-  - Default provider comes from `AI_PROVIDER` env var (defaults to `openai`)
-  - If no key is available, the server falls back to a deterministic mock `TodayPlan` so the app still works
-
-### Hosted edition (separate private repo)
-
-In a hosted environment, the server includes an API key as part of the paid offering:
-
-- Set `EDITION=HOSTED`
-- Provision managed API keys: `OPENAI_API_KEY` and/or `GEMINI_API_KEY` via your hosting platform's secret manager
-- Set `AI_PROVIDER` to choose the default provider (defaults to `openai`)
-- Optionally still allow BYOK: if the mobile client sends provider headers, they override env keys
-- If `EDITION=HOSTED` and **no** key is available for the selected provider (neither BYOK nor managed), the server responds with:
-  - `{ code: 'BYOK_REQUIRED' }` (HTTP 402) from `/api/workouts/generate`
-
-This lets the CE repo stay the open core while a private “hosted shell” repo is responsible for:
-
-- Managing and metering `OPENAI_API_KEY` per tenant/user
-- Setting `EDITION=HOSTED` in production environments
-- Keeping mobile builds pointed at the hosted base URL via `EXPO_PUBLIC_BACKEND_URL`
-
-### API Surface
-
-- `GET /api/home/snapshot` → plan | null, quickActions, recentSessions
-- `POST /api/workouts/generate` → TodayPlan (AI or mock)
-- `POST /api/workouts/{id}/log` → WorkoutSessionSummary
-
-Notes: The server validates structured output with shared Zod schemas. The mobile client sends DeviceToken for auth and optionally BYOK headers (`x-ai-provider` + provider-specific key header). Supported providers: OpenAI (via `openai` SDK) and Gemini (via `@google/genai` SDK).
-
-## Add new projects
-
-While you could add new projects to your workspace manually, you might want to leverage [Nx plugins](https://nx.dev/concepts/nx-plugins?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) and their [code generation](https://nx.dev/features/generate-code?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) feature.
-
-Use the plugin's generator to create new projects.
-
-To generate a new application, use:
-
-```sh
-npx nx g @nx/expo:app demo
-```
-
-To generate a new library, use:
-
-```sh
-npx nx g @nx/react:lib mylib
-```
-
-You can use `npx nx list` to get a list of installed plugins. Then, run `npx nx list <plugin-name>` to learn about more specific capabilities of a particular plugin. Alternatively, [install Nx Console](https://nx.dev/getting-started/editor-setup?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) to browse plugins and generators in your IDE.
-
-[Learn more about Nx plugins &raquo;](https://nx.dev/concepts/nx-plugins?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) | [Browse the plugin registry &raquo;](https://nx.dev/plugin-registry?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-
-## Set up CI!
-
-### Step 1
-
-To connect to Nx Cloud, run the following command:
-
-```sh
-npx nx connect
-```
-
-Connecting to Nx Cloud ensures a [fast and scalable CI](https://nx.dev/ci/intro/why-nx-cloud?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) pipeline. It includes features such as:
-
-- [Remote caching](https://nx.dev/ci/features/remote-cache?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [Task distribution across multiple machines](https://nx.dev/ci/features/distribute-task-execution?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [Automated e2e test splitting](https://nx.dev/ci/features/split-e2e-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [Task flakiness detection and rerunning](https://nx.dev/ci/features/flaky-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-
-### Step 2
-
-Use the following command to configure a CI workflow for your workspace:
-
-```sh
-npx nx g ci-workflow
-```
-
-[Learn more about Nx on CI](https://nx.dev/ci/intro/ci-with-nx#ready-get-started-with-your-provider?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-
-## Install Nx Console
-
-Nx Console is an editor extension that enriches your developer experience. It lets you run tasks, generate code, and improves code autocompletion in your IDE. It is available for VSCode and IntelliJ.
-
-[Install Nx Console &raquo;](https://nx.dev/getting-started/editor-setup?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-
-## Useful links
-
-Learn more:
-
-- [Learn more about this workspace setup](https://nx.dev/nx-api/expo?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [Learn about Nx on CI](https://nx.dev/ci/intro/ci-with-nx?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [Releasing Packages with Nx release](https://nx.dev/features/manage-releases?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [What are Nx plugins?](https://nx.dev/concepts/nx-plugins?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-
-And join the Nx community:
-
-- [Discord](https://go.nx.dev/community)
-- [Follow us on X](https://twitter.com/nxdevtools) or [LinkedIn](https://www.linkedin.com/company/nrwl)
-- [Our Youtube channel](https://www.youtube.com/@nxdevtools)
-- [Our blog](https://nx.dev/blog?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+## Current limitations before going public
+- Auth is DeviceToken-only and backed by in-memory stubs—no user database yet.
+- Workout logging/persistence is not implemented; snapshot recent sessions are mocked.
+- Several API handlers contain TODOs for ownership checks and persistence—review before relying on them in production.
