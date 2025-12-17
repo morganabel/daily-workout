@@ -24,7 +24,7 @@
 - [x] 2.10 Implement "Last time" history query (case-insensitive name match, most recent completed session)
 - [x] 2.11 Implement offline sync: set `sync_pending` flag when completing workout offline
 - [x] 2.12 Implement sync retry logic with exponential backoff (max 3 attempts)
-- [ ] 2.13 Add user preference UI for `preferredWeightUnit` in profile/settings screen
+- [x] 2.13 Add user preference UI for `preferredWeightUnit` in profile/settings screen
 - [ ] 2.14 Add unit/UI tests for set editing, persistence, and validation (as appropriate for the repo)
 
 ## 3. Server Implementation
