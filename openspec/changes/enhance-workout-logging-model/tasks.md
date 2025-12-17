@@ -25,7 +25,7 @@
 - [x] 2.11 Implement offline sync: set `sync_pending` flag when completing workout offline
 - [x] 2.12 Implement sync retry logic with exponential backoff (max 3 attempts)
 - [x] 2.13 Add user preference UI for `preferredWeightUnit` in profile/settings screen
-- [ ] 2.14 Add unit/UI tests for set editing, persistence, and validation (as appropriate for the repo)
+- [x] 2.14 Add unit/UI tests for set editing, persistence, and validation (as appropriate for the repo)
 
 ## 3. Server Implementation
 - [x] 3.1 Update logging endpoint to validate and store detailed session data (if persistent storage exists)
