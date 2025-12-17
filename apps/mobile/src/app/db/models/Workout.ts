@@ -21,6 +21,8 @@ export default class Workout extends Model {
   @date('completed_at') completedAt?: number;
   @field('duration_seconds') durationSeconds?: number;
   @date('archived_at') archivedAt?: number;
+  @field('sync_pending') syncPending?: boolean;
+  @date('started_at') startedAt?: number;
   // OpenAI response ID for conversation context when regenerating
   @field('response_id') responseId?: string;
   @readonly @date('created_at') createdAt!: number;

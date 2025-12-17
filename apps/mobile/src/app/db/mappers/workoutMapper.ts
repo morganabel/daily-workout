@@ -19,6 +19,8 @@ export type WorkoutRowLike = {
   completedAt?: number | null;
   durationSeconds?: number | null;
   archivedAt?: number | null;
+  syncPending?: boolean | null;
+  startedAt?: number | null;
   // OpenAI response ID for conversation context
   responseId?: string | null;
   createdAt?: number | null;
