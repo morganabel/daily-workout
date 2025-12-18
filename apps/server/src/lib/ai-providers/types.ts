@@ -3,6 +3,7 @@ import type {
   GenerationContext,
   TodayPlan,
 } from '@workout-agent/shared';
+import type { LlmSchemaVersion } from '../llm-transformer';
 
 export type AiProviderName = 'openai' | 'gemini';
 
@@ -22,6 +23,11 @@ export interface AiProviderOptions {
 export interface GenerationResult {
   plan: TodayPlan;
   responseId: string;
+  /**
+   * The LLM schema version that was used to transform the response.
+   * This is recorded in generation metadata for debugging and monitoring.
+   */
+  schemaVersion: LlmSchemaVersion;
 }
 
 export interface AiProvider {

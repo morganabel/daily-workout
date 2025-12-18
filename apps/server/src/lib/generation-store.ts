@@ -2,10 +2,21 @@ import type {
   GenerationStatus,
   TodayPlan,
 } from '@workout-agent/shared';
+import type { LlmSchemaVersion } from './llm-transformer';
 
 export type GenerationState = {
   plan: TodayPlan | null;
   generationStatus: GenerationStatus;
+  /**
+   * Metadata about the transformation that was applied to create this plan.
+   * This is internal server state used for debugging and monitoring.
+   */
+  transformationMetadata?: {
+    /** The LLM schema version used to parse and transform the response */
+    schemaVersion: LlmSchemaVersion;
+    /** Timestamp when the transformation was performed */
+    transformedAt: string;
+  };
 };
 
 const stateByDevice = new Map<string, GenerationState>();
@@ -59,10 +70,21 @@ export function markGenerationPending(
 export function persistGeneratedPlan(
   deviceToken: string,
   plan: TodayPlan,
+  metadata?: {
+    schemaVersion?: LlmSchemaVersion;
+  },
 ) {
   const state = ensureState(deviceToken);
   state.plan = plan;
   state.generationStatus = createIdleStatus();
+
+  // Record transformation metadata if provided
+  if (metadata?.schemaVersion) {
+    state.transformationMetadata = {
+      schemaVersion: metadata.schemaVersion,
+      transformedAt: new Date().toISOString(),
+    };
+  }
 }
 
 export function setGenerationError(deviceToken: string, message: string) {
