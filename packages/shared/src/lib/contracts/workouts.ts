@@ -6,6 +6,9 @@ export type WorkoutEnergy = z.infer<typeof workoutEnergySchema>;
 export const workoutSourceSchema = z.enum(['ai', 'manual']);
 export type WorkoutSource = z.infer<typeof workoutSourceSchema>;
 
+export const weightUnitSchema = z.enum(['kg', 'lb']);
+export type WeightUnit = z.infer<typeof weightUnitSchema>;
+
 const workoutExerciseBaseSchema = z.object({
   name: z.string(),
   prescription: z.string(),
@@ -266,6 +269,8 @@ export const userPreferencesSchema = z.object({
   focusBias: z.array(z.string()).default([]),
   // Exercises or movements to avoid
   avoid: z.array(z.string()).default([]),
+  // Preferred weight unit for load entry
+  preferredWeightUnit: weightUnitSchema.default('kg'),
 });
 export type UserPreferences = z.infer<typeof userPreferencesSchema>;
 
@@ -318,6 +323,89 @@ export const quickLogPayloadSchema = z.object({
   completedAt: z.string().optional(),
 });
 export type QuickLogPayload = z.infer<typeof quickLogPayloadSchema>;
+
+export const workoutSetLoadSchema = z
+  .object({
+    weight: z.number().min(0),
+    unit: weightUnitSchema,
+  })
+  .strict();
+export type WorkoutSetLoad = z.infer<typeof workoutSetLoadSchema>;
+
+export const workoutSessionSetSchema = z
+  .object({
+    order: z.number().int().nonnegative(),
+    reps: z.number().int().min(1).optional(),
+    rpe: z.number().int().min(1).max(10).optional(),
+    load: workoutSetLoadSchema.optional(),
+    completed: z.boolean().default(false),
+  })
+  .strict();
+export type WorkoutSessionSet = z.infer<typeof workoutSessionSetSchema>;
+
+export const workoutSessionExerciseSchema = z
+  .object({
+    exerciseId: z.string().optional(),
+    name: z.string(),
+    sets: z.array(workoutSessionSetSchema).min(1),
+  })
+  .strict();
+export type WorkoutSessionExercise = z.infer<typeof workoutSessionExerciseSchema>;
+
+export const workoutSessionSchema = z
+  .object({
+    id: z.string(),
+    workoutId: z.string().optional(),
+    name: z.string().optional(),
+    focus: z.string().optional(),
+    source: workoutSourceSchema.optional(),
+    completedAt: z.string(),
+    durationSeconds: z.number().int().nonnegative().optional(),
+    note: z.string().optional(),
+    exercises: z.array(workoutSessionExerciseSchema).default([]),
+  })
+  .strict();
+export type WorkoutSession = z.infer<typeof workoutSessionSchema>;
+
+const legacyLogRequestSchema = quickLogPayloadSchema;
+
+export const planLogRequestSchema = z
+  .object({
+    type: z.literal('plan').optional(),
+    durationSeconds: z.number().int().positive().optional(),
+    completedAt: z.string().optional(),
+    exercises: z.array(
+      workoutSessionExerciseSchema.extend({
+        exerciseId: z.string(),
+      }),
+    ),
+  })
+  .strict();
+
+export const quickLogDetailedRequestSchema = z
+  .object({
+    type: z.literal('quick').optional(),
+    name: z.string(),
+    focus: z.string(),
+    durationMinutes: z.number().int().positive(),
+    note: z.string().optional(),
+    completedAt: z.string().optional(),
+    exercises: z.array(workoutSessionExerciseSchema).optional(),
+  })
+  .strict();
+
+export const logWorkoutRequestSchema = z.union([
+  planLogRequestSchema,
+  quickLogDetailedRequestSchema,
+  legacyLogRequestSchema,
+]);
+export type LogWorkoutRequest = z.infer<typeof logWorkoutRequestSchema>;
+
+export const logWorkoutResponseSchema = z.object({
+  recentSessions: z.array(workoutSessionSummarySchema),
+  loggedSession: workoutSessionSchema,
+});
+export type LogWorkoutResponse = z.infer<typeof logWorkoutResponseSchema>;
 
 export const createTodayPlanMock = (overrides: Partial<TodayPlan> = {}): TodayPlan => ({
   id: 'plan-mock',

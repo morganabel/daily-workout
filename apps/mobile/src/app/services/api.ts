@@ -9,6 +9,8 @@ import type {
   WorkoutSessionSummary,
   GenerationContext,
   UserPreferences,
+  LogWorkoutRequest,
+  LogWorkoutResponse,
 } from '@workout-agent/shared';
 import { getDeviceToken } from '../storage/deviceToken';
 import { getByokApiKey, getByokConfig } from '../storage/byokKey';
@@ -202,9 +204,11 @@ export async function generateWorkout(
  */
 export async function logWorkout(
   planId: string,
-): Promise<WorkoutSessionSummary> {
-  return apiRequest<WorkoutSessionSummary>(`/api/workouts/${planId}/log`, {
+  payload?: LogWorkoutRequest,
+): Promise<LogWorkoutResponse> {
+  return apiRequest<LogWorkoutResponse>(`/api/workouts/${planId}/log`, {
     method: 'POST',
+    body: payload ? JSON.stringify(payload) : undefined,
   });
 }
 

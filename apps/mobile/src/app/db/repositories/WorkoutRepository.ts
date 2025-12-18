@@ -14,6 +14,20 @@ import {
   type ExerciseRowLike,
   type WorkoutRowLike,
 } from '../mappers/workoutMapper';
+import type { WeightUnit } from '@workout-agent/shared';
+
+export type SetInput = {
+  order: number;
+  reps?: number;
+  weight?: number;
+  weightUnit?: WeightUnit;
+  rpe?: number;
+  completed?: boolean;
+};
+
+export type ExerciseWithSets = Exercise & {
+  sets: Set[];
+};
 
 export class WorkoutRepository {
   private workouts = database.collections.get<Workout>('workouts');
@@ -135,6 +149,156 @@ export class WorkoutRepository {
     };
   }
 
+  async listSetsForExercise(exerciseId: string): Promise<Set[]> {
+    return this.sets.query(Q.where('exercise_id', exerciseId), Q.sortBy('order', Q.asc)).fetch();
+  }
+
+  async upsertSet(exerciseId: string, input: SetInput): Promise<Set> {
+    const existingSets = await this.sets
+      .query(Q.where('exercise_id', exerciseId), Q.where('order', input.order))
+      .fetch();
+
+    if (existingSets[0]) {
+      const set = existingSets[0];
+      await database.write(async () => {
+        await set.update((s) => {
+          s.reps = input.reps ?? null;
+          s.weight = input.weight ?? null;
+          s.weightUnit = input.weightUnit ?? undefined;
+          s.rpe = input.rpe ?? null;
+          s.completed = Boolean(input.completed);
+          s.order = input.order;
+        });
+      });
+      return set;
+    }
+
+    const exercise = await this.exercises.find(exerciseId);
+    return database.write(async () => {
+      return this.sets.create((s) => {
+        s.exercise.set(exercise);
+        s.reps = input.reps ?? undefined;
+        s.weight = input.weight ?? undefined;
+        s.weightUnit = input.weightUnit ?? undefined;
+        s.rpe = input.rpe ?? undefined;
+        s.completed = Boolean(input.completed);
+        s.order = input.order;
+      });
+    });
+  }
+
+  async replaceSetsForExercise(exerciseId: string, sets: SetInput[]) {
+    // Replace by order to support add/remove flows
+    const existing = await this.listSetsForExercise(exerciseId);
+    const byOrder = new Map(existing.map((set) => [set.order, set] as const));
+
+    await database.write(async () => {
+      const seenOrders = new Set<number>();
+      for (const input of sets) {
+        seenOrders.add(input.order);
+        const match = byOrder.get(input.order);
+        if (match) {
+          await match.update((s) => {
+            s.reps = input.reps ?? null;
+            s.weight = input.weight ?? null;
+            s.weightUnit = input.weightUnit ?? undefined;
+            s.rpe = input.rpe ?? null;
+            s.completed = Boolean(input.completed);
+            s.order = input.order;
+          });
+        } else {
+          const exercise = await this.exercises.find(exerciseId);
+          await this.sets.create((s) => {
+            s.exercise.set(exercise);
+            s.reps = input.reps ?? undefined;
+            s.weight = input.weight ?? undefined;
+            s.weightUnit = input.weightUnit ?? undefined;
+            s.rpe = input.rpe ?? undefined;
+            s.completed = Boolean(input.completed);
+            s.order = input.order;
+          });
+        }
+      }
+
+      // Remove sets that are no longer present
+      const toRemove = existing.filter((set) => !seenOrders.has(set.order));
+      await Promise.all(toRemove.map((set) => set.destroyPermanently()));
+    });
+  }
+
+  async removeSetByOrder(exerciseId: string, order: number) {
+    const matches = await this.sets
+      .query(Q.where('exercise_id', exerciseId), Q.where('order', order))
+      .fetch();
+
+    if (!matches.length) return;
+
+    await database.write(async () => {
+      await Promise.all(matches.map((set) => set.destroyPermanently()));
+    });
+  }
+
+  async getWorkoutDetail(workoutId: string): Promise<{
+    workout: Workout;
+    exercises: ExerciseWithSets[];
+  }> {
+    const workout = await this.workouts.find(workoutId);
+    const exercises = await this.exercises
+      .query(Q.where('workout_id', workout.id), Q.sortBy('order', Q.asc))
+      .fetch();
+
+    const exercisesWithSets: ExerciseWithSets[] = [];
+    for (const exercise of exercises) {
+      const sets = await this.listSetsForExercise(exercise.id);
+      exercisesWithSets.push(Object.assign(exercise, { sets }));
+    }
+
+    return { workout, exercises: exercisesWithSets };
+  }
+
+  async markSyncPending(workoutId: string, pending: boolean) {
+    const workout = await this.workouts.find(workoutId);
+    await database.write(async () => {
+      await workout.update((w) => {
+        w.syncPending = pending;
+      });
+    });
+  }
+
+  async startWorkoutTimer(workoutId: string, startedAt: number = Date.now()) {
+    const workout = await this.workouts.find(workoutId);
+    await database.write(async () => {
+      await workout.update((w) => {
+        w.startedAt = startedAt;
+      });
+    });
+  }
+
+  async findLastCompletedExerciseByName(exerciseName: string) {
+    const normalized = exerciseName.trim().toLowerCase();
+    const recentCompleted = await this.workouts
+      .query(
+        Q.where('status', 'completed'),
+        Q.where('archived_at', null),
+        Q.sortBy('completed_at', Q.desc),
+        Q.take(10),
+      )
+      .fetch();
+
+    for (const workout of recentCompleted) {
+      const exercises = await this.exercises
+        .query(Q.where('workout_id', workout.id))
+        .fetch();
+      const match = exercises.find((exercise) => exercise.name.trim().toLowerCase() === normalized);
+      if (match) {
+        const sets = await this.listSetsForExercise(match.id);
+        return { workout, exercise: match, sets };
+      }
+    }
+
+    return null;
+  }
+
   async completeWorkoutById(workoutId: string, durationSeconds?: number) {
     try {
       const workout = await this.workouts.find(workoutId);
@@ -148,13 +312,20 @@ export class WorkoutRepository {
   async completeWorkout(workout: Workout, durationSeconds?: number) {
     await database.write(async () => {
       const now = Date.now();
+      const computedDuration =
+        durationSeconds ??
+        (workout.startedAt ? Math.max(1, Math.round((now - workout.startedAt) / 1000)) : undefined);
       await workout.update((w) => {
         w.status = 'completed';
         w.completedAt = now;
-        if (durationSeconds !== undefined) {
-          w.durationSeconds = durationSeconds;
+        if (computedDuration !== undefined) {
+          w.durationSeconds = computedDuration;
         }
         w.archivedAt = undefined;
+        // Clear sync flag once marked complete locally; API sync can toggle as needed
+        if (w.syncPending) {
+          w.syncPending = false;
+        }
       });
     });
   }
@@ -239,7 +410,9 @@ export class WorkoutRepository {
         w.scheduledDate = startTime;
         w.completedAt = completedAt;
         w.durationSeconds = durationSeconds;
+        w.startedAt = startTime;
         w.archivedAt = undefined;
+        w.syncPending = false;
       });
       return workout;
     });

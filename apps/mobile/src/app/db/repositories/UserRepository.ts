@@ -11,6 +11,7 @@ const DEFAULT_PREFERENCES: UserPreferences = {
   injuries: [],
   focusBias: [],
   avoid: [],
+  preferredWeightUnit: 'kg',
 };
 
 export class UserRepository {

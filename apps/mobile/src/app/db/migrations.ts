@@ -24,6 +24,24 @@ export const migrations = schemaMigrations({
         }),
       ],
     },
+    {
+      toVersion: 4,
+      steps: [
+        addColumns({
+          table: 'sets',
+          columns: [
+            { name: 'weight_unit', type: 'string', isOptional: true },
+          ],
+        }),
+        addColumns({
+          table: 'workouts',
+          columns: [
+            { name: 'sync_pending', type: 'boolean', isOptional: true },
+            { name: 'started_at', type: 'number', isOptional: true },
+          ],
+        }),
+      ],
+    },
   ],
 });
 

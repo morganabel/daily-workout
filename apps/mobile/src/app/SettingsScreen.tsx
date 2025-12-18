@@ -16,6 +16,7 @@ import {
   UserPreferences,
   EQUIPMENT_OPTIONS,
   ExperienceLevel,
+  WeightUnit,
 } from '@workout-agent/shared';
 
 const palette = {
@@ -41,12 +42,18 @@ const EXPERIENCE_LEVELS: { value: ExperienceLevel; label: string; description: s
   { value: 'advanced', label: 'Advanced', description: '3+ years with solid technique' },
 ];
 
+const WEIGHT_UNITS: { value: WeightUnit; label: string; description: string }[] = [
+  { value: 'kg', label: 'Kilograms (kg)', description: 'Metric' },
+  { value: 'lb', label: 'Pounds (lb)', description: 'Imperial' },
+];
+
 export const SettingsScreen = () => {
   const [preferences, setPreferences] = useState<UserPreferences>({
     equipment: [],
     injuries: [],
     focusBias: [],
     avoid: [],
+    preferredWeightUnit: 'kg',
   });
   const [isSaving, setIsSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
@@ -171,6 +178,36 @@ export const SettingsScreen = () => {
               {isSaving ? 'Saving...' : 'Save'}
             </Text>
           </Pressable>
+        </View>
+
+        {/* Weight Unit Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Weight Unit</Text>
+          <Text style={styles.sectionDescription}>
+            Choose your preferred unit for entering weights.
+          </Text>
+          <View style={styles.unitContainer}>
+            {WEIGHT_UNITS.map((unit) => {
+              const isSelected = preferences.preferredWeightUnit === unit.value;
+              return (
+                <Pressable
+                  key={unit.value}
+                  style={[styles.unitCard, isSelected && styles.unitCardSelected]}
+                  onPress={() => updateField('preferredWeightUnit', unit.value)}
+                  accessibilityRole="radio"
+                  accessibilityLabel={`${unit.label}: ${unit.description}`}
+                  accessibilityState={{ selected: isSelected }}
+                >
+                  <Text
+                    style={[styles.unitLabel, isSelected && styles.unitLabelSelected]}
+                  >
+                    {unit.label}
+                  </Text>
+                  <Text style={styles.unitDescription}>{unit.description}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
         </View>
 
         {/* Equipment Section */}
@@ -423,6 +460,9 @@ const styles = StyleSheet.create({
   levelContainer: {
     gap: 12,
   },
+  unitContainer: {
+    gap: 12,
+  },
   levelCard: {
     padding: 16,
     borderRadius: 12,
@@ -434,8 +474,25 @@ const styles = StyleSheet.create({
     backgroundColor: palette.accentMuted,
     borderColor: palette.accent,
   },
+  unitCard: {
+    padding: 14,
+    borderRadius: 12,
+    backgroundColor: palette.card,
+    borderWidth: 1,
+    borderColor: palette.border,
+  },
+  unitCardSelected: {
+    backgroundColor: palette.accentMuted,
+    borderColor: palette.accent,
+  },
   levelLabel: {
     fontSize: 16,
+    fontWeight: '600',
+    color: palette.textPrimary,
+    marginBottom: 4,
+  },
+  unitLabel: {
+    fontSize: 15,
     fontWeight: '600',
     color: palette.textPrimary,
     marginBottom: 4,
@@ -443,7 +500,15 @@ const styles = StyleSheet.create({
   levelLabelSelected: {
     color: palette.accent,
   },
+  unitLabelSelected: {
+    color: palette.accent,
+  },
   levelDescription: {
+    fontSize: 13,
+    color: palette.textSecondary,
+    lineHeight: 18,
+  },
+  unitDescription: {
     fontSize: 13,
     color: palette.textSecondary,
     lineHeight: 18,
