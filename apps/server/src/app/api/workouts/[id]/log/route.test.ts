@@ -160,4 +160,116 @@ describe('POST /api/workouts/:id/log', () => {
     expect(response.status).toBe(200);
     expect(data.loggedSession.workoutId).toBe(planId);
   });
+
+  it('returns 422 for weight without unit', async () => {
+    mockAuthenticateRequest.mockResolvedValue({
+      userId: 'user-123',
+      deviceToken: 'test-token',
+    });
+
+    const planId = 'plan-123';
+    const request = new Request(`http://localhost:3000/api/workouts/${planId}/log`, {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer test-token',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        type: 'plan',
+        exercises: [
+          {
+            exerciseId: 'ex-1',
+            name: 'Bench',
+            sets: [{ order: 0, reps: 5, load: { weight: 100 }, completed: true }],
+          },
+        ],
+      }),
+    });
+
+    const response = await POST(request, { params: { id: planId } });
+    expect(response.status).toBe(422);
+  });
+
+  it('returns 422 for unit without weight', async () => {
+    mockAuthenticateRequest.mockResolvedValue({
+      userId: 'user-123',
+      deviceToken: 'test-token',
+    });
+
+    const planId = 'plan-123';
+    const request = new Request(`http://localhost:3000/api/workouts/${planId}/log`, {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer test-token',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        type: 'plan',
+        exercises: [
+          {
+            exerciseId: 'ex-1',
+            name: 'Bench',
+            sets: [{ order: 0, reps: 5, load: { unit: 'kg' }, completed: true }],
+          },
+        ],
+      }),
+    });
+
+    const response = await POST(request, { params: { id: planId } });
+    expect(response.status).toBe(422);
+  });
+
+  it('returns 422 for invalid reps or rpe', async () => {
+    mockAuthenticateRequest.mockResolvedValue({
+      userId: 'user-123',
+      deviceToken: 'test-token',
+    });
+
+    const planId = 'plan-123';
+    const request = new Request(`http://localhost:3000/api/workouts/${planId}/log`, {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer test-token',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        type: 'plan',
+        exercises: [
+          {
+            exerciseId: 'ex-1',
+            name: 'Bench',
+            sets: [
+              { order: 0, reps: 0, load: { weight: 50, unit: 'kg' }, completed: false },
+              { order: 1, reps: 5, load: { weight: 50, unit: 'kg' }, rpe: 11, completed: true },
+            ],
+          },
+        ],
+      }),
+    });
+
+    const response = await POST(request, { params: { id: planId } });
+    expect(response.status).toBe(422);
+  });
+
+  it('returns 422 for malformed json', async () => {
+    mockAuthenticateRequest.mockResolvedValue({
+      userId: 'user-123',
+      deviceToken: 'test-token',
+    });
+
+    const planId = 'plan-123';
+    const badBody = '{ "type": "plan", "exercises": ['; // incomplete JSON
+
+    const request = new Request(`http://localhost:3000/api/workouts/${planId}/log`, {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer test-token',
+        'Content-Type': 'application/json',
+      },
+      body: badBody,
+    });
+
+    const response = await POST(request, { params: { id: planId } });
+    expect(response.status).toBe(422);
+  });
 });
