@@ -162,7 +162,7 @@ export async function POST(request: Request) {
       });
       setGenerationError(
         deviceToken,
-        'We could not reach the AI provider. Showing a fallback plan.',
+        'We could not generate a workout plan. Showing a fallback plan.',
       );
       plan = mockPlan();
     }

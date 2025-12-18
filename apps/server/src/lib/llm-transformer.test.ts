@@ -1,11 +1,6 @@
-jest.mock('uuid', () => ({
-  v7: jest.fn(() => 'mock-uuid'),
-}));
-
 import {
   transformLlmResponse,
   getDefaultSchemaVersion,
-  type LlmSchemaVersion,
 } from './llm-transformer';
 import type { LlmTodayPlan } from '@workout-agent/shared';
 
@@ -72,7 +67,16 @@ describe('llm-transformer', () => {
         expect(result.success).toBe(true);
         if (!result.success) return;
 
-        // Check that plan has an ID
+        // Input should not have IDs (LLM schema)
+        expect((validLlmPlan as unknown as { id?: string }).id).toBeUndefined();
+        validLlmPlan.blocks.forEach((block) => {
+          expect((block as unknown as { id?: string }).id).toBeUndefined();
+          block.exercises.forEach((exercise) => {
+            expect((exercise as unknown as { id?: string }).id).toBeUndefined();
+          });
+        });
+
+        // Output should have IDs
         expect(result.plan.id).toBeDefined();
         expect(typeof result.plan.id).toBe('string');
 
@@ -122,15 +126,18 @@ describe('llm-transformer', () => {
         if (!result.success) return;
 
         // Check that plan has ID
-        expect(result.plan.id).toBe('mock-uuid');
+        expect(result.plan.id).toBeDefined();
+        expect(typeof result.plan.id).toBe('string');
 
         // Check that all blocks have IDs
         result.plan.blocks.forEach((block) => {
-          expect(block.id).toBe('mock-uuid');
+          expect(block.id).toBeDefined();
+          expect(typeof block.id).toBe('string');
 
           // Check that all exercises have IDs
           block.exercises.forEach((exercise) => {
-            expect(exercise.id).toBe('mock-uuid');
+            expect(exercise.id).toBeDefined();
+            expect(typeof exercise.id).toBe('string');
           });
         });
 

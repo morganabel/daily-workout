@@ -1,5 +1,5 @@
 ## Why
-The server currently asks the LLM for the full client-facing workout schema and streams that response straight back to the app. That couples prompt design to the public API and spends tokens on fields the model could derive later, making it harder to iterate on smaller/cheaper schemas.
+The server currently asks the LLM for the full client-facing workout schema and returns that response straight back to the app. That couples prompt design to the public API and spends tokens on fields the model could derive later, making it harder to iterate on smaller/cheaper schemas.
 
 ## What Changes
 - Add a generation transformation layer that converts LLM responses into the canonical API workout schema, so prompt schemas can be simplified without changing client contracts.

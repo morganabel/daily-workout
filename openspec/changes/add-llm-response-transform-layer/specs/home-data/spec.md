@@ -10,12 +10,12 @@ The workout generation pipeline MUST normalize LLM responses into the canonical 
 #### Scenario: Identity path for current schema
 - **GIVEN** the LLM still returns the current `TodayPlan` schema
 - **WHEN** the transformer runs
-- **THEN** it validates and passes the payload through unchanged so responses remain byte-for-byte compatible with today’s format
+- **THEN** it validates and passes the payload through without altering its semantic content so responses remain structurally equivalent to today’s format (same fields and values, regardless of whitespace or key ordering)
 
 #### Scenario: Versioned schema selection
 - **GIVEN** the server configures an `llmSchemaVersion` (or feature flag) for generation
 - **WHEN** a generation request executes
-- **THEN** the transformer selects the matching parser/mapping rules, records which version was used in generation metadata, and keeps the API response shape constant
+- **THEN** the transformer selects the matching parser/mapping rules, records the configured `llmSchemaVersion` in internal generation metadata (for observability and persistence alongside the plan), and keeps the API response shape constant
 
 #### Scenario: Transformation failure handling
 - **GIVEN** the LLM output cannot be mapped or validated (e.g., missing required block structure)
