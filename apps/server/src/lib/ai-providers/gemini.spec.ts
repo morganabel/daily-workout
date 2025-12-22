@@ -6,21 +6,12 @@ import type {
   LlmTodayPlan,
 } from '@workout-agent/shared';
 import { AiGenerationError } from './types';
+import { transformLlmResponse, getDefaultSchemaVersion } from '../llm-transformer';
 
 jest.mock('@google/genai');
-jest.mock('./utils', () => ({
-  attachGeneratedIds: jest.fn((plan: LlmTodayPlan) => ({
-    id: 'mock-plan-id',
-    ...plan,
-    blocks: plan.blocks.map((block, i: number) => ({
-      id: `mock-block-${i}`,
-      ...block,
-      exercises: block.exercises.map((ex, j: number) => ({
-        id: `mock-exercise-${i}-${j}`,
-        ...ex,
-      })),
-    })),
-  })),
+jest.mock('../llm-transformer', () => ({
+  transformLlmResponse: jest.fn(),
+  getDefaultSchemaVersion: jest.fn(),
 }));
 
 describe('GeminiProvider', () => {
@@ -75,6 +66,28 @@ describe('GeminiProvider', () => {
     jest.clearAllMocks();
     provider = new GeminiProvider();
 
+    (getDefaultSchemaVersion as unknown as jest.Mock).mockReturnValue('v1-current');
+
+    const transformedPlan = {
+      id: 'mock-plan-id',
+      ...mockLlmPlan,
+      source: 'mock',
+      blocks: mockLlmPlan.blocks.map((block, i: number) => ({
+        id: `mock-block-${i}`,
+        ...block,
+        exercises: block.exercises.map((ex, j: number) => ({
+          id: `mock-exercise-${i}-${j}`,
+          ...ex,
+        })),
+      })),
+    };
+
+    (transformLlmResponse as unknown as jest.Mock).mockReturnValue({
+      success: true,
+      plan: transformedPlan,
+      schemaVersion: 'v1-current',
+    });
+
     mockGenerateContent = jest.fn();
     (GoogleGenAI as jest.MockedClass<typeof GoogleGenAI>).mockImplementation(
       () =>
@@ -99,6 +112,11 @@ describe('GeminiProvider', () => {
       expect(result.plan.id).toBe('mock-plan-id');
       expect(result.plan.source).toBe('ai');
       expect(result.responseId).toMatch(/^gemini-/);
+      expect(result.schemaVersion).toBe('v1-current');
+      expect(getDefaultSchemaVersion).toHaveBeenCalled();
+      expect(transformLlmResponse).toHaveBeenCalledWith(mockLlmPlan, {
+        schemaVersion: 'v1-current',
+      });
       expect(mockGenerateContent).toHaveBeenCalledWith(
         expect.objectContaining({
           model: 'gemini-2.5-flash',
