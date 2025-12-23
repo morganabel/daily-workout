@@ -14,7 +14,7 @@ import {
 } from './prompts';
 import {
   transformLlmResponse,
-  selectSchemaVersion,
+  getDefaultSchemaVersion,
   getSchemaForVersion,
 } from '../llm-transformer';
 
@@ -67,7 +67,7 @@ export class GeminiProvider implements AiProvider {
 
     // Select schema version using selection algorithm
     // Gemini supports both v1-current and v2-flat, but prefers v2-flat for lower depth
-    const schemaVersion = selectSchemaVersion({
+    const schemaVersion = getDefaultSchemaVersion({
       supportedSchemas: ['v1-current', 'v2-flat'],
     });
     const selectedSchema = getSchemaForVersion(schemaVersion);
@@ -176,4 +176,3 @@ export class GeminiProvider implements AiProvider {
     };
   }
 }
-

@@ -26,7 +26,7 @@ jest.mock('../llm-transformer', () => {
   const actual = jest.requireActual('../llm-transformer');
   return {
     ...actual,
-    selectSchemaVersion: jest.fn(() => 'v1-current'),
+    getDefaultSchemaVersion: jest.fn(() => 'v1-current'),
     getSchemaForVersion: jest.fn((version: string) => {
       const { llmTodayPlanSchema } = jest.requireActual('@workout-agent/shared');
       return llmTodayPlanSchema;

@@ -15,9 +15,7 @@ import {
 import {
   transformLlmResponse,
   getDefaultSchemaVersion,
-  selectSchemaVersion,
   getSchemaForVersion,
-  type LlmSchemaVersion,
 } from '../llm-transformer';
 
 const DEFAULT_MODEL = process.env.OPENAI_MODEL ?? 'gpt-5-mini';
@@ -44,7 +42,7 @@ export class OpenAIProvider implements AiProvider {
 
     // Select schema version using selection algorithm
     // OpenAI supports both v1-current and v2-flat
-    const schemaVersion = selectSchemaVersion({
+    const schemaVersion = getDefaultSchemaVersion({
       supportedSchemas: ['v1-current', 'v2-flat'],
     });
     const selectedSchema = getSchemaForVersion(schemaVersion);
@@ -149,4 +147,3 @@ export class OpenAIProvider implements AiProvider {
     };
   }
 }
-
