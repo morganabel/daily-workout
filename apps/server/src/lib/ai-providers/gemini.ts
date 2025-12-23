@@ -147,9 +147,7 @@ export class GeminiProvider implements AiProvider {
     }
 
     // Enrich the transformed plan with provider-specific metadata
-    const plan = transformResult.plan;
-    plan.source = 'ai';
-    plan.responseId = responseId;
+    const plan = { ...transformResult.plan, source: 'ai' as const, responseId };
 
     console.log('[gemini.generate] transformation succeeded', {
       schemaVersion: transformResult.schemaVersion,
