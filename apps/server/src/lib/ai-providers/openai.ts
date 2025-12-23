@@ -2,10 +2,8 @@ import OpenAI from 'openai';
 import { zodTextFormat } from 'openai/helpers/zod';
 import {
   todayPlanSchema,
-  llmTodayPlanSchema,
   type GenerationRequest,
   type GenerationContext,
-  type LlmTodayPlan,
 } from '@workout-agent/shared';
 import type { AiProvider, AiProviderOptions, GenerationResult } from './types';
 import { AiGenerationError } from './types';
@@ -14,7 +12,13 @@ import {
   INITIAL_GENERATION_INSTRUCTIONS,
   buildRegenerationMessage,
 } from './prompts';
-import { transformLlmResponse, getDefaultSchemaVersion } from '../llm-transformer';
+import {
+  transformLlmResponse,
+  getDefaultSchemaVersion,
+  selectSchemaVersion,
+  getSchemaForVersion,
+  type LlmSchemaVersion,
+} from '../llm-transformer';
 
 const DEFAULT_MODEL = process.env.OPENAI_MODEL ?? 'gpt-5-mini';
 const DEFAULT_API_BASE =
@@ -37,6 +41,13 @@ export class OpenAIProvider implements AiProvider {
 
     const model = options.model ?? DEFAULT_MODEL;
     const isRegeneration = Boolean(request.previousResponseId);
+
+    // Select schema version using selection algorithm
+    // OpenAI supports both v1-current and v2-flat
+    const schemaVersion = selectSchemaVersion({
+      supportedSchemas: ['v1-current', 'v2-flat'],
+    });
+    const selectedSchema = getSchemaForVersion(schemaVersion);
 
     // Build input based on whether this is initial generation or regeneration
     const input: OpenAI.Responses.ResponseInputItem[] = isRegeneration
@@ -61,7 +72,7 @@ export class OpenAIProvider implements AiProvider {
           },
         ];
 
-    let planPayload: LlmTodayPlan | null = null;
+    let planPayload: unknown = null;
     let responseId = '';
     const started = Date.now();
     try {
@@ -76,7 +87,7 @@ export class OpenAIProvider implements AiProvider {
           previous_response_id: request.previousResponseId,
         }),
         text: {
-          format: zodTextFormat(llmTodayPlanSchema, 'today_plan'),
+          format: zodTextFormat(selectedSchema, 'today_plan'),
         },
       });
       planPayload = response.output_parsed;
@@ -109,7 +120,7 @@ export class OpenAIProvider implements AiProvider {
 
     // Transform LLM response to canonical TodayPlan using transformation layer
     const transformResult = transformLlmResponse(planPayload, {
-      schemaVersion: getDefaultSchemaVersion(),
+      schemaVersion,
     });
 
     if (!transformResult.success) {
