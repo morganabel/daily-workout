@@ -99,7 +99,7 @@ class TestProvider implements AiProvider {
         })),
       })),
     };
-    return { plan: withIds, responseId: 'test-response-id' };
+    return { plan: withIds, responseId: 'test-response-id', schemaVersion: 'v1-current' };
   }
 }
 

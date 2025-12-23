@@ -56,4 +56,21 @@ describe('generation-store', () => {
     expect(state.plan).toBeNull();
     expect(state.generationStatus.state).toBe('idle');
   });
+
+  it('records and clears transformation metadata with plan updates', () => {
+    const planA = createTodayPlanMock({ id: 'plan-a' });
+    persistGeneratedPlan(DEVICE_TOKEN, planA, { schemaVersion: 'v1-current' });
+
+    let state = getGenerationState(DEVICE_TOKEN);
+    expect(state.transformationMetadata?.schemaVersion).toBe('v1-current');
+    expect(typeof state.transformationMetadata?.transformedAt).toBe('string');
+
+    // Persist a mock/legacy plan (no schemaVersion) and ensure metadata is cleared
+    const planB = createTodayPlanMock({ id: 'plan-b' });
+    persistGeneratedPlan(DEVICE_TOKEN, planB);
+
+    state = getGenerationState(DEVICE_TOKEN);
+    expect(state.plan?.id).toBe('plan-b');
+    expect(state.transformationMetadata).toBeUndefined();
+  });
 });

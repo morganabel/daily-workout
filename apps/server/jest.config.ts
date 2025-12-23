@@ -14,6 +14,7 @@ module.exports = createJestConfig({
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
     '^@workout-agent/shared$': '<rootDir>/../../packages/shared/src/index.ts',
+    '^uuid$': '<rootDir>/jest-mocks/uuid.ts',
   },
   transformIgnorePatterns: ['node_modules/(?!(uuid)/)'],
   coverageDirectory: '../../coverage/apps/server',

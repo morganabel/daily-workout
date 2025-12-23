@@ -6,7 +6,6 @@ import {
   type GenerationRequest,
   type GenerationContext,
   type LlmTodayPlan,
-  type TodayPlan,
 } from '@workout-agent/shared';
 import type { AiProvider, AiProviderOptions, GenerationResult } from './types';
 import { AiGenerationError } from './types';
@@ -15,7 +14,7 @@ import {
   INITIAL_GENERATION_INSTRUCTIONS,
   buildRegenerationMessage,
 } from './prompts';
-import { attachGeneratedIds } from './utils';
+import { transformLlmResponse, getDefaultSchemaVersion } from '../llm-transformer';
 
 const DEFAULT_MODEL = process.env.GEMINI_MODEL ?? 'gemini-3-flash-preview';
 const DEFAULT_API_BASE = process.env.GEMINI_API_BASE;
@@ -36,8 +35,13 @@ export class GeminiProvider implements AiProvider {
   ): Promise<GenerationResult> {
     const vertexEnv = getVertexEnvConfig();
     const useVertex =
-      options.useVertexAi ||
-      (!options.apiKey && vertexEnv.enabled && vertexEnv.projectId && vertexEnv.location);
+      options.useVertexAi ??
+      Boolean(
+        !options.apiKey &&
+          vertexEnv.enabled &&
+          vertexEnv.projectId &&
+          vertexEnv.location,
+      );
 
     const clientConfig: { apiKey?: string; baseUrl?: string; projectId?: string; location?: string } =
       {};
@@ -132,13 +136,34 @@ export class GeminiProvider implements AiProvider {
       );
     }
 
-    const withIds = attachGeneratedIds(planPayload);
-    withIds.source = 'ai';
-    withIds.responseId = responseId;
+    // Transform LLM response to canonical TodayPlan using transformation layer
+    const transformResult = transformLlmResponse(planPayload, {
+      schemaVersion: getDefaultSchemaVersion(),
+    });
+
+    if (!transformResult.success) {
+      // Treat transformation failures as provider errors
+      console.error('[gemini.generate] transformation failed', {
+        error: transformResult.error.message,
+        schemaVersion: transformResult.schemaVersion,
+      });
+      throw new AiGenerationError(
+        `LLM response transformation failed: ${transformResult.error.message}`,
+        'INVALID_RESPONSE',
+      );
+    }
+
+    // Enrich the transformed plan with provider-specific metadata
+    const plan = { ...transformResult.plan, source: 'ai' as const, responseId };
+
+    console.log('[gemini.generate] transformation succeeded', {
+      schemaVersion: transformResult.schemaVersion,
+    });
 
     return {
-      plan: todayPlanSchema.parse(withIds),
+      plan: todayPlanSchema.parse(plan),
       responseId,
+      schemaVersion: transformResult.schemaVersion,
     };
   }
 }
