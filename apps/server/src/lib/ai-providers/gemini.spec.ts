@@ -6,15 +6,18 @@ import type {
   LlmTodayPlan,
 } from '@workout-agent/shared';
 import { AiGenerationError } from './types';
-import { transformLlmResponse, selectSchemaVersion } from '../llm-transformer';
+import { transformLlmResponse, getDefaultSchemaVersion } from '../llm-transformer';
 
+jest.mock('uuid', () => ({
+  v7: jest.fn(() => 'mock-uuid'),
+}));
 jest.mock('@google/genai');
 jest.mock('../llm-transformer', () => {
   const actual = jest.requireActual('../llm-transformer');
   return {
     ...actual,
     transformLlmResponse: jest.fn(),
-    selectSchemaVersion: jest.fn(() => 'v1-current'),
+    getDefaultSchemaVersion: jest.fn(() => 'v1-current'),
     getSchemaForVersion: jest.fn((version: string) => {
       const { llmTodayPlanSchema } = jest.requireActual('@workout-agent/shared');
       return llmTodayPlanSchema;
@@ -74,7 +77,7 @@ describe('GeminiProvider', () => {
     jest.clearAllMocks();
     provider = new GeminiProvider();
 
-    (selectSchemaVersion as unknown as jest.Mock).mockReturnValue('v1-current');
+    (getDefaultSchemaVersion as unknown as jest.Mock).mockReturnValue('v1-current');
 
     const transformedPlan = {
       id: 'mock-plan-id',
@@ -121,7 +124,7 @@ describe('GeminiProvider', () => {
       expect(result.plan.source).toBe('ai');
       expect(result.responseId).toMatch(/^gemini-/);
       expect(result.schemaVersion).toBe('v1-current');
-      expect(selectSchemaVersion).toHaveBeenCalled();
+      expect(getDefaultSchemaVersion).toHaveBeenCalled();
       expect(transformLlmResponse).toHaveBeenCalledWith(mockLlmPlan, {
         schemaVersion: 'v1-current',
       });

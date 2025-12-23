@@ -1,9 +1,77 @@
+jest.mock('uuid', () => ({
+  v7: jest.fn(() => 'mock-uuid'),
+}));
+
 import {
   transformLlmResponse,
   getDefaultSchemaVersion,
   selectSchemaVersion,
 } from './llm-transformer';
-import type { LlmTodayPlan, LlmTodayPlanFlat } from '@workout-agent/shared';
+import {
+  llmTodayPlanFlatSchema,
+  type LlmTodayPlan,
+  type LlmTodayPlanFlat,
+} from '@workout-agent/shared';
+import * as z from 'zod';
+
+const resolveJsonSchemaRef = (ref: string, root: unknown): unknown => {
+  if (!ref.startsWith('#/')) {
+    return undefined;
+  }
+  const path = ref.slice(2).split('/');
+  let current: unknown = root;
+  for (const segment of path) {
+    if (!current || typeof current !== 'object') {
+      return undefined;
+    }
+    current = (current as Record<string, unknown>)[segment];
+  }
+  return current;
+};
+
+const computeSchemaDepth = (schema: unknown, root: unknown): number => {
+  if (!schema || typeof schema !== 'object') {
+    return 0;
+  }
+
+  const node = schema as Record<string, unknown>;
+  if (typeof node.$ref === 'string') {
+    const resolved = resolveJsonSchemaRef(node.$ref, root);
+    return resolved ? computeSchemaDepth(resolved, root) : 0;
+  }
+
+  let maxChild = 0;
+  const consider = (child: unknown) => {
+    maxChild = Math.max(maxChild, computeSchemaDepth(child, root));
+  };
+
+  for (const key of ['anyOf', 'oneOf', 'allOf'] as const) {
+    const variants = node[key];
+    if (Array.isArray(variants)) {
+      variants.forEach(consider);
+    }
+  }
+
+  if (node.type === 'object') {
+    const properties = node.properties as Record<string, unknown> | undefined;
+    if (properties) {
+      Object.values(properties).forEach(consider);
+    }
+    if (node.additionalProperties && typeof node.additionalProperties === 'object') {
+      consider(node.additionalProperties);
+    }
+    return Math.max(1, 1 + maxChild);
+  }
+
+  if (node.type === 'array') {
+    if (node.items) {
+      consider(node.items);
+    }
+    return Math.max(1, 1 + maxChild);
+  }
+
+  return maxChild;
+};
 
 describe('llm-transformer', () => {
   describe('transformLlmResponse', () => {
@@ -441,6 +509,70 @@ describe('llm-transformer', () => {
       });
     });
 
+    describe('Scenario: Enum expansion applies block templates', () => {
+      it('should expand block templates into canonical block fields', () => {
+        const planWithTemplates: LlmTodayPlanFlat = {
+          ...validFlatPlan,
+          blocks: [
+            { template: 'warmup-basic' },
+            { template: 'main-strength' },
+          ],
+          exercises: [
+            {
+              blockIndex: 0,
+              order: 0,
+              name: 'Jumping Jacks',
+              prescription: '2 x 30s',
+              detail: null,
+            },
+            {
+              blockIndex: 1,
+              order: 0,
+              name: 'DB Press',
+              prescription: '3 x 10',
+              detail: 'Controlled tempo',
+            },
+          ],
+        };
+
+        const result = transformLlmResponse(planWithTemplates, {
+          schemaVersion: 'v2-flat',
+        });
+
+        expect(result.success).toBe(true);
+        if (!result.success) return;
+
+        expect(result.plan.blocks[0].title).toBe('Warm-up');
+        expect(result.plan.blocks[0].durationMinutes).toBe(5);
+        expect(result.plan.blocks[0].focus).toBe('Prep');
+        expect(result.plan.blocks[1].title).toBe('Main Set');
+        expect(result.plan.blocks[1].durationMinutes).toBe(20);
+        expect(result.plan.blocks[1].focus).toBe('Strength');
+      });
+
+      it('should fail when an unknown block template is provided', () => {
+        const invalidPlan = {
+          ...validFlatPlan,
+          blocks: [{ template: 'unknown-template' }],
+          exercises: [
+            {
+              blockIndex: 0,
+              order: 0,
+              name: 'Exercise',
+              prescription: '10 reps',
+              detail: null,
+            },
+          ],
+        } as unknown as LlmTodayPlanFlat;
+
+        const result = transformLlmResponse(invalidPlan, {
+          schemaVersion: 'v2-flat',
+        });
+
+        expect(result.success).toBe(false);
+      });
+    });
+
     describe('Scenario: Invalid block mapping fails transformation', () => {
       it('should fail when blockIndex is out of range', () => {
         const invalidPlan: LlmTodayPlanFlat = {
@@ -570,8 +702,7 @@ describe('llm-transformer', () => {
   });
 
   describe('selectSchemaVersion', () => {
-    it('should prefer v2-flat when sizes are equal (tie-break)', () => {
-      // This test verifies the tie-breaking behavior
+    it('should prefer v2-flat when it has the smaller estimated size', () => {
       const version = selectSchemaVersion({
         supportedSchemas: ['v1-current', 'v2-flat'],
       });
@@ -591,6 +722,14 @@ describe('llm-transformer', () => {
         supportedSchemas: ['v1-current'],
       });
       expect(version).toBe('v1-current');
+    });
+  });
+
+  describe('schema depth', () => {
+    it('should keep llmTodayPlanFlatSchema depth <= 3', () => {
+      const jsonSchema = z.toJSONSchema(llmTodayPlanFlatSchema);
+      const depth = computeSchemaDepth(jsonSchema, jsonSchema);
+      expect(depth).toBeLessThanOrEqual(3);
     });
   });
 });
