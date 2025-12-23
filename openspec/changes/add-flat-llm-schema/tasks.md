@@ -1,4 +1,5 @@
 ## 1. Implementation
+
 - [x] 1.1 Add flattened LLM workout schema + types in shared contracts
 - [x] 1.2 Add `v2-flat` (or similar) schema version and transformer mapping to canonical `TodayPlan` (including `blockIndex` + `order` preservation)
 - [x] 1.3 Add enum expansion mapping support in the transformer (with at least one example mapping + unknown handling)
