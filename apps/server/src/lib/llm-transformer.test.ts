@@ -1,8 +1,9 @@
 import {
   transformLlmResponse,
   getDefaultSchemaVersion,
+  selectSchemaVersion,
 } from './llm-transformer';
-import type { LlmTodayPlan } from '@workout-agent/shared';
+import type { LlmTodayPlan, LlmTodayPlanFlat } from '@workout-agent/shared';
 
 describe('llm-transformer', () => {
   describe('transformLlmResponse', () => {
@@ -170,12 +171,13 @@ describe('llm-transformer', () => {
     });
 
     describe('Scenario: Versioned schema selection', () => {
-      it('should use v1-current when no version specified', () => {
+      it('should use v1-current when no version specified (defaults to v1-current)', () => {
         const result = transformLlmResponse(validLlmPlan);
 
         expect(result.success).toBe(true);
         if (!result.success) return;
 
+        // transformLlmResponse defaults to v1-current when no schemaVersion is provided
         expect(result.schemaVersion).toBe('v1-current');
       });
 
@@ -299,8 +301,295 @@ describe('llm-transformer', () => {
   });
 
   describe('getDefaultSchemaVersion', () => {
-    it('should return v1-current as default', () => {
-      const version = getDefaultSchemaVersion();
+    it('should prefer v2-flat when both schemas are available (smaller estimated size)', () => {
+      const version = getDefaultSchemaVersion({
+        supportedSchemas: ['v1-current', 'v2-flat'],
+      });
+      expect(version).toBe('v2-flat');
+    });
+
+    it('should return v1-current when only v1-current is supported', () => {
+      const version = getDefaultSchemaVersion({
+        supportedSchemas: ['v1-current'],
+      });
+      expect(version).toBe('v1-current');
+    });
+
+    it('should respect explicit override', () => {
+      const version = getDefaultSchemaVersion({
+        override: 'v1-current',
+        supportedSchemas: ['v1-current', 'v2-flat'],
+      });
+      expect(version).toBe('v1-current');
+    });
+  });
+
+  describe('v2-flat schema transformation', () => {
+    const validFlatPlan: LlmTodayPlanFlat = {
+      focus: 'Upper Body Strength',
+      durationMinutes: 30,
+      equipment: ['Dumbbells'],
+      source: 'ai',
+      energy: 'moderate',
+      summary: 'Sample plan',
+      blocks: [
+        { title: 'Warm-up', durationMinutes: 5, focus: 'Prep' },
+        { title: 'Main Set', durationMinutes: 20, focus: 'Strength' },
+      ],
+      exercises: [
+        {
+          blockIndex: 0,
+          order: 0,
+          name: 'Jumping Jacks',
+          prescription: '2 x 30s',
+          detail: null,
+        },
+        {
+          blockIndex: 1,
+          order: 0,
+          name: 'DB Press',
+          prescription: '3 x 10',
+          detail: 'Controlled tempo',
+        },
+      ],
+    };
+
+    describe('Scenario: Flat schema rebuilds ordered exercises', () => {
+      it('should transform flat schema to canonical TodayPlan with correct ordering', () => {
+        const result = transformLlmResponse(validFlatPlan, {
+          schemaVersion: 'v2-flat',
+        });
+
+        expect(result.success).toBe(true);
+        if (!result.success) return;
+
+        // Check plan-level fields
+        expect(result.plan.focus).toBe(validFlatPlan.focus);
+        expect(result.plan.durationMinutes).toBe(validFlatPlan.durationMinutes);
+        expect(result.plan.equipment).toEqual(validFlatPlan.equipment);
+        expect(result.plan.source).toBe(validFlatPlan.source);
+        expect(result.plan.energy).toBe(validFlatPlan.energy);
+        expect(result.plan.summary).toBe(validFlatPlan.summary);
+
+        // Check blocks are correctly structured
+        expect(result.plan.blocks).toHaveLength(2);
+        expect(result.plan.blocks[0].title).toBe('Warm-up');
+        expect(result.plan.blocks[0].exercises).toHaveLength(1);
+        expect(result.plan.blocks[0].exercises[0].name).toBe('Jumping Jacks');
+
+        expect(result.plan.blocks[1].title).toBe('Main Set');
+        expect(result.plan.blocks[1].exercises).toHaveLength(1);
+        expect(result.plan.blocks[1].exercises[0].name).toBe('DB Press');
+        expect(result.plan.blocks[1].exercises[0].detail).toBe(
+          'Controlled tempo',
+        );
+
+        // Check IDs are generated
+        expect(result.plan.id).toBeDefined();
+        result.plan.blocks.forEach((block) => {
+          expect(block.id).toBeDefined();
+          block.exercises.forEach((exercise) => {
+            expect(exercise.id).toBeDefined();
+          });
+        });
+
+        expect(result.schemaVersion).toBe('v2-flat');
+      });
+
+      it('should preserve exercise order within blocks', () => {
+        const planWithMultipleExercises: LlmTodayPlanFlat = {
+          ...validFlatPlan,
+          blocks: [
+            { title: 'Warm-up', durationMinutes: 5, focus: 'Prep' },
+          ],
+          exercises: [
+            {
+              blockIndex: 0,
+              order: 1,
+              name: 'Second Exercise',
+              prescription: '10 reps',
+              detail: null,
+            },
+            {
+              blockIndex: 0,
+              order: 0,
+              name: 'First Exercise',
+              prescription: '10 reps',
+              detail: null,
+            },
+            {
+              blockIndex: 0,
+              order: 2,
+              name: 'Third Exercise',
+              prescription: '10 reps',
+              detail: null,
+            },
+          ],
+        };
+
+        const result = transformLlmResponse(planWithMultipleExercises, {
+          schemaVersion: 'v2-flat',
+        });
+
+        expect(result.success).toBe(true);
+        if (!result.success) return;
+
+        expect(result.plan.blocks[0].exercises).toHaveLength(3);
+        expect(result.plan.blocks[0].exercises[0].name).toBe('First Exercise');
+        expect(result.plan.blocks[0].exercises[1].name).toBe('Second Exercise');
+        expect(result.plan.blocks[0].exercises[2].name).toBe('Third Exercise');
+      });
+    });
+
+    describe('Scenario: Invalid block mapping fails transformation', () => {
+      it('should fail when blockIndex is out of range', () => {
+        const invalidPlan: LlmTodayPlanFlat = {
+          ...validFlatPlan,
+          exercises: [
+            {
+              blockIndex: 99, // Invalid: only 2 blocks (0, 1)
+              order: 0,
+              name: 'Invalid Exercise',
+              prescription: '10 reps',
+              detail: null,
+            },
+          ],
+        };
+
+        const result = transformLlmResponse(invalidPlan, {
+          schemaVersion: 'v2-flat',
+        });
+
+        expect(result.success).toBe(false);
+        if (result.success) return;
+
+        expect(result.error.message).toContain('blockIndex');
+        expect(result.error.message).toContain('99');
+      });
+
+      it('should fail when blockIndex is negative', () => {
+        const invalidPlan: LlmTodayPlanFlat = {
+          ...validFlatPlan,
+          exercises: [
+            {
+              blockIndex: -1,
+              order: 0,
+              name: 'Invalid Exercise',
+              prescription: '10 reps',
+              detail: null,
+            },
+          ],
+        };
+
+        const result = transformLlmResponse(invalidPlan, {
+          schemaVersion: 'v2-flat',
+        });
+
+        expect(result.success).toBe(false);
+      });
+    });
+
+    describe('Scenario: Missing blocks fails transformation', () => {
+      it('should fail when blocks array is empty', () => {
+        const invalidPlan: LlmTodayPlanFlat = {
+          ...validFlatPlan,
+          blocks: [],
+        };
+
+        const result = transformLlmResponse(invalidPlan, {
+          schemaVersion: 'v2-flat',
+        });
+
+        expect(result.success).toBe(false);
+        if (result.success) return;
+
+        expect(result.error.message).toContain('blocks');
+      });
+    });
+
+    describe('Scenario: Duplicate order per block fails transformation', () => {
+      it('should fail when two exercises share the same order for the same blockIndex', () => {
+        const invalidPlan: LlmTodayPlanFlat = {
+          ...validFlatPlan,
+          exercises: [
+            {
+              blockIndex: 0,
+              order: 0,
+              name: 'First Exercise',
+              prescription: '10 reps',
+              detail: null,
+            },
+            {
+              blockIndex: 0,
+              order: 0, // Duplicate order
+              name: 'Second Exercise',
+              prescription: '10 reps',
+              detail: null,
+            },
+          ],
+        };
+
+        const result = transformLlmResponse(invalidPlan, {
+          schemaVersion: 'v2-flat',
+        });
+
+        expect(result.success).toBe(false);
+        if (result.success) return;
+
+        expect(result.error.message).toContain('Duplicate order');
+        expect(result.error.message).toContain('0');
+      });
+    });
+
+    describe('Scenario: Block with no exercises fails transformation', () => {
+      it('should fail when a block has no exercises', () => {
+        const invalidPlan: LlmTodayPlanFlat = {
+          ...validFlatPlan,
+          exercises: [
+            // Only exercises for block 1, block 0 has none
+            {
+              blockIndex: 1,
+              order: 0,
+              name: 'Exercise',
+              prescription: '10 reps',
+              detail: null,
+            },
+          ],
+        };
+
+        const result = transformLlmResponse(invalidPlan, {
+          schemaVersion: 'v2-flat',
+        });
+
+        expect(result.success).toBe(false);
+        if (result.success) return;
+
+        expect(result.error.message).toContain('no exercises');
+      });
+    });
+  });
+
+  describe('selectSchemaVersion', () => {
+    it('should prefer v2-flat when sizes are equal (tie-break)', () => {
+      // This test verifies the tie-breaking behavior
+      const version = selectSchemaVersion({
+        supportedSchemas: ['v1-current', 'v2-flat'],
+      });
+      expect(version).toBe('v2-flat');
+    });
+
+    it('should use override when provided', () => {
+      const version = selectSchemaVersion({
+        override: 'v1-current',
+        supportedSchemas: ['v1-current', 'v2-flat'],
+      });
+      expect(version).toBe('v1-current');
+    });
+
+    it('should use single supported schema when only one is available', () => {
+      const version = selectSchemaVersion({
+        supportedSchemas: ['v1-current'],
+      });
       expect(version).toBe('v1-current');
     });
   });
