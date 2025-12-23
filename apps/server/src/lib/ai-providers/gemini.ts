@@ -16,8 +16,13 @@ import {
 } from './prompts';
 import { transformLlmResponse, getDefaultSchemaVersion } from '../llm-transformer';
 
-const DEFAULT_MODEL = process.env.GEMINI_MODEL ?? 'gemini-2.5-flash';
+const DEFAULT_MODEL = process.env.GEMINI_MODEL ?? 'gemini-3-flash-preview';
 const DEFAULT_API_BASE = process.env.GEMINI_API_BASE;
+const getVertexEnvConfig = () => ({
+  enabled: process.env.GOOGLE_GENAI_USE_VERTEXAI === 'true',
+  projectId: process.env.GOOGLE_CLOUD_PROJECT,
+  location: process.env.GOOGLE_CLOUD_LOCATION,
+});
 
 // Convert the shared Zod schema to JSON Schema for Gemini structured output
 const geminiResponseSchema = z.toJSONSchema(llmTodayPlanSchema);
@@ -28,21 +33,22 @@ export class GeminiProvider implements AiProvider {
     context: GenerationContext,
     options: AiProviderOptions,
   ): Promise<GenerationResult> {
-    const vertexProject = process.env.GOOGLE_CLOUD_PROJECT;
-    const vertexLocation = process.env.GOOGLE_CLOUD_LOCATION;
-    const useVertexEnv = process.env.GOOGLE_GENAI_USE_VERTEXAI === 'true';
-    const hasVertexConfig = Boolean(vertexProject && vertexLocation);
-
+    const vertexEnv = getVertexEnvConfig();
     const useVertex =
       options.useVertexAi ??
-      (!options.apiKey && useVertexEnv && hasVertexConfig);
+      Boolean(
+        !options.apiKey &&
+          vertexEnv.enabled &&
+          vertexEnv.projectId &&
+          vertexEnv.location,
+      );
 
     const clientConfig: { apiKey?: string; baseUrl?: string; projectId?: string; location?: string } =
       {};
 
     if (useVertex) {
-      clientConfig.projectId = vertexProject;
-      clientConfig.location = vertexLocation;
+      clientConfig.projectId = vertexEnv.projectId;
+      clientConfig.location = vertexEnv.location;
     } else {
       if (!options.apiKey) {
         throw new AiGenerationError('Missing API key', 'NO_API_KEY');

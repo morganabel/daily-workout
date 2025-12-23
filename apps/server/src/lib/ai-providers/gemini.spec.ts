@@ -119,7 +119,7 @@ describe('GeminiProvider', () => {
       });
       expect(mockGenerateContent).toHaveBeenCalledWith(
         expect.objectContaining({
-          model: 'gemini-2.5-flash',
+          model: 'gemini-3-flash-preview',
           config: {
             responseMimeType: 'application/json',
             responseSchema: expect.any(Object),
