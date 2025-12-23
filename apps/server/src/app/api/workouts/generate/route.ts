@@ -16,6 +16,7 @@ import {
   setGenerationError,
   DEFAULT_GENERATION_ETA_SECONDS,
 } from '@/lib/generation-store';
+import type { LlmSchemaVersion } from '@/lib/llm-transformer';
 import { initializeProviders } from '@/lib/ai-providers/init';
 import { isSupportedProvider, getDefaultProviderName } from '@/lib/ai-providers/registry';
 
@@ -142,7 +143,7 @@ export async function POST(request: Request) {
 
   let plan: TodayPlan;
   let responseId: string | undefined;
-  let schemaVersion: 'v1-current' | undefined;
+  let schemaVersion: LlmSchemaVersion | undefined;
   let encounteredProviderError = false;
   if (apiKey) {
     try {

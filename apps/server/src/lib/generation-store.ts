@@ -8,8 +8,11 @@ export type GenerationState = {
   plan: TodayPlan | null;
   generationStatus: GenerationStatus;
   /**
-   * Metadata about the transformation that was applied to create this plan.
+   * Metadata about the LLM transformation that was applied to create `plan`.
+   *
    * This is internal server state used for debugging and monitoring.
+   * It is intentionally optional because not all plans go through the LLM
+   * transformation layer (e.g. mock plans or legacy flows).
    */
   transformationMetadata?: {
     /** The LLM schema version used to parse and transform the response */
@@ -52,6 +55,9 @@ export function getGenerationState(deviceToken: string): GenerationState {
   return {
     plan: state.plan,
     generationStatus: cloneStatus(state.generationStatus),
+    transformationMetadata: state.transformationMetadata
+      ? { ...state.transformationMetadata }
+      : undefined,
   };
 }
 
@@ -78,13 +84,13 @@ export function persistGeneratedPlan(
   state.plan = plan;
   state.generationStatus = createIdleStatus();
 
-  // Record transformation metadata if provided
-  if (metadata?.schemaVersion) {
-    state.transformationMetadata = {
-      schemaVersion: metadata.schemaVersion,
-      transformedAt: new Date().toISOString(),
-    };
-  }
+  // Record transformation metadata if provided; otherwise clear to avoid stale metadata.
+  state.transformationMetadata = metadata?.schemaVersion
+    ? {
+        schemaVersion: metadata.schemaVersion,
+        transformedAt: new Date().toISOString(),
+      }
+    : undefined;
 }
 
 export function setGenerationError(deviceToken: string, message: string) {
@@ -101,6 +107,7 @@ export function clearStoredPlan(deviceToken: string) {
   const state = ensureState(deviceToken);
   state.plan = null;
   state.generationStatus = createIdleStatus();
+  state.transformationMetadata = undefined;
 }
 
 export function resetGenerationStore() {
