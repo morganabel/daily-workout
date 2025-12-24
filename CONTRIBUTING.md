@@ -17,3 +17,8 @@ Thanks for your interest in improving Workout Agent CE! Before opening a pull re
 - Keep changes focused and avoid committing generated artifacts (build output, platform-specific binaries, etc.).
 - Ensure lint and test commands pass locally before opening a PR.
 - If you touch documentation, keep instructions concise and up to date with the current scripts.
+
+## Legal & License
+By contributing to this project, you agree that your contributions will be licensed under the project's [AGPLv3 License](./LICENSE). However, you also grant **OpenVibe Labs LLC** a non-exclusive, irrevocable, worldwide, royalty-free, sublicensable, transferable license to use, reproduce, prepare derivative works of, distribute, publicly perform, and publicly display your contributions.
+
+This grant allows OpenVibe Labs LLC to include your contributions in future versions of the software, including proprietary or commercial editions, without restriction.

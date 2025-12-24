@@ -69,5 +69,12 @@ Use Nx targets to keep the workspace healthy:
 - Workout logging/persistence is not implemented; snapshot recent sessions are mocked.
 - Several API handlers contain TODOs for ownership checks and persistence—review before relying on them in production.
 
-## License
-This project is licensed under the [GNU Affero General Public License v3.0](./LICENSE).
+## License & Ownership
+
+Copyright © 2024 OpenVibe Labs LLC. All rights reserved.
+
+This project (Workout Agent CE) is licensed under the [GNU Affero General Public License v3.0 (AGPLv3)](./LICENSE).
+
+**OpenVibe Labs LLC** retains the copyright to the source code. The Community Edition is open-source, but OpenVibe Labs LLC reserves the right to offer this software (and its extensions, such as billing, subscriptions, and metering) under other license terms, including proprietary commercial licenses.
+
+If you are interested in a commercial license, partnership, or building proprietary extensions that do not comply with the AGPLv3, please contact OpenVibe Labs LLC.
