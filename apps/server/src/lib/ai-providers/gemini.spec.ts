@@ -8,11 +8,22 @@ import type {
 import { AiGenerationError } from './types';
 import { transformLlmResponse, getDefaultSchemaVersion } from '../llm-transformer';
 
-jest.mock('@google/genai');
-jest.mock('../llm-transformer', () => ({
-  transformLlmResponse: jest.fn(),
-  getDefaultSchemaVersion: jest.fn(),
+jest.mock('uuid', () => ({
+  v7: jest.fn(() => 'mock-uuid'),
 }));
+jest.mock('@google/genai');
+jest.mock('../llm-transformer', () => {
+  const actual = jest.requireActual('../llm-transformer');
+  return {
+    ...actual,
+    transformLlmResponse: jest.fn(),
+    getDefaultSchemaVersion: jest.fn(() => 'v1-current'),
+    getSchemaForVersion: jest.fn((version: string) => {
+      const { llmTodayPlanSchema } = jest.requireActual('@workout-agent/shared');
+      return llmTodayPlanSchema;
+    }),
+  };
+});
 
 describe('GeminiProvider', () => {
   let provider: GeminiProvider;
