@@ -1,5 +1,5 @@
 ## Context
-We recently introduced an LLM response transformation layer to normalize provider output into the canonical `TodayPlan` returned to clients. Gemini structured output struggles with deeply nested schemas (plan -> blocks -> exercises). We need a flattened schema that reduces nesting while preserving exercise ordering and enabling richer transformations such as enum expansion into complex structures.
+We recently introduced an LLM response transformation layer to normalize provider output into the canonical `TodayPlan` returned to clients. Gemini structured output struggles with deeply nested schemas (plan -> blocks -> exercises). We need a flattened schema that reduces nesting while preserving exercise ordering and leaves room for future enum expansion if it becomes necessary.
 
 ## Goals / Non-Goals
 - Goals:
@@ -7,19 +7,19 @@ We recently introduced an LLM response transformation layer to normalize provide
   - Preserve exercise order deterministically using explicit ordering metadata.
   - Keep the mobile client response contract unchanged (`TodayPlan`).
   - Prefer the flattened schema across providers when it is more token-efficient (estimated JSON size).
-  - Support transformation rules that expand compact enum values into complex objects/arrays.
 - Non-Goals:
   - Changing the client-facing `TodayPlan` schema.
   - Removing the existing `v1` LLM schema (must remain as fallback).
+  - Implementing enum expansion. This requires prompt changes so the LLM understands enum semantics, not just transformer mappings.
 
 ## Decisions
 - Decision: Introduce a flattened LLM schema version (e.g., `v2-flat`) where blocks have no nested exercises and exercises are top-level entries keyed by `blockIndex` with explicit `order`.
   - Why: Minimizes depth while keeping semantics intact and enables ordering guarantees.
-- Decision: Centralize enum expansion rules inside the transformer (not in prompt logic) so the LLM can output compact enums and the server expands them into canonical structures.
-  - Why: Keeps prompts small and ensures a single source of truth for canonicalization.
+- Decision: Defer enum expansion until we can introduce a coordinated prompt + transformer design that teaches enum meanings to the LLM.
+  - Why: Transformer-only mappings are insufficient if the LLM is unaware of the enum semantics.
 - Decision: Prefer the flattened schema across providers when it is estimated to be smaller in JSON size, with a controlled fallback to `v1-current`.
   - Why: Consistency and cost savings without blocking providers that need the old schema.
-  - Notes: The estimator compares static schema shapes and picks the smallest; no specific enum expansions are required up front.
+  - Notes: The estimator compares static schema shapes and picks the smallest; enum expansion is out of scope for this change.
   - Notes: Fallback is selection-time (provider capability/config). There is no automatic runtime retry with a different schema on the same request.
 
 ## Flattened Schema Shape (v2-flat)
@@ -130,11 +130,8 @@ Fallback is selection-time only (capability/config). If a chosen schema fails to
 ## Schema Versioning & Metadata
 `schemaVersion` refers to the LLM output schema used for parsing and transformation (e.g., `v1-current` vs `v2-flat`). IDs are generated during transformation; they are not guaranteed to match across schema versions for the same logical plan, but all non-ID fields MUST remain semantically equivalent.
 
-## Enum Expansion Example
-Example mapping (illustrative):
-- Input: `blockTemplate: "warmup-basic"` (enum in LLM payload)
-- Expansion: a canonical block `{ title: "Warm-up", durationMinutes: 5, focus: "Prep" }` plus a predefined exercise list.
-Unknown enum values are treated as transform errors unless explicitly mapped in the server ruleset. Mappings are versioned alongside the transformer and covered by tests.
+## Future Work: Enum Expansion
+Enum expansion is explicitly deferred. When we need it, we must redesign prompts to teach enum meanings to the LLM and then implement transformer mappings that expand those enums into canonical structures. Transformer-only mappings are not sufficient on their own.
 
 ## Alternatives Considered
 - Keep nested exercises but reduce other fields: insufficient because depth is the primary failure mode for Gemini.

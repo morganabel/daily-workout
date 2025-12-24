@@ -509,70 +509,6 @@ describe('llm-transformer', () => {
       });
     });
 
-    describe('Scenario: Enum expansion applies block templates', () => {
-      it('should expand block templates into canonical block fields', () => {
-        const planWithTemplates: LlmTodayPlanFlat = {
-          ...validFlatPlan,
-          blocks: [
-            { template: 'warmup-basic' },
-            { template: 'main-strength' },
-          ],
-          exercises: [
-            {
-              blockIndex: 0,
-              order: 0,
-              name: 'Jumping Jacks',
-              prescription: '2 x 30s',
-              detail: null,
-            },
-            {
-              blockIndex: 1,
-              order: 0,
-              name: 'DB Press',
-              prescription: '3 x 10',
-              detail: 'Controlled tempo',
-            },
-          ],
-        };
-
-        const result = transformLlmResponse(planWithTemplates, {
-          schemaVersion: 'v2-flat',
-        });
-
-        expect(result.success).toBe(true);
-        if (!result.success) return;
-
-        expect(result.plan.blocks[0].title).toBe('Warm-up');
-        expect(result.plan.blocks[0].durationMinutes).toBe(5);
-        expect(result.plan.blocks[0].focus).toBe('Prep');
-        expect(result.plan.blocks[1].title).toBe('Main Set');
-        expect(result.plan.blocks[1].durationMinutes).toBe(20);
-        expect(result.plan.blocks[1].focus).toBe('Strength');
-      });
-
-      it('should fail when an unknown block template is provided', () => {
-        const invalidPlan = {
-          ...validFlatPlan,
-          blocks: [{ template: 'unknown-template' }],
-          exercises: [
-            {
-              blockIndex: 0,
-              order: 0,
-              name: 'Exercise',
-              prescription: '10 reps',
-              detail: null,
-            },
-          ],
-        } as unknown as LlmTodayPlanFlat;
-
-        const result = transformLlmResponse(invalidPlan, {
-          schemaVersion: 'v2-flat',
-        });
-
-        expect(result.success).toBe(false);
-      });
-    });
-
     describe('Scenario: Invalid block mapping fails transformation', () => {
       it('should fail when blockIndex is out of range', () => {
         const invalidPlan: LlmTodayPlanFlat = {
@@ -599,7 +535,7 @@ describe('llm-transformer', () => {
         expect(result.error.message).toContain('99');
       });
 
-      it('should fail when blockIndex is negative', () => {
+      it('should fail when blockIndex is negative (schema validation)', () => {
         const invalidPlan: LlmTodayPlanFlat = {
           ...validFlatPlan,
           exercises: [

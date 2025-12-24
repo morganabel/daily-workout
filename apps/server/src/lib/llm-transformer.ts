@@ -85,7 +85,6 @@ const enumExpansionMaps: Record<string, EnumExpansionMap> = {};
 
 /**
  * Expands enum values in the payload according to mapping rules.
- * Currently a no-op but structured for future enum expansion support.
  */
 function expandEnums(
   payload: LlmTodayPlanFlat,
@@ -146,7 +145,9 @@ function transformFlatToCanonical(flat: LlmTodayPlanFlat): TodayPlan {
     const blockExercises = exercisesByBlock.get(blockIndex) ?? [];
 
     // Sort exercises by order to ensure deterministic ordering
-    const sortedExercises = blockExercises.sort((a, b) => a.order - b.order);
+    const sortedExercises = [...blockExercises].sort(
+      (a, b) => a.order - b.order,
+    );
 
     return {
       ...block,
@@ -312,20 +313,16 @@ export interface SchemaSelectionConfig {
  * This is a static estimate based on the schema structure, not actual data.
  * Used for token-efficient schema selection.
  */
-function estimateSchemaSize(schemaVersion: LlmSchemaVersion): number {
-  // These estimates are based on typical JSON structure sizes
+const SCHEMA_SIZE_ESTIMATES: Record<LlmSchemaVersion, number> = {
+  // Rough, schema-shape-based estimates; update if schemas change materially.
   // v1-current: nested structure (plan -> blocks[] -> exercises[])
+  'v1-current': 2000,
   // v2-flat: flat structure (plan -> blocks[], exercises[])
-  switch (schemaVersion) {
-    case 'v1-current':
-      // Estimated size for nested structure with typical nesting overhead
-      return 2000; // Higher due to nested arrays
-    case 'v2-flat':
-      // Estimated size for flat structure (more efficient)
-      return 1500; // Lower due to flat arrays
-    default:
-      return 2000; // Default to higher estimate for unknown schemas
-  }
+  'v2-flat': 1500,
+};
+
+function estimateSchemaSize(schemaVersion: LlmSchemaVersion): number {
+  return SCHEMA_SIZE_ESTIMATES[schemaVersion] ?? SCHEMA_SIZE_ESTIMATES['v1-current'];
 }
 
 /**
@@ -383,11 +380,15 @@ export function getDefaultSchemaVersion(
   config: SchemaSelectionConfig = {},
 ): LlmSchemaVersion {
   // Check for environment variable override
-  const envOverride = process.env.LLM_SCHEMA_VERSION as
-    | LlmSchemaVersion
-    | undefined;
-  if (envOverride && ['v1-current', 'v2-flat'].includes(envOverride)) {
-    return selectSchemaVersion({ ...config, override: envOverride });
+  const rawEnvOverride = process.env.LLM_SCHEMA_VERSION;
+  if (rawEnvOverride !== undefined) {
+    if (rawEnvOverride === 'v1-current' || rawEnvOverride === 'v2-flat') {
+      return selectSchemaVersion({ ...config, override: rawEnvOverride });
+    }
+    console.warn(
+      `[llm-transformer] Ignoring invalid LLM_SCHEMA_VERSION value: "${rawEnvOverride}". ` +
+        'Expected "v1-current" or "v2-flat". Falling back to automatic selection.',
+    );
   }
 
   // Use schema selection algorithm
@@ -401,7 +402,9 @@ export function getDefaultSchemaVersion(
  * @param schemaVersion - The schema version to get the Zod schema for
  * @returns The Zod schema for the specified version
  */
-export function getSchemaForVersion(schemaVersion: LlmSchemaVersion) {
+export function getSchemaForVersion(
+  schemaVersion: LlmSchemaVersion,
+): typeof llmTodayPlanSchema | typeof llmTodayPlanFlatSchema {
   switch (schemaVersion) {
     case 'v1-current':
       return llmTodayPlanSchema;
