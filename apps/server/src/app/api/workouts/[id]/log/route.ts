@@ -10,14 +10,14 @@ import { clearStoredPlan } from '@/lib/generation-store';
 
 /**
  * POST /api/workouts/:id/log
- * 
+ *
  * Marks a workout plan as completed and returns the updated session summary.
- * 
+ *
  * TODO: Also support quick-log without a plan ID (separate endpoint or query param)
  */
 export async function POST(
   request: Request,
-  { params }: { params: Promise<{ id: string }> | { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ): Promise<Response> {
   // Authenticate request
   const auth = await authenticateRequest(request);
@@ -29,8 +29,8 @@ export async function POST(
     );
   }
 
-  // Handle both Promise and direct params (Next.js version compatibility)
-  const resolvedParams = 'then' in params ? await params : params;
+  // Resolve async params
+  const resolvedParams = await params;
   const planId = resolvedParams.id;
 
   // TODO: Verify plan exists and belongs to user

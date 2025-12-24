@@ -121,27 +121,4 @@ describe('POST /api/workouts/:id/log', () => {
       source: expect.any(String),
     });
   });
-
-  it('should handle direct params (non-Promise) for compatibility', async () => {
-    mockAuthenticateRequest.mockResolvedValue({
-      userId: 'user-123',
-      deviceToken: 'test-token',
-    });
-
-    const planId = 'plan-123';
-    const request = new Request(`http://localhost:3000/api/workouts/${planId}/log`, {
-      method: 'POST',
-      headers: {
-        Authorization: 'Bearer test-token',
-      },
-    });
-
-    // Test with direct params object (not Promise)
-    const params = { id: planId };
-    const response = await POST(request, { params });
-    const data = await response.json();
-
-    expect(response.status).toBe(200);
-    expect(data.id).toContain(planId);
-  });
 });
