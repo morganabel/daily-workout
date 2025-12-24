@@ -2,11 +2,8 @@ import { GoogleGenAI } from '@google/genai';
 import * as z from 'zod';
 import {
   todayPlanSchema,
-  llmTodayPlanSchema,
   type GenerationRequest,
   type GenerationContext,
-  type LlmTodayPlan,
-  type TodayPlan,
 } from '@workout-agent/shared';
 import type { AiProvider, AiProviderOptions, GenerationResult } from './types';
 import { AiGenerationError } from './types';
@@ -15,16 +12,19 @@ import {
   INITIAL_GENERATION_INSTRUCTIONS,
   buildRegenerationMessage,
 } from './prompts';
-import { attachGeneratedIds } from './utils';
+import {
+  transformLlmResponse,
+  getDefaultSchemaVersion,
+  getSchemaForVersion,
+} from '../llm-transformer';
 
-const DEFAULT_MODEL = process.env.GEMINI_MODEL ?? 'gemini-2.5-flash';
+const DEFAULT_MODEL = process.env.GEMINI_MODEL ?? 'gemini-3-flash-preview';
 const DEFAULT_API_BASE = process.env.GEMINI_API_BASE;
-const USE_VERTEX_AI = process.env.GOOGLE_GENAI_USE_VERTEXAI === 'true';
-const VERTEX_PROJECT = process.env.GOOGLE_CLOUD_PROJECT;
-const VERTEX_LOCATION = process.env.GOOGLE_CLOUD_LOCATION;
-
-// Convert the shared Zod schema to JSON Schema for Gemini structured output
-const geminiResponseSchema = z.toJSONSchema(llmTodayPlanSchema);
+const getVertexEnvConfig = () => ({
+  enabled: process.env.GOOGLE_GENAI_USE_VERTEXAI === 'true',
+  projectId: process.env.GOOGLE_CLOUD_PROJECT,
+  location: process.env.GOOGLE_CLOUD_LOCATION,
+});
 
 export class GeminiProvider implements AiProvider {
   async generate(
@@ -32,16 +32,22 @@ export class GeminiProvider implements AiProvider {
     context: GenerationContext,
     options: AiProviderOptions,
   ): Promise<GenerationResult> {
+    const vertexEnv = getVertexEnvConfig();
     const useVertex =
-      options.useVertexAi ||
-      (!options.apiKey && USE_VERTEX_AI && VERTEX_PROJECT && VERTEX_LOCATION);
+      options.useVertexAi ??
+      Boolean(
+        !options.apiKey &&
+          vertexEnv.enabled &&
+          vertexEnv.projectId &&
+          vertexEnv.location,
+      );
 
     const clientConfig: { apiKey?: string; baseUrl?: string; projectId?: string; location?: string } =
       {};
 
     if (useVertex) {
-      clientConfig.projectId = VERTEX_PROJECT;
-      clientConfig.location = VERTEX_LOCATION;
+      clientConfig.projectId = vertexEnv.projectId;
+      clientConfig.location = vertexEnv.location;
     } else {
       if (!options.apiKey) {
         throw new AiGenerationError('Missing API key', 'NO_API_KEY');
@@ -59,6 +65,16 @@ export class GeminiProvider implements AiProvider {
 
     const isRegeneration = Boolean(request.previousResponseId);
 
+    // Select schema version using selection algorithm
+    // Gemini supports both v1-current and v2-flat, but prefers v2-flat for lower depth
+    const schemaVersion = getDefaultSchemaVersion({
+      supportedSchemas: ['v1-current', 'v2-flat'],
+    });
+    const selectedSchema = getSchemaForVersion(schemaVersion);
+
+    // Convert the selected Zod schema to JSON Schema for Gemini structured output
+    const geminiResponseSchema = z.toJSONSchema(selectedSchema);
+
     // Build prompt based on whether this is initial generation or regeneration
     let prompt: string;
     if (isRegeneration) {
@@ -71,7 +87,7 @@ export class GeminiProvider implements AiProvider {
       })}`;
     }
 
-    let planPayload: LlmTodayPlan | null = null;
+    let planPayload: unknown = null;
     let responseId = '';
     const started = Date.now();
     try {
@@ -100,8 +116,8 @@ export class GeminiProvider implements AiProvider {
         throw new Error(`Failed to parse JSON response: ${parseError}`);
       }
 
-      // Validate against Zod schema
-      planPayload = llmTodayPlanSchema.parse(parsed);
+      // Validate against selected Zod schema
+      planPayload = selectedSchema.parse(parsed);
 
       console.log(
         '[workouts.generate] model call completed',
@@ -129,14 +145,34 @@ export class GeminiProvider implements AiProvider {
       );
     }
 
-    const withIds = attachGeneratedIds(planPayload);
-    withIds.source = 'ai';
-    withIds.responseId = responseId;
+    // Transform LLM response to canonical TodayPlan using transformation layer
+    const transformResult = transformLlmResponse(planPayload, {
+      schemaVersion,
+    });
+
+    if (!transformResult.success) {
+      // Treat transformation failures as provider errors
+      console.error('[gemini.generate] transformation failed', {
+        error: transformResult.error.message,
+        schemaVersion: transformResult.schemaVersion,
+      });
+      throw new AiGenerationError(
+        `LLM response transformation failed: ${transformResult.error.message}`,
+        'INVALID_RESPONSE',
+      );
+    }
+
+    // Enrich the transformed plan with provider-specific metadata
+    const plan = { ...transformResult.plan, source: 'ai' as const, responseId };
+
+    console.log('[gemini.generate] transformation succeeded', {
+      schemaVersion: transformResult.schemaVersion,
+    });
 
     return {
-      plan: todayPlanSchema.parse(withIds),
+      plan: todayPlanSchema.parse(plan),
       responseId,
+      schemaVersion: transformResult.schemaVersion,
     };
   }
 }
-

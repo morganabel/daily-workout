@@ -57,6 +57,38 @@ export type TodayPlan = z.infer<typeof todayPlanSchema>;
 export const llmTodayPlanSchema = todayPlanBaseSchema;
 export type LlmTodayPlan = z.infer<typeof llmTodayPlanSchema>;
 
+// Flattened LLM schema (v2-flat): blocks and exercises are separate top-level arrays
+// This reduces nesting depth to <= 3 levels for better provider compatibility
+export const llmWorkoutBlockFlatSchema = z.object({
+  title: z.string(),
+  durationMinutes: z.number().int().positive(),
+  focus: z.string(),
+});
+export type LlmWorkoutBlockFlat = z.infer<typeof llmWorkoutBlockFlatSchema>;
+
+export const llmWorkoutExerciseFlatSchema = z.object({
+  blockIndex: z.number().int().nonnegative(),
+  order: z.number().int().nonnegative(),
+  name: z.string(),
+  prescription: z.string(),
+  detail: z.string().nullable(),
+});
+export type LlmWorkoutExerciseFlat = z.infer<typeof llmWorkoutExerciseFlatSchema>;
+
+const llmTodayPlanFlatBaseSchema = z.object({
+  focus: z.string(),
+  durationMinutes: z.number().int().positive(),
+  equipment: z.array(z.string()),
+  source: workoutSourceSchema,
+  energy: workoutEnergySchema,
+  summary: z.string(),
+  blocks: z.array(llmWorkoutBlockFlatSchema).min(1),
+  exercises: z.array(llmWorkoutExerciseFlatSchema).min(1),
+});
+
+export const llmTodayPlanFlatSchema = llmTodayPlanFlatBaseSchema;
+export type LlmTodayPlanFlat = z.infer<typeof llmTodayPlanFlatSchema>;
+
 export const workoutSessionSummarySchema = z.object({
   id: z.string(),
   name: z.string(),

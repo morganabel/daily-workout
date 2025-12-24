@@ -1,11 +1,15 @@
 {
   "name": "@workout-agent-ce/source",
   "version": "0.0.0",
-  "license": "MIT",
+  "license": "AGPL-3.0-only",
   "scripts": {
+    "start": "nx dev server",
     "dev": "nx dev server & nx start mobile",
     "dev:server": "nx dev server",
-    "dev:mobile": "nx start mobile"
+    "dev:mobile": "nx start mobile",
+    "lint": "nx run-many --target=lint --all",
+    "test": "nx run-many --target=test --all",
+    "build": "nx run-many --target=build --all"
   },
   "private": true,
   "dependencies": {
@@ -25,6 +29,7 @@
     "react": "19.0.0",
     "react-dom": "19.0.0",
     "react-native": "0.79.3",
+    "react-native-get-random-values": "^1.10.0",
     "react-native-root-siblings": "^5.0.0",
     "react-native-root-toast": "^3.6.0",
     "react-native-safe-area-context": "5.4.0",

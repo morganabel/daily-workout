@@ -16,6 +16,7 @@ import {
   setGenerationError,
   DEFAULT_GENERATION_ETA_SECONDS,
 } from '@/lib/generation-store';
+import type { LlmSchemaVersion } from '@/lib/llm-transformer';
 import { initializeProviders } from '@/lib/ai-providers/init';
 import { isSupportedProvider, getDefaultProviderName } from '@/lib/ai-providers/registry';
 
@@ -95,11 +96,12 @@ export async function POST(request: Request) {
 
   // Extract API key based on provider
   let apiKey: string | null = null;
-  const useVertexAi =
+  const useVertexAi = Boolean(
     provider === 'gemini' &&
     process.env.GOOGLE_GENAI_USE_VERTEXAI === 'true' &&
     process.env.GOOGLE_CLOUD_PROJECT &&
-    process.env.GOOGLE_CLOUD_LOCATION;
+    process.env.GOOGLE_CLOUD_LOCATION
+  );
   if (provider === 'openai') {
     apiKey = openaiKeyHeader || genericKeyHeader || process.env.OPENAI_API_KEY?.trim() || null;
   } else if (provider === 'gemini') {
@@ -141,6 +143,7 @@ export async function POST(request: Request) {
 
   let plan: TodayPlan;
   let responseId: string | undefined;
+  let schemaVersion: LlmSchemaVersion | undefined;
   let encounteredProviderError = false;
   if (apiKey) {
     try {
@@ -151,6 +154,7 @@ export async function POST(request: Request) {
       );
       plan = result.plan;
       responseId = result.responseId;
+      schemaVersion = result.schemaVersion;
     } catch (error) {
       encounteredProviderError = true;
       console.warn('[workouts.generate] AI generation failed, falling back to mock', {
@@ -159,7 +163,7 @@ export async function POST(request: Request) {
       });
       setGenerationError(
         deviceToken,
-        'We could not reach the AI provider. Showing a fallback plan.',
+        'We could not generate a workout plan. Showing a fallback plan.',
       );
       plan = mockPlan();
     }
@@ -169,13 +173,16 @@ export async function POST(request: Request) {
 
   const validated = todayPlanSchema.parse(plan);
   if (!encounteredProviderError) {
-    persistGeneratedPlan(deviceToken, validated);
+    persistGeneratedPlan(deviceToken, validated, {
+      schemaVersion,
+    });
     console.log('[workouts.generate] generation completed', {
       userId: auth.userId,
       durationMs: Date.now() - startedAt,
       source: apiKey ? 'ai' : 'mock',
       isRegeneration,
       responseId,
+      schemaVersion,
     });
   } else {
     console.warn('[workouts.generate] generation returned fallback plan', {

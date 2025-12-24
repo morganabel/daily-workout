@@ -11,7 +11,7 @@
 - Provider registry with keys `openai` and `gemini`; default comes from `AI_PROVIDER` (falls back to OpenAI).
 - Request-level override via header `x-ai-provider` plus BYOK key headers: generic `x-ai-key` and provider-specific aliases `x-openai-key`/`x-gemini-key` for compatibility.
 - OpenAI provider stays on Responses API + zod parsing; Gemini provider uses `@google/genai` with `responseMimeType: 'application/json'` and JSON schema derived from `llmTodayPlanSchema`.
-- Per-provider env config: `OPENAI_MODEL`, `OPENAI_API_BASE`, `GEMINI_MODEL`, optional `GEMINI_API_BASE`; keys `OPENAI_API_KEY` / `GEMINI_API_KEY`. **Default Gemini model is `gemini-2.5-flash` (not 1.5).**
+- Per-provider env config: `OPENAI_MODEL`, `OPENAI_API_BASE`, `GEMINI_MODEL`, optional `GEMINI_API_BASE`; keys `OPENAI_API_KEY` / `GEMINI_API_KEY`. **Default Gemini model is `gemini-3-flash-preview` (not 1.5).**
 - Shared contract gains optional `provider` block `{ name: 'openai' | 'gemini'; model?: string }` to carry model overrides from the client.
 - Unknown provider → 400 `INVALID_PROVIDER`; missing key in hosted edition → 402 `BYOK_REQUIRED`; provider error → mock fallback with logged status.
 

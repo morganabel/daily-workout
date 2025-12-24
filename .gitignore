@@ -34,6 +34,7 @@ npm-debug.log
 yarn-error.log
 testem.log
 /typings
+*.log
 
 # System Files
 .DS_Store
@@ -58,6 +59,10 @@ npm-debug.*
 *.orig.*
 web-build/
 cache/
+ios/Pods/
+ios/build/
+ios/DerivedData/
+*.xcworkspace
 
 
 test-output
