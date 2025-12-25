@@ -24,3 +24,24 @@ export {
   NoOpUsagePolicy,
   NoOpMeteringSink,
 } from './defaults';
+
+// Export handler factories
+export {
+  createSnapshotHandler,
+  createGenerateHandler,
+  createLogWorkoutHandler,
+  type SnapshotHandlerDeps,
+  type GenerateHandlerDeps,
+  type GenerateHandlerConfig,
+  type LogWorkoutHandlerDeps,
+} from './handlers';
+
+// Export utilities
+export {
+  createErrorResponse,
+  buildQuickActions,
+  loadGenerationContext,
+  type ApiError,
+  type ApiErrorCode,
+  type GenerationRequestWithContext,
+} from './utils';
