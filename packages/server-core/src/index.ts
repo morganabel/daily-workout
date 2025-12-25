@@ -16,3 +16,11 @@ export type {
   MeteringSink,
   UsageEvent,
 } from './types';
+
+// Export OSS default implementations
+export {
+  StubAuthProvider,
+  InMemoryGenerationStore,
+  NoOpUsagePolicy,
+  NoOpMeteringSink,
+} from './defaults';
