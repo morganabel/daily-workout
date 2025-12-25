@@ -2,54 +2,89 @@
  * Tests for POST /api/workouts/:id/log route
  */
 
+// Mock the wiring module to prevent SDK initialization
+jest.mock('@/lib/wiring');
+
 import { POST } from './route';
-import { authenticateRequest } from '@/lib/auth';
+import { logWorkoutHandler } from '@/lib/wiring';
+import {
+  createSessionSummaryMock,
+  workoutSessionSummarySchema,
+} from '@workout-agent/shared';
 
-// Mock dependencies
-jest.mock('@/lib/auth');
-
-const mockAuthenticateRequest = authenticateRequest as jest.MockedFunction<typeof authenticateRequest>;
+const mockLogWorkoutHandler = logWorkoutHandler as jest.MockedFunction<
+  typeof logWorkoutHandler
+>;
 
 describe('POST /api/workouts/:id/log', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
-  it('should log workout successfully', async () => {
-    mockAuthenticateRequest.mockResolvedValue({
-      userId: 'user-123',
-      deviceToken: 'test-token',
+  it('should delegate to logWorkoutHandler with planId', async () => {
+    const session = createSessionSummaryMock({
+      id: 'session-123',
+      completedAt: new Date().toISOString(),
     });
+    const mockResponse = Response.json(workoutSessionSummarySchema.parse(session));
+    mockLogWorkoutHandler.mockResolvedValue(mockResponse);
 
-    const planId = 'plan-123';
-    const request = new Request(`http://localhost:3000/api/workouts/${planId}/log`, {
-      method: 'POST',
-      headers: {
-        Authorization: 'Bearer test-token',
-      },
-    });
+    const request = new Request(
+      'http://localhost:3000/api/workouts/plan-123/log',
+      {
+        method: 'POST',
+        headers: {
+          Authorization: 'Bearer test-token',
+        },
+      }
+    );
 
-    const params = Promise.resolve({ id: planId });
+    const params = { id: 'plan-123' };
     const response = await POST(request, { params });
-    const data = await response.json();
 
-    expect(response.status).toBe(200);
-    expect(data).toHaveProperty('id');
-    expect(data).toHaveProperty('completedAt');
-    expect(data).toHaveProperty('focus');
-    expect(data).toHaveProperty('source');
-    expect(data.id).toContain(planId);
+    expect(mockLogWorkoutHandler).toHaveBeenCalledWith(request, 'plan-123');
+    expect(response).toBe(mockResponse);
   });
 
-  it('should return 401 when not authenticated', async () => {
-    mockAuthenticateRequest.mockResolvedValue(null);
-
-    const planId = 'plan-123';
-    const request = new Request(`http://localhost:3000/api/workouts/${planId}/log`, {
-      method: 'POST',
+  it('should handle Promise params (Next.js 15 compatibility)', async () => {
+    const session = createSessionSummaryMock({
+      id: 'session-456',
     });
+    const mockResponse = Response.json(workoutSessionSummarySchema.parse(session));
+    mockLogWorkoutHandler.mockResolvedValue(mockResponse);
 
-    const params = Promise.resolve({ id: planId });
+    const request = new Request(
+      'http://localhost:3000/api/workouts/plan-456/log',
+      {
+        method: 'POST',
+        headers: {
+          Authorization: 'Bearer test-token',
+        },
+      }
+    );
+
+    const params = Promise.resolve({ id: 'plan-456' });
+    const response = await POST(request, { params });
+
+    expect(mockLogWorkoutHandler).toHaveBeenCalledWith(request, 'plan-456');
+    expect(response).toBe(mockResponse);
+  });
+
+  it('should return 401 when handler returns unauthorized', async () => {
+    const mockResponse = Response.json(
+      { code: 'UNAUTHORIZED', message: 'Invalid or missing DeviceToken' },
+      { status: 401 }
+    );
+    mockLogWorkoutHandler.mockResolvedValue(mockResponse);
+
+    const request = new Request(
+      'http://localhost:3000/api/workouts/plan-123/log',
+      {
+        method: 'POST',
+      }
+    );
+
+    const params = { id: 'plan-123' };
     const response = await POST(request, { params });
     const data = await response.json();
 
@@ -57,91 +92,31 @@ describe('POST /api/workouts/:id/log', () => {
     expect(data.code).toBe('UNAUTHORIZED');
   });
 
-  it('should handle different plan IDs', async () => {
-    mockAuthenticateRequest.mockResolvedValue({
-      userId: 'user-123',
-      deviceToken: 'test-token',
+  it('should return session summary on success', async () => {
+    const session = createSessionSummaryMock({
+      id: 'session-789',
+      completedAt: '2024-01-15T10:30:00Z',
+      source: 'ai',
     });
+    const mockResponse = Response.json(workoutSessionSummarySchema.parse(session));
+    mockLogWorkoutHandler.mockResolvedValue(mockResponse);
 
-    const planId1 = 'plan-abc';
-    const request1 = new Request(`http://localhost:3000/api/workouts/${planId1}/log`, {
-      method: 'POST',
-      headers: {
-        Authorization: 'Bearer test-token',
-      },
-    });
+    const request = new Request(
+      'http://localhost:3000/api/workouts/plan-789/log',
+      {
+        method: 'POST',
+        headers: {
+          Authorization: 'Bearer test-token',
+        },
+      }
+    );
 
-    const params1 = Promise.resolve({ id: planId1 });
-    const response1 = await POST(request1, { params: params1 });
-    const data1 = await response1.json();
-
-    expect(response1.status).toBe(200);
-    expect(data1.id).toContain(planId1);
-
-    const planId2 = 'plan-xyz';
-    const request2 = new Request(`http://localhost:3000/api/workouts/${planId2}/log`, {
-      method: 'POST',
-      headers: {
-        Authorization: 'Bearer test-token',
-      },
-    });
-
-    const params2 = Promise.resolve({ id: planId2 });
-    const response2 = await POST(request2, { params: params2 });
-    const data2 = await response2.json();
-
-    expect(response2.status).toBe(200);
-    expect(data2.id).toContain(planId2);
-    expect(data1.id).not.toBe(data2.id);
-  });
-
-  it('should validate response against schema', async () => {
-    mockAuthenticateRequest.mockResolvedValue({
-      userId: 'user-123',
-      deviceToken: 'test-token',
-    });
-
-    const planId = 'plan-123';
-    const request = new Request(`http://localhost:3000/api/workouts/${planId}/log`, {
-      method: 'POST',
-      headers: {
-        Authorization: 'Bearer test-token',
-      },
-    });
-
-    const params = Promise.resolve({ id: planId });
-    const response = await POST(request, { params });
-    const data = await response.json();
-
-    // Should not throw - schema validation happens in route handler
-    expect(data).toMatchObject({
-      id: expect.any(String),
-      completedAt: expect.any(String),
-      focus: expect.any(String),
-      source: expect.any(String),
-    });
-  });
-
-  it('should handle direct params (non-Promise) for compatibility', async () => {
-    mockAuthenticateRequest.mockResolvedValue({
-      userId: 'user-123',
-      deviceToken: 'test-token',
-    });
-
-    const planId = 'plan-123';
-    const request = new Request(`http://localhost:3000/api/workouts/${planId}/log`, {
-      method: 'POST',
-      headers: {
-        Authorization: 'Bearer test-token',
-      },
-    });
-
-    // Test with direct params object (not Promise)
-    const params = { id: planId };
+    const params = { id: 'plan-789' };
     const response = await POST(request, { params });
     const data = await response.json();
 
     expect(response.status).toBe(200);
-    expect(data.id).toContain(planId);
+    expect(data.id).toBe('session-789');
+    expect(data.source).toBe('ai');
   });
 });

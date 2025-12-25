@@ -58,6 +58,12 @@
   "references": [
     {
       "path": "../../packages/shared"
+    },
+    {
+      "path": "../../packages/server-ai"
+    },
+    {
+      "path": "../../packages/server-core"
     }
   ]
 }

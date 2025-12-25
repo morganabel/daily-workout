@@ -17,6 +17,12 @@
     },
     {
       "path": "./apps/server"
+    },
+    {
+      "path": "./packages/server-core"
+    },
+    {
+      "path": "./packages/server-ai"
     }
   ]
 }
