@@ -6,7 +6,7 @@
 ## 2. Package Scaffolding
 - [x] 2.1 Create `packages/server-core` with build/test/lint/typecheck targets consistent with existing `packages/shared`.
 - [x] 2.2 Create `packages/server-ai` (or equivalent) to host OpenAI/Gemini providers, prompts, and the transformer as an implementation of `ModelRouter`.
-- [ ] 2.3 Add minimal READMEs describing how CE and hosted Next apps import and compose these packages.
+- [x] 2.3 Add minimal READMEs describing how CE and hosted Next apps import and compose these packages.
 
 ## 3. Extract Core + DI
 - [x] 3.1 Move request parsing + shared route logic into `packages/server-core`, exposing handler factories for:
@@ -35,6 +35,6 @@
 - [x] 6.3 Add policy hook points for rate limiting/quota gating and metering recording around model calls (OSS defaults are no-op).
 
 ## 7. Verification
-- [ ] 7.1 Update/move unit tests alongside extracted code and keep route tests passing.
+- [x] 7.1 Update/move unit tests alongside extracted code and keep route tests passing.
 - [ ] 7.2 Run Nx tests/typecheck for affected projects (`server`, `server-core`, `server-ai`, `shared`).
 - [ ] 7.3 Manual smoke: mobile app still generates/logs against local server; BYOK headers still work; hosted-mode BYOK remains supported.
