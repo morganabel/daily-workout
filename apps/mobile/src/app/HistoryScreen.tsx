@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, Alert, ActivityIndicator } from 'react-native';
 import Toast from 'react-native-root-toast';
+import { Ionicons } from '@expo/vector-icons';
 import type { WorkoutSessionSummary } from '@workout-agent/shared';
 import { workoutRepository } from './db/repositories/WorkoutRepository';
 import { useNavigation } from '@react-navigation/native';
@@ -24,6 +25,7 @@ const palette = {
   textSecondary: '#9cabc4',
   textMuted: '#5c6a85',
   warning: '#ffb347',
+  favorite: '#ff7ab6',
   destructive: '#ff6b6b',
 };
 
@@ -126,8 +128,8 @@ export const HistoryScreen = () => {
     <View style={styles.screen}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.headerRow}>
-          <Pressable style={styles.closeButton} onPress={() => navigation.goBack()}>
-            <Text style={styles.closeButtonText}>Close</Text>
+          <Pressable style={styles.closeButton} onPress={() => navigation.goBack()} hitSlop={10}>
+            <Ionicons name="close" size={24} color={palette.textSecondary} />
           </Pressable>
           <Text style={styles.screenTitle}>History</Text>
         </View>
@@ -162,38 +164,36 @@ export const HistoryScreen = () => {
         ) : (
           history.map((session) => (
             <View key={session.id} style={styles.card}>
-              <Text style={styles.workoutName}>{session.name}</Text>
-              <Text style={styles.workoutFocus}>{session.focus}</Text>
+              <View style={styles.cardHeader}>
+                <View style={styles.cardInfo}>
+                  <Text style={styles.workoutName}>{session.name}</Text>
+                  <Text style={styles.workoutFocus}>{session.focus}</Text>
+                </View>
+                <Pressable
+                  onPress={() => handleFavoriteToggle(session)}
+                  hitSlop={10}
+                >
+                  <Ionicons
+                    name={session.isFavorite ? 'heart' : 'heart-outline'}
+                    size={24}
+                    color={session.isFavorite ? palette.favorite : palette.textSecondary}
+                  />
+                </Pressable>
+              </View>
+
               <Text style={styles.workoutMeta}>
                 {new Date(session.completedAt).toLocaleDateString()} • {session.durationMinutes} min
               </Text>
+
               <View style={styles.badges}>
-                {session.isFavorite && (
-                  <View style={[styles.badge, styles.favoriteBadge]}>
-                    <Text style={styles.favoriteBadgeText}>Favorite</Text>
-                  </View>
-                )}
                 {session.archivedAt && (
                   <View style={[styles.badge, styles.archivedBadge]}>
                     <Text style={styles.archivedBadgeText}>Archived</Text>
                   </View>
                 )}
               </View>
+
               <View style={styles.historyActions}>
-                <Pressable
-                  style={({ pressed }) => [
-                    styles.historyActionButton,
-                    pressed && { opacity: 0.7 },
-                  ]}
-                  onPress={() => handleFavoriteToggle(session)}
-                >
-                  <Text style={[
-                    styles.historyActionText,
-                    session.isFavorite && styles.historyActionActive
-                  ]}>
-                    {session.isFavorite ? 'Unfavorite' : 'Favorite'}
-                  </Text>
-                </Pressable>
                 <Pressable
                   style={({ pressed }) => [
                     styles.historyActionButton,
@@ -271,15 +271,13 @@ const styles = StyleSheet.create({
     color: palette.textPrimary,
   },
   closeButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
+    padding: 8,
     borderRadius: 999,
     borderWidth: 1,
     borderColor: palette.border,
-  },
-  closeButtonText: {
-    color: palette.textSecondary,
-    fontWeight: '600',
+    backgroundColor: palette.cardSecondary,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   card: {
     backgroundColor: palette.card,
@@ -288,6 +286,16 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     borderWidth: 1,
     borderColor: palette.border,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 8,
+  },
+  cardInfo: {
+    flex: 1,
+    paddingRight: 12,
   },
   workoutName: {
     fontSize: 18,
@@ -326,15 +334,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
   },
-  favoriteBadge: {
-    backgroundColor: 'rgba(255, 179, 71, 0.1)',
-    borderColor: 'rgba(255, 179, 71, 0.3)',
-  },
-  favoriteBadgeText: {
-    color: palette.warning,
-    fontSize: 12,
-    fontWeight: '700',
-  },
   historyActions: {
     flexDirection: 'row',
     gap: 10,
@@ -348,9 +347,6 @@ const styles = StyleSheet.create({
     color: palette.textMuted,
     fontWeight: '600',
     fontSize: 13,
-  },
-  historyActionActive: {
-    color: palette.warning,
   },
   historyActionDestructive: {
     color: palette.destructive,
