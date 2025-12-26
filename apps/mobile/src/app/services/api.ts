@@ -223,6 +223,13 @@ export async function unarchiveWorkoutSession(workoutId: string): Promise<void> 
 }
 
 /**
+ * Toggle the favorite status of a workout session locally.
+ */
+export async function toggleFavoriteWorkout(workoutId: string): Promise<void> {
+  await workoutRepository.toggleFavoriteWorkout(workoutId);
+}
+
+/**
  * Permanently delete a workout session and its related exercises/sets locally.
  */
 export async function deleteWorkoutSession(workoutId: string): Promise<void> {

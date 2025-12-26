@@ -24,6 +24,17 @@ export const migrations = schemaMigrations({
         }),
       ],
     },
+    {
+      toVersion: 4,
+      steps: [
+        addColumns({
+          table: 'workouts',
+          columns: [
+            { name: 'is_favorite', type: 'boolean', isOptional: true },
+          ],
+        }),
+      ],
+    },
   ],
 });
 
