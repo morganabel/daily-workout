@@ -3,6 +3,7 @@
   "version": "0.0.1",
   "private": true,
   "scripts": {
+    "clean": "node ../../tools/scripts/clean-mobile.mjs",
     "eas-build-post-install": "cd ../../ && node tools/scripts/eas-build-post-install.mjs . apps/mobile",
     "android": "expo run:android",
     "ios": "expo run:ios"
@@ -35,6 +36,7 @@
     "picocolors": "*",
     "react": "*",
     "react-native": "*",
+    "react-native-get-random-values": "*",
     "react-native-root-siblings": "*",
     "react-native-root-toast": "*",
     "react-native-safe-area-context": "5.4.0",
