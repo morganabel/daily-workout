@@ -10,7 +10,6 @@
   "dependencies": {
     "@expo/metro-config": "*",
     "@nozbe/watermelondb": "^0.28.0",
-    "@nx/detox": "*",
     "@nx/devkit": "*",
     "@nx/eslint": "*",
     "@nx/eslint-plugin": "*",
