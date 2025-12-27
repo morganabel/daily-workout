@@ -77,7 +77,3 @@ export const generateHandler = createGenerateHandler({
   config,
 });
 export const logWorkoutHandler = createLogWorkoutHandler({ auth, store });
-
-// Export the store instance for legacy code that needs direct access
-// TODO: Remove this once all code uses handlers
-export { store as legacyGenerationStore };
