@@ -98,6 +98,7 @@ export const workoutSessionSummarySchema = z.object({
   source: workoutSourceSchema.optional(),
   // When set, the session is archived/hidden from recency contexts
   archivedAt: z.string().optional(),
+  isFavorite: z.boolean().optional(),
 });
 export type WorkoutSessionSummary = z.infer<typeof workoutSessionSummarySchema>;
 

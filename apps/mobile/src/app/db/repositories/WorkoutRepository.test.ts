@@ -118,5 +118,47 @@ describe('WorkoutRepository', () => {
       }
     });
   });
+
+  describe('toggleFavoriteWorkout', () => {
+    it('toggles isFavorite flag', async () => {
+      // Create a workout
+      const workout = await workoutRepository.quickLogManualSession({
+        name: 'Fav Test',
+        focus: 'Strength',
+        durationMinutes: 30,
+      });
+
+      // Initially undefined or false
+      expect(workout.isFavorite).toBeFalsy();
+
+      // Toggle ON
+      await workoutRepository.toggleFavoriteWorkout(workout.id);
+
+      // Reload to check persistence
+      const updatedWorkout = await database.collections.get<any>('workouts').find(workout.id);
+      expect(updatedWorkout.isFavorite).toBe(true);
+
+      // Toggle OFF
+      await workoutRepository.toggleFavoriteWorkout(workout.id);
+
+      const updatedWorkout2 = await database.collections.get<any>('workouts').find(workout.id);
+      expect(updatedWorkout2.isFavorite).toBe(false);
+    });
+
+    it('is reflected in session summary', async () => {
+       const workout = await workoutRepository.quickLogManualSession({
+        name: 'Summary Test',
+        focus: 'Strength',
+        durationMinutes: 30,
+      });
+
+      await workoutRepository.toggleFavoriteWorkout(workout.id);
+
+      // Reload the workout to get the latest state before converting to summary
+      const reloadedWorkout = await database.collections.get<any>('workouts').find(workout.id);
+      const summary = workoutRepository.toSessionSummary(reloadedWorkout);
+      expect(summary.isFavorite).toBe(true);
+    });
+  });
 });
 

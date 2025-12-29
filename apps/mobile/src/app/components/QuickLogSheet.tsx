@@ -123,10 +123,11 @@ export const QuickLogSheet = ({
     switch (dateOption) {
       case 'today':
         return now;
-      case 'yesterday':
+      case 'yesterday': {
         const yesterday = new Date(now);
         yesterday.setDate(yesterday.getDate() - 1);
         return yesterday;
+      }
       case 'custom':
         return customDate;
     }

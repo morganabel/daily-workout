@@ -132,7 +132,17 @@ export class WorkoutRepository {
       archivedAt: workout.archivedAt
         ? new Date(workout.archivedAt).toISOString()
         : undefined,
+      isFavorite: workout.isFavorite,
     };
+  }
+
+  async toggleFavoriteWorkout(workoutId: string) {
+    const workout = await this.workouts.find(workoutId);
+    await database.write(async () => {
+      await workout.update((w) => {
+        w.isFavorite = !w.isFavorite;
+      });
+    });
   }
 
   async completeWorkoutById(workoutId: string, durationSeconds?: number) {
