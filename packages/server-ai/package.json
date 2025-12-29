@@ -1,0 +1,25 @@
+{
+    "name": "@workout-agent-ce/server-ai",
+    "version": "0.0.1",
+    "private": true,
+    "type": "module",
+    "main": "./dist/index.js",
+    "module": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+        "./package.json": "./package.json",
+        ".": {
+            "@workout-agent-ce/source": "./src/index.ts",
+            "types": "./dist/index.d.ts",
+            "import": "./dist/index.js",
+            "default": "./dist/index.js"
+        }
+    },
+    "dependencies": {
+        "@google/genai": "^1.31.0",
+        "@workout-agent-ce/server-core": "*",
+        "@workout-agent/shared": "*",
+        "openai": "^6.8.1",
+        "tslib": "^2.3.0"
+    }
+}
