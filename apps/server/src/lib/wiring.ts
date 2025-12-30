@@ -1,7 +1,7 @@
 /**
- * Dependency wiring for the OSS server
+ * Dependency wiring for the CE server
  *
- * This module constructs the concrete implementations (OSS defaults)
+ * This module constructs the concrete implementations (CE defaults)
  * and exports ready-to-use handlers.
  */
 
@@ -17,25 +17,25 @@ import {
 } from '@workout-agent-ce/server-core';
 import { DefaultModelRouter } from '@workout-agent-ce/server-ai';
 
-// Instantiate OSS default dependencies
+// Instantiate CE default dependencies
 const auth = new StubAuthProvider();
 const store = new InMemoryGenerationStore();
 const router = new DefaultModelRouter();
 const policy = new NoOpUsagePolicy();
 const metering = new NoOpMeteringSink();
 
-const allowedEditions = new Set(['OSS', 'HOSTED'] as const);
+const allowedEditions = new Set(['CE', 'HOSTED'] as const);
 const allowedProviders = new Set(['openai', 'gemini'] as const);
 
 const buildConfig = (): GenerateHandlerConfig => {
   const rawEdition = process.env.EDITION?.toUpperCase();
-  if (rawEdition && !allowedEditions.has(rawEdition as 'OSS' | 'HOSTED')) {
+  if (rawEdition && !allowedEditions.has(rawEdition as 'CE' | 'HOSTED')) {
     throw new Error(`Invalid EDITION value: ${rawEdition}`);
   }
 
-  const edition = (rawEdition as 'OSS' | 'HOSTED') ?? 'OSS';
-  if (edition !== 'OSS') {
-    throw new Error(`OSS server wiring does not support EDITION=${edition}`);
+  const edition = (rawEdition as 'CE' | 'HOSTED') ?? 'CE';
+  if (edition !== 'CE') {
+    throw new Error(`CE server wiring does not support EDITION=${edition}`);
   }
 
   const rawProvider = process.env.AI_PROVIDER?.toLowerCase();

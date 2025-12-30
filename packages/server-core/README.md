@@ -8,7 +8,7 @@ This package provides the framework-agnostic business logic for the Workout Agen
 
 - **Handler Factories**: Create `Request → Response` handlers for API routes
 - **Dependency Interfaces**: `AuthProvider`, `GenerationStore`, `ModelRouter`, `UsagePolicy`, `MeteringSink`
-- **OSS Defaults**: Stub implementations for Community Edition deployments
+- **CE Defaults**: Stub implementations for Community Edition deployments
 - **Utilities**: Error handling, context loading, quick actions
 
 ## Usage in Community Edition
@@ -25,7 +25,7 @@ import {
 } from '@workout-agent-ce/server-core';
 import { DefaultModelRouter } from '@workout-agent-ce/server-ai';
 
-// Instantiate OSS defaults
+// Instantiate CE defaults
 const auth = new StubAuthProvider();
 const store = new InMemoryGenerationStore();
 const router = new DefaultModelRouter();
@@ -41,7 +41,7 @@ const generateHandler = createGenerateHandler({
   policy,
   metering,
   config: {
-    edition: 'OSS',
+    edition: 'CE',
     defaultApiKeys: {
       openai: process.env.OPENAI_API_KEY,
       gemini: process.env.GEMINI_API_KEY,
@@ -58,7 +58,7 @@ export async function GET(request: Request) {
 
 ## Usage in Hosted Deployments
 
-Replace the OSS defaults with production implementations:
+Replace the CE defaults with production implementations:
 
 ```typescript
 import {

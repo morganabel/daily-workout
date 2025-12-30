@@ -17,7 +17,7 @@ export type {
   UsageEvent,
 } from './types';
 
-// Export OSS default implementations
+// Export CE default implementations
 export {
   StubAuthProvider,
   InMemoryGenerationStore,

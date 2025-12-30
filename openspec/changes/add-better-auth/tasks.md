@@ -1,5 +1,5 @@
 ## 0. Terminology + Safety Baselines
-- [ ] 0.1 Standardize on `EDITION=CE|HOSTED` across repo docs/config (no `OSS`/`CE` mixing)
+- [x] 0.1 Standardize on `EDITION=CE|HOSTED` across repo docs/config (no `OSS`/`CE` mixing)
 - [ ] 0.2 Add explicit “secrets never logged” constraints (server + mobile) and remove any request logging that could capture auth payloads
 
 ## 1. Database Setup

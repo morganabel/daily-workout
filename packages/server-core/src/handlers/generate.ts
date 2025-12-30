@@ -27,9 +27,9 @@ const DEFAULT_GENERATION_ETA_SECONDS = 18;
  */
 export interface GenerateHandlerConfig {
   /**
-   * Edition mode (OSS or HOSTED)
+   * Edition mode (CE or HOSTED)
    */
-  edition?: 'OSS' | 'HOSTED';
+  edition?: 'CE' | 'HOSTED';
 
   /**
    * Whether to use Vertex AI for Gemini (server-configured)
