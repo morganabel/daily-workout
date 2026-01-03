@@ -46,26 +46,26 @@
 - [ ] 5.1 Add test: Authorization header is redacted in server logs
 - [ ] 5.2 Add test: Auth endpoint request bodies (email/password) are redacted in logs
 - [ ] 5.3 Add test: Error responses do not include secrets
-- [ ] 5.4 Add test: Protected routes accept valid bearer sessions
-- [ ] 5.5 Add test: Protected routes reject missing/expired sessions (401)
-- [ ] 5.6 Add test: Hosted mode fails closed when DATABASE_URL missing
-- [ ] 5.7 Add test: Stub fallback works only in CE/no-DB mode
-- [ ] 5.8 Add test: x-user-id header is ignored in Better Auth mode
+- [x] 5.4 Add test: Protected routes accept valid bearer sessions
+- [x] 5.5 Add test: Protected routes reject missing/expired sessions (401)
+- [x] 5.6 Add test: Hosted mode fails closed when DATABASE_URL missing
+- [x] 5.7 Add test: Stub fallback works only in CE/no-DB mode
+- [x] 5.8 Add test: x-user-id header is ignored in Better Auth mode
 - [ ] 5.9 Manual test auth flow with curl/Postman
 
 ## 6. Mobile Client
-- [ ] 6.1 Add better-auth and @better-auth/expo to mobile
-- [ ] 6.2 Create `auth-client.ts` with Expo SecureStore
-- [ ] 6.3 Derive `storagePrefix` from hash of canonical backend URL
-- [ ] 6.4 Fetch `/api/meta` on startup to detect auth capabilities
-- [ ] 6.5 Implement silent anonymous sign-in on first run when backend supports it
-- [ ] 6.6 Add URL scheme to `app.json`
-- [ ] 6.7 Update `api.ts` to send `Authorization: Bearer <session>`
+- [x] 6.1 Add better-auth and @better-auth/expo to mobile
+- [x] 6.2 Create `auth-client.ts` with Expo SecureStore
+- [x] 6.3 Derive `storagePrefix` from hash of canonical backend URL
+- [x] 6.4 Fetch `/api/meta` on startup to detect auth capabilities
+- [x] 6.5 Implement silent anonymous sign-in on first run when backend supports it
+- [x] 6.6 Add URL scheme to `app.json`
+- [x] 6.7 Update `api.ts` to send `Authorization: Bearer <session>`
 - [ ] 6.8 Remove/redact auth headers/tokens from client debug logs
 
 ## 7. Auth UI
-- [ ] 7.1 Create SignInScreen with email/password form (upgrade from anonymous)
-- [ ] 7.2 Create SignUpScreen with registration form (upgrade from anonymous, preserves userId)
-- [ ] 7.3 Add auth guard to navigation
+- [x] 7.1 Create SignInScreen with email/password form (upgrade from anonymous)
+- [x] 7.2 Create SignUpScreen with registration form (upgrade from anonymous, preserves userId)
+- [x] 7.3 Add auth guard to navigation
 - [ ] 7.4 Test full auth flow on device/simulator
 - [ ] 7.5 Test backend switching (verify storagePrefix isolation)
