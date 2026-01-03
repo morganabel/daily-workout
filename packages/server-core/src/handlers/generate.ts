@@ -14,6 +14,7 @@ import {
   createTodayPlanMock,
   type TodayPlan,
 } from '@workout-agent/shared';
+import { safeLog } from '../utils/logging';
 
 // Extended schema that accepts optional client-provided context
 const generationRequestWithContextSchema = generationRequestSchema.extend({
@@ -213,7 +214,7 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
     const isRegeneration = Boolean(generationRequest.previousResponseId);
 
     // Log generation start (NEVER log API keys)
-    console.log('[workouts.generate] generation started', {
+    safeLog('[workouts.generate] generation started', {
       userId: auth.userId,
       provider,
       hasApiKey: Boolean(apiKey),
@@ -243,7 +244,7 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
       } catch (error) {
         encounteredProviderError = true;
         const sanitizedMessage = sanitizeErrorMessage((error as Error).message);
-        console.warn('[workouts.generate] AI generation failed, falling back to mock', {
+        safeLog('[workouts.generate] AI generation failed, falling back to mock', {
           provider,
           message: sanitizedMessage, // Use sanitized message
         });
@@ -263,7 +264,7 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
       await deps.store.persistPlan(auth.principalId, validated, {
         schemaVersion,
       });
-      console.log('[workouts.generate] generation completed', {
+      safeLog('[workouts.generate] generation completed', {
         userId: auth.userId,
         durationMs: Date.now() - startedAt,
         source: apiKey ? 'ai' : 'mock',
@@ -272,7 +273,7 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
         schemaVersion,
       });
     } else {
-      console.warn('[workouts.generate] generation returned fallback plan', {
+      safeLog('[workouts.generate] generation returned fallback plan', {
         userId: auth.userId,
         durationMs: Date.now() - startedAt,
       });
