@@ -14,6 +14,7 @@ import { getDeviceToken } from '../storage/deviceToken';
 import { getByokApiKey, getByokConfig } from '../storage/byokKey';
 import { userRepository } from '../db/repositories/UserRepository';
 import { workoutRepository } from '../db/repositories/WorkoutRepository';
+import { getSessionToken, isAuthEnabled } from './auth-client';
 
 const API_BASE_URL =
   process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:3000';
@@ -25,13 +26,31 @@ export interface ApiError {
 }
 
 /**
+ * Get the authentication token for API requests.
+ *
+ * Priority:
+ * 1. Better Auth session token (if auth is enabled on server)
+ * 2. Legacy device token (fallback for stub auth mode)
+ */
+async function getAuthToken(): Promise<string | null> {
+  // Try Better Auth session first
+  const sessionToken = await getSessionToken();
+  if (sessionToken) {
+    return sessionToken;
+  }
+
+  // Fall back to legacy device token for stub auth mode
+  return getDeviceToken();
+}
+
+/**
  * Make authenticated API request
  */
 async function apiRequest<T>(
   endpoint: string,
   options: RequestInit = {},
 ): Promise<T> {
-  const token = await getDeviceToken();
+  const token = await getAuthToken();
   const byokConfig = await getByokConfig();
   const url = `${API_BASE_URL}${endpoint}`;
 
@@ -63,11 +82,12 @@ async function apiRequest<T>(
     }
   }
 
+  // Log request info but NEVER log the token value (security)
   console.log(`[API] ${options.method || 'GET'} ${url}`, {
     hasToken: !!token,
     hasByokConfig: !!byokConfig,
     provider: byokConfig?.provider,
-    body: options.body,
+    // Don't log request body as it may contain sensitive data
   });
 
   const response = await fetch(url, {

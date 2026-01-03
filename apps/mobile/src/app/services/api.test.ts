@@ -1,3 +1,9 @@
+// Mock auth-client before importing api.ts to avoid ESM import issues
+jest.mock('./auth-client', () => ({
+  getSessionToken: jest.fn().mockResolvedValue(null),
+  isAuthEnabled: jest.fn().mockResolvedValue(false),
+}));
+
 import { buildGenerationContext, archiveWorkoutSession, deleteWorkoutSession, unarchiveWorkoutSession, quickLogWorkout } from './api';
 import { workoutRepository } from '../db/repositories/WorkoutRepository';
 import { userRepository } from '../db/repositories/UserRepository';

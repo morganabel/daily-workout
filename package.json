@@ -13,6 +13,7 @@
   },
   "private": true,
   "dependencies": {
+    "@better-auth/expo": "1.4.10",
     "@expo/metro-config": "~0.20.14",
     "@expo/metro-runtime": "~5.0.4",
     "@react-native-community/datetimepicker": "^8.5.1",
@@ -22,6 +23,7 @@
     "better-auth": "1.4.10",
     "drizzle-orm": "0.45.1",
     "expo": "~53.0.10",
+    "expo-crypto": "15.0.8",
     "expo-secure-store": "^15.0.7",
     "expo-splash-screen": "~0.30.9",
     "expo-status-bar": "~2.2.3",
