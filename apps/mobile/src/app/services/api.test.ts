@@ -1,13 +1,13 @@
-// Mock auth-client before importing api.ts to avoid ESM import issues
+import type { WorkoutSessionSummary } from '@workout-agent/shared';
+import { buildGenerationContext, archiveWorkoutSession, deleteWorkoutSession, unarchiveWorkoutSession, quickLogWorkout } from './api';
+import { workoutRepository } from '../db/repositories/WorkoutRepository';
+import { userRepository } from '../db/repositories/UserRepository';
+
+// Mock auth-client to avoid ESM import issues (jest.mock is hoisted)
 jest.mock('./auth-client', () => ({
   getSessionToken: jest.fn().mockResolvedValue(null),
   isAuthEnabled: jest.fn().mockResolvedValue(false),
 }));
-
-import { buildGenerationContext, archiveWorkoutSession, deleteWorkoutSession, unarchiveWorkoutSession, quickLogWorkout } from './api';
-import { workoutRepository } from '../db/repositories/WorkoutRepository';
-import { userRepository } from '../db/repositories/UserRepository';
-import type { WorkoutSessionSummary } from '@workout-agent/shared';
 
 jest.mock('../db/repositories/WorkoutRepository', () => ({
   workoutRepository: {

@@ -6,4 +6,7 @@ export type RootStackParamList = {
   ActiveWorkout: { plan: TodayPlan };
   History: undefined;
   Settings: undefined;
+  // Auth screens (optional upgrade from anonymous)
+  SignIn: undefined;
+  SignUp: undefined;
 };

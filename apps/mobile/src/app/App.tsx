@@ -10,6 +10,8 @@ import { ActiveWorkoutScreen } from './ActiveWorkoutScreen';
 import { RootStackParamList } from './navigation';
 import { HistoryScreen } from './HistoryScreen';
 import { SettingsScreen } from './SettingsScreen';
+import { SignInScreen } from './SignInScreen';
+import { SignUpScreen } from './SignUpScreen';
 import { useDeviceToken } from './hooks/useDeviceToken';
 
 const backgroundColor = '#030914';
@@ -38,6 +40,9 @@ export const App = () => {
             <Stack.Screen name="ActiveWorkout" component={ActiveWorkoutScreen} />
             <Stack.Screen name="History" component={HistoryScreen} />
             <Stack.Screen name="Settings" component={SettingsScreen} />
+            {/* Auth screens - optional upgrade from anonymous */}
+            <Stack.Screen name="SignIn" component={SignInScreen} />
+            <Stack.Screen name="SignUp" component={SignUpScreen} />
           </Stack.Navigator>
         </SafeAreaView>
       </NavigationContainer>

@@ -62,6 +62,12 @@ jest.mock('./WorkoutPreviewScreen', () => ({
 jest.mock('./ActiveWorkoutScreen', () => ({
   ActiveWorkoutScreen: () => null,
 }));
+jest.mock('./SignInScreen', () => ({
+  SignInScreen: () => null,
+}));
+jest.mock('./SignUpScreen', () => ({
+  SignUpScreen: () => null,
+}));
 
 const mockUseHomeData = useHomeData as jest.MockedFunction<typeof useHomeData>;
 
