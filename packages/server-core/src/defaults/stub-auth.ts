@@ -1,10 +1,14 @@
 import type { AuthProvider, AuthResult } from '../types';
 
 /**
- * Stub authentication provider for OSS deployments.
- * Accepts any non-empty Bearer token and returns a stub user ID.
+ * Stub authentication provider for CE deployments without a database.
+ * Accepts any non-empty Bearer token and returns a stub user identity.
  *
- * Production deployments should replace this with Better Auth or a database-backed provider.
+ * For stub auth, the token itself serves as both userId and principalId since
+ * there's no server-side session management. This allows development and
+ * self-hosted deployments to work without database configuration.
+ *
+ * Production hosted deployments should use BetterAuthProvider from @workout-agent-ce/server-auth.
  */
 export class StubAuthProvider implements AuthProvider {
   async authenticate(request: Request): Promise<AuthResult | null> {
@@ -19,10 +23,11 @@ export class StubAuthProvider implements AuthProvider {
     }
 
     // Stub: accept any non-empty token
-    // In production, this would query the DeviceToken table or validate via Better Auth
+    // Use the token as both userId and principalId for stub mode
+    // In production, BetterAuthProvider validates sessions against the database
     return {
-      userId: 'user-stub',
-      deviceToken: token,
+      userId: `stub-${token}`,
+      principalId: token,
     };
   }
 }

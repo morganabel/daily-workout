@@ -101,7 +101,7 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
     if (!auth) {
       return createErrorResponse(
         'UNAUTHORIZED',
-        'Invalid or missing DeviceToken',
+        'Invalid or missing bearer session',
         401
       );
     }
@@ -222,7 +222,8 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
       feedback: generationRequest.feedback,
     });
 
-    await deps.store.markPending(auth.deviceToken, DEFAULT_GENERATION_ETA_SECONDS);
+    // Use principalId for device-scoped state (GenerationStore)
+    await deps.store.markPending(auth.principalId, DEFAULT_GENERATION_ETA_SECONDS);
 
     let plan: TodayPlan;
     let responseId: string | undefined;
@@ -247,7 +248,7 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
           message: sanitizedMessage, // Use sanitized message
         });
         await deps.store.setError(
-          auth.deviceToken,
+          auth.principalId,
           'We could not generate a workout plan. Showing a fallback plan.'
         );
         plan = mockPlan();
@@ -259,7 +260,7 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
     const validated = todayPlanSchema.parse(plan);
 
     if (!encounteredProviderError) {
-      await deps.store.persistPlan(auth.deviceToken, validated, {
+      await deps.store.persistPlan(auth.principalId, validated, {
         schemaVersion,
       });
       console.log('[workouts.generate] generation completed', {
