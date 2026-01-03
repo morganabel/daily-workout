@@ -23,6 +23,9 @@
     },
     {
       "path": "./packages/server-ai"
+    },
+    {
+      "path": "./packages/server-db"
     }
   ]
 }
