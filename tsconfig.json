@@ -26,6 +26,9 @@
     },
     {
       "path": "./packages/server-db"
+    },
+    {
+      "path": "./packages/server-auth"
     }
   ]
 }
