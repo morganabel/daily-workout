@@ -3,10 +3,13 @@
  *
  * This module constructs the concrete implementations (CE defaults)
  * and exports ready-to-use handlers.
+ *
+ * Auth mode selection:
+ * - If DATABASE_URL is set → Better Auth (real user accounts)
+ * - Otherwise → Stub Auth (any bearer token accepted)
  */
 
 import {
-  StubAuthProvider,
   InMemoryGenerationStore,
   NoOpUsagePolicy,
   NoOpMeteringSink,
@@ -16,9 +19,10 @@ import {
   type GenerateHandlerConfig,
 } from '@workout-agent-ce/server-core';
 import { DefaultModelRouter } from '@workout-agent-ce/server-ai';
+import { getAuthContext } from './auth-context';
 
-// Instantiate CE default dependencies
-const auth = new StubAuthProvider();
+// Get auth provider from auth context (supports both stub and Better Auth)
+const { provider: auth } = getAuthContext();
 const store = new InMemoryGenerationStore();
 const router = new DefaultModelRouter();
 const policy = new NoOpUsagePolicy();
