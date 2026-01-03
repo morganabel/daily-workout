@@ -1,11 +1,28 @@
 ## ADDED Requirements
 
+### Requirement: Capabilities Discovery Endpoint
+The server MUST expose a `/api/meta` endpoint that returns auth capabilities, protocol version, and feature flags. This endpoint MUST be accessible without authentication so clients can detect backend capabilities before attempting auth. The response schema (`MetaResponse`) MUST be exported from `@workout-agent-ce/shared` for type-safe client consumption.
+
+#### Scenario: Client discovers auth capabilities
+- **WHEN** a client sends a GET request to `/api/meta`
+- **THEN** the server returns JSON with `protocolVersion`, `auth.enabled`, `auth.methods`, and `edition`
+
+#### Scenario: Meta endpoint accessible without auth
+- **GIVEN** a request to `/api/meta` with no authorization header
+- **WHEN** the server processes the request
+- **THEN** it returns the capabilities response (no 401)
+
+#### Scenario: Response type is shared
+- **GIVEN** the mobile app imports `MetaResponse` from `@workout-agent-ce/shared`
+- **WHEN** it fetches `/api/meta`
+- **THEN** the response can be type-safely consumed as `MetaResponse`
+
 ### Requirement: Anonymous Session Bootstrap
 When Better Auth is enabled, the system MUST support anonymous sign-in that creates a server-side principal without user interaction. The mobile app SHALL perform anonymous sign-in on first run and persist the resulting bearer session securely.
 
 #### Scenario: First-run anonymous sign-in
 - **GIVEN** the mobile app has no stored session
-- **WHEN** the app starts and the backend supports Better Auth
+- **WHEN** the app starts and the backend's `/api/meta` indicates anonymous auth is available
 - **THEN** the app obtains a bearer session and subsequent API requests include `Authorization: Bearer <token>`
 
 #### Scenario: Anonymous session survives app restart
@@ -13,12 +30,17 @@ When Better Auth is enabled, the system MUST support anonymous sign-in that crea
 - **WHEN** they close and reopen the app
 - **THEN** the session is restored from secure storage and API calls remain authenticated
 
-### Requirement: User Registration
-Users MUST be able to register using email and password. If the user is currently signed in anonymously, the system SHALL upgrade/link that anonymous principal to the provided credentials (so the underlying user identity remains stable) and return a valid bearer session.
+### Requirement: User Registration with Account Linking
+Users MUST be able to register using email and password. If the user is currently signed in anonymously, the system SHALL upgrade/link that anonymous principal to the provided credentials, preserving the same `userId` for metering/billing continuity.
 
 #### Scenario: Successful registration
 - **WHEN** a user submits a valid email and password to the registration endpoint
 - **THEN** the system creates (or upgrades) a user record, generates a bearer session, and returns session credentials
+
+#### Scenario: Anonymous-to-email upgrade preserves userId
+- **GIVEN** an anonymous user with `userId=abc123`
+- **WHEN** they register with email/password
+- **THEN** the resulting account retains `userId=abc123` and all prior usage/metering data remains associated
 
 #### Scenario: Duplicate email rejected
 - **WHEN** a user submits an email that already exists in the system
@@ -45,7 +67,7 @@ All protected API endpoints MUST validate a bearer token provided via `Authoriza
 #### Scenario: Valid session allows access
 - **GIVEN** a request includes a valid bearer session token in the `Authorization` header
 - **WHEN** the server validates the request via `AuthProvider.authenticate()`
-- **THEN** the handler receives an `AuthResult` with `userId` and proceeds with the request
+- **THEN** the handler receives an `AuthResult` with `userId` (account identity) and `principalId` (device/session identity) and proceeds with the request
 
 #### Scenario: Missing session denies access
 - **GIVEN** a request has no bearer token
@@ -57,21 +79,66 @@ All protected API endpoints MUST validate a bearer token provided via `Authoriza
 - **WHEN** the server validates the request
 - **THEN** it returns 401 UNAUTHORIZED and the client must re-authenticate
 
+### Requirement: Stable Principal Identity for Server-Side Storage
+The `AuthResult` returned by `AuthProvider.authenticate()` MUST include both `userId` and `principalId`. These serve distinct purposes:
+- `userId`: Stable account-level identity for billing, metering, and cross-device account data.
+- `principalId`: Session/device-scoped identity for device-specific state (e.g., GenerationStore, last plan).
+
+The `principalId` MUST NOT be the bearer token itself, as bearer tokens can rotate. The `principalId` SHOULD be derived from the session ID, making it unique per device/session.
+
+#### Scenario: Principal ID remains stable across token refresh
+- **GIVEN** a user's bearer token is refreshed on a specific device
+- **WHEN** the server validates the new token
+- **THEN** the `AuthResult.principalId` for that device remains unchanged and server-side state (e.g., `GenerationStore`) is accessible
+
+#### Scenario: Principal ID is device-scoped
+- **GIVEN** a user authenticates from multiple devices
+- **WHEN** each device's session is validated
+- **THEN** each device has a different `principalId` but the same `userId`
+
+#### Scenario: User ID is account-scoped
+- **GIVEN** a user authenticates from multiple devices
+- **WHEN** each device's session is validated
+- **THEN** all devices return the same `userId` for billing/metering purposes
+
+### Requirement: No Identity from Arbitrary Headers
+In Better Auth mode, user identity MUST come exclusively from validating the bearer session via `AuthProvider.authenticate()`. The server MUST NOT trust identity claims from arbitrary headers such as `x-user-id`, `x-plan-id`, or similar.
+
+#### Scenario: x-user-id header ignored
+- **GIVEN** a request includes `x-user-id: attacker-id` header and a valid bearer token for `userId=victim`
+- **WHEN** the server processes the request
+- **THEN** the handler receives `userId=victim` from the validated session, ignoring the header
+
+#### Scenario: Missing bearer token not bypassed by headers
+- **GIVEN** a request includes `x-user-id: some-id` but no bearer token
+- **WHEN** the server validates the request
+- **THEN** it returns 401 UNAUTHORIZED (header does not grant access)
+
 ### Requirement: Credential and Token Secrecy
-The system MUST treat all authentication credentials and tokens as secrets and MUST NOT log or persist them. This includes bearer tokens (`Authorization`), any session/refresh tokens, and email/password fields. Error responses MUST NOT include these secrets.
+The system MUST treat all authentication credentials and tokens as secrets. The following MUST NOT appear in logs or error responses: `Authorization` header value, request bodies for auth routes (email, password), session tokens, Better Auth secrets, and any `x-*-key` headers.
 
 #### Scenario: Authorization header never logged
 - **GIVEN** a request includes `Authorization: Bearer <token>`
 - **WHEN** the server processes the request and emits structured logs
 - **THEN** the logs do not contain the raw bearer token value
 
+#### Scenario: Auth endpoint request bodies never logged
+- **GIVEN** a POST to `/api/auth/sign-up/email` with email and password in the body
+- **WHEN** the server processes the request
+- **THEN** logs do not contain the email or password values
+
+#### Scenario: Error responses exclude secrets
+- **GIVEN** an auth request fails
+- **WHEN** the server returns an error response
+- **THEN** the response body does not include the submitted password or session tokens
+
 #### Scenario: Client debug logs never include tokens
 - **GIVEN** the mobile app is running with debug logging enabled
 - **WHEN** it makes an authenticated API request
 - **THEN** logs do not include the raw bearer token value (or other auth secrets)
 
-### Requirement: Mobile Session Persistence
-The mobile app MUST persist session credentials securely across app restarts using platform-appropriate secure storage.
+### Requirement: Mobile Session Persistence with Backend Isolation
+The mobile app MUST persist session credentials securely across app restarts using platform-appropriate secure storage. The `storagePrefix` MUST be derived from a hash of the canonical backend URL to prevent session collisions when switching backends.
 
 #### Scenario: Session survives app restart
 - **GIVEN** a user is logged in and closes the app
@@ -83,21 +150,68 @@ The mobile app MUST persist session credentials securely across app restarts usi
 - **WHEN** the user triggers logout
 - **THEN** the session is cleared from secure storage and the user is redirected to sign-in
 
+#### Scenario: Backend switch does not overwrite other sessions
+- **GIVEN** a user has sessions stored for `https://api.example.com` and `https://localhost:3000`
+- **WHEN** they switch from one backend to another
+- **THEN** each backend's session is stored/retrieved independently (different `storagePrefix`)
+
+### Requirement: Auth-Mode Selection Algorithm
+The server MUST use a deterministic algorithm for auth-mode resolution: `AUTH_MODE = env.AUTH_MODE ?? (env.DATABASE_URL ? 'better-auth' : 'stub')`. This algorithm MUST be reusable by EE verbatim.
+
+#### Scenario: Explicit AUTH_MODE takes precedence
+- **GIVEN** `AUTH_MODE=stub` and `DATABASE_URL` is set
+- **WHEN** the server resolves auth mode
+- **THEN** it uses stub auth (explicit override wins)
+
+#### Scenario: DATABASE_URL implies better-auth
+- **GIVEN** `AUTH_MODE` is not set and `DATABASE_URL` is set
+- **WHEN** the server resolves auth mode
+- **THEN** it uses better-auth
+
+#### Scenario: No DATABASE_URL implies stub
+- **GIVEN** neither `AUTH_MODE` nor `DATABASE_URL` is set
+- **WHEN** the server resolves auth mode
+- **THEN** it uses stub auth
+
+### Requirement: Fail-Closed Hosted Authentication
+When `EDITION=HOSTED`, the server MUST NOT silently fall back to stub auth. If Better Auth is not properly configured (e.g., `DATABASE_URL` missing), the server MUST fail at startup with a clear error message.
+
+#### Scenario: Hosted auth fails closed when misconfigured
+- **GIVEN** the server is configured with `EDITION=HOSTED`
+- **AND** `DATABASE_URL` is not set
+- **WHEN** the server starts
+- **THEN** it crashes with an error message indicating Better Auth configuration is required
+
+#### Scenario: Hosted mode with valid config starts normally
+- **GIVEN** `EDITION=HOSTED` and `DATABASE_URL` is properly configured
+- **WHEN** the server starts
+- **THEN** it initializes Better Auth and starts successfully
+
 ### Requirement: Backward-Compatible Stub Authentication (CE/dev)
-The system MUST support stub authentication for CE/dev deployments without a database. When Better Auth is not enabled (for example, `DATABASE_URL` is not configured), the server SHALL fall back to `StubAuthProvider`.
+The system MUST support stub authentication for CE/dev deployments without a database. When auth-mode resolves to `stub`, the server SHALL use `StubAuthProvider` which accepts any non-empty bearer token.
 
 #### Scenario: Stub auth when no database
-- **GIVEN** the server is running without `DATABASE_URL` configured
+- **GIVEN** the server is running with auth-mode `stub`
 - **WHEN** a request includes any non-empty bearer token
 - **THEN** `StubAuthProvider` accepts the token and returns a stub user identity
 
 #### Scenario: Real auth when database configured
-- **GIVEN** the server is running with `DATABASE_URL` configured
+- **GIVEN** the server is running with auth-mode `better-auth`
 - **WHEN** a request is received
 - **THEN** `BetterAuthProvider` validates the session against the database
 
-#### Scenario: Hosted auth fails closed when misconfigured
-- **GIVEN** the server is configured with `EDITION=HOSTED`
-- **AND** Better Auth is not enabled/configured
-- **WHEN** the server starts or receives an authenticated request
-- **THEN** it fails closed (does not accept stub auth) and requires Better Auth to be configured
+### Requirement: No DB-Backed Auth in Edge Middleware
+DB-backed session validation and quota lookup MUST NOT be performed in Next.js Edge middleware (`middleware.ts`). Auth and quota enforcement MUST happen in Node route handlers via `AuthProvider` and `UsagePolicy`.
+
+#### Scenario: Auth validated in route handler
+- **GIVEN** a protected API route receives a request
+- **WHEN** authentication is performed
+- **THEN** it happens in the Node runtime route handler, not Edge middleware
+
+### Requirement: Package Export Conventions
+Auth-related packages (`packages/server-db`, `packages/server-auth`) MUST export factory functions and MUST NOT have side effects at import time. This enables EE to initialize DB/auth at runtime.
+
+#### Scenario: No side effects on import
+- **GIVEN** an EE app imports `@workout-agent-ce/server-db`
+- **WHEN** the import statement executes
+- **THEN** no database connections are opened until a factory function is called
