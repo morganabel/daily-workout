@@ -55,7 +55,7 @@ const secureStorage = {
     const prefixedKey = `${prefix}_${key}`;
     try {
       return await SecureStore.getItemAsync(prefixedKey);
-    } catch (error) {
+    } catch {
       // Don't log the key value for security
       console.warn('[auth-client] Failed to get item from secure storage');
       return null;
@@ -77,7 +77,7 @@ const secureStorage = {
     const prefixedKey = `${prefix}_${key}`;
     try {
       await SecureStore.deleteItemAsync(prefixedKey);
-    } catch (error) {
+    } catch {
       console.warn('[auth-client] Failed to remove item from secure storage');
     }
   },
@@ -161,7 +161,7 @@ export async function getSessionToken(): Promise<string | null> {
   try {
     const session = await authClient.getSession();
     return session.data?.session.token ?? null;
-  } catch (error) {
+  } catch {
     return null;
   }
 }

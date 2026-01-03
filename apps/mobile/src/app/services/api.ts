@@ -82,20 +82,10 @@ async function apiRequest<T>(
     }
   }
 
-  // Log request info but NEVER log the token value (security)
-  console.log(`[API] ${options.method || 'GET'} ${url}`, {
-    hasToken: !!token,
-    hasByokConfig: !!byokConfig,
-    provider: byokConfig?.provider,
-    // Don't log request body as it may contain sensitive data
-  });
-
   const response = await fetch(url, {
     ...options,
     headers,
   });
-
-  console.log(`[API] Response: ${response.status} ${response.statusText}`);
 
   if (!response.ok) {
     let error: ApiError;

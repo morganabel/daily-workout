@@ -33,7 +33,7 @@
 - [x] 3.5 Fail fast at startup if `EDITION=HOSTED` but Better Auth not configured
 - [x] 3.6 Add `/api/meta` endpoint returning auth capabilities, protocol version, edition
 - [x] 3.7 Add `MetaResponse` type to `@workout-agent-ce/shared` package
-- [ ] 3.8 Add environment variables to `.env.example` (DATABASE_URL, BETTER_AUTH_SECRET, AUTH_MODE)
+- [x] 3.8 Add environment variables to `.env.example` (DATABASE_URL, BETTER_AUTH_SECRET, AUTH_MODE)
 
 ## 4. Auth Provider Integration (`packages/server-core`)
 - [x] 4.1 Update `AuthResult` type to include both `userId` and `principalId` (remove `deviceToken`)
@@ -61,7 +61,7 @@
 - [x] 6.5 Implement silent anonymous sign-in on first run when backend supports it
 - [x] 6.6 Add URL scheme to `app.json`
 - [x] 6.7 Update `api.ts` to send `Authorization: Bearer <session>`
-- [ ] 6.8 Remove/redact auth headers/tokens from client debug logs
+- [x] 6.8 Remove/redact auth headers/tokens from client debug logs
 
 ## 7. Auth UI
 - [x] 7.1 Create SignInScreen with email/password form (upgrade from anonymous)
