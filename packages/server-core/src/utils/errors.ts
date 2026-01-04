@@ -21,7 +21,7 @@ export interface ApiError {
  */
 function sanitizeErrorMessage(message: string): string {
   return message
-    .replace(/Bearer\s+[A-Za-z0-9._-]+/gi, 'Bearer [REDACTED]')
+    .replace(/Bearer\s+[A-Za-z0-9._-]+/gi, '[REDACTED]')
     .replace(/sk-[A-Za-z0-9_-]+/gi, '[REDACTED]');
 }
 

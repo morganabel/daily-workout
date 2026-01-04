@@ -26,7 +26,7 @@ describe('logging redaction', () => {
 
   it('redacts bearer tokens inside strings', () => {
     const value = redactSensitiveStrings('Authorization: Bearer abc.def-123');
-    expect(value).toBe('Authorization: Bearer [REDACTED]');
+    expect(value).toBe('Authorization: [REDACTED]');
   });
 
   it('redacts secrets from error responses', async () => {

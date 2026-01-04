@@ -29,8 +29,11 @@ export interface ApiError {
  * Get the authentication token for API requests.
  *
  * Priority:
- * 1. Better Auth session token (if auth is enabled on server)
- * 2. Legacy device token (fallback for stub auth mode)
+ * 1. Better Auth session token (if available)
+ * 2. Legacy device token (only for stub auth mode servers)
+ *
+ * On Better Auth servers without a valid session, returns null.
+ * Callers should handle this by triggering the sign-in flow.
  */
 async function getAuthToken(): Promise<string | null> {
   // Try Better Auth session first
@@ -39,7 +42,15 @@ async function getAuthToken(): Promise<string | null> {
     return sessionToken;
   }
 
-  // Fall back to legacy device token for stub auth mode
+  // Check if server uses Better Auth
+  const authEnabled = await isAuthEnabled();
+  if (authEnabled) {
+    // On Better Auth servers, don't send device tokens - they'll be rejected.
+    // Return null so the caller can trigger the sign-in flow.
+    return null;
+  }
+
+  // Only fall back to device token for stub auth mode servers
   return getDeviceToken();
 }
 
