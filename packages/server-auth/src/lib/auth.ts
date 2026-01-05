@@ -91,6 +91,10 @@ export function createAuth(options: CreateAuthOptions): Auth {
         emailDomainName: 'anonymous.workout-agent.local',
       }),
     ],
+
+    experimental: {
+      joins: true,
+    }
   };
 
   return betterAuth(config);
