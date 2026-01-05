@@ -4,9 +4,9 @@
   "license": "AGPL-3.0-only",
   "scripts": {
     "start": "nx dev server",
-    "dev": "nx dev server & nx start mobile",
-    "dev:server": "nx dev server",
-    "dev:server:db": "DATABASE_URL=postgres://user:password@localhost:5432/workout_agent BETTER_AUTH_SECRET=dev-secret-dev-secret-dev-secret-dev-secret BETTER_AUTH_URL=http://localhost:3000 sh -c 'npm run db:up && npm run db:wait && npm run db:migrate && nx dev server'",
+    "dev": "npm run dev:server & nx start mobile",
+    "dev:server": "nx run @workout-agent-ce/server:build-deps && nx run @workout-agent-ce/server:dev",
+    "dev:server:db": "DATABASE_URL=postgres://user:password@localhost:5432/workout_agent BETTER_AUTH_SECRET=dev-secret-dev-secret-dev-secret-dev-secret BETTER_AUTH_URL=http://localhost:3000 sh -c 'npm run db:up && npm run db:wait && npm run db:migrate && nx run @workout-agent-ce/server:build-deps && nx run @workout-agent-ce/server:dev'",
     "dev:mobile": "nx start mobile",
     "db:up": "docker compose up -d db",
     "db:wait": "sh -c 'until docker compose exec -T db pg_isready -U user -d workout_agent >/dev/null 2>&1; do sleep 0.5; done'",

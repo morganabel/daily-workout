@@ -7,7 +7,7 @@
 
 import { betterAuth, type BetterAuthOptions } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
-import { anonymous } from 'better-auth/plugins';
+import { anonymous, bearer } from 'better-auth/plugins';
 import type { Database } from '@workout-agent-ce/server-db';
 
 /**
@@ -85,6 +85,9 @@ export function createAuth(options: CreateAuthOptions): Auth {
 
     // Enable anonymous sessions for frictionless first-run
     plugins: [
+      // Default behavior: accepts either a signed bearer token (from `set-auth-token`)
+      // or a raw session token (it will be signed internally).
+      bearer(),
       anonymous({
         // Allow linking anonymous accounts to email/password
         // This preserves userId when upgrading from anonymous
