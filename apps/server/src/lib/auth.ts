@@ -7,15 +7,17 @@
  * - a default export
  *
  * IMPORTANT:
- * - This file is intentionally self-contained (no workspace import aliases) to keep the CLI happy.
+ * - Shared auth settings are imported from `@workout-agent-ce/server-auth` to prevent drift.
+ * - If you run the Better Auth CLI directly, ensure `server-auth` is built first, or use:
+ *   `npm run better-auth:generate`
  * - Runtime server wiring uses `auth-context.ts` for auth-mode selection and dependency injection.
  */
 
 import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
-import { anonymous } from 'better-auth/plugins';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
+import { createBetterAuthOptions } from '@workout-agent-ce/server-auth';
 
 // Provide sane defaults so the CLI can run without requiring a full env.
 // (Better Auth requires a 32+ char secret.)
@@ -36,18 +38,11 @@ const db = drizzle(client);
 
 export const auth = betterAuth({
   database: drizzleAdapter(db, { provider: 'pg' }),
-  secret: BETTER_AUTH_SECRET,
-  baseURL: BETTER_AUTH_URL,
-  trustedOrigins,
-  emailAndPassword: {
-    enabled: true,
-    requireEmailVerification: false,
-  },
-  plugins: [
-    anonymous({
-      emailDomainName: 'anonymous.workout-agent.local',
-    }),
-  ],
+  ...createBetterAuthOptions({
+    secret: BETTER_AUTH_SECRET,
+    baseURL: BETTER_AUTH_URL,
+    trustedOrigins,
+  }),
 });
 
 export default auth;

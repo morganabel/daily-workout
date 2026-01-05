@@ -15,7 +15,7 @@
     "db:logs": "docker compose logs -f db",
     "db:down": "docker compose down",
     "db:reset": "docker compose down -v && docker compose up -d db",
-    "better-auth:generate": "better-auth generate --config apps/server/src/lib/auth.ts --output packages/server-db/src/lib/schema.ts --yes",
+    "better-auth:generate": "nx run server-auth:build && better-auth generate --config apps/server/src/lib/auth.ts --output packages/server-db/src/lib/schema.ts --yes",
     "lint": "nx run-many --target=lint --all",
     "test": "nx run-many --target=test --all",
     "build": "nx run-many --target=build --all"

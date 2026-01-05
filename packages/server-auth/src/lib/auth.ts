@@ -5,10 +5,10 @@
  * No side effects at import time - EE can call the factory at runtime.
  */
 
-import { betterAuth, type BetterAuthOptions } from 'better-auth';
+import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
-import { anonymous, bearer } from 'better-auth/plugins';
 import type { Database } from '@workout-agent-ce/server-db';
+import { createBetterAuthOptions } from './better-auth-options.js';
 
 /**
  * Options for creating a Better Auth instance
@@ -61,44 +61,14 @@ export type Auth = ReturnType<typeof betterAuth>;
 export function createAuth(options: CreateAuthOptions): Auth {
   const { db, secret, baseURL, trustedOrigins = [] } = options;
 
-  const config: BetterAuthOptions = {
+  return betterAuth({
     database: drizzleAdapter(db, {
       provider: 'pg',
     }),
-    secret,
-    baseURL,
-    trustedOrigins,
-
-    // Use bearer tokens for mobile compatibility
-    session: {
-      cookieCache: {
-        enabled: false, // Disable cookie caching for bearer token auth
-      },
-    },
-
-    // Configure email/password authentication
-    emailAndPassword: {
-      enabled: true,
-      // Don't require email verification for initial implementation
-      requireEmailVerification: false,
-    },
-
-    // Enable anonymous sessions for frictionless first-run
-    plugins: [
-      // Default behavior: accepts either a signed bearer token (from `set-auth-token`)
-      // or a raw session token (it will be signed internally).
-      bearer(),
-      anonymous({
-        // Allow linking anonymous accounts to email/password
-        // This preserves userId when upgrading from anonymous
-        emailDomainName: 'anonymous.workout-agent.local',
-      }),
-    ],
-
-    experimental: {
-      joins: true,
-    }
-  };
-
-  return betterAuth(config);
+    ...createBetterAuthOptions({
+      secret,
+      baseURL,
+      trustedOrigins,
+    }),
+  });
 }

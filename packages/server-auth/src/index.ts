@@ -8,6 +8,12 @@
 // Export auth factory
 export { createAuth, type Auth, type CreateAuthOptions } from './lib/auth.js';
 
+// Export shared options (used by CLI schema generation to stay in sync with runtime)
+export {
+  createBetterAuthOptions,
+  type CreateBetterAuthOptionsParams,
+} from './lib/better-auth-options.js';
+
 // Export auth provider for use with server-core
 export { BetterAuthProvider } from './lib/provider.js';
 
