@@ -9,6 +9,7 @@
 
 import type { BetterAuthOptions } from 'better-auth';
 import { anonymous, bearer } from 'better-auth/plugins';
+import { expo } from "@better-auth/expo";
 
 export interface CreateBetterAuthOptionsParams {
   /**
@@ -63,6 +64,7 @@ export function createBetterAuthOptions(
         // This preserves userId when upgrading from anonymous
         emailDomainName: 'anonymous.workout-agent.local',
       }),
+      expo()
     ],
 
     experimental: {

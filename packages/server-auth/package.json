@@ -22,6 +22,7 @@
     "@workout-agent-ce/server-core": "*",
     "@workout-agent-ce/server-db": "*",
     "better-auth": "*",
+    "@better-auth/expo": "*",
     "tslib": "^2.3.0"
   }
 }
