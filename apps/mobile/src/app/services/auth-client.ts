@@ -10,78 +10,80 @@
 
 import { createAuthClient } from 'better-auth/react';
 import { anonymousClient } from 'better-auth/client/plugins';
-import { expoClient } from '@better-auth/expo';
+import { expoClient } from '@better-auth/expo/client';
 import * as SecureStore from 'expo-secure-store';
-import * as Crypto from 'expo-crypto';
 import type { MetaResponse } from '@workout-agent/shared';
 
 const API_BASE_URL =
   process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:3000';
 
+// `/api/meta` is stable; keep it fresh-ish but don't spam the server.
+// We use stale-while-revalidate: serve cached value immediately and refresh in background.
+const SERVER_CAPABILITIES_TTL_MS = 10 * 60_000; // 10 minutes
+
+let cachedServerCapabilities:
+  | { data: MetaResponse | null; fetchedAt: number }
+  | null = null;
+let inFlightServerCapabilities: Promise<MetaResponse | null> | null = null;
+
+async function refreshServerCapabilities(): Promise<MetaResponse | null> {
+  if (inFlightServerCapabilities) {
+    return inFlightServerCapabilities;
+  }
+
+  inFlightServerCapabilities = (async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/meta`);
+      if (!response.ok) {
+        console.warn('[auth-client] Failed to fetch server capabilities');
+        // Keep the last known value, but bump timestamp so we don't thrash retries.
+        const data = cachedServerCapabilities?.data ?? null;
+        cachedServerCapabilities = { data, fetchedAt: Date.now() };
+        return data;
+      }
+
+      const data = (await response.json()) as MetaResponse;
+      cachedServerCapabilities = { data, fetchedAt: Date.now() };
+      return data;
+    } catch (error) {
+      console.warn('[auth-client] Error fetching server capabilities:', error);
+      // Keep the last known value, but bump timestamp so we don't thrash retries.
+      const data = cachedServerCapabilities?.data ?? null;
+      cachedServerCapabilities = { data, fetchedAt: Date.now() };
+      return data;
+    } finally {
+      inFlightServerCapabilities = null;
+    }
+  })();
+
+  return inFlightServerCapabilities;
+}
+
 /**
- * Derives a storage prefix from the backend URL.
+ * Derive a deterministic storage prefix from the backend URL.
  * This ensures sessions from different backends don't collide.
  */
-async function deriveStoragePrefix(url: string): Promise<string> {
-  // Normalize URL: lowercase, remove trailing slash
-  const normalizedUrl = url.toLowerCase().replace(/\/$/, '');
-
-  // Hash the URL using SHA-256 and take first 8 characters
-  const hash = await Crypto.digestStringAsync(
-    Crypto.CryptoDigestAlgorithm.SHA256,
-    normalizedUrl
-  );
-
-  return `auth_${hash.substring(0, 8)}`;
-}
-
-// Storage prefix (computed lazily)
-let cachedStoragePrefix: string | null = null;
-
-async function getStoragePrefix(): Promise<string> {
-  if (!cachedStoragePrefix) {
-    cachedStoragePrefix = await deriveStoragePrefix(API_BASE_URL);
+function createStoragePrefix(baseURL: string): string {
+  // Expo's built-in hashing (`expo-crypto`) is async; `storagePrefix` must be a sync string.
+  // So we derive a stable, readable prefix from the backend URL instead of hashing.
+  try {
+    const url = new URL(baseURL);
+    const host = url.hostname.replace(/[^a-z0-9]/gi, '_');
+    const port = url.port || (url.protocol === 'https:' ? '443' : '80');
+    return `auth_${host}_${port}`;
+  } catch {
+    const normalized = baseURL
+      .toLowerCase()
+      .replace(/\/$/, '')
+      .replace(/[^a-z0-9]+/gi, '_')
+      .replace(/^_+|_+$/g, '')
+      .slice(0, 32);
+    return `auth_${normalized || 'default'}`;
   }
-  return cachedStoragePrefix;
 }
 
-/**
- * Secure storage implementation using Expo SecureStore
- * with per-backend key prefixing
- */
-const secureStorage = {
-  getItem: async (key: string): Promise<string | null> => {
-    const prefix = await getStoragePrefix();
-    const prefixedKey = `${prefix}_${key}`;
-    try {
-      return await SecureStore.getItemAsync(prefixedKey);
-    } catch {
-      // Don't log the key value for security
-      console.warn('[auth-client] Failed to get item from secure storage');
-      return null;
-    }
-  },
-  setItem: async (key: string, value: string): Promise<void> => {
-    const prefix = await getStoragePrefix();
-    const prefixedKey = `${prefix}_${key}`;
-    try {
-      await SecureStore.setItemAsync(prefixedKey, value);
-    } catch (error) {
-      // Don't log the value for security
-      console.warn('[auth-client] Failed to set item in secure storage');
-      throw error;
-    }
-  },
-  removeItem: async (key: string): Promise<void> => {
-    const prefix = await getStoragePrefix();
-    const prefixedKey = `${prefix}_${key}`;
-    try {
-      await SecureStore.deleteItemAsync(prefixedKey);
-    } catch {
-      console.warn('[auth-client] Failed to remove item from secure storage');
-    }
-  },
-};
+const APP_SCHEME = 'workout-agent-ce-mobile';
+const STORAGE_PREFIX = createStoragePrefix(API_BASE_URL);
 
 /**
  * Create the Better Auth client
@@ -90,8 +92,9 @@ export const authClient = createAuthClient({
   baseURL: API_BASE_URL,
   plugins: [
     expoClient({
-      scheme: 'workout-agent-ce-mobile',
-      storage: secureStorage,
+      scheme: APP_SCHEME,
+      storagePrefix: STORAGE_PREFIX,
+      storage: SecureStore,
     }),
     anonymousClient(),
   ],
@@ -104,17 +107,22 @@ export const { useSession, signIn, signUp, signOut } = authClient;
  * Fetch server capabilities from /api/meta
  */
 export async function fetchServerCapabilities(): Promise<MetaResponse | null> {
-  try {
-    const response = await fetch(`${API_BASE_URL}/api/meta`);
-    if (!response.ok) {
-      console.warn('[auth-client] Failed to fetch server capabilities');
-      return null;
-    }
-    return await response.json();
-  } catch (error) {
-    console.warn('[auth-client] Error fetching server capabilities:', error);
-    return null;
+  const now = Date.now();
+  const cached = cachedServerCapabilities;
+
+  // Fresh cache: return immediately.
+  if (cached && now - cached.fetchedAt < SERVER_CAPABILITIES_TTL_MS) {
+    return cached.data;
   }
+
+  // Stale cache: return immediately (optimistic) and refresh in background.
+  if (cached) {
+    void refreshServerCapabilities();
+    return cached.data;
+  }
+
+  // No cache: we have to fetch (callers can decide whether to await).
+  return refreshServerCapabilities();
 }
 
 /**
@@ -161,6 +169,28 @@ export async function getSessionToken(): Promise<string | null> {
   try {
     const session = await authClient.getSession();
     return session.data?.session.token ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Get the current session cookie string for authenticated API requests.
+ *
+ * On Expo native, cookies are managed by `@better-auth/expo/client` and persisted
+ * in SecureStore. For non-auth endpoints (your own API routes), you must attach
+ * this cookie string manually as `Cookie: <value>`.
+ *
+ * IMPORTANT: Never log the returned cookie string.
+ */
+export function getSessionCookie(): string | null {
+  try {
+    const cookies = authClient.getCookie();
+    if (!cookies) {
+      return null;
+    }
+    const trimmed = cookies.trim();
+    return trimmed.length > 0 ? trimmed : null;
   } catch {
     return null;
   }

@@ -1,7 +1,7 @@
 /**
  * BetterAuthProvider - AuthProvider implementation using Better Auth
  *
- * Validates bearer sessions against the database and returns AuthResult
+ * Validates Better Auth sessions (cookie-first; bearer supported as fallback) and returns AuthResult
  * with userId (account-level) and principalId (device/session-scoped).
  */
 
@@ -21,20 +21,23 @@ export class BetterAuthProvider implements AuthProvider {
   constructor(private readonly auth: Auth) {}
 
   async authenticate(request: Request): Promise<AuthResult | null> {
-    // Extract bearer token from Authorization header
     const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return null;
-    }
+    const cookieHeader = request.headers.get('cookie');
 
-    const token = authHeader.substring(7).trim();
-    if (token.length === 0) {
+    const hasCookie = Boolean(cookieHeader && cookieHeader.trim().length > 0);
+    const hasBearer = Boolean(
+      authHeader &&
+        authHeader.toLowerCase().startsWith('bearer ') &&
+        authHeader.substring(7).trim().length > 0
+    );
+
+    if (!hasCookie && !hasBearer) {
       return null;
     }
 
     try {
       // Validate session using Better Auth's API
-      // This looks up the session by token in the database
+      // This reads either the session cookie (default) or bearer token (if configured)
       const session = await this.auth.api.getSession({
         headers: request.headers,
       });

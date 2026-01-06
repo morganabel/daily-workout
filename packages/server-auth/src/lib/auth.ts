@@ -46,7 +46,7 @@ export type Auth = ReturnType<typeof betterAuth>;
  * Features:
  * - Anonymous sessions (default for first-run experience)
  * - Email/password authentication (upgrade path from anonymous)
- * - Bearer token transport (mobile-friendly, no cookies required)
+ * - Cookie-based sessions (default) with bearer token fallback for clients that can't send cookies
  * - Account linking (anonymous → email preserves userId)
  *
  * @example

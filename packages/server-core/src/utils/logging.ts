@@ -6,6 +6,7 @@
 
 const SECRET_KEY_PATTERNS = [
   /authorization/i,
+  /cookie/i,
   /^x-.*key$/i,
   /token/i,
   /password/i,

@@ -14,7 +14,7 @@ import { getDeviceToken } from '../storage/deviceToken';
 import { getByokApiKey, getByokConfig } from '../storage/byokKey';
 import { userRepository } from '../db/repositories/UserRepository';
 import { workoutRepository } from '../db/repositories/WorkoutRepository';
-import { getSessionToken, isAuthEnabled } from './auth-client';
+import { getSessionCookie, getSessionToken, isAuthEnabled } from './auth-client';
 
 const API_BASE_URL =
   process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:3000';
@@ -26,32 +26,60 @@ export interface ApiError {
 }
 
 /**
- * Get the authentication token for API requests.
+ * Get the authentication headers for API requests.
  *
  * Priority:
- * 1. Better Auth session token (if available)
- * 2. Legacy device token (only for stub auth mode servers)
+ * 1. Better Auth cookies (preferred; matches Better Auth Expo docs)
+ * 2. Better Auth bearer token (fallback for edge cases / older clients)
+ * 3. Legacy device token (only for stub auth mode servers)
  *
  * On Better Auth servers without a valid session, returns null.
  * Callers should handle this by triggering the sign-in flow.
  */
-async function getAuthToken(): Promise<string | null> {
-  // Try Better Auth session first
+async function getAuthHeaders(): Promise<{
+  headers: Record<string, string>;
+  credentials?: 'omit' | 'include' | 'same-origin';
+}> {
+  // Prefer cookies (Better Auth default session transport).
+  const cookie = getSessionCookie();
+  if (cookie) {
+    return {
+      headers: {
+        Cookie: cookie,
+      },
+      // 'include' can interfere with cookies we set manually in headers.
+      credentials: 'omit',
+    };
+  }
+
+  // Fallback: bearer token (works when server has bearer plugin enabled).
   const sessionToken = await getSessionToken();
   if (sessionToken) {
-    return sessionToken;
+    return {
+      headers: {
+        Authorization: `Bearer ${sessionToken}`,
+      },
+    };
   }
 
   // Check if server uses Better Auth
   const authEnabled = await isAuthEnabled();
   if (authEnabled) {
-    // On Better Auth servers, don't send device tokens - they'll be rejected.
-    // Return null so the caller can trigger the sign-in flow.
-    return null;
+    // On Better Auth servers, don't send stub device tokens - they'll be rejected.
+    // Return no auth headers so the caller can trigger the sign-in flow.
+    return { headers: {} };
   }
 
   // Only fall back to device token for stub auth mode servers
-  return getDeviceToken();
+  const deviceToken = await getDeviceToken();
+  if (!deviceToken) {
+    return { headers: {} };
+  }
+  return {
+    headers: {
+      Authorization: `Bearer ${deviceToken}`,
+    },
+  };
 }
 
 /**
@@ -61,19 +89,16 @@ async function apiRequest<T>(
   endpoint: string,
   options: RequestInit = {},
 ): Promise<T> {
-  const token = await getAuthToken();
+  const auth = await getAuthHeaders();
   const byokConfig = await getByokConfig();
   const url = `${API_BASE_URL}${endpoint}`;
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...(options.headers as Record<string, string>),
+    ...auth.headers,
   };
 
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
-  
   // Add BYOK headers based on provider
   if (byokConfig) {
     headers['x-ai-provider'] = byokConfig.provider;
@@ -93,10 +118,12 @@ async function apiRequest<T>(
     }
   }
 
-  const response = await fetch(url, {
-    ...options,
-    headers,
-  });
+  const requestInit: RequestInit = { ...options, headers };
+  if (auth.credentials) {
+    requestInit.credentials = auth.credentials;
+  }
+
+  const response = await fetch(url, requestInit);
 
   if (!response.ok) {
     let error: ApiError;

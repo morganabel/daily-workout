@@ -6,6 +6,7 @@ describe('logging redaction', () => {
     const redacted = redactSecrets({
       headers: {
         Authorization: 'Bearer secret-token',
+        Cookie: 'better-auth.session_token=super-secret-cookie',
         'x-api-key': 'sk-test-123',
         'x-safe': 'ok',
       },
@@ -17,6 +18,7 @@ describe('logging redaction', () => {
     });
 
     expect(redacted.headers.Authorization).toBe('[REDACTED]');
+    expect(redacted.headers.Cookie).toBe('[REDACTED]');
     expect(redacted.headers['x-api-key']).toBe('[REDACTED]');
     expect(redacted.password).toBe('[REDACTED]');
     expect(redacted.token).toBe('[REDACTED]');

@@ -21,7 +21,7 @@ export interface AuthResult {
 export interface AuthProvider {
   /**
    * Authenticates a request and returns user info or null if unauthorized.
-   * Identity must come from validating the bearer session, not from arbitrary headers.
+   * Identity must come from validating the session (cookie or bearer), not from arbitrary headers.
    */
   authenticate(request: Request): Promise<AuthResult | null>;
 }

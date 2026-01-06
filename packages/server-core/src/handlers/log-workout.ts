@@ -31,7 +31,7 @@ export function createLogWorkoutHandler(deps: LogWorkoutHandlerDeps) {
     if (!auth) {
       return createErrorResponse(
         'UNAUTHORIZED',
-        'Invalid or missing bearer session',
+        'Invalid or missing session',
         401
       );
     }

@@ -20,11 +20,24 @@ describe('BetterAuthProvider', () => {
     }) as unknown as Auth;
 
   describe('authenticate', () => {
-    it('should return null when Authorization header is missing', async () => {
+    it('should return null when no session headers are present', async () => {
       const auth = createMockAuth(null);
       const provider = new BetterAuthProvider(auth);
 
       const request = new Request('http://localhost/api/test');
+      const result = await provider.authenticate(request);
+
+      expect(result).toBeNull();
+      expect(auth.api.getSession).not.toHaveBeenCalled();
+    });
+
+    it('should return null when Cookie header is empty', async () => {
+      const auth = createMockAuth(null);
+      const provider = new BetterAuthProvider(auth);
+
+      const request = new Request('http://localhost/api/test', {
+        headers: { Cookie: '   ' },
+      });
       const result = await provider.authenticate(request);
 
       expect(result).toBeNull();
@@ -55,6 +68,24 @@ describe('BetterAuthProvider', () => {
 
       expect(result).toBeNull();
       expect(auth.api.getSession).not.toHaveBeenCalled();
+    });
+
+    it('should return userId and principalId from valid cookie session', async () => {
+      const auth = createMockAuth({
+        session: { id: 'session-123' },
+        user: { id: 'user-456' },
+      });
+      const provider = new BetterAuthProvider(auth);
+
+      const request = new Request('http://localhost/api/test', {
+        headers: { Cookie: 'better-auth.session_token=token-abc' },
+      });
+      const result = await provider.authenticate(request);
+
+      expect(result).toEqual({
+        userId: 'user-456',
+        principalId: 'session-123',
+      });
     });
 
     it('should return userId and principalId from valid session', async () => {

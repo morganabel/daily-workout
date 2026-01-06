@@ -29,7 +29,7 @@ export function createSnapshotHandler(deps: SnapshotHandlerDeps) {
     if (!auth) {
       return createErrorResponse(
         'UNAUTHORIZED',
-        'Invalid or missing bearer session',
+        'Invalid or missing session',
         401
       );
     }
