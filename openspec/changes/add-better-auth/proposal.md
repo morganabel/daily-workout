@@ -14,9 +14,10 @@ The current authentication uses a stub provider that accepts any bearer token. T
 - **No identity from arbitrary headers:** In Better Auth mode, identity MUST come from validating the bearer session, not from `x-user-id` or similar headers.
 - **Add `/api/meta` endpoint:** Capabilities discovery endpoint returning auth methods available, protocol version, and feature flags. Enables clients to detect backend capabilities before auth. Response schema (`MetaResponse`) exported from `@workout-agent-ce/shared` for type-safe client consumption.
 - **Backward-compatible stub auth (CE/dev):** Preserve stub behavior for DB-less development/self-hosting.
-- **Add mobile auth client:** Integrate `@better-auth/expo` with SecureStore, using `storagePrefix` derived from canonical backend URL hash for per-backend session isolation.
+- **Add mobile auth client:** Integrate `@better-auth/expo` with SecureStore, using `storagePrefix` derived from canonical backend URL for per-backend session isolation.
 - **Anonymous-to-email linking:** When upgrading from anonymous to email/password, the system preserves the same `userId` for metering/billing continuity.
 - **Create auth UI:** Optional sign-in and sign-up screens for users upgrading from anonymous.
+- **Add Launch onboarding:** A Launch screen guides first-run users to `Explore` (explicit anonymous session) or sign up/sign in; BYOK is available as an advanced option.
 - **Prevent token leakage:** Explicit "never log" list: `Authorization` header, request bodies for auth routes, session tokens, Better Auth secrets. Add redaction tests.
 - **Avoid Edge middleware for auth:** DB-backed session validation and quota lookup MUST happen in Node route handlers / `UsagePolicy`, not Next.js Edge middleware.
 

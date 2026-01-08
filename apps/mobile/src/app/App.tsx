@@ -5,6 +5,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { RootSiblingParent } from 'react-native-root-siblings';
 
 import { HomeScreen } from './HomeScreen';
+import { LaunchScreen } from './LaunchScreen';
 import { WorkoutPreviewScreen } from './WorkoutPreviewScreen';
 import { ActiveWorkoutScreen } from './ActiveWorkoutScreen';
 import { RootStackParamList } from './navigation';
@@ -28,13 +29,14 @@ export const App = () => {
       <NavigationContainer>
         <SafeAreaView style={{ flex: 1, backgroundColor }}>
           <Stack.Navigator
-            initialRouteName="Home"
+            initialRouteName="Launch"
             screenOptions={{
               headerShown: false,
               animation: 'default',
               contentStyle: { backgroundColor },
             }}
           >
+            <Stack.Screen name="Launch" component={LaunchScreen} />
             <Stack.Screen name="Home" component={HomeScreen} />
             <Stack.Screen name="WorkoutPreview" component={WorkoutPreviewScreen} />
             <Stack.Screen name="ActiveWorkout" component={ActiveWorkoutScreen} />

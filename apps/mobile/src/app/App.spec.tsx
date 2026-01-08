@@ -62,6 +62,9 @@ jest.mock('./WorkoutPreviewScreen', () => ({
 jest.mock('./ActiveWorkoutScreen', () => ({
   ActiveWorkoutScreen: () => null,
 }));
+jest.mock('./LaunchScreen', () => ({
+  LaunchScreen: () => null,
+}));
 jest.mock('./SignInScreen', () => ({
   SignInScreen: () => null,
 }));

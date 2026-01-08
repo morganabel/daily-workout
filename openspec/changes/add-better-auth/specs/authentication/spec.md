@@ -17,18 +17,58 @@ The server MUST expose a `/api/meta` endpoint that returns auth capabilities, pr
 - **WHEN** it fetches `/api/meta`
 - **THEN** the response can be type-safely consumed as `MetaResponse`
 
-### Requirement: Anonymous Session Bootstrap
-When Better Auth is enabled, the system MUST support anonymous sign-in that creates a server-side principal without user interaction. The mobile app SHALL perform anonymous sign-in on first run and persist the resulting bearer session securely.
+### Requirement: Mobile Launch Gate
+The mobile app MUST include a Launch (onboarding) screen that appears for brand new users or when the backend requires authentication and the app has no valid session.
 
-#### Scenario: First-run anonymous sign-in
-- **GIVEN** the mobile app has no stored session
-- **WHEN** the app starts and the backend's `/api/meta` indicates anonymous auth is available
-- **THEN** the app obtains a bearer session and subsequent API requests include `Authorization: Bearer <token>`
+- Returning users who already have a valid session MUST be routed directly to Home without seeing the Launch screen.
+- The Launch screen MUST present clear actions to explore immediately (temporary session) or sign up/sign in.
+- BYOK MAY be exposed as an advanced option, but it MUST NOT be a prominent/primary first-run requirement.
+
+#### Scenario: Returning user skips Launch
+- **GIVEN** the user has a valid persisted session for the current backend
+- **WHEN** they open the app
+- **THEN** the app navigates directly to Home without rendering the Launch screen
+
+#### Scenario: Auth required and no session shows Launch
+- **GIVEN** the backend requires authentication (`/api/meta` indicates `auth.enabled=true`)
+- **AND** the app has no valid session for the current backend
+- **WHEN** the user opens the app
+- **THEN** the Launch screen is shown with Explore / Create account / Sign in options
+
+#### Scenario: 401 redirects to Launch
+- **GIVEN** the user triggers a protected action
+- **AND** the server responds with `401 UNAUTHORIZED`
+- **WHEN** the app receives the response
+- **THEN** the app navigates to the Launch screen so the user can restore a session
+
+### Requirement: Anonymous Session Bootstrap
+When Better Auth is enabled, the system MUST support anonymous sign-in that creates a server-side principal without requiring the user to provide credentials. The mobile app SHALL initiate anonymous sign-in only when the user explicitly chooses to explore (for example, by tapping an `Explore` button on the Launch screen) and SHALL persist the resulting session securely.
+
+#### Scenario: Explore creates an anonymous session
+- **GIVEN** the Launch screen is visible and the app has no stored session
+- **WHEN** the user taps `Explore`
+- **THEN** the app obtains a session and subsequent API requests are authenticated (cookie preferred; bearer token acceptable)
+
+#### Scenario: No session is created until user action
+- **GIVEN** the app starts with no stored session
+- **WHEN** the user has not tapped `Explore` and has not signed in
+- **THEN** the app does not create an anonymous session implicitly
 
 #### Scenario: Anonymous session survives app restart
 - **GIVEN** the user has an active anonymous session
 - **WHEN** they close and reopen the app
 - **THEN** the session is restored from secure storage and API calls remain authenticated
+
+### Requirement: Non-Blocking Capability Discovery (Mobile)
+The mobile app MUST NOT block the initial UI while `/api/meta` is slow or unavailable.
+
+- The app MUST have a build-time/default assumption for whether authentication is enabled (for example `EXPO_PUBLIC_AUTH_ENABLED=true|false`).
+- While capabilities are unknown, the Launch screen MUST still render and allow the user to choose Explore or sign up/sign in.
+
+#### Scenario: Meta is slow but onboarding remains usable
+- **GIVEN** `/api/meta` is slow or temporarily unreachable
+- **WHEN** the app starts
+- **THEN** the Launch screen is shown (with a non-blocking "connecting" state) and the user can still choose `Explore` or sign up/sign in
 
 ### Requirement: User Registration with Account Linking
 Users MUST be able to register using email and password. If the user is currently signed in anonymously, the system SHALL upgrade/link that anonymous principal to the provided credentials, preserving the same `userId` for metering/billing continuity.
@@ -138,7 +178,7 @@ The system MUST treat all authentication credentials and tokens as secrets. The 
 - **THEN** logs do not include the raw bearer token value (or other auth secrets)
 
 ### Requirement: Mobile Session Persistence with Backend Isolation
-The mobile app MUST persist session credentials securely across app restarts using platform-appropriate secure storage. The `storagePrefix` MUST be derived from a hash of the canonical backend URL to prevent session collisions when switching backends.
+The mobile app MUST persist session credentials securely across app restarts using platform-appropriate secure storage. The `storagePrefix` MUST be derived from a canonical backend URL (for example a stable hash or normalized host+port string) to prevent session collisions when switching backends.
 
 #### Scenario: Session survives app restart
 - **GIVEN** a user is logged in and closes the app

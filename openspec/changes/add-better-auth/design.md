@@ -170,8 +170,21 @@ if (env.EDITION === 'HOSTED' && AUTH_MODE !== 'better-auth') {
 **Decision:** Start with **anonymous sessions** by default, with an optional upgrade path to **email/password**.
 
 **Rationale:**
-- Preserves today's "no-friction" first-run experience (no auth UI required).
+- Preserves a "no-friction" first-run experience (Launch screen offers `Explore` without credentials; email/password is optional).
 - Upgrading to email/password later enables cross-device access, billing identity, and account recovery (future).
+
+### Mobile Launch Experience
+
+**Decision:** Add a Launch (onboarding) screen as the initial route. It MUST immediately route to Home when no setup is needed.
+
+**Behaviors:**
+- Anonymous sessions are created **only when the user explicitly chooses** an `Explore` (or similar) action.
+- Sign up/sign in remain visible and clear on the Launch screen.
+- BYOK entry is treated as an advanced/power-user option and is de-emphasized (for example behind an "Advanced" toggle).
+
+**Rationale:**
+- Avoid surprising users by creating accounts/sessions without an explicit action.
+- Keep the happy path simple while still supporting account creation and power-user configuration.
 
 ### Anonymous-to-Email Linking Semantics
 
@@ -183,12 +196,20 @@ if (env.EDITION === 'HOSTED' && AUTH_MODE !== 'better-auth') {
 
 ### Mobile `storagePrefix` Derivation
 
-**Decision:** Derive `storagePrefix` from a hash of the canonical backend URL.
+**Decision:** Derive `storagePrefix` from the canonical backend URL (for example a stable hash or normalized host+port string).
 
 **Rationale:**
 - Switching backends doesn't overwrite sessions from other backends.
 - Avoids SecureStore key collisions.
 - Canonical URL = normalized (lowercase host, no trailing slash).
+
+### Non-Blocking Capabilities Discovery (Mobile)
+
+**Decision:** Do not block the initial UI on `/api/meta`. Use a build-time/default hint (e.g., `EXPO_PUBLIC_AUTH_ENABLED`) while capabilities are being fetched.
+
+**Rationale:**
+- Makes startup resilient when the backend is slow/unreachable.
+- Keeps onboarding responsive while still converging to correct capability behavior once meta is available.
 
 ### Capabilities Discovery Endpoint (`/api/meta`)
 

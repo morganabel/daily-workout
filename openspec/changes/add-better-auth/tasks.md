@@ -56,16 +56,17 @@
 ## 6. Mobile Client
 - [x] 6.1 Add better-auth and @better-auth/expo to mobile
 - [x] 6.2 Create `auth-client.ts` with Expo SecureStore
-- [x] 6.3 Derive `storagePrefix` from hash of canonical backend URL
-- [x] 6.4 Fetch `/api/meta` on startup to detect auth capabilities
-- [x] 6.5 Implement silent anonymous sign-in on first run when backend supports it
+- [x] 6.3 Derive `storagePrefix` from canonical backend URL (per-backend session isolation)
+- [x] 6.4 Fetch `/api/meta` in a non-blocking way to detect auth capabilities
+- [x] 6.5 Add Launch onboarding; create anonymous session only after explicit `Explore` action
 - [x] 6.6 Add URL scheme to `app.json`
 - [x] 6.7 Update `api.ts` to send `Authorization: Bearer <session>`
 - [x] 6.8 Remove/redact auth headers/tokens from client debug logs
+- [x] 6.9 Add build-time auth hint (`EXPO_PUBLIC_AUTH_ENABLED`) + persist "launch completed" flag
 
 ## 7. Auth UI
 - [x] 7.1 Create SignInScreen with email/password form (upgrade from anonymous)
 - [x] 7.2 Create SignUpScreen with registration form (upgrade from anonymous, preserves userId)
-- [x] 7.3 Add auth guard to navigation
+- [x] 7.3 Add Launch gate + unauthorized recovery to navigation
 - [ ] 7.4 Test full auth flow on device/simulator
 - [ ] 7.5 Test backend switching (verify storagePrefix isolation)
