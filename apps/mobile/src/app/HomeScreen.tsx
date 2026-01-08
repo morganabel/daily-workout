@@ -1276,6 +1276,14 @@ export const HomeScreen = () => {
       });
     } catch (err) {
       const apiError = err as ApiError;
+      if (apiError?.code === 'UNAUTHORIZED') {
+        setGenerationStatus({
+          state: 'idle',
+          submittedAt: null,
+        });
+        navigation.navigate('Launch');
+        return;
+      }
       console.error('Failed to generate workout:', apiError);
       setGenerationStatus({
         state: 'error',
@@ -1372,6 +1380,14 @@ export const HomeScreen = () => {
       });
     } catch (err) {
       const apiError = err as ApiError;
+      if (apiError?.code === 'UNAUTHORIZED') {
+        setGenerationStatus({
+          state: 'idle',
+          submittedAt: null,
+        });
+        navigation.navigate('Launch');
+        return;
+      }
       console.error('Failed to regenerate workout:', apiError);
       setGenerationStatus({
         state: 'error',

@@ -3,6 +3,7 @@
 Workout Agent CE is the open-source community edition of a daily workout planner. It ships with a Next.js backend and an Expo mobile app that calls AI providers (OpenAI or Gemini) to generate personalized plans.
 
 ## Tech stack
+
 - Nx monorepo tooling
 - Next.js API routes (server)
 - Expo / React Native client
@@ -11,23 +12,32 @@ Workout Agent CE is the open-source community edition of a daily workout planner
 - ESLint, Prettier, and EditorConfig for consistency
 
 ## Repository layout
+
 - `apps/server` – Next.js API routes that generate plans and serve home snapshot data.
 - `apps/mobile` – Expo client that renders the plan, quick actions, and BYOK (bring-your-own-key) provider selection.
 - `packages/shared` – Shared Zod schemas and helpers for requests/responses used by both apps.
 
 ## Quickstart
+
 1. Install dependencies: `npm install`
-2. Start the backend: `npm run start` (Next.js on port 3000)
+2. Start the backend:
+   - **Stub auth (no DB)**: `npm run start` (Next.js on port 3000)
+   - **Better Auth + Postgres (recommended)**: `npm run dev:server:db`
 3. Start the mobile app: `npm run dev:mobile` (Expo) and press `i`/`a` for iOS/Android, or use `npx nx run mobile:run-ios` for a simulator build.
 4. Provide an AI key either via environment variables (see below) or BYOK from the app’s Home → BYOK screen.
 
 ## Common scripts
+
 - `npm run lint` – Lint all projects
 - `npm run test` – Run all configured tests
 - `npm run build` – Build server and mobile apps
 - `npm run start` – Start the Next.js API in dev mode
+- `npm run dev:server:db` – Start Postgres (Docker) + Next.js with Better Auth enabled
+- `npm run db:migrate` – Apply Drizzle migrations (Better Auth tables) to the local Postgres
+- `npm run db:down` – Stop Postgres
 
 ## Environment configuration
+
 Create a `.env` file (or `.env.local` for Next.js) using the template below:
 
 ```
@@ -46,6 +56,11 @@ GOOGLE_CLOUD_LOCATION=
 
 # Mobile app API target
 EXPO_PUBLIC_BACKEND_URL=http://localhost:3000
+
+# Better Auth (optional; enabled automatically when DATABASE_URL is set)
+DATABASE_URL=postgres://user:password@localhost:5432/workout_agent
+BETTER_AUTH_SECRET=dev-secret-dev-secret-dev-secret-dev-secret
+BETTER_AUTH_URL=http://localhost:3000
 ```
 
 - Server BYOK headers: `x-ai-provider`, `x-openai-key`, `x-gemini-key`, or `x-ai-key` (generic fallback). When using `x-ai-key`, also send `x-ai-provider` to specify which provider to route to.
@@ -53,6 +68,7 @@ EXPO_PUBLIC_BACKEND_URL=http://localhost:3000
 - When no key is present in CE mode, the server falls back to deterministic mock plans so the app still works for demos.
 
 ## Running tests and lint checks
+
 Use Nx targets to keep the workspace healthy:
 
 - Unit tests for shared contracts: `npx nx test @workout-agent/shared`
@@ -60,12 +76,15 @@ Use Nx targets to keep the workspace healthy:
 - Lint the Expo app: `npx nx lint mobile`
 
 ## API surface
-- `GET /api/home/snapshot` → returns today’s plan (or null), quick actions, and recent sessions. Requires `Authorization: Bearer <DeviceToken>`.
+
+- `GET /api/meta` → server capabilities (auth methods, protocol version). Does not require auth.
+- `GET /api/home/snapshot` → returns today’s plan (or null), quick actions, and recent sessions. Requires `Authorization: Bearer <token>` (Better Auth session token in DB-backed mode; any non-empty token in stub mode).
 - `POST /api/workouts/generate` → generates a `TodayPlan` using the selected provider; respects BYOK headers and falls back to mock data in CE mode.
 - `POST /api/workouts/{id}/log` → records a workout session summary (currently stubbed pending persistence).
 
 ## Current limitations before going public
-- Auth is DeviceToken-only and backed by in-memory stubs—no user database yet.
+
+- DB-backed auth is still early: local dev uses Postgres via Docker and Better Auth sessions; persistence beyond auth tables is still limited.
 - Workout logging/persistence is not implemented; snapshot recent sessions are mocked.
 - Several API handlers contain TODOs for ownership checks and persistence—review before relying on them in production.
 

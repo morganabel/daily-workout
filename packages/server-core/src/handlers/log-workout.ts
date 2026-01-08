@@ -31,7 +31,7 @@ export function createLogWorkoutHandler(deps: LogWorkoutHandlerDeps) {
     if (!auth) {
       return createErrorResponse(
         'UNAUTHORIZED',
-        'Invalid or missing DeviceToken',
+        'Invalid or missing session',
         401
       );
     }
@@ -59,7 +59,8 @@ export function createLogWorkoutHandler(deps: LogWorkoutHandlerDeps) {
       source: 'ai', // Would come from the plan
     });
 
-    await deps.store.clearPlan(auth.deviceToken);
+    // Use principalId for device-scoped state (GenerationStore)
+    await deps.store.clearPlan(auth.principalId);
 
     // Validate response against schema
     const validated = workoutSessionSummarySchema.parse(sessionSummary);

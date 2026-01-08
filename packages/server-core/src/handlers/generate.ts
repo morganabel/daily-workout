@@ -14,6 +14,7 @@ import {
   createTodayPlanMock,
   type TodayPlan,
 } from '@workout-agent/shared';
+import { safeLog } from '../utils/logging';
 
 // Extended schema that accepts optional client-provided context
 const generationRequestWithContextSchema = generationRequestSchema.extend({
@@ -27,9 +28,9 @@ const DEFAULT_GENERATION_ETA_SECONDS = 18;
  */
 export interface GenerateHandlerConfig {
   /**
-   * Edition mode (OSS or HOSTED)
+   * Edition mode (CE or HOSTED)
    */
-  edition?: 'OSS' | 'HOSTED';
+  edition?: 'CE' | 'HOSTED';
 
   /**
    * Whether to use Vertex AI for Gemini (server-configured)
@@ -101,7 +102,7 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
     if (!auth) {
       return createErrorResponse(
         'UNAUTHORIZED',
-        'Invalid or missing DeviceToken',
+        'Invalid or missing session',
         401
       );
     }
@@ -213,7 +214,7 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
     const isRegeneration = Boolean(generationRequest.previousResponseId);
 
     // Log generation start (NEVER log API keys)
-    console.log('[workouts.generate] generation started', {
+    safeLog('[workouts.generate] generation started', {
       userId: auth.userId,
       provider,
       hasApiKey: Boolean(apiKey),
@@ -222,7 +223,8 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
       feedback: generationRequest.feedback,
     });
 
-    await deps.store.markPending(auth.deviceToken, DEFAULT_GENERATION_ETA_SECONDS);
+    // Use principalId for device-scoped state (GenerationStore)
+    await deps.store.markPending(auth.principalId, DEFAULT_GENERATION_ETA_SECONDS);
 
     let plan: TodayPlan;
     let responseId: string | undefined;
@@ -242,12 +244,12 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
       } catch (error) {
         encounteredProviderError = true;
         const sanitizedMessage = sanitizeErrorMessage((error as Error).message);
-        console.warn('[workouts.generate] AI generation failed, falling back to mock', {
+        safeLog('[workouts.generate] AI generation failed, falling back to mock', {
           provider,
           message: sanitizedMessage, // Use sanitized message
         });
         await deps.store.setError(
-          auth.deviceToken,
+          auth.principalId,
           'We could not generate a workout plan. Showing a fallback plan.'
         );
         plan = mockPlan();
@@ -259,10 +261,10 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
     const validated = todayPlanSchema.parse(plan);
 
     if (!encounteredProviderError) {
-      await deps.store.persistPlan(auth.deviceToken, validated, {
+      await deps.store.persistPlan(auth.principalId, validated, {
         schemaVersion,
       });
-      console.log('[workouts.generate] generation completed', {
+      safeLog('[workouts.generate] generation completed', {
         userId: auth.userId,
         durationMs: Date.now() - startedAt,
         source: apiKey ? 'ai' : 'mock',
@@ -271,7 +273,7 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
         schemaVersion,
       });
     } else {
-      console.warn('[workouts.generate] generation returned fallback plan', {
+      safeLog('[workouts.generate] generation returned fallback plan', {
         userId: auth.userId,
         durationMs: Date.now() - startedAt,
       });

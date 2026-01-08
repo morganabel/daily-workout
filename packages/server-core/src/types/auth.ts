@@ -2,18 +2,26 @@
  * Authentication interfaces for server-core
  */
 
+/**
+ * Result of successful authentication.
+ *
+ * - `userId`: Stable account-level identity for billing, metering, and cross-device data.
+ * - `principalId`: Session/device-scoped identity for device-specific state (e.g., GenerationStore).
+ *   Derived from session ID, unique per device. Must remain stable across token refresh.
+ */
 export interface AuthResult {
   userId: string;
-  deviceToken: string;
+  principalId: string;
 }
 
 /**
  * AuthProvider defines how the server authenticates requests.
- * Implementations can use DeviceToken (OSS default), Better Auth, or custom logic.
+ * Implementations can use stub auth (CE default), Better Auth, or custom logic.
  */
 export interface AuthProvider {
   /**
-   * Authenticates a request and returns user info or null if unauthorized
+   * Authenticates a request and returns user info or null if unauthorized.
+   * Identity must come from validating the session (cookie or bearer), not from arbitrary headers.
    */
   authenticate(request: Request): Promise<AuthResult | null>;
 }

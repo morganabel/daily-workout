@@ -29,12 +29,13 @@ export function createSnapshotHandler(deps: SnapshotHandlerDeps) {
     if (!auth) {
       return createErrorResponse(
         'UNAUTHORIZED',
-        'Invalid or missing DeviceToken',
+        'Invalid or missing session',
         401
       );
     }
 
-    const deviceState = await deps.store.getState(auth.deviceToken);
+    // Use principalId for device-scoped state (GenerationStore)
+    const deviceState = await deps.store.getState(auth.principalId);
     const storedPlan: TodayPlan | null = deviceState.plan;
 
     const baseSnapshot = createHomeSnapshotMock({

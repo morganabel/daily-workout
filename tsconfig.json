@@ -23,6 +23,12 @@
     },
     {
       "path": "./packages/server-ai"
+    },
+    {
+      "path": "./packages/server-db"
+    },
+    {
+      "path": "./packages/server-auth"
     }
   ]
 }

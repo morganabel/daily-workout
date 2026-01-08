@@ -5,11 +5,14 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { RootSiblingParent } from 'react-native-root-siblings';
 
 import { HomeScreen } from './HomeScreen';
+import { LaunchScreen } from './LaunchScreen';
 import { WorkoutPreviewScreen } from './WorkoutPreviewScreen';
 import { ActiveWorkoutScreen } from './ActiveWorkoutScreen';
 import { RootStackParamList } from './navigation';
 import { HistoryScreen } from './HistoryScreen';
 import { SettingsScreen } from './SettingsScreen';
+import { SignInScreen } from './SignInScreen';
+import { SignUpScreen } from './SignUpScreen';
 import { useDeviceToken } from './hooks/useDeviceToken';
 
 const backgroundColor = '#030914';
@@ -26,18 +29,22 @@ export const App = () => {
       <NavigationContainer>
         <SafeAreaView style={{ flex: 1, backgroundColor }}>
           <Stack.Navigator
-            initialRouteName="Home"
+            initialRouteName="Launch"
             screenOptions={{
               headerShown: false,
               animation: 'default',
               contentStyle: { backgroundColor },
             }}
           >
+            <Stack.Screen name="Launch" component={LaunchScreen} />
             <Stack.Screen name="Home" component={HomeScreen} />
             <Stack.Screen name="WorkoutPreview" component={WorkoutPreviewScreen} />
             <Stack.Screen name="ActiveWorkout" component={ActiveWorkoutScreen} />
             <Stack.Screen name="History" component={HistoryScreen} />
             <Stack.Screen name="Settings" component={SettingsScreen} />
+            {/* Auth screens - optional upgrade from anonymous */}
+            <Stack.Screen name="SignIn" component={SignInScreen} />
+            <Stack.Screen name="SignUp" component={SignUpScreen} />
           </Stack.Navigator>
         </SafeAreaView>
       </NavigationContainer>
