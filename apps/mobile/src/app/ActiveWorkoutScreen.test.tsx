@@ -1,7 +1,10 @@
 import React from 'react';
 import { render, fireEvent, act } from '@testing-library/react-native';
 import { ActiveWorkoutScreen } from './ActiveWorkoutScreen';
-import { createTodayPlanMock } from '@workout-agent/shared';
+import {
+  createTodayPlanMock,
+  createWorkoutExerciseLogMock,
+} from '@workout-agent/shared';
 import { Alert } from 'react-native';
 
 const mockReset = jest.fn();
@@ -9,7 +12,9 @@ const mockAddListener = jest.fn(() => jest.fn());
 
 jest.mock('@react-navigation/native', () => {
   const actual = jest.requireActual('@react-navigation/native');
-  const { createTodayPlanMock: planMockFactory } = jest.requireActual('@workout-agent/shared');
+  const { createTodayPlanMock: planMockFactory } = jest.requireActual(
+    '@workout-agent/shared'
+  );
   return {
     ...actual,
     useNavigation: () => ({
@@ -22,9 +27,21 @@ jest.mock('@react-navigation/native', () => {
   };
 });
 
+const mockWorkout = { id: 'workout-123' };
+const mockExerciseLogs = [
+  createWorkoutExerciseLogMock({ id: 'exercise-1', order: 0 }),
+];
+
 jest.mock('./db/repositories/WorkoutRepository', () => ({
   workoutRepository: {
     completeWorkoutById: jest.fn(),
+    getWorkoutByPlanId: jest.fn().mockResolvedValue(mockWorkout),
+    ensureSetsForWorkout: jest.fn().mockResolvedValue(undefined),
+    listExerciseLogsByWorkoutId: jest.fn().mockResolvedValue(mockExerciseLogs),
+    getLastExercisePerformance: jest.fn().mockResolvedValue(null),
+    updateSetById: jest.fn().mockResolvedValue(mockExerciseLogs[0].sets[0]),
+    addSetForExercise: jest.fn().mockResolvedValue(mockExerciseLogs[0].sets[0]),
+    removeSetById: jest.fn().mockResolvedValue(undefined),
   },
 }));
 
@@ -36,11 +53,13 @@ describe('ActiveWorkoutScreen', () => {
   });
 
   it('shows confirmation and resets navigation on cancel', async () => {
-    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation((title, message, buttons) => {
-      // Simulate pressing the destructive button
-      buttons?.[1]?.onPress?.();
-      return undefined as any;
-    });
+    const alertSpy = jest
+      .spyOn(Alert, 'alert')
+      .mockImplementation((title, message, buttons) => {
+        // Simulate pressing the destructive button
+        buttons?.[1]?.onPress?.();
+        return undefined as any;
+      });
 
     const { getByText } = render(<ActiveWorkoutScreen />);
 
@@ -57,4 +76,3 @@ describe('ActiveWorkoutScreen', () => {
     alertSpy.mockRestore();
   });
 });
-

@@ -1,7 +1,10 @@
 import * as React from 'react';
 import { render } from '@testing-library/react-native';
 import { useHomeData } from './hooks/useHomeData';
-import { createTodayPlanMock, type QuickActionPreset } from '@workout-agent/shared';
+import {
+  createTodayPlanMock,
+  type QuickActionPreset,
+} from '@workout-agent/shared';
 import App from './App';
 
 jest.mock('./hooks/useHomeData', () => ({
@@ -16,18 +19,24 @@ jest.mock('@react-navigation/native', () => ({
     // Defer callback execution to allow component to mount
     setTimeout(() => callback(), 0);
   }),
-  useRoute: () => ({ 
+  useRoute: () => ({
     params: {},
     key: 'test-route',
     name: 'Home',
   }),
-  NavigationContainer: ({ children }: { children: React.ReactNode }) => children,
+  NavigationContainer: ({ children }: { children: React.ReactNode }) =>
+    children,
 }));
 jest.mock('@react-navigation/native-stack', () => {
   const React = require('react');
-  const MockNavigator = ({ children }: { children: React.ReactNode }) => <>{children}</>;
-  const MockScreen = ({ component: Component }: { component: React.ComponentType<any> }) => 
-    Component ? <Component /> : null;
+  const MockNavigator = ({ children }: { children: React.ReactNode }) => (
+    <>{children}</>
+  );
+  const MockScreen = ({
+    component: Component,
+  }: {
+    component: React.ComponentType<any>;
+  }) => (Component ? <Component /> : null);
   return {
     createNativeStackNavigator: jest.fn(() => ({
       Navigator: MockNavigator,
@@ -56,6 +65,9 @@ jest.mock('./SettingsScreen', () => ({
 jest.mock('./HistoryScreen', () => ({
   HistoryScreen: () => null,
 }));
+jest.mock('./WorkoutSessionDetailScreen', () => ({
+  WorkoutSessionDetailScreen: () => null,
+}));
 jest.mock('./WorkoutPreviewScreen', () => ({
   WorkoutPreviewScreen: () => null,
 }));
@@ -75,11 +87,41 @@ jest.mock('./SignUpScreen', () => ({
 const mockUseHomeData = useHomeData as jest.MockedFunction<typeof useHomeData>;
 
 const createBaseQuickActions = (): QuickActionPreset[] => [
-  { key: 'time', label: 'Time', value: '30', description: '30 min', stagedValue: null },
-  { key: 'focus', label: 'Focus', value: 'Upper', description: 'Upper', stagedValue: null },
-  { key: 'equipment', label: 'Equipment', value: 'Bodyweight', description: 'Bodyweight', stagedValue: null },
-  { key: 'energy', label: 'Energy', value: 'Moderate', description: 'Moderate', stagedValue: null },
-  { key: 'backfill', label: 'Backfill', value: 'Today', description: 'Log past session', stagedValue: null },
+  {
+    key: 'time',
+    label: 'Time',
+    value: '30',
+    description: '30 min',
+    stagedValue: null,
+  },
+  {
+    key: 'focus',
+    label: 'Focus',
+    value: 'Upper',
+    description: 'Upper',
+    stagedValue: null,
+  },
+  {
+    key: 'equipment',
+    label: 'Equipment',
+    value: 'Bodyweight',
+    description: 'Bodyweight',
+    stagedValue: null,
+  },
+  {
+    key: 'energy',
+    label: 'Energy',
+    value: 'Moderate',
+    description: 'Moderate',
+    stagedValue: null,
+  },
+  {
+    key: 'backfill',
+    label: 'Backfill',
+    value: 'Today',
+    description: 'Log past session',
+    stagedValue: null,
+  },
 ];
 
 const baseHookState = {

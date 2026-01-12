@@ -1,5 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, Alert, ActivityIndicator } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  Pressable,
+  Alert,
+  ActivityIndicator,
+} from 'react-native';
 import Toast from 'react-native-root-toast';
 import { Ionicons } from '@expo/vector-icons';
 import type { WorkoutSessionSummary } from '@workout-agent/shared';
@@ -42,7 +50,9 @@ export const HistoryScreen = () => {
       const workouts = await workoutRepository.listRecentSessions(50, {
         includeArchived: includeArchivedFlag,
       });
-      const summaries = workouts.map((workout) => workoutRepository.toSessionSummary(workout));
+      const summaries = workouts.map((workout) =>
+        workoutRepository.toSessionSummary(workout)
+      );
       setHistory(summaries);
     } catch (err) {
       console.error('Failed to load history', err);
@@ -63,34 +73,34 @@ export const HistoryScreen = () => {
       } else {
         await archiveWorkoutSession(session.id);
       }
-      Toast.show(session.archivedAt ? 'Workout restored to history' : 'Workout archived', {
-        duration: Toast.durations.SHORT,
-        position: Toast.positions.BOTTOM - 80,
-      });
+      Toast.show(
+        session.archivedAt ? 'Workout restored to history' : 'Workout archived',
+        {
+          duration: Toast.durations.SHORT,
+          position: Toast.positions.BOTTOM - 80,
+        }
+      );
       await loadHistory(includeArchived);
     } catch (err) {
       console.error('Failed to toggle archive', err);
-      Alert.alert(
-        'Unable to update',
-        'Please try again.',
-      );
+      Alert.alert('Unable to update', 'Please try again.');
     }
   };
 
   const handleFavoriteToggle = async (session: WorkoutSessionSummary) => {
     try {
       await toggleFavoriteWorkout(session.id);
-      Toast.show(session.isFavorite ? 'Removed from favorites' : 'Added to favorites', {
-        duration: Toast.durations.SHORT,
-        position: Toast.positions.BOTTOM - 80,
-      });
+      Toast.show(
+        session.isFavorite ? 'Removed from favorites' : 'Added to favorites',
+        {
+          duration: Toast.durations.SHORT,
+          position: Toast.positions.BOTTOM - 80,
+        }
+      );
       await loadHistory(includeArchived);
     } catch (err) {
       console.error('Failed to toggle favorite', err);
-      Alert.alert(
-        'Unable to update',
-        'Please try again.',
-      );
+      Alert.alert('Unable to update', 'Please try again.');
     }
   };
 
@@ -113,22 +123,27 @@ export const HistoryScreen = () => {
               await loadHistory(includeArchived);
             } catch (err) {
               console.error('Failed to delete workout', err);
-              Alert.alert(
-                'Failed to delete',
-                'Please try again.',
-              );
+              Alert.alert('Failed to delete', 'Please try again.');
             }
           },
         },
-      ],
+      ]
     );
+  };
+
+  const handleOpenSession = (session: WorkoutSessionSummary) => {
+    navigation.navigate('WorkoutSessionDetail', { workoutId: session.id });
   };
 
   return (
     <View style={styles.screen}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.headerRow}>
-          <Pressable style={styles.closeButton} onPress={() => navigation.goBack()} hitSlop={10}>
+          <Pressable
+            style={styles.closeButton}
+            onPress={() => navigation.goBack()}
+            hitSlop={10}
+          >
             <Ionicons name="close" size={24} color={palette.textSecondary} />
           </Pressable>
           <Text style={styles.screenTitle}>History</Text>
@@ -163,7 +178,14 @@ export const HistoryScreen = () => {
           )
         ) : (
           history.map((session) => (
-            <View key={session.id} style={styles.card}>
+            <Pressable
+              key={session.id}
+              style={({ pressed }) => [
+                styles.card,
+                pressed && { opacity: 0.9 },
+              ]}
+              onPress={() => handleOpenSession(session)}
+            >
               <View style={styles.cardHeader}>
                 <View style={styles.cardInfo}>
                   <Text style={styles.workoutName}>{session.name}</Text>
@@ -176,13 +198,18 @@ export const HistoryScreen = () => {
                   <Ionicons
                     name={session.isFavorite ? 'heart' : 'heart-outline'}
                     size={24}
-                    color={session.isFavorite ? palette.favorite : palette.textSecondary}
+                    color={
+                      session.isFavorite
+                        ? palette.favorite
+                        : palette.textSecondary
+                    }
                   />
                 </Pressable>
               </View>
 
               <Text style={styles.workoutMeta}>
-                {new Date(session.completedAt).toLocaleDateString()} • {session.durationMinutes} min
+                {new Date(session.completedAt).toLocaleDateString()} •{' '}
+                {session.durationMinutes} min
               </Text>
 
               <View style={styles.badges}>
@@ -212,12 +239,17 @@ export const HistoryScreen = () => {
                   ]}
                   onPress={() => handleDelete(session)}
                 >
-                  <Text style={[styles.historyActionText, styles.historyActionDestructive]}>
+                  <Text
+                    style={[
+                      styles.historyActionText,
+                      styles.historyActionDestructive,
+                    ]}
+                  >
                     Delete
                   </Text>
                 </Pressable>
               </View>
-            </View>
+            </Pressable>
           ))
         )}
       </ScrollView>
