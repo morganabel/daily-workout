@@ -1,6 +1,7 @@
 import type { AuthProvider, GenerationStore } from '../types';
 import { createErrorResponse } from '../utils/errors';
 import {
+  workoutLogPayloadSchema,
   workoutSessionSummarySchema,
   createSessionSummaryMock,
   type WorkoutSessionSummary,
@@ -33,6 +34,22 @@ export function createLogWorkoutHandler(deps: LogWorkoutHandlerDeps) {
         'UNAUTHORIZED',
         'Invalid or missing session',
         401
+      );
+    }
+
+    let payload: unknown = {};
+    try {
+      payload = await request.json();
+    } catch {
+      payload = {};
+    }
+
+    const parsedPayload = workoutLogPayloadSchema.safeParse(payload ?? {});
+    if (!parsedPayload.success) {
+      return createErrorResponse(
+        'VALIDATION_ERROR',
+        'Invalid workout log payload',
+        400
       );
     }
 

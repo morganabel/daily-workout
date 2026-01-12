@@ -1,25 +1,33 @@
 import {
   buildGenerationRequestFromQuickActions,
   normalizeQuickActionValue,
+  workoutSetLogSchema,
+  workoutExerciseLogSchema,
+  workoutSessionDetailSchema,
+  workoutLogPayloadSchema,
+  createSessionDetailMock,
+  createWorkoutExerciseLogMock,
+  createWorkoutSetLogMock,
   type GenerationRequest,
   type QuickActionPreset,
 } from './workouts';
 
 const createPreset = (
-  overrides: Partial<QuickActionPreset>,
-): QuickActionPreset => ({
-  key: 'time',
-  label: 'Time',
-  value: '30',
-  description: '30 minutes',
-  stagedValue: null,
-  ...overrides,
-}) as QuickActionPreset;
+  overrides: Partial<QuickActionPreset>
+): QuickActionPreset =>
+  ({
+    key: 'time',
+    label: 'Time',
+    value: '30',
+    description: '30 minutes',
+    stagedValue: null,
+    ...overrides,
+  } as QuickActionPreset);
 
 describe('quick action helpers', () => {
   it('normalizes individual quick action values', () => {
     const timeResult = normalizeQuickActionValue(
-      createPreset({ key: 'time', stagedValue: '95' }),
+      createPreset({ key: 'time', stagedValue: '95' })
     );
     expect(timeResult).toEqual({ timeMinutes: 95 });
 
@@ -27,7 +35,7 @@ describe('quick action helpers', () => {
       createPreset({
         key: 'focus',
         stagedValue: '  Lower Body  ',
-      }),
+      })
     );
     expect(focusResult).toEqual({ focus: 'Lower Body' });
 
@@ -35,19 +43,19 @@ describe('quick action helpers', () => {
       createPreset({
         key: 'equipment',
         stagedValue: 'Dumbbells, Bands,  Bench ',
-      }),
+      })
     );
     expect(equipmentResult).toEqual({
       equipment: ['Dumbbells', 'Bands', 'Bench'],
     });
 
     const energyResult = normalizeQuickActionValue(
-      createPreset({ key: 'energy', stagedValue: 'Intense' }),
+      createPreset({ key: 'energy', stagedValue: 'Intense' })
     );
     expect(energyResult).toEqual({ energy: 'intense' });
 
     const backfillResult = normalizeQuickActionValue(
-      createPreset({ key: 'backfill', stagedValue: 'YES' }),
+      createPreset({ key: 'backfill', stagedValue: 'YES' })
     );
     expect(backfillResult).toEqual({ backfill: true });
 
@@ -55,7 +63,7 @@ describe('quick action helpers', () => {
       createPreset({
         key: 'focus',
         stagedValue: 'Smart',
-      }),
+      })
     );
     expect(smartFocusResult).toEqual({});
   });
@@ -101,8 +109,8 @@ describe('quick action helpers', () => {
       createPreset({
         key: 'equipment',
         value: 'Dumbbells', // display value
-        stagedValue: null,  // user didn't explicitly select
-      }),
+        stagedValue: null, // user didn't explicitly select
+      })
     );
     expect(equipmentWithDefaultOnly).toEqual({});
 
@@ -112,8 +120,51 @@ describe('quick action helpers', () => {
         key: 'time',
         value: '30',
         stagedValue: null,
-      }),
+      })
     );
     expect(timeWithDefaultOnly).toEqual({ timeMinutes: 30 });
+  });
+});
+
+describe('workout logging contracts', () => {
+  it('parses a session detail mock without errors', () => {
+    const session = createSessionDetailMock();
+    const parsed = workoutSessionDetailSchema.parse(session);
+    expect(parsed.exercises).toHaveLength(1);
+  });
+
+  it('requires weightUnit when weight is provided', () => {
+    const setLog = createWorkoutSetLogMock({ weightUnit: undefined });
+    expect(() => workoutSetLogSchema.parse(setLog)).toThrow();
+  });
+
+  it('allows weightUnit to be omitted when weight is absent', () => {
+    const setLog = createWorkoutSetLogMock({
+      weight: undefined,
+      weightUnit: undefined,
+    });
+    const parsed = workoutSetLogSchema.parse(setLog);
+    expect(parsed.weightUnit).toBeUndefined();
+  });
+
+  it('accepts a log payload with exercises', () => {
+    const payload = workoutLogPayloadSchema.parse({
+      durationSeconds: 1200,
+      exercises: [createWorkoutExerciseLogMock()],
+    });
+    expect(payload.exercises).toHaveLength(1);
+  });
+
+  it('accepts a completion-only log payload', () => {
+    const payload = workoutLogPayloadSchema.parse({});
+    expect(payload.exercises).toBeUndefined();
+  });
+
+  it('parses exercise logs with set arrays', () => {
+    const exercise = createWorkoutExerciseLogMock({
+      sets: [createWorkoutSetLogMock({ reps: 8 })],
+    });
+    const parsed = workoutExerciseLogSchema.parse(exercise);
+    expect(parsed.sets[0].reps).toBe(8);
   });
 });

@@ -7,6 +7,7 @@ import type {
   TodayPlan,
   GenerationRequest,
   WorkoutSessionSummary,
+  WorkoutLogPayload,
   GenerationContext,
   UserPreferences,
 } from '@workout-agent/shared';
@@ -14,7 +15,11 @@ import { getDeviceToken } from '../storage/deviceToken';
 import { getByokApiKey, getByokConfig } from '../storage/byokKey';
 import { userRepository } from '../db/repositories/UserRepository';
 import { workoutRepository } from '../db/repositories/WorkoutRepository';
-import { getSessionCookie, getSessionToken, isAuthEnabled } from './auth-client';
+import {
+  getSessionCookie,
+  getSessionToken,
+  isAuthEnabled,
+} from './auth-client';
 
 const API_BASE_URL =
   process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:3000';
@@ -87,7 +92,7 @@ async function getAuthHeaders(): Promise<{
  */
 async function apiRequest<T>(
   endpoint: string,
-  options: RequestInit = {},
+  options: RequestInit = {}
 ): Promise<T> {
   const auth = await getAuthHeaders();
   const byokConfig = await getByokConfig();
@@ -167,14 +172,18 @@ export async function fetchHomeSnapshot(): Promise<HomeSnapshot> {
  * This replaces the mock context with real user data.
  */
 export async function buildGenerationContext(
-  request: GenerationRequest,
+  request: GenerationRequest
 ): Promise<GenerationContext> {
   // Get user preferences from local DB
   const prefs: UserPreferences = await userRepository.getPreferences();
 
   // Get recent completed sessions (last 5), excluding archived
-  const recentWorkouts = await workoutRepository.listRecentSessions(5, { includeArchived: false });
-  const recentSessions = recentWorkouts.map((w) => workoutRepository.toSessionSummary(w));
+  const recentWorkouts = await workoutRepository.listRecentSessions(5, {
+    includeArchived: false,
+  });
+  const recentSessions = recentWorkouts.map((w) =>
+    workoutRepository.toSessionSummary(w)
+  );
 
   // Determine equipment: quick action override > profile default > fallback
   const equipment = request.equipment ?? prefs.equipment ?? [];
@@ -212,7 +221,7 @@ export async function buildGenerationContext(
  * since the LLM already has the conversation context.
  */
 export async function generateWorkout(
-  request: GenerationRequest,
+  request: GenerationRequest
 ): Promise<TodayPlan> {
   const isRegeneration = Boolean(request.previousResponseId);
 
@@ -250,9 +259,11 @@ export async function generateWorkout(
  */
 export async function logWorkout(
   planId: string,
+  payload?: WorkoutLogPayload
 ): Promise<WorkoutSessionSummary> {
   return apiRequest<WorkoutSessionSummary>(`/api/workouts/${planId}/log`, {
     method: 'POST',
+    body: payload ? JSON.stringify(payload) : undefined,
   });
 }
 
@@ -266,7 +277,9 @@ export async function archiveWorkoutSession(workoutId: string): Promise<void> {
 /**
  * Unarchive a previously archived workout session.
  */
-export async function unarchiveWorkoutSession(workoutId: string): Promise<void> {
+export async function unarchiveWorkoutSession(
+  workoutId: string
+): Promise<void> {
   await workoutRepository.unarchiveWorkoutById(workoutId);
 }
 

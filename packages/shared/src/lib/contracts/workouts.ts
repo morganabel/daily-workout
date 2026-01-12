@@ -73,7 +73,9 @@ export const llmWorkoutExerciseFlatSchema = z.object({
   prescription: z.string(),
   detail: z.string().nullable(),
 });
-export type LlmWorkoutExerciseFlat = z.infer<typeof llmWorkoutExerciseFlatSchema>;
+export type LlmWorkoutExerciseFlat = z.infer<
+  typeof llmWorkoutExerciseFlatSchema
+>;
 
 const llmTodayPlanFlatBaseSchema = z.object({
   focus: z.string(),
@@ -89,6 +91,44 @@ const llmTodayPlanFlatBaseSchema = z.object({
 export const llmTodayPlanFlatSchema = llmTodayPlanFlatBaseSchema;
 export type LlmTodayPlanFlat = z.infer<typeof llmTodayPlanFlatSchema>;
 
+export const weightUnitSchema = z.enum(['lb', 'kg']);
+export type WeightUnit = z.infer<typeof weightUnitSchema>;
+
+export const workoutSetLogSchema = z
+  .object({
+    id: z.string(),
+    order: z.number().int().nonnegative(),
+    completed: z.boolean(),
+    reps: z.number().int().positive().optional(),
+    weight: z.number().positive().optional(),
+    weightUnit: weightUnitSchema.optional(),
+    rpe: z.number().int().min(1).max(10).optional(),
+  })
+  .superRefine((value, ctx) => {
+    if (value.weight !== undefined && !value.weightUnit) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'weightUnit is required when weight is present',
+        path: ['weightUnit'],
+      });
+    }
+  });
+export type WorkoutSetLog = z.infer<typeof workoutSetLogSchema>;
+
+export const workoutExerciseLogSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  order: z.number().int().nonnegative(),
+  blockId: z.string().optional(),
+  blockTitle: z.string().optional(),
+  blockFocus: z.string().optional(),
+  blockOrder: z.number().int().nonnegative().optional(),
+  prescription: z.string().optional(),
+  detail: z.string().nullable().optional(),
+  sets: z.array(workoutSetLogSchema),
+});
+export type WorkoutExerciseLog = z.infer<typeof workoutExerciseLogSchema>;
+
 export const workoutSessionSummarySchema = z.object({
   id: z.string(),
   name: z.string(),
@@ -101,6 +141,20 @@ export const workoutSessionSummarySchema = z.object({
   isFavorite: z.boolean().optional(),
 });
 export type WorkoutSessionSummary = z.infer<typeof workoutSessionSummarySchema>;
+
+export const workoutSessionDetailSchema = workoutSessionSummarySchema.extend({
+  exercises: z.array(workoutExerciseLogSchema),
+});
+export type WorkoutSessionDetail = z.infer<typeof workoutSessionDetailSchema>;
+
+export const workoutLogPayloadSchema = z
+  .object({
+    completedAt: z.string().optional(),
+    durationSeconds: z.number().int().positive().optional(),
+    exercises: z.array(workoutExerciseLogSchema).optional(),
+  })
+  .strict();
+export type WorkoutLogPayload = z.infer<typeof workoutLogPayloadSchema>;
 
 export const quickActionKeySchema = z.enum([
   'time',
@@ -183,13 +237,14 @@ const coerceNumber = (value: string): number | undefined => {
 };
 
 export const normalizeQuickActionValue = (
-  action: QuickActionPreset,
+  action: QuickActionPreset
 ): Partial<GenerationRequest> => {
   // For equipment, only use stagedValue (explicit user choice), not the default display value.
   // This allows the API layer to fall back to user profile equipment when not explicitly set.
-  const source = action.key === 'equipment'
-    ? action.stagedValue
-    : (action.stagedValue ?? action.value);
+  const source =
+    action.key === 'equipment'
+      ? action.stagedValue
+      : action.stagedValue ?? action.value;
 
   if (!source) {
     return {};
@@ -197,7 +252,9 @@ export const normalizeQuickActionValue = (
 
   switch (action.key) {
     case 'time': {
-      const minutes = source ? clampTimeMinutes(coerceNumber(source) ?? NaN) : undefined;
+      const minutes = source
+        ? clampTimeMinutes(coerceNumber(source) ?? NaN)
+        : undefined;
       return minutes ? { timeMinutes: minutes } : {};
     }
     case 'focus': {
@@ -224,7 +281,7 @@ export const normalizeQuickActionValue = (
 
 export const buildGenerationRequestFromQuickActions = (
   quickActions: QuickActionPreset[],
-  base: Partial<GenerationRequest> = {},
+  base: Partial<GenerationRequest> = {}
 ): GenerationRequest => {
   const request: Partial<GenerationRequest> = { ...base };
 
@@ -277,7 +334,11 @@ const generationContextSessionSchema = workoutSessionSummarySchema.extend({
   notes: z.string().optional(),
 });
 
-export const experienceLevelSchema = z.enum(['beginner', 'intermediate', 'advanced']);
+export const experienceLevelSchema = z.enum([
+  'beginner',
+  'intermediate',
+  'advanced',
+]);
 export type ExperienceLevel = z.infer<typeof experienceLevelSchema>;
 
 /**
@@ -352,7 +413,9 @@ export const quickLogPayloadSchema = z.object({
 });
 export type QuickLogPayload = z.infer<typeof quickLogPayloadSchema>;
 
-export const createTodayPlanMock = (overrides: Partial<TodayPlan> = {}): TodayPlan => ({
+export const createTodayPlanMock = (
+  overrides: Partial<TodayPlan> = {}
+): TodayPlan => ({
   id: 'plan-mock',
   focus: 'Upper Body Push',
   durationMinutes: 32,
@@ -409,7 +472,7 @@ export const createTodayPlanMock = (overrides: Partial<TodayPlan> = {}): TodayPl
 });
 
 export const createSessionSummaryMock = (
-  overrides: Partial<WorkoutSessionSummary> = {},
+  overrides: Partial<WorkoutSessionSummary> = {}
 ): WorkoutSessionSummary => ({
   id: 'session-mock',
   name: 'Quick Reset',
@@ -421,8 +484,45 @@ export const createSessionSummaryMock = (
   ...overrides,
 });
 
+export const createWorkoutSetLogMock = (
+  overrides: Partial<WorkoutSetLog> = {}
+): WorkoutSetLog => ({
+  id: 'set-1',
+  order: 0,
+  completed: true,
+  reps: 10,
+  weight: 50,
+  weightUnit: 'lb',
+  rpe: 7,
+  ...overrides,
+});
+
+export const createWorkoutExerciseLogMock = (
+  overrides: Partial<WorkoutExerciseLog> = {}
+): WorkoutExerciseLog => ({
+  id: 'exercise-1',
+  name: 'Dumbbell Bench Press',
+  order: 0,
+  blockId: 'strength',
+  blockTitle: 'Strength',
+  blockFocus: 'Upper Body',
+  blockOrder: 0,
+  prescription: '3 x 10',
+  detail: 'Keep core tight',
+  sets: [createWorkoutSetLogMock()],
+  ...overrides,
+});
+
+export const createSessionDetailMock = (
+  overrides: Partial<WorkoutSessionDetail> = {}
+): WorkoutSessionDetail => ({
+  ...createSessionSummaryMock(),
+  exercises: [createWorkoutExerciseLogMock()],
+  ...overrides,
+});
+
 export const createGenerationContextMock = (
-  overrides: Partial<GenerationContext> = {},
+  overrides: Partial<GenerationContext> = {}
 ): GenerationContext => {
   const base: GenerationContext = {
     userProfile: {
@@ -477,11 +577,9 @@ export const createGenerationContextMock = (
     environment: {
       ...base.environment,
       ...(overrides.environment ?? {}),
-      equipment:
-        overrides.environment?.equipment ?? base.environment.equipment,
+      equipment: overrides.environment?.equipment ?? base.environment.equipment,
     },
-    recentSessions:
-      overrides.recentSessions ?? base.recentSessions,
+    recentSessions: overrides.recentSessions ?? base.recentSessions,
     notes: overrides.notes ?? base.notes,
   };
 };
