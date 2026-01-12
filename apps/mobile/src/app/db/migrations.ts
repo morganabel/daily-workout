@@ -1,4 +1,7 @@
-import { schemaMigrations, addColumns } from '@nozbe/watermelondb/Schema/migrations';
+import {
+  schemaMigrations,
+  addColumns,
+} from '@nozbe/watermelondb/Schema/migrations';
 
 export const migrations = schemaMigrations({
   migrations: [
@@ -7,9 +10,7 @@ export const migrations = schemaMigrations({
       steps: [
         addColumns({
           table: 'workouts',
-          columns: [
-            { name: 'response_id', type: 'string', isOptional: true },
-          ],
+          columns: [{ name: 'response_id', type: 'string', isOptional: true }],
         }),
       ],
     },
@@ -18,9 +19,7 @@ export const migrations = schemaMigrations({
       steps: [
         addColumns({
           table: 'workouts',
-          columns: [
-            { name: 'archived_at', type: 'number', isOptional: true },
-          ],
+          columns: [{ name: 'archived_at', type: 'number', isOptional: true }],
         }),
       ],
     },
@@ -29,12 +28,18 @@ export const migrations = schemaMigrations({
       steps: [
         addColumns({
           table: 'workouts',
-          columns: [
-            { name: 'is_favorite', type: 'boolean', isOptional: true },
-          ],
+          columns: [{ name: 'is_favorite', type: 'boolean', isOptional: true }],
+        }),
+      ],
+    },
+    {
+      toVersion: 5,
+      steps: [
+        addColumns({
+          table: 'sets',
+          columns: [{ name: 'weight_unit', type: 'string', isOptional: true }],
         }),
       ],
     },
   ],
 });
-

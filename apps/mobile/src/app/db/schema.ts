@@ -1,7 +1,7 @@
 import { appSchema, tableSchema } from '@nozbe/watermelondb';
 
 export const schema = appSchema({
-  version: 4,
+  version: 5,
   tables: [
     tableSchema({
       name: 'users',
@@ -58,6 +58,7 @@ export const schema = appSchema({
         { name: 'exercise_id', type: 'string', isIndexed: true },
         { name: 'reps', type: 'number', isOptional: true },
         { name: 'weight', type: 'number', isOptional: true },
+        { name: 'weight_unit', type: 'string', isOptional: true },
         { name: 'rpe', type: 'number', isOptional: true },
         { name: 'completed', type: 'boolean' },
         { name: 'order', type: 'number' },
