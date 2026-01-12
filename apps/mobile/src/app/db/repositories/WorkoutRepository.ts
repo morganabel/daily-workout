@@ -394,7 +394,7 @@ export class WorkoutRepository {
       archivedAt: workout.archivedAt
         ? new Date(workout.archivedAt).toISOString()
         : undefined,
-      isFavorite: workout.isFavorite,
+      isFavorite: workout.isFavorite ?? undefined,
     };
   }
 
