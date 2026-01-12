@@ -97,6 +97,9 @@ export const ActiveWorkoutScreen = () => {
   const [lastPerformances, setLastPerformances] = useState<
     Record<string, LastPerformance | null>
   >({});
+  const [expandedExercises, setExpandedExercises] = useState<
+    Record<string, boolean>
+  >({});
   const [workoutId, setWorkoutId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -211,6 +214,43 @@ export const ActiveWorkoutScreen = () => {
     setExerciseLogs((prev) => updater(prev));
   };
 
+  const toggleExerciseExpanded = (exerciseId: string) => {
+    setExpandedExercises((prev) => ({
+      ...prev,
+      [exerciseId]: !prev[exerciseId],
+    }));
+  };
+
+  const handleExerciseToggle = async (exerciseId: string) => {
+    const exercise = exerciseLogs.find((item) => item.id === exerciseId);
+    if (!exercise) {
+      return;
+    }
+    const shouldComplete = !exercise.sets.every((setLog) => setLog.completed);
+
+    updateExerciseLogs((prev) =>
+      prev.map((item) =>
+        item.id === exerciseId
+          ? {
+              ...item,
+              sets: item.sets.map((setLog) => ({
+                ...setLog,
+                completed: shouldComplete,
+              })),
+            }
+          : item
+      )
+    );
+
+    await Promise.all(
+      exercise.sets.map((setLog) =>
+        workoutRepository.updateSetById(setLog.id, {
+          completed: shouldComplete,
+        })
+      )
+    );
+  };
+
   const handleSetUpdate = async (
     setId: string,
     updates: {
@@ -292,6 +332,7 @@ export const ActiveWorkoutScreen = () => {
             return;
           }
           try {
+            isSubmittingRef.current = true;
             setIsSubmitting(true);
             await workoutRepository.completeWorkoutById(
               workoutId,
@@ -420,6 +461,9 @@ export const ActiveWorkoutScreen = () => {
                     key={exercise.id}
                     exercise={exercise}
                     lastPerformance={lastPerformances[exercise.id] ?? null}
+                    isExpanded={expandedExercises[exercise.id] ?? false}
+                    onToggleExpanded={() => toggleExerciseExpanded(exercise.id)}
+                    onToggleExercise={() => handleExerciseToggle(exercise.id)}
                     onToggleSet={(setLog) =>
                       handleSetUpdate(setLog.id, {
                         completed: !setLog.completed,
@@ -461,6 +505,9 @@ export const ActiveWorkoutScreen = () => {
 type ExerciseLogCardProps = {
   exercise: WorkoutExerciseLog;
   lastPerformance: LastPerformance | null;
+  isExpanded: boolean;
+  onToggleExpanded: () => void;
+  onToggleExercise: () => void;
   onToggleSet: (setLog: WorkoutSetLog) => void;
   onUpdateSet: (
     setId: string,
@@ -478,12 +525,16 @@ type ExerciseLogCardProps = {
 const ExerciseLogCard = ({
   exercise,
   lastPerformance,
+  isExpanded,
+  onToggleExpanded,
+  onToggleExercise,
   onToggleSet,
   onUpdateSet,
   onAddSet,
   onRemoveSet,
 }: ExerciseLogCardProps) => {
   const lastSummary = formatLastPerformance(lastPerformance);
+  const isCompleted = exercise.sets.every((setLog) => setLog.completed);
 
   return (
     <View style={styles.exerciseCard}>
@@ -504,29 +555,57 @@ const ExerciseLogCard = ({
         ) : null}
       </View>
 
-      <View style={styles.setList}>
-        {exercise.sets.map((setLog, index) => (
-          <SetRow
-            key={setLog.id}
-            index={index}
-            setLog={setLog}
-            canRemove={exercise.sets.length > 1}
-            onToggle={() => onToggleSet(setLog)}
-            onUpdate={(updates) => onUpdateSet(setLog.id, updates)}
-            onRemove={() => onRemoveSet(setLog.id)}
-          />
-        ))}
+      <View style={styles.exerciseActions}>
+        <Pressable
+          onPress={onToggleExercise}
+          style={[
+            styles.exerciseCheckbox,
+            isCompleted && styles.exerciseCheckboxChecked,
+          ]}
+        >
+          {isCompleted && <Text style={styles.checkmark}>✓</Text>}
+        </Pressable>
+        <Text style={styles.exerciseActionLabel}>Done</Text>
+        <Pressable
+          onPress={onToggleExpanded}
+          style={({ pressed }) => [
+            styles.expandButton,
+            pressed && { opacity: 0.8 },
+          ]}
+        >
+          <Text style={styles.expandButtonText}>
+            {isExpanded ? 'Hide sets' : 'Log sets'}
+          </Text>
+        </Pressable>
       </View>
 
-      <Pressable
-        onPress={onAddSet}
-        style={({ pressed }) => [
-          styles.addSetButton,
-          pressed && { opacity: 0.8 },
-        ]}
-      >
-        <Text style={styles.addSetText}>Add set</Text>
-      </Pressable>
+      {isExpanded ? (
+        <View style={styles.setList}>
+          {exercise.sets.map((setLog, index) => (
+            <SetRow
+              key={setLog.id}
+              index={index}
+              setLog={setLog}
+              canRemove={exercise.sets.length > 1}
+              onToggle={() => onToggleSet(setLog)}
+              onUpdate={(updates) => onUpdateSet(setLog.id, updates)}
+              onRemove={() => onRemoveSet(setLog.id)}
+            />
+          ))}
+        </View>
+      ) : null}
+
+      {isExpanded ? (
+        <Pressable
+          onPress={onAddSet}
+          style={({ pressed }) => [
+            styles.addSetButton,
+            pressed && { opacity: 0.8 },
+          ]}
+        >
+          <Text style={styles.addSetText}>Add set</Text>
+        </Pressable>
+      ) : null}
     </View>
   );
 };
@@ -759,6 +838,44 @@ const styles = StyleSheet.create({
   exerciseLastTime: {
     color: palette.accent,
     fontSize: 12,
+  },
+  exerciseActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 12,
+  },
+  exerciseCheckbox: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: palette.textMuted,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  exerciseCheckboxChecked: {
+    backgroundColor: palette.success,
+    borderColor: palette.success,
+  },
+  exerciseActionLabel: {
+    color: palette.textSecondary,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  expandButton: {
+    marginLeft: 'auto',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: palette.border,
+    backgroundColor: palette.cardSecondary,
+  },
+  expandButtonText: {
+    color: palette.textSecondary,
+    fontSize: 12,
+    fontWeight: '600',
   },
   setList: {
     marginTop: 12,
