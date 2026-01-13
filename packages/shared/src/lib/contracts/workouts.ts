@@ -99,13 +99,13 @@ export const workoutSetLogSchema = z
     id: z.string(),
     order: z.number().int().nonnegative(),
     completed: z.boolean(),
-    reps: z.number().int().positive().optional(),
-    weight: z.number().positive().optional(),
+    reps: z.number().int().nonnegative().optional(),
+    weight: z.number().nonnegative().optional(),
     weightUnit: weightUnitSchema.optional(),
     rpe: z.number().int().min(1).max(10).optional(),
   })
   .superRefine((value, ctx) => {
-    if (value.weight !== undefined && !value.weightUnit) {
+    if (value.weight !== undefined && value.weight !== null && !value.weightUnit) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: 'weightUnit is required when weight is present',
@@ -150,7 +150,7 @@ export type WorkoutSessionDetail = z.infer<typeof workoutSessionDetailSchema>;
 export const workoutLogPayloadSchema = z
   .object({
     completedAt: z.string().optional(),
-    durationSeconds: z.number().int().positive().optional(),
+    durationSeconds: z.number().int().nonnegative().optional(),
     exercises: z.array(workoutExerciseLogSchema).optional(),
   })
   .strict();

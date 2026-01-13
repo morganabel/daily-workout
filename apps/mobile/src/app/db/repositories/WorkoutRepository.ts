@@ -33,7 +33,7 @@ const parseSetCount = (prescription?: string): number | null => {
   if (!match) return null;
   const value = Number.parseInt(match[1], 10);
   if (!Number.isFinite(value) || value <= 0) return null;
-  return Math.min(value, 12);
+  return value;
 };
 
 const buildSetLog = (set: Set): WorkoutSetLog => ({
@@ -355,7 +355,7 @@ export class WorkoutRepository {
     options?: { excludeWorkoutId?: string }
   ): Promise<{ completedAt: string; sets: WorkoutSetLog[] } | null> {
     const normalizedTarget = normalizeExerciseName(exerciseName);
-    const workouts = await this.buildCompletedQuery(12, true).fetch();
+    const workouts = await this.buildCompletedQuery(12, false).fetch();
 
     for (const workout of workouts) {
       if (

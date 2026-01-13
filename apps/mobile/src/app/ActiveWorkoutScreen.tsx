@@ -297,7 +297,7 @@ export const ActiveWorkoutScreen = () => {
     );
 
     const message =
-      completedSets > 0 && completedSets < totalSets
+      completedSets < totalSets
         ? `You have ${totalSets - completedSets} sets left. Finish anyway?`
         : 'Great job! Ready to log this workout?';
 
