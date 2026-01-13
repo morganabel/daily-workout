@@ -39,12 +39,20 @@ export function createLogWorkoutHandler(deps: LogWorkoutHandlerDeps) {
 
     let payload: unknown = {};
     try {
-      payload = await request.json();
-    } catch {
-      payload = {};
+      const text = await request.text();
+      if (text.trim()) {
+        payload = JSON.parse(text);
+      }
+    } catch (error) {
+      console.error('Failed to parse JSON payload in logWorkoutHandler', error);
+      return createErrorResponse(
+        'VALIDATION_ERROR',
+        'Malformed JSON in request body',
+        400
+      );
     }
 
-    const parsedPayload = workoutLogPayloadSchema.safeParse(payload ?? {});
+    const parsedPayload = workoutLogPayloadSchema.safeParse(payload);
     if (!parsedPayload.success) {
       return createErrorResponse(
         'VALIDATION_ERROR',

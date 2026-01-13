@@ -246,8 +246,12 @@ export class WorkoutRepository {
     return logs;
   }
 
+  /**
+   * Get session detail for viewing completed workouts.
+   * Does NOT seed default sets - only returns existing data.
+   * Use this for History/session detail views.
+   */
   async getSessionDetailById(workoutId: string): Promise<WorkoutSessionDetail> {
-    await this.ensureSetsForWorkout(workoutId);
     const workout = await this.workouts.find(workoutId);
     const exercises = await this.listExerciseLogsByWorkoutId(workoutId);
 
@@ -255,6 +259,17 @@ export class WorkoutRepository {
       ...this.toSessionSummary(workout),
       exercises,
     };
+  }
+
+  /**
+   * Get session detail and seed default sets if needed.
+   * Use this for Active Workout and explicit edit mode.
+   */
+  async getSessionDetailForEditing(
+    workoutId: string
+  ): Promise<WorkoutSessionDetail> {
+    await this.ensureSetsForWorkout(workoutId);
+    return this.getSessionDetailById(workoutId);
   }
 
   async updateSetById(
