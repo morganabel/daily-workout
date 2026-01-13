@@ -38,6 +38,7 @@ Keep this managed block so 'openspec update' can refresh the instructions.
 
 ## Quick Orientation
 
+- Read `VISION.md` for product principles before making UX changes.
 - Workspace manager: Nx monorepo with `apps/` and `packages/` workspaces.
 - Primary apps: `apps/server` (Next.js API) and `apps/mobile` (Expo/React Native).
 - Shared contracts: `packages/shared` with Zod schemas and helpers.
