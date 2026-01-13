@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Pressable,
   ScrollView,
@@ -6,12 +6,14 @@ import {
   Text,
   View,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import type { WorkoutBlock, WorkoutExercise } from '@workout-agent/shared';
+import type { WorkoutExerciseLog, WorkoutSetLog } from '@workout-agent/shared';
 import { workoutRepository } from './db/repositories/WorkoutRepository';
 import { RootStackParamList } from './navigation';
+import { SetRow } from './components/SetRow';
 
 const palette = {
   background: '#030914',
@@ -24,6 +26,7 @@ const palette = {
   textSecondary: '#9cabc4',
   textMuted: '#5c6a85',
   success: '#4ade80',
+  destructive: '#ff6b6b',
 };
 
 type ActiveWorkoutNavigation = NativeStackNavigationProp<
@@ -33,13 +36,55 @@ type ActiveWorkoutNavigation = NativeStackNavigationProp<
 
 type ActiveWorkoutRoute = RouteProp<RootStackParamList, 'ActiveWorkout'>;
 
+type LastPerformance = {
+  completedAt: string;
+  sets: WorkoutSetLog[];
+};
+
+const formatSetSummary = (setLog: WorkoutSetLog): string => {
+  const parts: string[] = [];
+  if (setLog.weight !== undefined) {
+    parts.push(`${setLog.weight} ${setLog.weightUnit ?? 'lb'}`);
+  }
+  if (setLog.reps !== undefined) {
+    parts.push(`${setLog.reps} reps`);
+  }
+  if (setLog.rpe !== undefined) {
+    parts.push(`RPE ${setLog.rpe}`);
+  }
+  return parts.join(' • ');
+};
+
+const formatLastPerformance = (
+  performance: LastPerformance | null
+): string | null => {
+  if (!performance || performance.sets.length === 0) {
+    return null;
+  }
+  const summary = formatSetSummary(performance.sets[0]);
+  if (!summary) {
+    return null;
+  }
+  const countLabel =
+    performance.sets.length > 1 ? `${performance.sets.length} sets` : '1 set';
+  return `${summary} • ${countLabel}`;
+};
+
 export const ActiveWorkoutScreen = () => {
   const navigation = useNavigation<ActiveWorkoutNavigation>();
   const route = useRoute<ActiveWorkoutRoute>();
   const { plan } = route.params;
 
   const [durationSeconds, setDurationSeconds] = useState(0);
-  const [completedItems, setCompletedItems] = useState<Set<string>>(new Set());
+  const [exerciseLogs, setExerciseLogs] = useState<WorkoutExerciseLog[]>([]);
+  const [lastPerformances, setLastPerformances] = useState<
+    Record<string, LastPerformance | null>
+  >({});
+  const [expandedExercises, setExpandedExercises] = useState<
+    Record<string, boolean>
+  >({});
+  const [workoutId, setWorkoutId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const isSubmittingRef = React.useRef(false);
 
@@ -53,6 +98,65 @@ export const ActiveWorkoutScreen = () => {
     }, 1000);
     return () => clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadWorkout = async () => {
+      try {
+        const workout = await workoutRepository.getWorkoutByPlanId(plan.id);
+        if (!workout) {
+          setLoading(false);
+          return;
+        }
+
+        if (cancelled) {
+          return;
+        }
+
+        setWorkoutId(workout.id);
+        await workoutRepository.ensureSetsForWorkout(workout.id);
+        const logs = await workoutRepository.listExerciseLogsByWorkoutId(
+          workout.id
+        );
+
+        if (cancelled) {
+          return;
+        }
+
+        setExerciseLogs(logs);
+        const performanceEntries = await Promise.all(
+          logs.map(async (exercise) => {
+            const performance =
+              await workoutRepository.getLastExercisePerformance(
+                exercise.name,
+                {
+                  excludeWorkoutId: workout.id,
+                }
+              );
+            return [exercise.id, performance] as const;
+          })
+        );
+
+        if (cancelled) {
+          return;
+        }
+
+        setLastPerformances(Object.fromEntries(performanceEntries));
+      } catch (error) {
+        console.error('Failed to load active workout data', error);
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    };
+
+    void loadWorkout();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [plan.id]);
 
   useEffect(() => {
     const unsubscribe = navigation.addListener('beforeRemove', (e) => {
@@ -77,7 +181,103 @@ export const ActiveWorkoutScreen = () => {
     });
 
     return unsubscribe;
-  }, [navigation]); // Removed isSubmitting from dependency array to avoid re-binding listener
+  }, [navigation]);
+
+  const refreshExerciseLogs = async () => {
+    if (!workoutId) {
+      return;
+    }
+    const logs = await workoutRepository.listExerciseLogsByWorkoutId(workoutId);
+    setExerciseLogs(logs);
+  };
+
+  const updateExerciseLogs = (
+    updater: (prev: WorkoutExerciseLog[]) => WorkoutExerciseLog[]
+  ) => {
+    setExerciseLogs((prev) => updater(prev));
+  };
+
+  const toggleExerciseExpanded = (exerciseId: string) => {
+    setExpandedExercises((prev) => ({
+      ...prev,
+      [exerciseId]: !prev[exerciseId],
+    }));
+  };
+
+  const handleExerciseToggle = async (exerciseId: string) => {
+    const exercise = exerciseLogs.find((item) => item.id === exerciseId);
+    if (!exercise) {
+      return;
+    }
+    const shouldComplete = !exercise.sets.every((setLog) => setLog.completed);
+
+    updateExerciseLogs((prev) =>
+      prev.map((item) =>
+        item.id === exerciseId
+          ? {
+              ...item,
+              sets: item.sets.map((setLog) => ({
+                ...setLog,
+                completed: shouldComplete,
+              })),
+            }
+          : item
+      )
+    );
+
+    await Promise.all(
+      exercise.sets.map((setLog) =>
+        workoutRepository.updateSetById(setLog.id, {
+          completed: shouldComplete,
+        })
+      )
+    );
+  };
+
+  const handleSetUpdate = async (
+    setId: string,
+    updates: {
+      reps?: number | null;
+      weight?: number | null;
+      weightUnit?: WorkoutSetLog['weightUnit'] | null;
+      rpe?: number | null;
+      completed?: boolean;
+    }
+  ) => {
+    updateExerciseLogs((prev) =>
+      prev.map((exercise) => ({
+        ...exercise,
+        sets: exercise.sets.map((setLog) => {
+          if (setLog.id !== setId) {
+            return setLog;
+          }
+          return {
+            ...setLog,
+            ...Object.fromEntries(
+              Object.entries(updates)
+                .filter(([, value]) => value !== undefined)
+                .map(([key, value]) => [
+                  key,
+                  value === null ? undefined : value,
+                ])
+            ),
+          } as WorkoutSetLog;
+        }),
+      }))
+    );
+
+    await workoutRepository.updateSetById(setId, updates);
+  };
+
+  const handleAddSet = async (exerciseId: string) => {
+    await workoutRepository.addSetForExercise(exerciseId);
+    await refreshExerciseLogs();
+  };
+
+  const handleRemoveSet = async (setId: string) => {
+    await workoutRepository.removeSetById(setId);
+    await refreshExerciseLogs();
+  };
 
   const formatTime = (totalSeconds: number) => {
     const minutes = Math.floor(totalSeconds / 60);
@@ -85,28 +285,20 @@ export const ActiveWorkoutScreen = () => {
     return `${minutes}:${seconds.toString().padStart(2, '0')}`;
   };
 
-  const toggleItem = (id: string) => {
-    setCompletedItems((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
-      }
-      return next;
-    });
-  };
-
   const handleFinish = () => {
-    const totalItems = plan.blocks.reduce(
-      (acc, block) => acc + block.exercises.length,
+    const totalSets = exerciseLogs.reduce(
+      (acc, exercise) => acc + exercise.sets.length,
       0
     );
-    const uncheckedCount = totalItems - completedItems.size;
+    const completedSets = exerciseLogs.reduce(
+      (acc, exercise) =>
+        acc + exercise.sets.filter((setLog) => setLog.completed).length,
+      0
+    );
 
     const message =
-      uncheckedCount > 0
-        ? `You have ${uncheckedCount} unchecked items. Finish anyway?`
+      completedSets < totalSets
+        ? `You have ${totalSets - completedSets} sets left. Finish anyway?`
         : 'Great job! Ready to log this workout?';
 
     Alert.alert('Finish Workout?', message, [
@@ -115,9 +307,20 @@ export const ActiveWorkoutScreen = () => {
         text: 'Finish',
         style: 'default',
         onPress: async () => {
+          if (!workoutId) {
+            Alert.alert(
+              'Error',
+              'Unable to locate this workout. Please try again.'
+            );
+            return;
+          }
           try {
+            isSubmittingRef.current = true;
             setIsSubmitting(true);
-            await workoutRepository.completeWorkoutById(plan.id, durationSeconds);
+            await workoutRepository.completeWorkoutById(
+              workoutId,
+              durationSeconds
+            );
             navigation.reset({
               index: 0,
               routes: [{ name: 'Home' }],
@@ -150,13 +353,45 @@ export const ActiveWorkoutScreen = () => {
             });
           },
         },
-      ],
+      ]
     );
   };
 
+  const groupedBlocks = useMemo(() => {
+    const grouped = new Map<
+      string,
+      {
+        id: string;
+        title: string;
+        focus?: string;
+        order: number;
+        exercises: WorkoutExerciseLog[];
+      }
+    >();
+
+    exerciseLogs.forEach((exercise) => {
+      const blockKey = exercise.blockId ?? `${exercise.blockOrder ?? 0}`;
+      const existing = grouped.get(blockKey);
+      const order = exercise.blockOrder ?? 0;
+      const title = exercise.blockTitle ?? exercise.blockFocus ?? plan.focus;
+      if (!existing) {
+        grouped.set(blockKey, {
+          id: blockKey,
+          title,
+          focus: exercise.blockFocus,
+          order,
+          exercises: [exercise],
+        });
+      } else {
+        existing.exercises.push(exercise);
+      }
+    });
+
+    return Array.from(grouped.values()).sort((a, b) => a.order - b.order);
+  }, [exerciseLogs, plan.focus]);
+
   return (
     <View style={styles.screen}>
-      {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <Text style={styles.timerText}>{formatTime(durationSeconds)}</Text>
@@ -192,14 +427,42 @@ export const ActiveWorkoutScreen = () => {
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <Text style={styles.planTitle}>{plan.focus}</Text>
 
-        {plan.blocks.map((block) => (
-          <BlockCard
-            key={block.id}
-            block={block}
-            completedItems={completedItems}
-            onToggleItem={toggleItem}
-          />
-        ))}
+        {loading ? (
+          <View style={styles.loadingState}>
+            <ActivityIndicator color={palette.accent} />
+            <Text style={styles.loadingText}>Preparing your sets…</Text>
+          </View>
+        ) : groupedBlocks.length === 0 ? (
+          <Text style={styles.emptyText}>No exercises available.</Text>
+        ) : (
+          groupedBlocks.map((block) => (
+            <View key={block.id} style={styles.blockCard}>
+              <Text style={styles.blockTitle}>{block.title}</Text>
+              <View style={styles.exerciseList}>
+                {block.exercises.map((exercise) => (
+                  <ExerciseLogCard
+                    key={exercise.id}
+                    exercise={exercise}
+                    lastPerformance={lastPerformances[exercise.id] ?? null}
+                    isExpanded={expandedExercises[exercise.id] ?? false}
+                    onToggleExpanded={() => toggleExerciseExpanded(exercise.id)}
+                    onToggleExercise={() => handleExerciseToggle(exercise.id)}
+                    onToggleSet={(setLog) =>
+                      handleSetUpdate(setLog.id, {
+                        completed: !setLog.completed,
+                      })
+                    }
+                    onUpdateSet={(setId, updates) =>
+                      handleSetUpdate(setId, updates)
+                    }
+                    onAddSet={() => handleAddSet(exercise.id)}
+                    onRemoveSet={(setId) => handleRemoveSet(setId)}
+                  />
+                ))}
+              </View>
+            </View>
+          ))
+        )}
 
         <View style={styles.footerSpacer} />
       </ScrollView>
@@ -222,62 +485,113 @@ export const ActiveWorkoutScreen = () => {
   );
 };
 
-const BlockCard = ({
-  block,
-  completedItems,
-  onToggleItem,
-}: {
-  block: WorkoutBlock;
-  completedItems: Set<string>;
-  onToggleItem: (id: string) => void;
-}) => (
-  <View style={styles.blockCard}>
-    <Text style={styles.blockTitle}>{block.title}</Text>
-    <View style={styles.exerciseList}>
-      {block.exercises.map((exercise) => (
-        <ExerciseRow
-          key={exercise.id}
-          exercise={exercise}
-          isCompleted={completedItems.has(exercise.id)}
-          onToggle={() => onToggleItem(exercise.id)}
-        />
-      ))}
-    </View>
-  </View>
-);
+type ExerciseLogCardProps = {
+  exercise: WorkoutExerciseLog;
+  lastPerformance: LastPerformance | null;
+  isExpanded: boolean;
+  onToggleExpanded: () => void;
+  onToggleExercise: () => void;
+  onToggleSet: (setLog: WorkoutSetLog) => void;
+  onUpdateSet: (
+    setId: string,
+    updates: {
+      reps?: number | null;
+      weight?: number | null;
+      weightUnit?: WorkoutSetLog['weightUnit'] | null;
+      rpe?: number | null;
+    }
+  ) => void;
+  onAddSet: () => void;
+  onRemoveSet: (setId: string) => void;
+};
 
-const ExerciseRow = ({
+const ExerciseLogCard = ({
   exercise,
-  isCompleted,
-  onToggle,
-}: {
-  exercise: WorkoutExercise;
-  isCompleted: boolean;
-  onToggle: () => void;
-}) => (
-  <Pressable
-    onPress={onToggle}
-    style={styles.exerciseRow}
-    accessibilityRole="checkbox"
-    accessibilityLabel={`Mark ${exercise.name} as completed`}
-    accessibilityState={{ checked: isCompleted }}
-  >
-    <View style={[styles.checkbox, isCompleted && styles.checkboxChecked]}>
-      {isCompleted && <Text style={styles.checkmark}>✓</Text>}
+  lastPerformance,
+  isExpanded,
+  onToggleExpanded,
+  onToggleExercise,
+  onToggleSet,
+  onUpdateSet,
+  onAddSet,
+  onRemoveSet,
+}: ExerciseLogCardProps) => {
+  const lastSummary = formatLastPerformance(lastPerformance);
+  const isCompleted = exercise.sets.every((setLog) => setLog.completed);
+
+  return (
+    <View style={styles.exerciseCard}>
+      <View style={styles.exerciseHeader}>
+        <View style={styles.exerciseTitleRow}>
+          <Text style={styles.exerciseName}>{exercise.name}</Text>
+          {exercise.prescription ? (
+            <Text style={styles.exercisePrescription}>
+              {exercise.prescription}
+            </Text>
+          ) : null}
+        </View>
+        {lastSummary ? (
+          <Text style={styles.exerciseLastTime}>Last time: {lastSummary}</Text>
+        ) : null}
+        {exercise.detail ? (
+          <Text style={styles.exerciseDetail}>{exercise.detail}</Text>
+        ) : null}
+      </View>
+
+      <View style={styles.exerciseActions}>
+        <Pressable
+          onPress={onToggleExercise}
+          style={[
+            styles.exerciseCheckbox,
+            isCompleted && styles.exerciseCheckboxChecked,
+          ]}
+        >
+          {isCompleted && <Text style={styles.checkmark}>✓</Text>}
+        </Pressable>
+        <Text style={styles.exerciseActionLabel}>Done</Text>
+        <Pressable
+          onPress={onToggleExpanded}
+          style={({ pressed }) => [
+            styles.expandButton,
+            pressed && { opacity: 0.8 },
+          ]}
+        >
+          <Text style={styles.expandButtonText}>
+            {isExpanded ? 'Hide sets' : 'Log sets'}
+          </Text>
+        </Pressable>
+      </View>
+
+      {isExpanded ? (
+        <View style={styles.setList}>
+          {exercise.sets.map((setLog, index) => (
+            <SetRow
+              key={setLog.id}
+              index={index}
+              setLog={setLog}
+              canRemove={exercise.sets.length > 1}
+              onToggle={() => onToggleSet(setLog)}
+              onUpdate={(updates) => onUpdateSet(setLog.id, updates)}
+              onRemove={() => onRemoveSet(setLog.id)}
+            />
+          ))}
+        </View>
+      ) : null}
+
+      {isExpanded ? (
+        <Pressable
+          onPress={onAddSet}
+          style={({ pressed }) => [
+            styles.addSetButton,
+            pressed && { opacity: 0.8 },
+          ]}
+        >
+          <Text style={styles.addSetText}>Add set</Text>
+        </Pressable>
+      ) : null}
     </View>
-    <View style={styles.exerciseBody}>
-      <Text
-        style={[
-          styles.exerciseName,
-          isCompleted && styles.exerciseTextCompleted,
-        ]}
-      >
-        {exercise.name}
-      </Text>
-      <Text style={styles.exercisePrescription}>{exercise.prescription}</Text>
-    </View>
-  </Pressable>
-);
+  );
+};
 
 const styles = StyleSheet.create({
   screen: {
@@ -289,7 +603,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingTop: 60, // Safe area rough approximation
+    paddingTop: 60,
     paddingBottom: 16,
     borderBottomWidth: 1,
     borderBottomColor: palette.border,
@@ -346,6 +660,19 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
     marginBottom: -12,
   },
+  loadingState: {
+    paddingVertical: 40,
+    alignItems: 'center',
+    gap: 12,
+  },
+  loadingText: {
+    color: palette.textSecondary,
+  },
+  emptyText: {
+    color: palette.textMuted,
+    textAlign: 'center',
+    marginTop: 24,
+  },
   blockCard: {
     gap: 16,
   },
@@ -361,32 +688,45 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: palette.border,
   },
-  exerciseRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  exerciseCard: {
     padding: 16,
-    gap: 16,
     borderBottomWidth: 1,
     borderBottomColor: palette.border,
   },
-  exerciseBody: {
-    flex: 1,
-    gap: 4,
+  exerciseHeader: {
+    gap: 6,
+  },
+  exerciseTitleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 12,
   },
   exerciseName: {
     color: palette.textPrimary,
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: '600',
+    flex: 1,
   },
   exercisePrescription: {
     color: palette.textSecondary,
-    fontSize: 14,
+    fontSize: 13,
   },
-  exerciseTextCompleted: {
+  exerciseDetail: {
     color: palette.textMuted,
-    textDecorationLine: 'line-through',
+    fontSize: 12,
   },
-  checkbox: {
+  exerciseLastTime: {
+    color: palette.accent,
+    fontSize: 12,
+  },
+  exerciseActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 12,
+  },
+  exerciseCheckbox: {
     width: 28,
     height: 28,
     borderRadius: 8,
@@ -395,14 +735,46 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  checkboxChecked: {
+  exerciseCheckboxChecked: {
     backgroundColor: palette.success,
     borderColor: palette.success,
   },
-  checkmark: {
-    color: '#000',
-    fontWeight: 'bold',
-    fontSize: 16,
+  exerciseActionLabel: {
+    color: palette.textSecondary,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  expandButton: {
+    marginLeft: 'auto',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: palette.border,
+    backgroundColor: palette.cardSecondary,
+  },
+  expandButtonText: {
+    color: palette.textSecondary,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  setList: {
+    marginTop: 12,
+    gap: 10,
+  },
+  addSetButton: {
+    marginTop: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: palette.border,
+    alignItems: 'center',
+    backgroundColor: palette.cardSecondary,
+  },
+  addSetText: {
+    color: palette.textSecondary,
+    fontWeight: '600',
+    fontSize: 13,
   },
   footerSpacer: {
     height: 100,
@@ -430,4 +802,3 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 });
-

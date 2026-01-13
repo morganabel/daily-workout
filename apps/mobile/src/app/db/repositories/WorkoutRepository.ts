@@ -1,7 +1,11 @@
 import { Q } from '@nozbe/watermelondb';
 import type {
   TodayPlan,
+  WorkoutExerciseLog,
+  WorkoutSessionDetail,
   WorkoutSessionSummary,
+  WorkoutSetLog,
+  WeightUnit,
 } from '@workout-agent/shared';
 import { database } from '../index';
 import Workout from '../models/Workout';
@@ -14,6 +18,52 @@ import {
   type ExerciseRowLike,
   type WorkoutRowLike,
 } from '../mappers/workoutMapper';
+
+const DEFAULT_SET_COUNT = 3;
+
+const normalizeExerciseName = (name: string): string =>
+  name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+
+const parseSetCount = (prescription?: string): number | null => {
+  if (!prescription) return null;
+  const match = prescription.match(/(\d+)\s*(?:x|sets?)/i);
+  if (!match) return null;
+  const value = Number.parseInt(match[1], 10);
+  if (!Number.isFinite(value) || value <= 0) return null;
+  return value;
+};
+
+const buildSetLog = (set: Set): WorkoutSetLog => ({
+  id: set.id,
+  order: set.order,
+  completed: set.completed,
+  reps: set.reps ?? undefined,
+  weight: set.weight ?? undefined,
+  weightUnit: set.weightUnit ?? undefined,
+  rpe: set.rpe ?? undefined,
+});
+
+const buildExerciseLog = (
+  exercise: Exercise,
+  sets: Set[]
+): WorkoutExerciseLog => ({
+  id: exercise.id,
+  name: exercise.name,
+  order: exercise.order ?? 0,
+  blockId: exercise.blockId ?? undefined,
+  blockTitle: exercise.blockTitle ?? undefined,
+  blockFocus: exercise.blockFocus ?? undefined,
+  blockOrder: exercise.blockOrder ?? undefined,
+  prescription: exercise.prescription ?? undefined,
+  detail: exercise.detail ?? undefined,
+  sets: sets
+    .slice()
+    .sort((a, b) => a.order - b.order)
+    .map(buildSetLog),
+});
 
 export class WorkoutRepository {
   private workouts = database.collections.get<Workout>('workouts');
@@ -40,17 +90,23 @@ export class WorkoutRepository {
         Q.where('status', 'planned'),
         Q.where('archived_at', null),
         Q.sortBy('scheduled_date', Q.desc),
-        Q.take(1),
+        Q.take(1)
       )
       .observe();
   }
 
   observeRecentSessions(limit = 3, options?: { includeArchived?: boolean }) {
-    return this.buildCompletedQuery(limit, Boolean(options?.includeArchived)).observe();
+    return this.buildCompletedQuery(
+      limit,
+      Boolean(options?.includeArchived)
+    ).observe();
   }
 
   async listRecentSessions(limit = 5, options?: { includeArchived?: boolean }) {
-    const query = this.buildCompletedQuery(limit, Boolean(options?.includeArchived));
+    const query = this.buildCompletedQuery(
+      limit,
+      Boolean(options?.includeArchived)
+    );
     return query.fetch();
   }
 
@@ -60,7 +116,7 @@ export class WorkoutRepository {
         Q.where('status', 'planned'),
         Q.where('archived_at', null),
         Q.sortBy('scheduled_date', Q.desc),
-        Q.take(1),
+        Q.take(1)
       )
       .fetch();
     return workouts.length > 0 ? workouts[0] : null;
@@ -73,11 +129,15 @@ export class WorkoutRepository {
       const existing = await this.workouts
         .query(Q.where('status', 'planned'))
         .fetch();
-      await Promise.all(existing.map((workout) => workout.destroyPermanently()));
+      await Promise.all(
+        existing.map((workout) => workout.destroyPermanently())
+      );
 
       const workout = await this.workouts.create((w) => {
         w.name = payload.workout.name;
-        w.status = (payload.workout.status as 'planned' | 'completed' | 'skipped') ?? 'planned';
+        w.status =
+          (payload.workout.status as 'planned' | 'completed' | 'skipped') ??
+          'planned';
         w.remoteId = payload.workout.remoteId ?? undefined;
         w.focus = payload.workout.focus ?? undefined;
         w.summary = payload.workout.summary ?? undefined;
@@ -116,7 +176,224 @@ export class WorkoutRepository {
       .query(Q.where('workout_id', workout.id), Q.sortBy('block_order', Q.asc))
       .fetch();
 
-    return rowsToPlan(workout as unknown as WorkoutRowLike, exercises as ExerciseRowLike[]);
+    return rowsToPlan(
+      workout as unknown as WorkoutRowLike,
+      exercises as ExerciseRowLike[]
+    );
+  }
+
+  async getWorkoutByPlanId(planId: string): Promise<Workout | null> {
+    try {
+      return await this.workouts.find(planId);
+    } catch {
+      // no-op: fall back to remote_id lookup
+    }
+
+    const matches = await this.workouts
+      .query(Q.where('remote_id', planId), Q.take(1))
+      .fetch();
+    return matches.length > 0 ? matches[0] : null;
+  }
+
+  async ensureSetsForWorkout(workoutId: string) {
+    const exercises = await this.exercises
+      .query(Q.where('workout_id', workoutId))
+      .fetch();
+
+    await database.write(async () => {
+      for (const exercise of exercises) {
+        const existingSets = await this.sets
+          .query(Q.where('exercise_id', exercise.id))
+          .fetch();
+
+        if (existingSets.length > 0) {
+          continue;
+        }
+
+        const targetCount =
+          parseSetCount(exercise.prescription) ?? DEFAULT_SET_COUNT;
+        for (let index = 0; index < targetCount; index += 1) {
+          await this.sets.create((set) => {
+            set.exercise.set(exercise);
+            set.order = index;
+            set.completed = false;
+          });
+        }
+      }
+    });
+  }
+
+  async listExerciseLogsByWorkoutId(
+    workoutId: string
+  ): Promise<WorkoutExerciseLog[]> {
+    const exercises = await this.exercises
+      .query(
+        Q.where('workout_id', workoutId),
+        Q.sortBy('block_order', Q.asc),
+        Q.sortBy('order', Q.asc)
+      )
+      .fetch();
+
+    const logs = await Promise.all(
+      exercises.map(async (exercise) => {
+        const sets = await this.sets
+          .query(Q.where('exercise_id', exercise.id))
+          .fetch();
+        return buildExerciseLog(exercise, sets);
+      })
+    );
+
+    return logs;
+  }
+
+  /**
+   * Get session detail for viewing completed workouts.
+   * Does NOT seed default sets - only returns existing data.
+   * Use this for History/session detail views.
+   */
+  async getSessionDetailById(workoutId: string): Promise<WorkoutSessionDetail> {
+    const workout = await this.workouts.find(workoutId);
+    const exercises = await this.listExerciseLogsByWorkoutId(workoutId);
+
+    return {
+      ...this.toSessionSummary(workout),
+      exercises,
+    };
+  }
+
+  /**
+   * Get session detail and seed default sets if needed.
+   * Use this for Active Workout and explicit edit mode.
+   */
+  async getSessionDetailForEditing(
+    workoutId: string
+  ): Promise<WorkoutSessionDetail> {
+    await this.ensureSetsForWorkout(workoutId);
+    return this.getSessionDetailById(workoutId);
+  }
+
+  async updateSetById(
+    setId: string,
+    updates: {
+      reps?: number | null;
+      weight?: number | null;
+      weightUnit?: WeightUnit | null;
+      rpe?: number | null;
+      completed?: boolean;
+      order?: number;
+    }
+  ): Promise<WorkoutSetLog> {
+    const set = await this.sets.find(setId);
+
+    await database.write(async () => {
+      await set.update((record) => {
+        if (updates.reps !== undefined) {
+          record.reps = updates.reps ?? undefined;
+        }
+        if (updates.weight !== undefined) {
+          record.weight = updates.weight ?? undefined;
+        }
+        if (updates.weightUnit !== undefined) {
+          record.weightUnit = updates.weightUnit ?? undefined;
+        }
+        if (updates.rpe !== undefined) {
+          record.rpe = updates.rpe ?? undefined;
+        }
+        if (updates.completed !== undefined) {
+          record.completed = updates.completed;
+        }
+        if (updates.order !== undefined) {
+          record.order = updates.order;
+        }
+      });
+    });
+
+    return buildSetLog(set);
+  }
+
+  async addSetForExercise(exerciseId: string): Promise<WorkoutSetLog> {
+    const exercise = await this.exercises.find(exerciseId);
+    const sets = await this.sets
+      .query(Q.where('exercise_id', exerciseId))
+      .fetch();
+    const nextOrder = sets.length;
+
+    const newSet = await database.write(async () =>
+      this.sets.create((set) => {
+        set.exercise.set(exercise);
+        set.order = nextOrder;
+        set.completed = false;
+      })
+    );
+
+    return buildSetLog(newSet);
+  }
+
+  async removeSetById(setId: string): Promise<void> {
+    const set = await this.sets.find(setId);
+    const exercise = await set.exercise.fetch();
+
+    await database.write(async () => {
+      await set.destroyPermanently();
+
+      const remainingSets = await this.sets
+        .query(Q.where('exercise_id', exercise.id), Q.sortBy('order', Q.asc))
+        .fetch();
+
+      await Promise.all(
+        remainingSets.map((remaining, index) =>
+          remaining.update((record) => {
+            record.order = index;
+          })
+        )
+      );
+    });
+  }
+
+  async getLastExercisePerformance(
+    exerciseName: string,
+    options?: { excludeWorkoutId?: string }
+  ): Promise<{ completedAt: string; sets: WorkoutSetLog[] } | null> {
+    const normalizedTarget = normalizeExerciseName(exerciseName);
+    const workouts = await this.buildCompletedQuery(12, false).fetch();
+
+    for (const workout of workouts) {
+      if (
+        options?.excludeWorkoutId &&
+        workout.id === options.excludeWorkoutId
+      ) {
+        continue;
+      }
+
+      const exercises = await this.exercises
+        .query(Q.where('workout_id', workout.id))
+        .fetch();
+
+      const match = exercises.find(
+        (exercise) => normalizeExerciseName(exercise.name) === normalizedTarget
+      );
+      if (!match) {
+        continue;
+      }
+
+      const sets = await this.sets
+        .query(Q.where('exercise_id', match.id), Q.sortBy('order', Q.asc))
+        .fetch();
+
+      const completedSets = sets.filter((item) => item.completed);
+      if (completedSets.length === 0) {
+        continue;
+      }
+
+      return {
+        completedAt: workout.completedAt
+          ? new Date(workout.completedAt).toISOString()
+          : new Date().toISOString(),
+        sets: completedSets.map(buildSetLog),
+      };
+    }
+
+    return null;
   }
 
   toSessionSummary(workout: Workout): WorkoutSessionSummary {
@@ -132,7 +409,7 @@ export class WorkoutRepository {
       archivedAt: workout.archivedAt
         ? new Date(workout.archivedAt).toISOString()
         : undefined,
-      isFavorite: workout.isFavorite,
+      isFavorite: workout.isFavorite ?? undefined,
     };
   }
 

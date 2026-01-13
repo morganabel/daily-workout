@@ -6,6 +6,7 @@ export type RootStackParamList = {
   WorkoutPreview: { plan?: TodayPlan } | undefined;
   ActiveWorkout: { plan: TodayPlan };
   History: undefined;
+  WorkoutSessionDetail: { workoutId: string };
   Settings: undefined;
   // Auth screens (optional upgrade from anonymous)
   SignIn: undefined;

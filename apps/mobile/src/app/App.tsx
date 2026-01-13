@@ -8,6 +8,7 @@ import { HomeScreen } from './HomeScreen';
 import { LaunchScreen } from './LaunchScreen';
 import { WorkoutPreviewScreen } from './WorkoutPreviewScreen';
 import { ActiveWorkoutScreen } from './ActiveWorkoutScreen';
+import { WorkoutSessionDetailScreen } from './WorkoutSessionDetailScreen';
 import { RootStackParamList } from './navigation';
 import { HistoryScreen } from './HistoryScreen';
 import { SettingsScreen } from './SettingsScreen';
@@ -38,9 +39,19 @@ export const App = () => {
           >
             <Stack.Screen name="Launch" component={LaunchScreen} />
             <Stack.Screen name="Home" component={HomeScreen} />
-            <Stack.Screen name="WorkoutPreview" component={WorkoutPreviewScreen} />
-            <Stack.Screen name="ActiveWorkout" component={ActiveWorkoutScreen} />
+            <Stack.Screen
+              name="WorkoutPreview"
+              component={WorkoutPreviewScreen}
+            />
+            <Stack.Screen
+              name="ActiveWorkout"
+              component={ActiveWorkoutScreen}
+            />
             <Stack.Screen name="History" component={HistoryScreen} />
+            <Stack.Screen
+              name="WorkoutSessionDetail"
+              component={WorkoutSessionDetailScreen}
+            />
             <Stack.Screen name="Settings" component={SettingsScreen} />
             {/* Auth screens - optional upgrade from anonymous */}
             <Stack.Screen name="SignIn" component={SignInScreen} />

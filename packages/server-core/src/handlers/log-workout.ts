@@ -1,6 +1,7 @@
 import type { AuthProvider, GenerationStore } from '../types';
 import { createErrorResponse } from '../utils/errors';
 import {
+  workoutLogPayloadSchema,
   workoutSessionSummarySchema,
   createSessionSummaryMock,
   type WorkoutSessionSummary,
@@ -33,6 +34,30 @@ export function createLogWorkoutHandler(deps: LogWorkoutHandlerDeps) {
         'UNAUTHORIZED',
         'Invalid or missing session',
         401
+      );
+    }
+
+    let payload: unknown = {};
+    try {
+      const text = await request.text();
+      if (text.trim()) {
+        payload = JSON.parse(text);
+      }
+    } catch (error) {
+      console.error('Failed to parse JSON payload in logWorkoutHandler', error);
+      return createErrorResponse(
+        'VALIDATION_ERROR',
+        'Malformed JSON in request body',
+        400
+      );
+    }
+
+    const parsedPayload = workoutLogPayloadSchema.safeParse(payload);
+    if (!parsedPayload.success) {
+      return createErrorResponse(
+        'VALIDATION_ERROR',
+        'Invalid workout log payload',
+        400
       );
     }
 
