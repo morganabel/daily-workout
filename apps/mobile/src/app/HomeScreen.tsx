@@ -404,7 +404,6 @@ type GenerationInputsProps = {
   onReset: () => void;
   hasOverrides: boolean;
   pendingMessage?: string | null;
-  title?: string;
 };
 
 const GenerationInputs = ({
@@ -414,18 +413,22 @@ const GenerationInputs = ({
   onReset,
   hasOverrides,
   pendingMessage,
-  title = 'Workout inputs',
 }: GenerationInputsProps) => (
-  <View style={styles.generationInputs}>
-    <View style={styles.sectionHeader}>
-      <Text style={styles.sectionTitle}>{title}</Text>
-      {hasOverrides && (
-        <Pressable onPress={onReset} style={styles.resetButton}>
-          <Text style={styles.resetButtonText}>Reset</Text>
-        </Pressable>
-      )}
-    </View>
-    {pendingMessage && <Text style={styles.sectionHint}>{pendingMessage}</Text>}
+  <View>
+    {(hasOverrides || pendingMessage) && (
+      <View style={styles.inputsMetaRow}>
+        {pendingMessage ? (
+          <Text style={styles.sectionHint}>{pendingMessage}</Text>
+        ) : (
+          <View />
+        )}
+        {hasOverrides && (
+          <Pressable onPress={onReset} style={styles.resetButton}>
+            <Text style={styles.resetButtonText}>Reset</Text>
+          </Pressable>
+        )}
+      </View>
+    )}
     <ScrollView
       horizontal
       showsHorizontalScrollIndicator={false}
@@ -1145,7 +1148,6 @@ export const HomeScreen = () => {
       onReset={clearStagedValues}
       hasOverrides={hasOverrides}
       pendingMessage={pendingMessage}
-      title={plan ? 'Next workout inputs' : 'Workout inputs'}
     />
   );
 
@@ -1698,14 +1700,13 @@ const styles = StyleSheet.create({
   },
   heroInputs: {
     marginTop: 8,
+    gap: 8,
   },
-  generationInputs: {
-    backgroundColor: palette.cardSecondary,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: palette.border,
-    padding: 12,
-    gap: 10,
+  inputsMetaRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    minHeight: 18,
   },
   badge: {
     paddingHorizontal: 12,

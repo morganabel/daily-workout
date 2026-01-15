@@ -152,17 +152,6 @@ describe('HomeScreen', () => {
     expect(getByText('Reset')).toBeTruthy();
   });
 
-  it('labels generation inputs for existing plans', async () => {
-    mockUseHomeData.mockReturnValue(baseHookState);
-
-    const { getByText } = render(<HomeScreen />);
-    await act(async () => {
-      await Promise.resolve();
-    });
-
-    expect(getByText('Next workout inputs')).toBeTruthy();
-  });
-
   it('opens Quick Log sheet when Quick log button is pressed', async () => {
     mockUseHomeData.mockReturnValue(baseHookState);
 
