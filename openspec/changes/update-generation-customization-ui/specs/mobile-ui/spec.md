@@ -1,0 +1,95 @@
+## ADDED Requirements
+
+### Requirement: Generation Customization Sheet
+
+The mobile app MUST provide a unified generation customization sheet used for both initial generation and regeneration, exposing the full set of options available in the regenerate flow.
+
+#### Scenario: Customize opens unified sheet
+
+- **WHEN** the user taps `Customize` on the hero card before generating
+- **THEN** the unified customization sheet opens with all option groups and helper text stating the changes apply to the next generated workout
+
+#### Scenario: Regenerate opens unified sheet
+
+- **GIVEN** a generated workout exists
+- **WHEN** the user taps `Regenerate` or `Retry`
+- **THEN** the same customization sheet opens with current plan values prefilled and a CTA to regenerate using the staged overrides
+
+#### Scenario: Staged values persist across entry points
+
+- **GIVEN** the user has staged overrides via quick actions
+- **WHEN** they open the unified customization sheet
+- **THEN** the staged selections are prefilled and match the quick action indicators
+
+## MODIFIED Requirements
+
+### Requirement: Hero Workout Card Interactions
+
+The hero card MUST adapt to whether a generated plan exists and let users generate or log with a single tap.
+
+#### Scenario: Generated plan available
+
+- **GIVEN** a `generated` workout exists for today
+- **THEN** the card displays focus, duration, equipment badge, and AI source tag, plus `Start workout` and `Log done` buttons that call their respective handlers
+
+#### Scenario: No plan yet
+
+- **GIVEN** no plan exists for today
+- **THEN** the card invites the user to "Generate a workout" with a primary CTA and a `Customize` secondary action that opens the unified customization sheet
+
+#### Scenario: Offline/BYOK warning
+
+- **GIVEN** the app detects missing connectivity or API key while the user tries to generate
+- **THEN** the card blocks the action, surfaces an inline warning, and links to the BYOK/setup sheet defined for onboarding
+
+### Requirement: Generation Inputs & Activity Context
+
+Users MUST be able to set core generation inputs in context with the Generate CTA and see at least the last three logged sessions from the home screen.
+
+#### Scenario: Generation inputs integrated with CTA
+
+- **GIVEN** the home screen renders the hero card
+- **THEN** the generation input controls are visually grouped with the Generate/Customize actions so they read as pre-generation configuration, not separate quick actions
+
+#### Scenario: Generation input chips
+
+- **GIVEN** the user taps a chip (Time, Focus, Equipment, Energy)
+- **THEN** a lightweight sheet appears allowing them to adjust the chosen parameter and dismiss without leaving the screen
+
+#### Scenario: Activity list summary
+
+- **GIVEN** at least one past workout exists
+- **THEN** the list shows the last three sessions with name/focus, completion timestamp, and duration, plus a "View history" CTA
+
+#### Scenario: Empty history guidance
+
+- **GIVEN** no past workouts exist
+- **THEN** the activity section shows a friendly nudge explaining that completed workouts will appear here after the first log
+
+### Requirement: Generation Input Sheets Drive Generation
+
+Generation input chips and the generation customization sheet MUST stage preset changes in local UI state, display the chosen values on each chip, and feed those overrides directly into the next generation request. The UI SHALL highlight unsynced edits and let users apply changes without immediately generating.
+
+#### Scenario: Chip label reflects staged value
+
+- **GIVEN** the user edits the Time sheet to 45 minutes and taps `Apply`
+- **WHEN** the sheet closes
+- **THEN** the Time chip updates to “45 min” and shows a subtle staged indicator until a new plan is generated or the value is cleared
+
+#### Scenario: Apply vs Apply & Generate
+
+- **GIVEN** a sheet is open with a new selection
+- **WHEN** the user taps `Apply & Generate`
+- **THEN** the client writes the staged value locally, immediately builds a generation request using all staged overrides, and calls the generator; tapping `Apply` alone only stores the value for future generations
+
+#### Scenario: Stage cleared after successful generation
+
+- **GIVEN** staged overrides exist for focus and time
+- **WHEN** a generation succeeds
+- **THEN** the chips drop their staged indicator, move the persisted plan values into local defaults, and the overrides reset so the UI reflects the plan that was just generated
+
+#### Scenario: Staged values sync with unified sheet
+
+- **GIVEN** staged overrides exist in either a quick action sheet or the unified customization sheet
+- **WHEN** the user opens the other entry point
+- **THEN** the selections are prefilled and the staged indicators remain consistent across both surfaces
