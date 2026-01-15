@@ -15,6 +15,7 @@ import type {
   GenerationRequest,
   RegenerationFeedback,
   WorkoutEnergy,
+  QuickActionPreset,
 } from '@workout-agent/shared';
 
 const palette = {
@@ -61,46 +62,114 @@ const FEEDBACK_OPTIONS: { value: RegenerationFeedback; label: string }[] = [
   { value: 'just-try-again', label: 'Just try again' },
 ];
 
+const getQuickActionValue = (
+  quickActions: QuickActionPreset[] | undefined,
+  key: QuickActionPreset['key']
+): string | undefined => {
+  const action = quickActions?.find((item) => item.key === key);
+  return action?.stagedValue ?? action?.value ?? action?.description;
+};
+
+const normalizeFocusSelection = (
+  value: string | undefined
+): string | undefined => {
+  if (!value) return undefined;
+  const normalized = value.trim().toLowerCase();
+  const match = FOCUS_OPTIONS.find((option) =>
+    option.toLowerCase().includes(normalized)
+  );
+  return match ?? value.trim();
+};
+
+const parseEquipmentSelection = (value: string | undefined): string[] => {
+  if (!value) return [];
+  return value
+    .split(',')
+    .map((token) => token.trim())
+    .filter(Boolean);
+};
+
+const normalizeEnergySelection = (value: string | undefined): WorkoutEnergy => {
+  if (!value) return 'moderate';
+  const normalized = value.trim().toLowerCase();
+  if (
+    normalized === 'easy' ||
+    normalized === 'moderate' ||
+    normalized === 'intense'
+  ) {
+    return normalized;
+  }
+  return 'moderate';
+};
+
 export type CustomizeSheetProps = {
   visible: boolean;
-  currentPlan: TodayPlan;
+  currentPlan?: TodayPlan | null;
+  quickActions?: QuickActionPreset[];
   loading?: boolean;
-  onRegenerate: (request: GenerationRequest) => void;
+  onSubmit: (request: GenerationRequest) => void;
+  onUpdateStagedValue?: (
+    key: QuickActionPreset['key'],
+    value: string | null
+  ) => void;
   onClose: () => void;
 };
 
 export const CustomizeSheet = ({
   visible,
   currentPlan,
+  quickActions,
   loading = false,
-  onRegenerate,
+  onSubmit,
+  onUpdateStagedValue,
   onClose,
 }: CustomizeSheetProps) => {
+  const isRegeneration = Boolean(currentPlan?.responseId);
+  const showFeedback = Boolean(currentPlan?.responseId);
+  const primaryLabel = isRegeneration
+    ? 'Regenerate workout'
+    : 'Generate workout';
   // State for selections
   const [feedback, setFeedback] = useState<RegenerationFeedback[]>([]);
-  const [duration, setDuration] = useState(currentPlan.durationMinutes);
-  const [focus, setFocus] = useState(currentPlan.focus);
-  const [equipment, setEquipment] = useState<string[]>(currentPlan.equipment);
-  const [energy, setEnergy] = useState<WorkoutEnergy>(currentPlan.energy);
+  const [duration, setDuration] = useState(DURATION_OPTIONS[2]);
+  const [focus, setFocus] = useState(FOCUS_OPTIONS[1]);
+  const [equipment, setEquipment] = useState<string[]>(['Bodyweight']);
+  const [energy, setEnergy] = useState<WorkoutEnergy>('moderate');
   const [notes, setNotes] = useState('');
   const [freeFormMode, setFreeFormMode] = useState(false);
 
-  // Reset state when sheet opens with new plan
+  // Reset state when sheet opens with latest values
   useEffect(() => {
-    if (visible) {
-      setFeedback([]);
-      setDuration(currentPlan.durationMinutes);
-      setFocus(currentPlan.focus);
-      setEquipment(currentPlan.equipment.length > 0 ? currentPlan.equipment : ['Bodyweight']);
-      setEnergy(currentPlan.energy);
-      setNotes('');
-      setFreeFormMode(false);
-    }
-  }, [visible, currentPlan]);
+    if (!visible) return;
+    const timeValue = getQuickActionValue(quickActions, 'time');
+    const focusValue = getQuickActionValue(quickActions, 'focus');
+    const equipmentValue = getQuickActionValue(quickActions, 'equipment');
+    const energyValue = getQuickActionValue(quickActions, 'energy');
+
+    const nextDuration =
+      currentPlan?.durationMinutes ??
+      (Number.parseInt(timeValue ?? '', 10) || DURATION_OPTIONS[2]);
+    const nextFocus =
+      currentPlan?.focus ??
+      normalizeFocusSelection(focusValue) ??
+      FOCUS_OPTIONS[1];
+    const nextEquipment =
+      currentPlan?.equipment ?? parseEquipmentSelection(equipmentValue);
+    const nextEnergy =
+      currentPlan?.energy ?? normalizeEnergySelection(energyValue);
+
+    setFeedback([]);
+    setDuration(nextDuration);
+    setFocus(nextFocus);
+    setEquipment(nextEquipment.length > 0 ? nextEquipment : ['Bodyweight']);
+    setEnergy(nextEnergy);
+    setNotes('');
+    setFreeFormMode(false);
+  }, [visible, currentPlan, quickActions]);
 
   const toggleFeedback = (value: RegenerationFeedback) => {
     setFeedback((prev) =>
-      prev.includes(value) ? prev.filter((f) => f !== value) : [...prev, value],
+      prev.includes(value) ? prev.filter((f) => f !== value) : [...prev, value]
     );
   };
 
@@ -114,32 +183,61 @@ export const CustomizeSheet = ({
     });
   };
 
-  const handleRegenerate = () => {
+  const applyStagedValues = () => {
+    if (!onUpdateStagedValue) return;
+    onUpdateStagedValue('time', String(duration));
+    onUpdateStagedValue('focus', focus);
+    onUpdateStagedValue('equipment', equipment.join(', '));
+    onUpdateStagedValue('energy', energy);
+  };
+
+  const handleApply = () => {
+    applyStagedValues();
+    onClose();
+  };
+
+  const handleSubmit = () => {
     const normalizedNotes = notes.trim() || undefined;
+    const normalizedFocus = focus === 'Smart' ? undefined : focus;
+
+    applyStagedValues();
 
     if (freeFormMode) {
-      onRegenerate({
-        previousResponseId: currentPlan.responseId,
+      onSubmit({
         notes: normalizedNotes,
+        previousResponseId: currentPlan?.responseId,
       });
       return;
     }
 
     const request: GenerationRequest = {
       timeMinutes: duration,
-      focus,
       equipment,
       energy,
-      previousResponseId: currentPlan.responseId,
-      feedback: feedback.length > 0 ? feedback : undefined,
-      notes: normalizedNotes,
     };
-    onRegenerate(request);
+
+    if (normalizedFocus) {
+      request.focus = normalizedFocus;
+    }
+
+    if (normalizedNotes) {
+      request.notes = normalizedNotes;
+    }
+
+    if (isRegeneration && currentPlan?.responseId) {
+      request.previousResponseId = currentPlan.responseId;
+    }
+
+    if (showFeedback && feedback.length > 0) {
+      request.feedback = feedback;
+    }
+
+    onSubmit(request);
   };
 
   // Find closest duration option
   const closestDuration = DURATION_OPTIONS.reduce((prev, curr) =>
-    Math.abs(curr - duration) < Math.abs(prev - duration) ? curr : prev,
+    Math.abs(curr - duration) < Math.abs(prev - duration) ? curr : prev
   );
 
   return (
@@ -173,21 +271,26 @@ export const CustomizeSheet = ({
           >
             {!freeFormMode && (
               <View style={styles.sectionGroup}>
-                {/* Feedback Section */}
-                <View style={styles.section}>
-                  <Text style={styles.sectionTitle}>What would you like to change?</Text>
-                  <Text style={styles.sectionHint}>Optional - helps the AI understand your feedback</Text>
-                  <View style={styles.chipsRow}>
-                    {FEEDBACK_OPTIONS.map((option) => (
-                      <Chip
-                        key={option.value}
-                        label={option.label}
-                        selected={feedback.includes(option.value)}
-                        onPress={() => toggleFeedback(option.value)}
-                      />
-                    ))}
+                {showFeedback && (
+                  <View style={styles.section}>
+                    <Text style={styles.sectionTitle}>
+                      What would you like to change?
+                    </Text>
+                    <Text style={styles.sectionHint}>
+                      Optional - helps the AI understand your feedback
+                    </Text>
+                    <View style={styles.chipsRow}>
+                      {FEEDBACK_OPTIONS.map((option) => (
+                        <Chip
+                          key={option.value}
+                          label={option.label}
+                          selected={feedback.includes(option.value)}
+                          onPress={() => toggleFeedback(option.value)}
+                        />
+                      ))}
+                    </View>
                   </View>
-                </View>
+                )}
 
                 {/* Duration Section */}
                 <View style={styles.section}>
@@ -258,7 +361,8 @@ export const CustomizeSheet = ({
                 {freeFormMode ? 'Instructions' : 'Other Instructions'}
               </Text>
               <Text style={styles.sectionHint}>
-                Describe goals, limits, equipment, or any requests for this workout.
+                Describe goals, limits, equipment, or any requests for this
+                workout.
               </Text>
               <TextInput
                 style={styles.textArea}
@@ -275,7 +379,7 @@ export const CustomizeSheet = ({
           {/* Action Buttons */}
           <View style={styles.actions}>
             <Pressable
-              onPress={onClose}
+              onPress={handleApply}
               disabled={loading}
               style={({ pressed }) => [
                 styles.cancelButton,
@@ -283,10 +387,10 @@ export const CustomizeSheet = ({
                 loading && { opacity: 0.5 },
               ]}
             >
-              <Text style={styles.cancelButtonText}>Cancel</Text>
+              <Text style={styles.cancelButtonText}>Apply</Text>
             </Pressable>
             <Pressable
-              onPress={handleRegenerate}
+              onPress={handleSubmit}
               disabled={loading}
               style={({ pressed }) => [
                 styles.primaryButton,
@@ -297,7 +401,7 @@ export const CustomizeSheet = ({
               {loading ? (
                 <ActivityIndicator color="#031b1b" size="small" />
               ) : (
-                <Text style={styles.primaryButtonText}>Get New Workout</Text>
+                <Text style={styles.primaryButtonText}>{primaryLabel}</Text>
               )}
             </Pressable>
           </View>
@@ -521,4 +625,3 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 });
-
