@@ -2,7 +2,10 @@ import React from 'react';
 import { render, act, fireEvent } from '@testing-library/react-native';
 import { HomeScreen } from './HomeScreen';
 import { useHomeData } from './hooks/useHomeData';
-import { createTodayPlanMock, type QuickActionPreset } from '@workout-agent/shared';
+import {
+  createTodayPlanMock,
+  type QuickActionPreset,
+} from '@workout-agent/shared';
 
 jest.mock('./hooks/useHomeData', () => ({
   useHomeData: jest.fn(),
@@ -50,10 +53,34 @@ jest.mock('react-native-root-toast', () => ({
 const mockUseHomeData = useHomeData as jest.MockedFunction<typeof useHomeData>;
 
 const createBaseQuickActions = (): QuickActionPreset[] => [
-  { key: 'time', label: 'Time', value: '30', description: '30 min', stagedValue: null },
-  { key: 'focus', label: 'Focus', value: 'Upper', description: 'Upper', stagedValue: null },
-  { key: 'equipment', label: 'Equipment', value: 'Bodyweight', description: 'Bodyweight', stagedValue: null },
-  { key: 'energy', label: 'Energy', value: 'Moderate', description: 'Moderate', stagedValue: null },
+  {
+    key: 'time',
+    label: 'Time',
+    value: '30',
+    description: '30 min',
+    stagedValue: null,
+  },
+  {
+    key: 'focus',
+    label: 'Focus',
+    value: 'Upper',
+    description: 'Upper',
+    stagedValue: null,
+  },
+  {
+    key: 'equipment',
+    label: 'Equipment',
+    value: 'Bodyweight',
+    description: 'Bodyweight',
+    stagedValue: null,
+  },
+  {
+    key: 'energy',
+    label: 'Energy',
+    value: 'Moderate',
+    description: 'Moderate',
+    stagedValue: null,
+  },
 ];
 
 const baseHookState = {
@@ -123,6 +150,17 @@ describe('HomeScreen', () => {
 
     expect(getByText('45')).toBeTruthy();
     expect(getByText('Reset')).toBeTruthy();
+  });
+
+  it('labels generation inputs for existing plans', async () => {
+    mockUseHomeData.mockReturnValue(baseHookState);
+
+    const { getByText } = render(<HomeScreen />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(getByText('Next workout inputs')).toBeTruthy();
   });
 
   it('opens Quick Log sheet when Quick log button is pressed', async () => {
