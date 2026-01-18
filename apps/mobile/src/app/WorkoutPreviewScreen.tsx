@@ -7,7 +7,11 @@ import {
   Text,
   View,
 } from 'react-native';
-import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
+import {
+  useNavigation,
+  useRoute,
+  useFocusEffect,
+} from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
 import type { TodayPlan, GenerationRequest } from '@workout-agent/shared';
@@ -42,7 +46,7 @@ export const WorkoutPreviewScreen = () => {
   const [regenerating, setRegenerating] = useState(false);
   const [customizeSheetVisible, setCustomizeSheetVisible] = useState(false);
   const [plan, setPlan] = useState<TodayPlan>(
-    route.params?.plan ?? createTodayPlanMock(),
+    route.params?.plan ?? createTodayPlanMock()
   );
 
   // Refresh plan from DB when screen is focused to ensure we have the latest
@@ -52,7 +56,9 @@ export const WorkoutPreviewScreen = () => {
         try {
           const workout = await workoutRepository.getTodayWorkout();
           if (workout) {
-            const latestPlan = await workoutRepository.mapWorkoutToPlan(workout);
+            const latestPlan = await workoutRepository.mapWorkoutToPlan(
+              workout
+            );
             setPlan(latestPlan);
           }
         } catch (error) {
@@ -61,7 +67,7 @@ export const WorkoutPreviewScreen = () => {
         }
       };
       void refreshPlan();
-    }, []),
+    }, [])
   );
 
   const equipmentList = plan.equipment.join(' • ');
@@ -85,7 +91,7 @@ export const WorkoutPreviewScreen = () => {
         'Something went wrong',
         apiError.message ||
           'We could not create a new workout. Please try again.',
-        [{ text: 'OK' }],
+        [{ text: 'OK' }]
       );
     } finally {
       setRegenerating(false);
@@ -134,7 +140,9 @@ export const WorkoutPreviewScreen = () => {
                 <Text style={styles.blockTitle}>{block.title}</Text>
                 <Text style={styles.blockFocus}>{block.focus}</Text>
               </View>
-              <Text style={styles.blockDuration}>{block.durationMinutes} min</Text>
+              <Text style={styles.blockDuration}>
+                {block.durationMinutes} min
+              </Text>
             </View>
             <View style={styles.exerciseList}>
               {block.exercises.map((exercise) => (
@@ -146,7 +154,9 @@ export const WorkoutPreviewScreen = () => {
                       {exercise.prescription}
                     </Text>
                     {exercise.detail ? (
-                      <Text style={styles.exerciseDetail}>{exercise.detail}</Text>
+                      <Text style={styles.exerciseDetail}>
+                        {exercise.detail}
+                      </Text>
                     ) : null}
                   </View>
                 </View>
@@ -157,7 +167,8 @@ export const WorkoutPreviewScreen = () => {
 
         <View style={styles.footer}>
           <Text style={styles.footerHint}>
-            Ready to go? Starting the workout will track your time and let you log sets.
+            Ready to go? Starting the workout will track your time and let you
+            log sets.
           </Text>
           <PrimaryButton
             label={regenerating ? 'Loading...' : 'Start workout'}
@@ -174,7 +185,9 @@ export const WorkoutPreviewScreen = () => {
                 regenerating && { opacity: 0.5 },
               ]}
             >
-              <Text style={styles.feedbackToggleText}>Not quite right? Customize</Text>
+              <Text style={styles.feedbackToggleText}>
+                Not quite right? Customize
+              </Text>
             </Pressable>
           )}
         </View>
@@ -183,7 +196,7 @@ export const WorkoutPreviewScreen = () => {
         visible={customizeSheetVisible}
         currentPlan={plan}
         loading={regenerating}
-        onRegenerate={handleRegenerate}
+        onSubmit={handleRegenerate}
         onClose={() => setCustomizeSheetVisible(false)}
       />
     </View>

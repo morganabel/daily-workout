@@ -43,7 +43,10 @@ import { RootStackParamList } from './navigation';
 import { workoutRepository } from './db/repositories/WorkoutRepository';
 import { userRepository } from './db/repositories/UserRepository';
 import { CustomizeSheet } from './components/CustomizeSheet';
-import { QuickLogSheet, type QuickLogPayload } from './components/QuickLogSheet';
+import {
+  QuickLogSheet,
+  type QuickLogPayload,
+} from './components/QuickLogSheet';
 
 const palette = {
   background: '#030914',
@@ -75,6 +78,7 @@ type HeroCardProps = {
   onConfigure: () => void;
   onTryAnother?: () => void;
   onDiscard?: () => void;
+  generationInputs?: React.ReactNode;
 };
 
 const HeroCard = ({
@@ -91,6 +95,7 @@ const HeroCard = ({
   onConfigure,
   onTryAnother,
   onDiscard,
+  generationInputs,
 }: HeroCardProps) => {
   const isPending = generationStatus.state === 'pending' || generating;
   const overlayMessage =
@@ -138,6 +143,9 @@ const HeroCard = ({
         <Text style={styles.heroBody}>
           Pick your focus, set the time box, and we’ll handle the rest.
         </Text>
+        {generationInputs && (
+          <View style={styles.heroInputs}>{generationInputs}</View>
+        )}
         {errorMessage && (
           <View style={styles.errorPill}>
             <Text style={styles.errorPillText}>{errorMessage}</Text>
@@ -152,8 +160,8 @@ const HeroCard = ({
                 isPending
                   ? 'Generating...'
                   : errorMessage
-                    ? 'Retry generation'
-                    : 'Generate workout'
+                  ? 'Retry generation'
+                  : 'Generate workout'
               }
               onPress={onGenerate}
               disabled={isPending}
@@ -204,6 +212,9 @@ const HeroCard = ({
         <View style={styles.errorPill}>
           <Text style={styles.errorPillText}>{errorMessage}</Text>
         </View>
+      )}
+      {generationInputs && (
+        <View style={styles.heroInputs}>{generationInputs}</View>
       )}
       {isOffline ? (
         <InlineWarning onConfigure={onConfigure} />
@@ -373,7 +384,7 @@ const SecondaryButton = ({
   disabled?: boolean;
 }) => (
   <Pressable
-    accessibilityRole='button'
+    accessibilityRole="button"
     onPress={onPress}
     disabled={disabled}
     style={({ pressed }) => [
@@ -386,7 +397,7 @@ const SecondaryButton = ({
   </Pressable>
 );
 
-type QuickActionRailProps = {
+type GenerationInputsProps = {
   onActionPress: (action: QuickActionPreset) => void;
   quickActions: QuickActionPreset[];
   disabled?: boolean;
@@ -395,28 +406,29 @@ type QuickActionRailProps = {
   pendingMessage?: string | null;
 };
 
-const QuickActionRail = ({
+const GenerationInputs = ({
   onActionPress,
   quickActions,
   disabled = false,
   onReset,
   hasOverrides,
   pendingMessage,
-}: QuickActionRailProps) => (
-  <View style={styles.card}>
-    <View style={styles.sectionHeader}>
-      <Text style={styles.sectionTitle}>Quick actions</Text>
-      <View style={styles.sectionHeaderMeta}>
-        <Text style={styles.sectionHint} numberOfLines={2}>
-          {pendingMessage || 'Tweak context without leaving'}
-        </Text>
+}: GenerationInputsProps) => (
+  <View>
+    {(hasOverrides || pendingMessage) && (
+      <View style={styles.inputsMetaRow}>
+        {pendingMessage ? (
+          <Text style={styles.sectionHint}>{pendingMessage}</Text>
+        ) : (
+          <View />
+        )}
         {hasOverrides && (
           <Pressable onPress={onReset} style={styles.resetButton}>
             <Text style={styles.resetButtonText}>Reset</Text>
           </Pressable>
         )}
       </View>
-    </View>
+    )}
     <ScrollView
       horizontal
       showsHorizontalScrollIndicator={false}
@@ -489,18 +501,14 @@ const ActivitySection = ({
         text: 'Delete',
         style: 'destructive',
         onPress: () => {
-          Alert.alert(
-            'Delete workout?',
-            'This cannot be undone.',
-            [
-              { text: 'Cancel', style: 'cancel' },
-              {
-                text: 'Delete',
-                style: 'destructive',
-                onPress: () => onDeleteSession(session),
-              },
-            ],
-          );
+          Alert.alert('Delete workout?', 'This cannot be undone.', [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Delete',
+              style: 'destructive',
+              onPress: () => onDeleteSession(session),
+            },
+          ]);
         },
       });
     }
@@ -598,7 +606,10 @@ const ActionSheet = ({
   quickActions: QuickActionPreset[];
   onClose: () => void;
   onGenerate: () => void;
-  onUpdateStagedValue: (key: QuickActionPreset['key'], value: string | null) => void;
+  onUpdateStagedValue: (
+    key: QuickActionPreset['key'],
+    value: string | null
+  ) => void;
   generating: boolean;
   isOffline: boolean;
 }) => {
@@ -650,7 +661,8 @@ const ActionSheet = ({
                 <Text
                   style={[
                     styles.optionButtonText,
-                    localValue === String(minutes) && styles.optionButtonTextSelected,
+                    localValue === String(minutes) &&
+                      styles.optionButtonTextSelected,
                   ]}
                 >
                   {minutes} min
@@ -705,14 +717,18 @@ const ActionSheet = ({
           'Pull-up Bar',
           'Yoga Mat',
         ];
-        const selectedEquipment = localValue ? localValue.split(',').map((e) => e.trim()) : [];
+        const selectedEquipment = localValue
+          ? localValue.split(',').map((e) => e.trim())
+          : [];
 
         const toggleEquipment = (equip: string) => {
           const isSelected = selectedEquipment.includes(equip);
           const newSelection = isSelected
             ? selectedEquipment.filter((e) => e !== equip)
             : [...selectedEquipment, equip];
-          setLocalValue(newSelection.length > 0 ? newSelection.join(', ') : 'Bodyweight');
+          setLocalValue(
+            newSelection.length > 0 ? newSelection.join(', ') : 'Bodyweight'
+          );
         };
 
         return (
@@ -762,7 +778,8 @@ const ActionSheet = ({
                 <Text
                   style={[
                     styles.optionButtonText,
-                    localValue === option.value && styles.optionButtonTextSelected,
+                    localValue === option.value &&
+                      styles.optionButtonTextSelected,
                   ]}
                 >
                   {option.label}
@@ -801,7 +818,8 @@ const ActionSheet = ({
           )}
           {disabled && (
             <Text style={styles.sheetBody}>
-              Finish configuring your API key or wait for the current generation to complete before changing presets.
+              Finish configuring your API key or wait for the current generation
+              to complete before changing presets.
             </Text>
           )}
           <View style={styles.sheetActions}>
@@ -931,7 +949,12 @@ const ByokSheet = ({
   hasKey: boolean;
   errorMessage?: string;
 }) => (
-  <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+  <Modal
+    visible={visible}
+    transparent
+    animationType="slide"
+    onRequestClose={onClose}
+  >
     <View style={styles.sheetOverlay}>
       <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
       <KeyboardAvoidingView
@@ -943,9 +966,10 @@ const ByokSheet = ({
           <View style={styles.sheetHandle} />
           <Text style={styles.sheetTitle}>Configure AI Provider</Text>
           <Text style={styles.sheetBody}>
-            Choose your AI provider and paste your API key to unlock AI workouts.
+            Choose your AI provider and paste your API key to unlock AI
+            workouts.
           </Text>
-          
+
           <Text style={styles.sheetLabel}>Provider</Text>
           <View style={styles.providerSelector}>
             <Pressable
@@ -986,16 +1010,16 @@ const ByokSheet = ({
           <TextInput
             value={value}
             onChangeText={onChangeValue}
-            placeholder={provider === 'openai' ? 'sk-...' : 'Enter your Gemini API key'}
+            placeholder={
+              provider === 'openai' ? 'sk-...' : 'Enter your Gemini API key'
+            }
             autoCapitalize="none"
             autoCorrect={false}
             secureTextEntry
             style={styles.byokInput}
           />
-          
-          {errorMessage && (
-            <Text style={styles.errorText}>{errorMessage}</Text>
-          )}
+
+          {errorMessage && <Text style={styles.errorText}>{errorMessage}</Text>}
 
           <View style={styles.sheetActions}>
             {onRemove && (
@@ -1020,11 +1044,7 @@ const bottomActions = [
   { key: 'profile', label: 'Profile', active: false },
 ];
 
-const BottomActionBar = ({
-  onQuickLog,
-}: {
-  onQuickLog: () => void;
-}) => (
+const BottomActionBar = ({ onQuickLog }: { onQuickLog: () => void }) => (
   <View style={styles.bottomBar}>
     {bottomActions.map((action) => (
       <Pressable
@@ -1074,7 +1094,8 @@ export const HomeScreen = () => {
   const [generating, setGenerating] = useState(false);
   const [byokSheetVisible, setByokSheetVisible] = useState(false);
   const [byokInput, setByokInput] = useState('');
-  const [byokProvider, setByokProvider] = useState<AiProvider['name']>('openai');
+  const [byokProvider, setByokProvider] =
+    useState<AiProvider['name']>('openai');
   const [hasByokKey, setHasByokKey] = useState(false);
   const [byokError, setByokError] = useState<string | undefined>();
   const [showPendingOverlay, setShowPendingOverlay] = useState(false);
@@ -1091,7 +1112,7 @@ export const HomeScreen = () => {
         setShowOnboarding(!hasProfile);
       };
       checkProfile();
-    }, []),
+    }, [])
   );
 
   const heroStatus = useMemo(() => {
@@ -1113,7 +1134,25 @@ export const HomeScreen = () => {
   const pendingMessage = quickActionsLocked
     ? 'Hang tight while this workout finishes generating…'
     : undefined;
-  const hasOverrides = quickActions.some((action) => Boolean(action.stagedValue));
+  const hasOverrides = quickActions.some((action) =>
+    Boolean(action.stagedValue)
+  );
+  const visibleGenerationInputs = quickActions.filter(
+    (action) => action.key !== 'backfill'
+  );
+  const generationInputs = (
+    <GenerationInputs
+      onActionPress={(action) => setSelectedAction(action)}
+      quickActions={visibleGenerationInputs}
+      disabled={quickActionsLocked}
+      onReset={clearStagedValues}
+      hasOverrides={hasOverrides}
+      pendingMessage={pendingMessage}
+    />
+  );
+  const handleCustomize = () => {
+    setCustomizeSheetVisible(true);
+  };
 
   useEffect(() => {
     const checkByok = async () => {
@@ -1163,15 +1202,11 @@ export const HomeScreen = () => {
       setByokSheetVisible(false);
       await refetch();
     } catch (error) {
-      // Check if it's an API error with INVALID_PROVIDER code
-      if (
-        typeof error === 'object' &&
-        error !== null &&
-        'code' in error &&
-        error.code === 'INVALID_PROVIDER'
-      ) {
+      const apiError = error as ApiError | undefined;
+      if (apiError?.code === 'INVALID_PROVIDER') {
         setByokError(
-          error.message || 'Invalid provider selected. Please choose a supported provider.',
+          apiError.message ||
+            'Invalid provider selected. Please choose a supported provider.'
         );
       } else {
         setByokError('Could not store your API key. Please try again.');
@@ -1190,7 +1225,7 @@ export const HomeScreen = () => {
     } catch (error) {
       Alert.alert(
         'Failed to Remove Key',
-        'Could not remove your API key. Please try again.',
+        'Could not remove your API key. Please try again.'
       );
       console.error('Failed to remove BYOK key:', error);
     }
@@ -1230,13 +1265,14 @@ export const HomeScreen = () => {
       const request = buildGenerationRequestFromQuickActions(quickActions);
 
       const quickActionMap = Object.fromEntries(
-        quickActions.map((action) => [action.key, action]),
+        quickActions.map((action) => [action.key, action])
       );
 
       const focusValue =
         quickActionMap['focus']?.stagedValue || quickActionMap['focus']?.value;
       const energyValue =
-        quickActionMap['energy']?.stagedValue || quickActionMap['energy']?.value;
+        quickActionMap['energy']?.stagedValue ||
+        quickActionMap['energy']?.value;
       const equipmentValue =
         quickActionMap['equipment']?.stagedValue ||
         quickActionMap['equipment']?.description ||
@@ -1255,9 +1291,7 @@ export const HomeScreen = () => {
         focusValue ? `Preference: ${focusValue}` : null,
         energyValue ? `Energy: ${energyValue}` : null,
         equipmentValue ? `Equipment: ${equipmentValue}` : null,
-        recentSummary.length
-          ? `Recent: ${recentSummary.join(' | ')}`
-          : null,
+        recentSummary.length ? `Recent: ${recentSummary.join(' | ')}` : null,
       ].filter(Boolean);
 
       if (noteParts.length) {
@@ -1296,7 +1330,7 @@ export const HomeScreen = () => {
         'Failed to Generate Workout',
         apiError.message ||
           'An error occurred while generating your workout. Please try again.',
-        [{ text: 'OK' }],
+        [{ text: 'OK' }]
       );
     } finally {
       setGenerating(false);
@@ -1314,14 +1348,14 @@ export const HomeScreen = () => {
       Alert.alert(
         'Workout archived',
         'It will be hidden from recent activity and future generations.',
-        [{ text: 'OK' }],
+        [{ text: 'OK' }]
       );
     } catch (err) {
       console.error('Failed to archive workout:', err);
       Alert.alert(
         'Failed to Archive',
         'Could not archive this workout. Please try again.',
-        [{ text: 'OK' }],
+        [{ text: 'OK' }]
       );
     }
   };
@@ -1332,14 +1366,14 @@ export const HomeScreen = () => {
       Alert.alert(
         'Workout deleted',
         'The workout was removed from your history.',
-        [{ text: 'OK' }],
+        [{ text: 'OK' }]
       );
     } catch (err) {
       console.error('Failed to delete workout:', err);
       Alert.alert(
         'Failed to Delete',
         'Could not delete this workout. Please try again.',
-        [{ text: 'OK' }],
+        [{ text: 'OK' }]
       );
     }
   };
@@ -1355,8 +1389,8 @@ export const HomeScreen = () => {
     setCustomizeSheetVisible(true);
   };
 
-  // Handles regeneration from the CustomizeSheet
-  const handleRegenerateFromSheet = async (request: GenerationRequest) => {
+  // Handles generation/regeneration from the CustomizeSheet
+  const handleCustomizeSubmit = async (request: GenerationRequest) => {
     if (generating || isOffline || generationStatus.state === 'pending') return;
 
     const submittedAt = new Date().toISOString();
@@ -1368,7 +1402,7 @@ export const HomeScreen = () => {
     });
 
     try {
-      console.log('Regenerating workout with request:', request);
+      console.log('Generating workout with request:', request);
       await generateWorkout(request);
       await refetch();
       console.log('Workout plan persisted locally');
@@ -1388,7 +1422,7 @@ export const HomeScreen = () => {
         navigation.navigate('Launch');
         return;
       }
-      console.error('Failed to regenerate workout:', apiError);
+      console.error('Failed to generate workout:', apiError);
       setGenerationStatus({
         state: 'error',
         submittedAt,
@@ -1400,7 +1434,7 @@ export const HomeScreen = () => {
         'Something went wrong',
         apiError.message ||
           'We could not create a new workout. Please try again.',
-        [{ text: 'OK' }],
+        [{ text: 'OK' }]
       );
     } finally {
       setGenerating(false);
@@ -1428,12 +1462,12 @@ export const HomeScreen = () => {
               Alert.alert(
                 'Failed to Discard Workout',
                 'An error occurred while discarding the workout. Please try again.',
-                [{ text: 'OK' }],
+                [{ text: 'OK' }]
               );
             }
           },
         },
-      ],
+      ]
     );
   };
 
@@ -1463,25 +1497,19 @@ export const HomeScreen = () => {
           status={heroStatus as HeroCardProps['status']}
           plan={plan}
           isOffline={isOffline}
-        generating={generating}
+          generating={generating}
           generationStatus={generationStatus}
           showPendingOverlay={showPendingOverlay}
           onGenerate={handleGenerate}
-          onCustomize={() => setSelectedAction(quickActions[1] ?? null)}
-        onStart={handleStartWorkout}
+          onCustomize={handleCustomize}
+          onStart={handleStartWorkout}
           onPreview={handlePreviewNavigation}
           onConfigure={handleConfigure}
           onTryAnother={plan ? handleTryAnother : undefined}
           onDiscard={plan ? handleDiscard : undefined}
+          generationInputs={generationInputs}
         />
-        <QuickActionRail
-          onActionPress={(action) => setSelectedAction(action)}
-          quickActions={quickActions.filter((a) => a.key !== 'backfill')}
-          disabled={quickActionsLocked}
-          onReset={clearStagedValues}
-          hasOverrides={hasOverrides}
-          pendingMessage={pendingMessage}
-        />
+
         <ActivitySection
           sessions={recentSessions}
           loading={status === 'loading'}
@@ -1515,15 +1543,15 @@ export const HomeScreen = () => {
         hasKey={hasByokKey}
         errorMessage={byokError}
       />
-      {plan && (
-        <CustomizeSheet
-          visible={customizeSheetVisible}
-          currentPlan={plan}
-          loading={generating}
-          onRegenerate={handleRegenerateFromSheet}
-          onClose={() => setCustomizeSheetVisible(false)}
-        />
-      )}
+      <CustomizeSheet
+        visible={customizeSheetVisible}
+        currentPlan={plan}
+        quickActions={visibleGenerationInputs}
+        loading={generating}
+        onSubmit={handleCustomizeSubmit}
+        onUpdateStagedValue={updateStagedValue}
+        onClose={() => setCustomizeSheetVisible(false)}
+      />
       <QuickLogSheet
         visible={quickLogSheetVisible}
         onSubmit={handleQuickLogSubmit}
@@ -1673,6 +1701,16 @@ const styles = StyleSheet.create({
     gap: 12,
     marginTop: 8,
   },
+  heroInputs: {
+    marginTop: 8,
+    gap: 8,
+  },
+  inputsMetaRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    minHeight: 18,
+  },
   badge: {
     paddingHorizontal: 12,
     paddingVertical: 6,
@@ -1736,14 +1774,6 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 8,
     marginBottom: 12,
-  },
-  sectionHeaderMeta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    flexShrink: 1,
-    flexWrap: 'wrap',
-    justifyContent: 'flex-end',
   },
   sectionTitle: {
     color: palette.textPrimary,
