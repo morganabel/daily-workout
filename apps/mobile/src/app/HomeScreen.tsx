@@ -1137,19 +1137,22 @@ export const HomeScreen = () => {
   const hasOverrides = quickActions.some((action) =>
     Boolean(action.stagedValue)
   );
-  const visibleQuickActions = quickActions.filter(
+  const visibleGenerationInputs = quickActions.filter(
     (action) => action.key !== 'backfill'
   );
   const generationInputs = (
     <GenerationInputs
       onActionPress={(action) => setSelectedAction(action)}
-      quickActions={visibleQuickActions}
+      quickActions={visibleGenerationInputs}
       disabled={quickActionsLocked}
       onReset={clearStagedValues}
       hasOverrides={hasOverrides}
       pendingMessage={pendingMessage}
     />
   );
+  const handleCustomize = () => {
+    setCustomizeSheetVisible(true);
+  };
 
   useEffect(() => {
     const checkByok = async () => {
@@ -1498,7 +1501,7 @@ export const HomeScreen = () => {
           generationStatus={generationStatus}
           showPendingOverlay={showPendingOverlay}
           onGenerate={handleGenerate}
-          onCustomize={() => setCustomizeSheetVisible(true)}
+          onCustomize={handleCustomize}
           onStart={handleStartWorkout}
           onPreview={handlePreviewNavigation}
           onConfigure={handleConfigure}
@@ -1543,7 +1546,7 @@ export const HomeScreen = () => {
       <CustomizeSheet
         visible={customizeSheetVisible}
         currentPlan={plan}
-        quickActions={visibleQuickActions}
+        quickActions={visibleGenerationInputs}
         loading={generating}
         onSubmit={handleCustomizeSubmit}
         onUpdateStagedValue={updateStagedValue}

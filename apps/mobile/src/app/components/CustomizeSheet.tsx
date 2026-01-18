@@ -74,11 +74,23 @@ const normalizeFocusSelection = (
   value: string | undefined
 ): string | undefined => {
   if (!value) return undefined;
-  const normalized = value.trim().toLowerCase();
-  const match = FOCUS_OPTIONS.find((option) =>
-    option.toLowerCase().includes(normalized)
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+  const normalized = trimmed.toLowerCase();
+  const exactMatch = FOCUS_OPTIONS.find(
+    (option) => option.toLowerCase() === normalized
   );
-  return match ?? value.trim();
+  if (exactMatch) {
+    return exactMatch;
+  }
+  const candidateMatches = FOCUS_OPTIONS.filter((option) => {
+    const words = option.toLowerCase().split(/\s+/);
+    return words.includes(normalized);
+  });
+  if (candidateMatches.length === 1) {
+    return candidateMatches[0];
+  }
+  return trimmed;
 };
 
 const parseEquipmentSelection = (value: string | undefined): string[] => {
@@ -129,6 +141,7 @@ export const CustomizeSheet = ({
   const primaryLabel = isRegeneration
     ? 'Regenerate workout'
     : 'Generate workout';
+  const canStageValues = Boolean(onUpdateStagedValue);
   // State for selections
   const [feedback, setFeedback] = useState<RegenerationFeedback[]>([]);
   const [duration, setDuration] = useState(DURATION_OPTIONS[2]);
@@ -146,9 +159,10 @@ export const CustomizeSheet = ({
     const equipmentValue = getQuickActionValue(quickActions, 'equipment');
     const energyValue = getQuickActionValue(quickActions, 'energy');
 
+    const parsedDuration = Number.parseInt(timeValue ?? '', 10);
     const nextDuration =
       currentPlan?.durationMinutes ??
-      (Number.parseInt(timeValue ?? '', 10) || DURATION_OPTIONS[2]);
+      (Number.isNaN(parsedDuration) ? DURATION_OPTIONS[2] : parsedDuration);
     const nextFocus =
       currentPlan?.focus ??
       normalizeFocusSelection(focusValue) ??
@@ -192,6 +206,10 @@ export const CustomizeSheet = ({
   };
 
   const handleApply = () => {
+    if (!canStageValues) {
+      onClose();
+      return;
+    }
     applyStagedValues();
     onClose();
   };
@@ -200,7 +218,9 @@ export const CustomizeSheet = ({
     const normalizedNotes = notes.trim() || undefined;
     const normalizedFocus = focus === 'Smart' ? undefined : focus;
 
-    applyStagedValues();
+    if (canStageValues) {
+      applyStagedValues();
+    }
 
     if (freeFormMode) {
       onSubmit({
@@ -378,17 +398,19 @@ export const CustomizeSheet = ({
 
           {/* Action Buttons */}
           <View style={styles.actions}>
-            <Pressable
-              onPress={handleApply}
-              disabled={loading}
-              style={({ pressed }) => [
-                styles.cancelButton,
-                pressed && { opacity: 0.8 },
-                loading && { opacity: 0.5 },
-              ]}
-            >
-              <Text style={styles.cancelButtonText}>Apply</Text>
-            </Pressable>
+            {canStageValues && (
+              <Pressable
+                onPress={handleApply}
+                disabled={loading}
+                style={({ pressed }) => [
+                  styles.cancelButton,
+                  pressed && { opacity: 0.8 },
+                  loading && { opacity: 0.5 },
+                ]}
+              >
+                <Text style={styles.cancelButtonText}>Save for next</Text>
+              </Pressable>
+            )}
             <Pressable
               onPress={handleSubmit}
               disabled={loading}
