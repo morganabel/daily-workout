@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { render } from '@testing-library/react-native';
+import { render, waitFor } from '@testing-library/react-native';
 import { useHomeData } from './hooks/useHomeData';
 import {
   createTodayPlanMock,
@@ -84,6 +84,11 @@ jest.mock('./SignUpScreen', () => ({
   SignUpScreen: () => null,
 }));
 
+// Mock vector icons locally to ensure it takes precedence
+jest.mock('@expo/vector-icons', () => ({
+  Ionicons: 'Ionicons',
+}));
+
 const mockUseHomeData = useHomeData as jest.MockedFunction<typeof useHomeData>;
 
 const createBaseQuickActions = (): QuickActionPreset[] => [
@@ -147,13 +152,12 @@ describe('App', () => {
     mockUseHomeData.mockReturnValue(baseHookState);
   });
 
-  it('renders the home screen shell and hero card', async () => {
+  it('renders the home screen with active plan', async () => {
     const { findByText } = render(<App />);
 
-    await findByText(/Your workout hub/i);
-    await findByText(/Quick actions/i);
-    await findByText(/Workout Agent/i);
-    await findByText(/Quick log/i);
-    await findByText(/Today's workout/i);
+    await findByText(/Today's Setup/i);
+    await findByText(/READY TO GO/i);
+    // The mock plan focus might vary but let's check for standard text
+    await findByText(/Start Workout/i);
   });
 });

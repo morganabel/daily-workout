@@ -9,6 +9,7 @@ import {
   Text,
   TextInput,
   View,
+  Platform,
 } from 'react-native';
 import type {
   TodayPlan,
@@ -17,20 +18,10 @@ import type {
   WorkoutEnergy,
   QuickActionPreset,
 } from '@workout-agent/shared';
+import { palette, typography, layout } from '../theme';
+import { Button, Chip } from './DesignSystem';
 
-const palette = {
-  background: '#030914',
-  card: '#0d1322',
-  cardSecondary: '#111a30',
-  border: '#1d2943',
-  accent: '#6efacc',
-  accentMuted: '#233746',
-  textPrimary: '#f5f6fb',
-  textSecondary: '#9cabc4',
-  textMuted: '#5c6a85',
-};
-
-const DURATION_OPTIONS = [15, 20, 30, 45, 60];
+const DURATION_OPTIONS = [15, 30, 45, 60, 90]; // Standardized
 const FOCUS_OPTIONS = [
   'Smart',
   'Full Body',
@@ -62,6 +53,7 @@ const FEEDBACK_OPTIONS: { value: RegenerationFeedback; label: string }[] = [
   { value: 'just-try-again', label: 'Just try again' },
 ];
 
+// ... (Helpers remain the same)
 const getQuickActionValue = (
   quickActions: QuickActionPreset[] | undefined,
   key: QuickActionPreset['key']
@@ -142,7 +134,7 @@ export const CustomizeSheet = ({
     ? 'Regenerate workout'
     : 'Generate workout';
   const canStageValues = Boolean(onUpdateStagedValue);
-  // State for selections
+
   const [feedback, setFeedback] = useState<RegenerationFeedback[]>([]);
   const [duration, setDuration] = useState(DURATION_OPTIONS[2]);
   const [focus, setFocus] = useState(FOCUS_OPTIONS[1]);
@@ -151,7 +143,6 @@ export const CustomizeSheet = ({
   const [notes, setNotes] = useState('');
   const [freeFormMode, setFreeFormMode] = useState(false);
 
-  // Reset state when sheet opens with latest values
   useEffect(() => {
     if (!visible) return;
     const timeValue = getQuickActionValue(quickActions, 'time');
@@ -255,7 +246,6 @@ export const CustomizeSheet = ({
     onSubmit(request);
   };
 
-  // Find closest duration option
   const closestDuration = DURATION_OPTIONS.reduce((prev, curr) =>
     Math.abs(curr - duration) < Math.abs(prev - duration) ? curr : prev
   );
@@ -278,8 +268,8 @@ export const CustomizeSheet = ({
               <Switch
                 value={freeFormMode}
                 onValueChange={setFreeFormMode}
-                trackColor={{ false: palette.border, true: palette.accent }}
-                thumbColor="#031b1b"
+                trackColor={{ false: palette.border, true: palette.primary }}
+                thumbColor={palette.card}
               />
             </View>
           </View>
@@ -399,62 +389,27 @@ export const CustomizeSheet = ({
           {/* Action Buttons */}
           <View style={styles.actions}>
             {canStageValues && (
-              <Pressable
+              <Button
+                label="Save for next"
                 onPress={handleApply}
                 disabled={loading}
-                style={({ pressed }) => [
-                  styles.cancelButton,
-                  pressed && { opacity: 0.8 },
-                  loading && { opacity: 0.5 },
-                ]}
-              >
-                <Text style={styles.cancelButtonText}>Save for next</Text>
-              </Pressable>
+                variant="secondary"
+                style={{ flex: 1 }}
+              />
             )}
-            <Pressable
+            <Button
+              label={primaryLabel}
               onPress={handleSubmit}
-              disabled={loading}
-              style={({ pressed }) => [
-                styles.primaryButton,
-                pressed && { opacity: 0.9 },
-                loading && { opacity: 0.7 },
-              ]}
-            >
-              {loading ? (
-                <ActivityIndicator color="#031b1b" size="small" />
-              ) : (
-                <Text style={styles.primaryButtonText}>{primaryLabel}</Text>
-              )}
-            </Pressable>
+              loading={loading}
+              variant="primary"
+              style={{ flex: 2 }}
+            />
           </View>
         </View>
       </View>
     </Modal>
   );
 };
-
-const Chip = ({
-  label,
-  selected,
-  onPress,
-}: {
-  label: string;
-  selected: boolean;
-  onPress: () => void;
-}) => (
-  <Pressable
-    onPress={onPress}
-    style={({ pressed }) => [
-      styles.chip,
-      selected && styles.chipSelected,
-      pressed && { opacity: 0.8 },
-    ]}
-  >
-    <Text style={[styles.chipText, selected && styles.chipTextSelected]}>
-      {label}
-    </Text>
-  </Pressable>
-);
 
 const SegmentedButton = ({
   label,
@@ -494,7 +449,7 @@ const styles = StyleSheet.create({
     backgroundColor: palette.card,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    maxHeight: '85%',
+    maxHeight: '90%',
   },
   handle: {
     width: 40,
@@ -508,7 +463,7 @@ const styles = StyleSheet.create({
   title: {
     color: palette.textPrimary,
     fontSize: 20,
-    fontWeight: '600',
+    fontFamily: typography.fontFamilyExtraBold,
   },
   headerRow: {
     paddingHorizontal: 20,
@@ -527,9 +482,10 @@ const styles = StyleSheet.create({
   freeFormLabel: {
     color: palette.textSecondary,
     fontSize: 14,
+    fontFamily: typography.fontFamily,
   },
   scrollView: {
-    maxHeight: 400,
+    maxHeight: 500,
   },
   scrollContent: {
     paddingHorizontal: 20,
@@ -542,37 +498,18 @@ const styles = StyleSheet.create({
   sectionTitle: {
     color: palette.textPrimary,
     fontSize: 16,
-    fontWeight: '600',
+    fontFamily: typography.fontFamilyBold,
   },
   sectionHint: {
     color: palette.textMuted,
     fontSize: 13,
+    fontFamily: typography.fontFamily,
     marginBottom: 4,
   },
   chipsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 10,
-  },
-  chip: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: palette.border,
-    backgroundColor: palette.cardSecondary,
-  },
-  chipSelected: {
-    borderColor: palette.accent,
-    backgroundColor: `${palette.accent}22`,
-  },
-  chipText: {
-    color: palette.textPrimary,
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  chipTextSelected: {
-    color: palette.accent,
   },
   segmentedRow: {
     flexDirection: 'row',
@@ -588,17 +525,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   segmentedButtonSelected: {
-    borderColor: palette.accent,
-    backgroundColor: `${palette.accent}22`,
+    borderColor: palette.primary,
+    backgroundColor: `${palette.primary}22`,
   },
   segmentedButtonText: {
     color: palette.textPrimary,
     fontSize: 14,
-    fontWeight: '500',
+    fontFamily: typography.fontFamilyBold,
   },
   segmentedButtonTextSelected: {
-    color: palette.accent,
-    fontWeight: '600',
+    color: palette.primary,
   },
   sectionGroup: {
     gap: 24,
@@ -610,6 +546,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     color: palette.textPrimary,
     fontSize: 14,
+    fontFamily: typography.fontFamily,
     minHeight: 96,
     padding: 14,
   },
@@ -619,31 +556,5 @@ const styles = StyleSheet.create({
     padding: 20,
     borderTopWidth: 1,
     borderTopColor: palette.border,
-  },
-  cancelButton: {
-    flex: 1,
-    paddingVertical: 14,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: palette.border,
-    alignItems: 'center',
-  },
-  cancelButtonText: {
-    color: palette.textPrimary,
-    fontSize: 16,
-    fontWeight: '500',
-  },
-  primaryButton: {
-    flex: 2,
-    paddingVertical: 14,
-    borderRadius: 14,
-    backgroundColor: palette.accent,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  primaryButtonText: {
-    color: '#031b1b',
-    fontSize: 16,
-    fontWeight: '600',
   },
 });

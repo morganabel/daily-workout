@@ -20,18 +20,8 @@ import { RootStackParamList } from './navigation';
 import { generateWorkout, type ApiError } from './services/api';
 import { workoutRepository } from './db/repositories/WorkoutRepository';
 import { CustomizeSheet } from './components/CustomizeSheet';
-
-const palette = {
-  background: '#030914',
-  card: '#0d1322',
-  cardSecondary: '#111a30',
-  border: '#1d2943',
-  accent: '#6efacc',
-  accentMuted: '#233746',
-  textPrimary: '#f5f6fb',
-  textSecondary: '#9cabc4',
-  textMuted: '#5c6a85',
-};
+import { palette, typography, layout } from './theme';
+import { Button, Card, Chip } from './components/DesignSystem';
 
 type WorkoutPreviewNavigation = NativeStackNavigationProp<
   RootStackParamList,
@@ -118,20 +108,20 @@ export const WorkoutPreviewScreen = () => {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.heroCard}>
+        <Card style={styles.heroCard}>
           <Text style={styles.heroEyebrow}>Today's workout</Text>
           <Text style={styles.heroTitle}>{plan.focus}</Text>
           <Text style={styles.heroMeta}>
             {plan.durationMinutes} min · {equipmentList}
           </Text>
           <View style={styles.badgeRow}>
-            <Badge text={sourceLabel} />
-            <Badge text={`Energy: ${plan.energy}`} variant="muted" />
+            <Chip label={sourceLabel} />
+            <Chip label={`Energy: ${plan.energy}`} />
           </View>
           {plan.summary && (
             <Text style={styles.heroSummary}>{plan.summary}</Text>
           )}
-        </View>
+        </Card>
 
         {plan.blocks.map((block) => (
           <View key={block.id} style={styles.blockCard}>
@@ -170,25 +160,19 @@ export const WorkoutPreviewScreen = () => {
             Ready to go? Starting the workout will track your time and let you
             log sets.
           </Text>
-          <PrimaryButton
-            label={regenerating ? 'Loading...' : 'Start workout'}
+          <Button
+            label="Start workout"
             onPress={() => navigation.navigate('ActiveWorkout', { plan })}
-            disabled={regenerating}
+            loading={regenerating}
+            variant="primary"
           />
           {plan.source === 'ai' && (
-            <Pressable
+            <Button
+              label="Not quite right? Customize"
               onPress={() => setCustomizeSheetVisible(true)}
               disabled={regenerating}
-              style={({ pressed }) => [
-                styles.feedbackToggle,
-                pressed && { opacity: 0.8 },
-                regenerating && { opacity: 0.5 },
-              ]}
-            >
-              <Text style={styles.feedbackToggleText}>
-                Not quite right? Customize
-              </Text>
-            </Pressable>
+              variant="outline"
+            />
           )}
         </View>
       </ScrollView>
@@ -203,45 +187,6 @@ export const WorkoutPreviewScreen = () => {
   );
 };
 
-const Badge = ({
-  text,
-  variant = 'default',
-}: {
-  text: string;
-  variant?: 'default' | 'muted';
-}) => (
-  <View
-    style={[
-      styles.badge,
-      variant === 'muted' && { backgroundColor: palette.accentMuted },
-    ]}
-  >
-    <Text style={styles.badgeText}>{text}</Text>
-  </View>
-);
-
-const PrimaryButton = ({
-  label,
-  onPress,
-  disabled,
-}: {
-  label: string;
-  onPress: () => void;
-  disabled?: boolean;
-}) => (
-  <Pressable
-    onPress={onPress}
-    disabled={disabled}
-    style={({ pressed }) => [
-      styles.primaryButton,
-      pressed && { opacity: 0.9 },
-      disabled && { opacity: 0.5 },
-    ]}
-  >
-    <Text style={styles.primaryButtonText}>{label}</Text>
-  </Pressable>
-);
-
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
@@ -255,6 +200,7 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     borderBottomWidth: 1,
     borderBottomColor: palette.border,
+    paddingTop: 60,
   },
   backButton: {
     paddingHorizontal: 12,
@@ -266,12 +212,12 @@ const styles = StyleSheet.create({
   backButtonText: {
     color: palette.textPrimary,
     fontSize: 16,
-    fontWeight: '600',
+    fontFamily: typography.fontFamilyBold,
   },
   headerTitle: {
     color: palette.textPrimary,
     fontSize: 18,
-    fontWeight: '600',
+    fontFamily: typography.fontFamilyBold,
   },
   headerSpacer: {
     width: 60,
@@ -280,13 +226,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 40,
     gap: 16,
+    paddingTop: 20,
   },
   heroCard: {
-    backgroundColor: palette.card,
-    borderRadius: 20,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: palette.border,
     gap: 12,
   },
   heroEyebrow: {
@@ -294,36 +236,28 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 1,
     fontSize: 12,
+    fontFamily: typography.fontFamilyBold,
   },
   heroTitle: {
     color: palette.textPrimary,
     fontSize: 26,
-    fontWeight: '600',
+    fontFamily: typography.fontFamilyExtraBold,
   },
   heroMeta: {
     color: palette.textSecondary,
     fontSize: 16,
+    fontFamily: typography.fontFamily,
   },
   badgeRow: {
     flexDirection: 'row',
     gap: 8,
     marginTop: 4,
   },
-  badge: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: palette.accent,
-    borderRadius: 999,
-  },
-  badgeText: {
-    color: '#031b1b',
-    fontSize: 13,
-    fontWeight: '600',
-  },
   heroSummary: {
     color: palette.textSecondary,
     fontSize: 15,
     lineHeight: 22,
+    fontFamily: typography.fontFamily,
   },
   blockCard: {
     backgroundColor: palette.cardSecondary,
@@ -347,18 +281,19 @@ const styles = StyleSheet.create({
   blockTitle: {
     color: palette.textPrimary,
     fontSize: 18,
-    fontWeight: '600',
+    fontFamily: typography.fontFamilyBold,
     flexShrink: 1,
   },
   blockFocus: {
     color: palette.textMuted,
     fontSize: 13,
     marginTop: 4,
+    fontFamily: typography.fontFamily,
   },
   blockDuration: {
     color: palette.textPrimary,
     fontSize: 14,
-    fontWeight: '600',
+    fontFamily: typography.fontFamilyBold,
     alignSelf: 'flex-start',
   },
   exerciseList: {
@@ -372,7 +307,7 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: palette.accent,
+    backgroundColor: palette.primary,
     marginTop: 6,
   },
   exerciseBody: {
@@ -382,16 +317,18 @@ const styles = StyleSheet.create({
   exerciseName: {
     color: palette.textPrimary,
     fontSize: 15,
-    fontWeight: '600',
+    fontFamily: typography.fontFamilyBold,
   },
   exercisePrescription: {
     color: palette.textSecondary,
     fontSize: 14,
+    fontFamily: typography.fontFamily,
   },
   exerciseDetail: {
     color: palette.textMuted,
     fontSize: 13,
     lineHeight: 18,
+    fontFamily: typography.fontFamily,
   },
   footer: {
     marginTop: 8,
@@ -406,36 +343,15 @@ const styles = StyleSheet.create({
     color: palette.textMuted,
     fontSize: 13,
     lineHeight: 18,
+    fontFamily: typography.fontFamily,
   },
   feedbackToggle: {
     paddingVertical: 8,
     alignItems: 'center',
   },
   feedbackToggleText: {
-    color: palette.accent,
+    color: palette.primary,
     fontSize: 14,
-    fontWeight: '500',
-  },
-  disabledButton: {
-    backgroundColor: palette.border,
-    paddingVertical: 16,
-    borderRadius: 14,
-    alignItems: 'center',
-  },
-  disabledButtonText: {
-    color: palette.textSecondary,
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  primaryButton: {
-    backgroundColor: palette.accent,
-    paddingVertical: 16,
-    borderRadius: 14,
-    alignItems: 'center',
-  },
-  primaryButtonText: {
-    color: '#031b1b',
-    fontSize: 16,
-    fontWeight: '600',
+    fontFamily: typography.fontFamilyBold,
   },
 });

@@ -7,6 +7,7 @@ import {
   Pressable,
   Alert,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
 import Toast from 'react-native-root-toast';
 import { Ionicons } from '@expo/vector-icons';
@@ -21,21 +22,9 @@ import {
   unarchiveWorkoutSession,
   toggleFavoriteWorkout,
 } from './services/api';
-
-const palette = {
-  background: '#030914',
-  card: '#0d1322',
-  cardSecondary: '#111a30',
-  border: '#1d2943',
-  accent: '#6efacc',
-  accentMuted: '#233746',
-  textPrimary: '#f5f6fb',
-  textSecondary: '#9cabc4',
-  textMuted: '#5c6a85',
-  warning: '#ffb347',
-  favorite: '#ff7ab6',
-  destructive: '#ff6b6b',
-};
+import { palette, typography, layout } from './theme';
+import { BottomNavigation } from './components/BottomNavigation';
+import { Card, Chip } from './components/DesignSystem';
 
 type HistoryNav = NativeStackNavigationProp<RootStackParamList, 'History'>;
 
@@ -137,40 +126,24 @@ export const HistoryScreen = () => {
 
   return (
     <View style={styles.screen}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        <View style={styles.headerRow}>
-          <Pressable
-            style={styles.closeButton}
-            onPress={() => navigation.goBack()}
-            hitSlop={10}
-          >
-            <Ionicons name="close" size={24} color={palette.textSecondary} />
-          </Pressable>
-          <Text style={styles.screenTitle}>History</Text>
-        </View>
+      <View style={styles.header}>
+        <Text style={styles.screenTitle}>History</Text>
+      </View>
+
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.filterRow}>
-          <Pressable
-            style={[
-              styles.filterPill,
-              includeArchived && styles.filterPillActive,
-            ]}
+          <Chip
+            label={includeArchived ? 'Hide archived' : 'Show archived'}
             onPress={() => setIncludeArchived((prev) => !prev)}
-          >
-            <Text
-              style={[
-                styles.filterPillText,
-                includeArchived && styles.filterPillTextActive,
-              ]}
-            >
-              {includeArchived ? 'Hide archived' : 'Show archived'}
-            </Text>
-          </Pressable>
+            selected={includeArchived}
+            style={styles.filterChip}
+          />
         </View>
 
         {history.length === 0 ? (
           loading ? (
             <View style={styles.loadingContainer}>
-              <ActivityIndicator color={palette.accent} />
+              <ActivityIndicator color={palette.primary} />
               <Text style={styles.loadingText}>Loading history…</Text>
             </View>
           ) : (
@@ -178,81 +151,81 @@ export const HistoryScreen = () => {
           )
         ) : (
           history.map((session) => (
-            <Pressable
+            <Card
               key={session.id}
-              style={({ pressed }) => [
-                styles.card,
-                pressed && { opacity: 0.9 },
-              ]}
-              onPress={() => handleOpenSession(session)}
+              style={styles.card}
             >
-              <View style={styles.cardHeader}>
-                <View style={styles.cardInfo}>
-                  <Text style={styles.workoutName}>{session.name}</Text>
-                  <Text style={styles.workoutFocus}>{session.focus}</Text>
-                </View>
-                <Pressable
-                  onPress={() => handleFavoriteToggle(session)}
-                  hitSlop={10}
-                >
-                  <Ionicons
-                    name={session.isFavorite ? 'heart' : 'heart-outline'}
-                    size={24}
-                    color={
-                      session.isFavorite
-                        ? palette.favorite
-                        : palette.textSecondary
-                    }
-                  />
-                </Pressable>
-              </View>
-
-              <Text style={styles.workoutMeta}>
-                {new Date(session.completedAt).toLocaleDateString()} •{' '}
-                {session.durationMinutes} min
-              </Text>
-
-              <View style={styles.badges}>
-                {session.archivedAt && (
-                  <View style={[styles.badge, styles.archivedBadge]}>
-                    <Text style={styles.archivedBadgeText}>Archived</Text>
+              <Pressable onPress={() => handleOpenSession(session)}>
+                <View style={styles.cardHeader}>
+                  <View style={styles.cardInfo}>
+                    <Text style={styles.workoutName}>{session.name}</Text>
+                    <Text style={styles.workoutFocus}>{session.focus}</Text>
                   </View>
-                )}
-              </View>
-
-              <View style={styles.historyActions}>
-                <Pressable
-                  style={({ pressed }) => [
-                    styles.historyActionButton,
-                    pressed && { opacity: 0.7 },
-                  ]}
-                  onPress={() => handleArchiveToggle(session)}
-                >
-                  <Text style={styles.historyActionText}>
-                    {session.archivedAt ? 'Unarchive' : 'Archive'}
-                  </Text>
-                </Pressable>
-                <Pressable
-                  style={({ pressed }) => [
-                    styles.historyActionButton,
-                    pressed && { opacity: 0.7 },
-                  ]}
-                  onPress={() => handleDelete(session)}
-                >
-                  <Text
-                    style={[
-                      styles.historyActionText,
-                      styles.historyActionDestructive,
-                    ]}
+                  <Pressable
+                    onPress={() => handleFavoriteToggle(session)}
+                    hitSlop={10}
                   >
-                    Delete
-                  </Text>
-                </Pressable>
-              </View>
-            </Pressable>
+                    <Ionicons
+                      name={session.isFavorite ? 'heart' : 'heart-outline'}
+                      size={24}
+                      color={
+                        session.isFavorite
+                          ? palette.destructive
+                          : palette.textMuted
+                      }
+                    />
+                  </Pressable>
+                </View>
+
+                <Text style={styles.workoutMeta}>
+                  {new Date(session.completedAt).toLocaleDateString()} •{' '}
+                  {session.durationMinutes} min
+                </Text>
+
+                <View style={styles.badges}>
+                  {session.archivedAt && (
+                    <View style={[styles.badge, styles.archivedBadge]}>
+                      <Text style={styles.archivedBadgeText}>Archived</Text>
+                    </View>
+                  )}
+                </View>
+
+                <View style={styles.historyActions}>
+                  <Pressable
+                    style={({ pressed }) => [
+                      styles.historyActionButton,
+                      pressed && { opacity: 0.7 },
+                    ]}
+                    onPress={() => handleArchiveToggle(session)}
+                  >
+                    <Text style={styles.historyActionText}>
+                      {session.archivedAt ? 'Unarchive' : 'Archive'}
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    style={({ pressed }) => [
+                      styles.historyActionButton,
+                      pressed && { opacity: 0.7 },
+                    ]}
+                    onPress={() => handleDelete(session)}
+                  >
+                    <Text
+                      style={[
+                        styles.historyActionText,
+                        styles.historyActionDestructive,
+                      ]}
+                    >
+                      Delete
+                    </Text>
+                  </Pressable>
+                </View>
+              </Pressable>
+            </Card>
           ))
         )}
+        <View style={{ height: 100 }} />
       </ScrollView>
+      <BottomNavigation />
     </View>
   );
 };
@@ -261,63 +234,29 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: palette.background,
+    paddingTop: Platform.OS === 'android' ? 40 : 60,
+  },
+  header: {
+    paddingHorizontal: 20,
+    marginBottom: 16,
   },
   scrollContent: {
     padding: 20,
-    paddingBottom: 100,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 16,
-    marginBottom: 24,
+    paddingTop: 0,
   },
   filterRow: {
-    marginBottom: 12,
+    marginBottom: 20,
   },
-  filterPill: {
+  filterChip: {
     alignSelf: 'flex-start',
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: palette.border,
-    backgroundColor: palette.cardSecondary,
-  },
-  filterPillActive: {
-    borderColor: palette.accent,
-    backgroundColor: palette.accentMuted,
-  },
-  filterPillText: {
-    color: palette.textSecondary,
-    fontWeight: '700',
-    letterSpacing: 0.5,
-  },
-  filterPillTextActive: {
-    color: palette.accent,
   },
   screenTitle: {
+    fontFamily: typography.fontFamilyExtraBold,
     fontSize: 28,
-    fontWeight: '700',
     color: palette.textPrimary,
   },
-  closeButton: {
-    padding: 8,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: palette.border,
-    backgroundColor: palette.cardSecondary,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
   card: {
-    backgroundColor: palette.card,
-    borderRadius: 16,
-    padding: 16,
     marginBottom: 12,
-    borderWidth: 1,
-    borderColor: palette.border,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -330,19 +269,21 @@ const styles = StyleSheet.create({
     paddingRight: 12,
   },
   workoutName: {
+    fontFamily: typography.fontFamilyBold,
     fontSize: 18,
-    fontWeight: '600',
     color: palette.textPrimary,
     marginBottom: 4,
   },
   workoutFocus: {
-    fontSize: 14,
+    fontFamily: typography.fontFamilyBold,
+    fontSize: 11,
     color: palette.textMuted,
-    marginBottom: 4,
     textTransform: 'uppercase',
     letterSpacing: 1,
+    marginBottom: 4,
   },
   workoutMeta: {
+    fontFamily: typography.fontFamily,
     fontSize: 14,
     color: palette.textSecondary,
   },
@@ -358,26 +299,28 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   archivedBadge: {
-    backgroundColor: palette.accentMuted,
+    backgroundColor: palette.cardSecondary,
     borderColor: palette.border,
   },
   archivedBadgeText: {
     color: palette.textSecondary,
     fontSize: 12,
-    fontWeight: '700',
+    fontFamily: typography.fontFamilyBold,
   },
   historyActions: {
     flexDirection: 'row',
-    gap: 10,
-    marginTop: 8,
+    gap: 16,
+    marginTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: palette.border,
+    paddingTop: 12,
   },
   historyActionButton: {
     paddingVertical: 4,
-    paddingHorizontal: 8,
   },
   historyActionText: {
     color: palette.textMuted,
-    fontWeight: '600',
+    fontFamily: typography.fontFamilyBold,
     fontSize: 13,
   },
   historyActionDestructive: {
@@ -388,6 +331,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     textAlign: 'center',
     marginTop: 40,
+    fontFamily: typography.fontFamily,
   },
   loadingContainer: {
     alignItems: 'center',
@@ -397,5 +341,6 @@ const styles = StyleSheet.create({
   loadingText: {
     color: palette.textSecondary,
     fontSize: 14,
+    fontFamily: typography.fontFamily,
   },
 });

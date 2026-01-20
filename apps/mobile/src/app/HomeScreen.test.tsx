@@ -29,6 +29,7 @@ jest.mock('@react-navigation/native', () => {
       navigate: mockNavigate,
     }),
     useFocusEffect: jest.fn((callback) => callback()),
+    useRoute: () => ({ name: 'Home' }),
   };
 });
 jest.mock('./db/repositories/WorkoutRepository', () => ({
@@ -37,6 +38,7 @@ jest.mock('./db/repositories/WorkoutRepository', () => ({
     archiveWorkoutById: jest.fn(),
     deleteWorkoutById: jest.fn(),
     quickLogManualSession: jest.fn(),
+    discardPlannedWorkout: jest.fn(),
   },
 }));
 jest.mock('./db/repositories/UserRepository', () => ({
@@ -44,50 +46,18 @@ jest.mock('./db/repositories/UserRepository', () => ({
     hasConfiguredProfile: jest.fn().mockResolvedValue(false),
   },
 }));
-jest.mock('react-native-root-toast', () => ({
-  show: jest.fn(),
-  durations: { SHORT: 2000, LONG: 3500 },
-  positions: { BOTTOM: -20 },
+// Mock vector icons locally to ensure it takes precedence
+jest.mock('@expo/vector-icons', () => ({
+  Ionicons: 'Ionicons',
 }));
 
 const mockUseHomeData = useHomeData as jest.MockedFunction<typeof useHomeData>;
 
-const createBaseQuickActions = (): QuickActionPreset[] => [
-  {
-    key: 'time',
-    label: 'Time',
-    value: '30',
-    description: '30 min',
-    stagedValue: null,
-  },
-  {
-    key: 'focus',
-    label: 'Focus',
-    value: 'Upper',
-    description: 'Upper',
-    stagedValue: null,
-  },
-  {
-    key: 'equipment',
-    label: 'Equipment',
-    value: 'Bodyweight',
-    description: 'Bodyweight',
-    stagedValue: null,
-  },
-  {
-    key: 'energy',
-    label: 'Energy',
-    value: 'Moderate',
-    description: 'Moderate',
-    stagedValue: null,
-  },
-];
-
 const baseHookState = {
   status: 'ready' as const,
-  plan: createTodayPlanMock(),
+  plan: null, // Empty state by default for new tests
   recentSessions: [],
-  quickActions: createBaseQuickActions(),
+  quickActions: [],
   offlineHint: { offline: false, requiresApiKey: false },
   isOffline: false,
   error: null,
@@ -111,82 +81,62 @@ describe('HomeScreen', () => {
     jest.useRealTimers();
   });
 
-  it('shows pending overlay when generationStatus is pending', async () => {
-    mockUseHomeData.mockReturnValue({
-      ...baseHookState,
-      generationStatus: {
-        state: 'pending',
-        submittedAt: new Date().toISOString(),
-        etaSeconds: 18,
-      },
-    });
-
-    const { getByText } = render(<HomeScreen />);
-    await act(async () => {
-      // Flush microtasks triggered by effects (e.g., profile/BYOK checks)
-      await Promise.resolve();
-    });
-
-    await act(async () => {
-      jest.advanceTimersByTime(500);
-    });
-
-    expect(getByText(/Crafting your workout/i)).toBeTruthy();
-  });
-
-  it('renders staged quick action value and reset control', async () => {
-    const quickActions = createBaseQuickActions();
-    quickActions[0] = { ...quickActions[0], stagedValue: '45' };
-
-    mockUseHomeData.mockReturnValue({
-      ...baseHookState,
-      quickActions,
-    });
+  it('renders setup view when no plan exists', async () => {
+    mockUseHomeData.mockReturnValue(baseHookState);
 
     const { getByText } = render(<HomeScreen />);
     await act(async () => {
       await Promise.resolve();
     });
 
-    expect(getByText('45')).toBeTruthy();
-    expect(getByText('Reset')).toBeTruthy();
+    expect(getByText(/Today's Setup/i)).toBeTruthy();
+    expect(getByText('DURATION')).toBeTruthy();
+    expect(getByText('EQUIPMENT')).toBeTruthy();
+    expect(getByText("Generate today's workout")).toBeTruthy();
   });
 
-  it('opens Quick Log sheet when Quick log button is pressed', async () => {
+  it('shows generating state when button is pressed', async () => {
+    const { generateWorkout } = require('./services/api');
+    // Delays resolution to allow checking loading state
+    generateWorkout.mockImplementation(() => new Promise((resolve) => setTimeout(resolve, 100)));
+
     mockUseHomeData.mockReturnValue(baseHookState);
 
-    const { getByText, queryByText } = render(<HomeScreen />);
+    const { getByText } = render(<HomeScreen />);
     await act(async () => {
       await Promise.resolve();
     });
 
-    // Quick Log sheet should not be visible initially
-    expect(queryByText(/Tap a category and save/)).toBeNull();
+    const generateBtn = getByText("Generate today's workout");
+    // Don't await the press fully, just trigger it
+    fireEvent.press(generateBtn);
 
-    // Tap the Quick log button in the bottom bar
-    const quickLogButton = getByText('Quick log');
+    // Should be loading now
+    expect(getByText('Generating...')).toBeTruthy();
+
+    // Fast-forward time to complete the action
     await act(async () => {
-      fireEvent.press(quickLogButton);
+      jest.advanceTimersByTime(100);
     });
-
-    // Quick Log sheet should now be visible
-    expect(getByText(/Tap a category and save/)).toBeTruthy();
   });
 
-  it('does not show Backfill chip in quick actions rail', async () => {
-    mockUseHomeData.mockReturnValue(baseHookState);
+  it('renders active plan view when plan exists', async () => {
+    mockUseHomeData.mockReturnValue({
+      ...baseHookState,
+      plan: createTodayPlanMock(),
+    });
 
-    const { queryByText } = render(<HomeScreen />);
+    const { getByText } = render(<HomeScreen />);
     await act(async () => {
       await Promise.resolve();
     });
 
-    // Backfill chip should not be rendered (removed in favor of Quick Log sheet)
-    expect(queryByText('Backfill')).toBeNull();
+    expect(getByText('READY TO GO')).toBeTruthy();
+    expect(getByText('Start Workout')).toBeTruthy();
   });
 
-  it('navigates to ActiveWorkout when Start workout is pressed', async () => {
-    const plan = createTodayPlanMock({ id: 'plan-123' });
+  it('navigates to ActiveWorkout when Start Workout is pressed', async () => {
+    const plan = createTodayPlanMock();
     mockUseHomeData.mockReturnValue({
       ...baseHookState,
       plan,
@@ -197,9 +147,9 @@ describe('HomeScreen', () => {
       await Promise.resolve();
     });
 
-    const startButton = getByText('Start workout');
+    const startBtn = getByText('Start Workout');
     await act(async () => {
-      fireEvent.press(startButton);
+      fireEvent.press(startBtn);
     });
 
     expect(mockNavigate).toHaveBeenCalledWith('ActiveWorkout', { plan });

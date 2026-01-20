@@ -34,20 +34,8 @@ import {
   getSessionCookie,
   signInAnonymously,
 } from './services/auth-client';
-
-const palette = {
-  background: '#030914',
-  card: '#0d1322',
-  cardSecondary: '#111a30',
-  border: '#1d2943',
-  accent: '#6efacc',
-  accentMuted: '#233746',
-  textPrimary: '#f5f6fb',
-  textSecondary: '#9cabc4',
-  textMuted: '#5c6a85',
-  warning: '#ffb347',
-  destructive: '#ff6b6b',
-};
+import { palette, typography, layout } from './theme';
+import { Button, Card } from './components/DesignSystem';
 
 const AUTH_ENABLED_DEFAULT =
   (process.env.EXPO_PUBLIC_AUTH_ENABLED ?? 'true').toLowerCase() !== 'false';
@@ -278,39 +266,27 @@ export const LaunchScreen: React.FC = () => {
           </Text>
         </View>
 
-        <View style={styles.card}>
+        <Card style={styles.card}>
           <Text style={styles.cardTitle}>Get started</Text>
           <Text style={styles.cardBody}>
             Explore first, then decide if you want to sign up.
           </Text>
 
           <View style={styles.primaryActions}>
-            <TouchableOpacity
-              style={[
-                styles.button,
-                styles.buttonPrimary,
-                isExploring && styles.buttonDisabled,
-              ]}
+            <Button
+              label="Explore"
               onPress={handleExplore}
-              disabled={isExploring}
-              accessibilityLabel="launch-explore"
-            >
-              {isExploring ? (
-                <ActivityIndicator color={palette.background} />
-              ) : (
-                <Text style={styles.buttonPrimaryText}>Explore</Text>
-              )}
-            </TouchableOpacity>
+              loading={isExploring}
+              variant="primary"
+            />
 
             {shouldShowAccountActions ? (
-              <TouchableOpacity
-                style={[styles.button, styles.buttonSecondary]}
+              <Button
+                label="Create account"
                 onPress={handleSignUp}
                 disabled={isExploring}
-                accessibilityLabel="launch-sign-up"
-              >
-                <Text style={styles.buttonSecondaryText}>Create account</Text>
-              </TouchableOpacity>
+                variant="secondary"
+              />
             ) : null}
           </View>
 
@@ -328,7 +304,7 @@ export const LaunchScreen: React.FC = () => {
               Accounts aren’t enabled on this server. You can still explore.
             </Text>
           )}
-        </View>
+        </Card>
 
         <View style={styles.advancedWrap}>
           <TouchableOpacity
@@ -343,7 +319,7 @@ export const LaunchScreen: React.FC = () => {
           </TouchableOpacity>
 
           {showAdvanced ? (
-            <View style={styles.advancedCard}>
+            <Card style={styles.advancedCard}>
               <Text style={styles.cardTitle}>Bring your own AI key</Text>
               <Text style={styles.cardBody}>
                 Optional. Recommended only if you know what you’re doing.
@@ -396,25 +372,14 @@ export const LaunchScreen: React.FC = () => {
                 editable={!isSavingKey}
               />
 
-              <TouchableOpacity
-                style={[
-                  styles.button,
-                  styles.buttonSecondary,
-                  (!apiKeyInput.trim() || isSavingKey) && styles.buttonDisabled,
-                ]}
+              <Button
+                label={`Save key${state.byok?.apiKey ? ' (update)' : ''}`}
                 onPress={handleSaveByok}
                 disabled={!apiKeyInput.trim() || isSavingKey}
-                accessibilityLabel="launch-save-byok"
-              >
-                {isSavingKey ? (
-                  <ActivityIndicator color={palette.textPrimary} />
-                ) : (
-                  <Text style={styles.buttonSecondaryText}>
-                    Save key{state.byok?.apiKey ? ' (update)' : ''}
-                  </Text>
-                )}
-              </TouchableOpacity>
-            </View>
+                loading={isSavingKey}
+                variant="secondary"
+              />
+            </Card>
           ) : null}
         </View>
 
@@ -441,139 +406,104 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 20,
-    paddingTop: 28,
+    paddingTop: 60,
     paddingBottom: 40,
   },
   hero: {
-    marginBottom: 18,
+    marginBottom: 24,
   },
   badge: {
     alignSelf: 'flex-start',
-    backgroundColor: palette.cardSecondary,
+    backgroundColor: palette.card,
     borderColor: palette.border,
     borderWidth: 1,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 999,
-    marginBottom: 12,
+    marginBottom: 16,
   },
   badgeText: {
     color: palette.textSecondary,
     fontSize: 13,
-    fontWeight: '600',
-    letterSpacing: 0.2,
+    fontFamily: typography.fontFamilyBold,
   },
   title: {
     fontSize: 34,
-    fontWeight: '700',
+    fontFamily: typography.fontFamilyExtraBold,
     color: palette.textPrimary,
     letterSpacing: -0.6,
-    marginBottom: 8,
+    marginBottom: 12,
   },
   subtitle: {
     color: palette.textSecondary,
-    fontSize: 15,
-    lineHeight: 22,
-    marginBottom: 10,
+    fontSize: 16,
+    lineHeight: 24,
+    fontFamily: typography.fontFamily,
   },
   caption: {
     color: palette.textMuted,
     fontSize: 13,
+    fontFamily: typography.fontFamily,
+    marginTop: 12,
   },
   card: {
-    backgroundColor: palette.card,
-    borderColor: palette.border,
-    borderWidth: 1,
-    borderRadius: 16,
-    padding: 16,
-    marginTop: 14,
+    marginBottom: 24,
   },
   cardTitle: {
     color: palette.textPrimary,
-    fontSize: 16,
-    fontWeight: '700',
-    marginBottom: 6,
+    fontSize: 18,
+    fontFamily: typography.fontFamilyBold,
+    marginBottom: 8,
   },
   cardBody: {
     color: palette.textSecondary,
     fontSize: 14,
     lineHeight: 20,
-    marginBottom: 12,
+    fontFamily: typography.fontFamily,
+    marginBottom: 20,
   },
   primaryActions: {
-    gap: 10,
-  },
-  button: {
-    borderRadius: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  buttonPrimary: {
-    backgroundColor: palette.accent,
-  },
-  buttonPrimaryText: {
-    color: palette.background,
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  buttonSecondary: {
-    borderWidth: 1,
-    borderColor: palette.border,
-    backgroundColor: palette.cardSecondary,
-  },
-  buttonSecondaryText: {
-    color: palette.textPrimary,
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  buttonDisabled: {
-    opacity: 0.6,
+    gap: 12,
   },
   linkButton: {
-    marginTop: 12,
+    marginTop: 16,
     alignItems: 'center',
-    paddingVertical: 10,
+    paddingVertical: 8,
   },
   linkText: {
-    color: palette.accent,
+    color: palette.primary,
     fontSize: 14,
-    fontWeight: '600',
+    fontFamily: typography.fontFamilyBold,
   },
   advancedWrap: {
-    marginTop: 14,
+    marginTop: 8,
   },
   advancedToggle: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 10,
+    paddingVertical: 12,
     paddingHorizontal: 4,
   },
   advancedTitle: {
     color: palette.textMuted,
     fontSize: 13,
-    fontWeight: '700',
+    fontFamily: typography.fontFamilyBold,
     textTransform: 'uppercase',
     letterSpacing: 0.6,
   },
   advancedLink: {
     color: palette.textSecondary,
     fontSize: 14,
-    fontWeight: '600',
+    fontFamily: typography.fontFamilyBold,
   },
   advancedCard: {
-    backgroundColor: palette.card,
-    borderColor: palette.border,
-    borderWidth: 1,
-    borderRadius: 16,
-    padding: 16,
+    marginTop: 8,
   },
   providerRow: {
     flexDirection: 'row',
     gap: 10,
-    marginBottom: 12,
+    marginBottom: 16,
   },
   providerPill: {
     flex: 1,
@@ -585,16 +515,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   providerPillActive: {
-    borderColor: palette.accent,
-    backgroundColor: `${palette.accent}22`,
+    borderColor: palette.primary,
+    backgroundColor: `${palette.primary}22`,
   },
   providerPillText: {
     color: palette.textSecondary,
     fontSize: 14,
-    fontWeight: '600',
+    fontFamily: typography.fontFamilyBold,
   },
   providerPillTextActive: {
-    color: palette.textPrimary,
+    color: palette.primary,
   },
   input: {
     borderColor: palette.border,
@@ -605,19 +535,21 @@ const styles = StyleSheet.create({
     color: palette.textPrimary,
     backgroundColor: palette.cardSecondary,
     fontSize: 14,
-    marginBottom: 12,
+    fontFamily: typography.fontFamily,
+    marginBottom: 16,
   },
   errorBox: {
     marginTop: 12,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: palette.border,
-    backgroundColor: palette.accentMuted,
+    borderColor: palette.destructive,
+    backgroundColor: palette.destructiveBg,
     padding: 12,
   },
   errorText: {
-    color: palette.textPrimary,
+    color: palette.destructive,
     fontSize: 13,
     lineHeight: 18,
+    fontFamily: typography.fontFamily,
   },
 });
