@@ -125,31 +125,47 @@ const EquipmentSelector = ({ value, onChange }: { value: string[]; onChange: (v:
   );
 };
 
-const FocusSelector = ({ value, onChange }: { value: string; onChange: (v: string) => void }) => (
-  <View style={styles.sectionContainer}>
-    <Text style={styles.sectionLabel}>FOCUS</Text>
-    <View style={styles.focusContainer}>
-      {/* Auto / Smart Option */}
-      <Pressable
-        style={[
-          styles.focusCardLarge,
-          value === 'Smart' && styles.focusCardSelected,
-        ]}
-        onPress={() => onChange('Smart')}
-      >
-        <View style={styles.focusHeader}>
-          <View style={styles.focusTitleRow}>
-            <Ionicons name="sparkles" size={20} color={palette.primary} />
-            <Text style={styles.focusCardTitle}>Auto</Text>
+const FocusSelector = ({ value, onChange }: { value: string; onChange: (v: string) => void }) => {
+  const isAutoSelected = value === 'Smart';
+
+  return (
+    <View style={styles.sectionContainer}>
+      <Text style={styles.sectionLabel}>FOCUS</Text>
+      <View style={styles.focusContainer}>
+        {/* Auto / Smart Option */}
+        <Pressable
+          style={[
+            styles.focusCardLarge,
+            isAutoSelected && styles.focusCardSelected,
+          ]}
+          onPress={() => onChange('Smart')}
+        >
+          <View style={styles.focusHeader}>
+            <View style={styles.focusTitleRow}>
+              <Ionicons
+                name="sparkles"
+                size={20}
+                color={isAutoSelected ? palette.textInverse : palette.primary}
+              />
+              <Text style={[
+                styles.focusCardTitle,
+                isAutoSelected && styles.focusCardTitleSelected,
+              ]}>Auto</Text>
+            </View>
+            <View style={[
+              styles.smartBadge,
+              isAutoSelected && styles.smartBadgeSelected,
+            ]}>
+              <Text style={styles.smartBadgeText}>SMART</Text>
+            </View>
           </View>
-          <View style={styles.smartBadge}>
-            <Text style={styles.smartBadgeText}>SMART</Text>
-          </View>
-        </View>
-        <Text style={styles.focusCardDesc}>
-          Picks the best focus based on your recent training.
-        </Text>
-      </Pressable>
+          <Text style={[
+            styles.focusCardDesc,
+            isAutoSelected && styles.focusCardDescSelected,
+          ]}>
+            Picks the best focus based on your recent training.
+          </Text>
+        </Pressable>
 
       {/* Grid for other options */}
       <View style={styles.focusGrid}>
@@ -191,7 +207,8 @@ const FocusSelector = ({ value, onChange }: { value: string; onChange: (v: strin
       </View>
     </View>
   </View>
-);
+  );
+};
 
 const IntensitySelector = ({ value, onChange }: { value: string; onChange: (v: string) => void }) => (
   <View style={styles.sectionContainer}>
@@ -243,7 +260,7 @@ const ActivePlanCard = ({
     <Text style={styles.activePlanSubtitle}>
       {plan.durationMinutes} min • {plan.equipment.join(', ') || 'Bodyweight'}
     </Text>
-    <Text style={styles.activePlanDesc}>{plan.overview}</Text>
+    <Text style={styles.activePlanDesc}>{plan.summary}</Text>
     <Button
       label="Start Workout"
       onPress={onStart}
@@ -532,11 +549,17 @@ const styles = StyleSheet.create({
     color: palette.textSecondary,
     lineHeight: 18,
   },
+  focusCardDescSelected: {
+    color: 'rgba(255, 255, 255, 0.85)',
+  },
   smartBadge: {
     paddingHorizontal: 8,
     paddingVertical: 2,
     backgroundColor: palette.accentIndigo,
     borderRadius: 99,
+  },
+  smartBadgeSelected: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
   },
   smartBadgeText: {
     color: 'white',
