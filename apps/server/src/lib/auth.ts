@@ -15,8 +15,8 @@
 
 import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
-import { drizzle } from 'drizzle-orm/postgres-js';
-import postgres from 'postgres';
+import { drizzle } from 'drizzle-orm/node-postgres';
+import { Pool } from 'pg';
 import { createBetterAuthOptions } from '@workout-agent-ce/server-auth';
 
 // Provide sane defaults so the CLI can run without requiring a full env.
@@ -33,8 +33,8 @@ const trustedOrigins =
   process.env.TRUSTED_ORIGINS?.split(',').map((s) => s.trim()) ?? [];
 
 // Create a minimal Drizzle instance for the adapter (no query is executed during CLI generate).
-const client = postgres(DATABASE_URL, { prepare: false, max: 1 });
-const db = drizzle(client);
+const pool = new Pool({ connectionString: DATABASE_URL, max: 1 });
+const db = drizzle(pool);
 
 export const auth = betterAuth({
   database: drizzleAdapter(db, { provider: 'pg' }),

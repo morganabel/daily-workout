@@ -5,8 +5,8 @@
  * No side effects at import time - EE can call the factory at runtime.
  */
 
-import { drizzle } from 'drizzle-orm/postgres-js';
-import postgres from 'postgres';
+import { drizzle } from 'drizzle-orm/node-postgres';
+import { Pool } from 'pg';
 import * as schema from './schema.js';
 
 export type Database = ReturnType<typeof drizzle<typeof schema>>;
@@ -40,13 +40,12 @@ export interface CreateDbOptions {
 export function createDb(options: CreateDbOptions): Database {
   const { connectionString, maxConnections = 10 } = options;
 
-  const client = postgres(connectionString, {
+  const pool = new Pool({
+    connectionString,
     max: maxConnections,
-    // Disable prepare statements for serverless environments
-    prepare: false,
   });
 
-  return drizzle(client, { schema });
+  return drizzle(pool, { schema });
 }
 
 /**
