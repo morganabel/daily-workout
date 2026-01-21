@@ -45,7 +45,7 @@ export const layout = {
   borderRadius: 16,
   padding: 20,
   // Safe area padding for screens without SafeAreaView
-  safeAreaTop: Platform.OS === 'android' ? 40 : 60,
+  safeAreaTop: Platform.OS === 'android' ? 40 : 50,
   // Bottom navigation height (including safe area)
   bottomNavHeight: Platform.OS === 'ios' ? 84 : 72,
 };

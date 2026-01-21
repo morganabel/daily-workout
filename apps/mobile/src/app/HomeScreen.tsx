@@ -23,7 +23,7 @@ import {
 import { RootStackParamList } from './navigation';
 import { userRepository } from './db/repositories/UserRepository';
 import { workoutRepository } from './db/repositories/WorkoutRepository';
-import { palette, typography, layout } from './theme';
+import { palette, typography } from './theme';
 import { BottomNavigation } from './components/BottomNavigation';
 import { Button, Card } from './components/DesignSystem';
 import { CustomizeSheet } from './components/CustomizeSheet';
@@ -350,7 +350,6 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: palette.background,
-    paddingTop: layout.safeAreaTop,
   },
   content: {
     paddingHorizontal: 20,
@@ -358,7 +357,7 @@ const styles = StyleSheet.create({
   },
   topBar: {
     paddingHorizontal: 20,
-    marginBottom: 24,
+    marginBottom: 12,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
