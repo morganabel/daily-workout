@@ -35,9 +35,6 @@ const FOCUS_OPTIONS = [
   { id: 'Full Body', label: 'Full Body', icon: 'body-outline' },
   { id: 'Upper Body', label: 'Upper Body', icon: 'arrow-up-outline' },
   { id: 'Lower Body', label: 'Lower Body', icon: 'arrow-down-outline' },
-  { id: 'Core', label: 'Core', icon: 'fitness-outline' },
-  { id: 'Cardio', label: 'Cardio', icon: 'pulse-outline' },
-  { id: 'Strength', label: 'Strength', icon: 'barbell-outline' },
 ];
 
 // --- Types ---
@@ -84,7 +81,15 @@ const SetupSummaryRow = ({
   );
 };
 
-const FocusSelector = ({ value, onChange }: { value: string; onChange: (v: string) => void }) => {
+const FocusSelector = ({
+  value,
+  onChange,
+  onMore,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  onMore: () => void;
+}) => {
   const isAutoSelected = value === 'Smart';
 
   return (
@@ -126,46 +131,58 @@ const FocusSelector = ({ value, onChange }: { value: string; onChange: (v: strin
           </Text>
         </Pressable>
 
-      {/* Grid for other options */}
-      <View style={styles.focusGrid}>
-        {FOCUS_OPTIONS.slice(1).map((opt) => {
-          const isSelected = value === opt.id;
-          return (
-            <Pressable
-              key={opt.id}
-              style={[
-                styles.focusCardSmall,
-                isSelected && styles.focusCardSelected,
-              ]}
-              onPress={() => onChange(opt.id)}
-            >
-              <Ionicons
-                name={opt.icon as any}
-                size={20}
-                color={isSelected ? palette.textInverse : palette.textSecondary}
-              />
-              <Text
+        {/* Grid for other options */}
+        <View style={styles.focusGrid}>
+          {FOCUS_OPTIONS.slice(1).map((opt) => {
+            const isSelected = value === opt.id;
+            return (
+              <Pressable
+                key={opt.id}
                 style={[
-                  styles.focusCardTitleSmall,
-                  isSelected && styles.focusCardTitleSelected,
+                  styles.focusCardSmall,
+                  isSelected && styles.focusCardSelected,
                 ]}
+                onPress={() => onChange(opt.id)}
               >
-                {opt.label}
-              </Text>
-              {isSelected && (
                 <Ionicons
-                  name="checkmark-circle"
-                  size={16}
-                  color={palette.textInverse}
-                  style={styles.checkIcon}
+                  name={opt.icon as any}
+                  size={20}
+                  color={isSelected ? palette.textInverse : palette.textSecondary}
                 />
-              )}
-            </Pressable>
-          );
-        })}
+                <Text
+                  style={[
+                    styles.focusCardTitleSmall,
+                    isSelected && styles.focusCardTitleSelected,
+                  ]}
+                >
+                  {opt.label}
+                </Text>
+                {isSelected && (
+                  <Ionicons
+                    name="checkmark-circle"
+                    size={16}
+                    color={palette.textInverse}
+                    style={styles.checkIcon}
+                  />
+                )}
+              </Pressable>
+            );
+          })}
+          {/* More button */}
+          <Pressable
+            style={styles.focusCardSmall}
+            onPress={onMore}
+          >
+            <Ionicons
+              name="ellipsis-horizontal"
+              size={20}
+              color={palette.textSecondary}
+            />
+            <Text style={styles.focusCardTitleSmall}>More</Text>
+          </Pressable>
+        </View>
       </View>
     </View>
-  </View>
   );
 };
 
@@ -315,7 +332,11 @@ export const HomeScreen = () => {
               onPress={() => setShowCustomizeSheet(true)}
             />
 
-            <FocusSelector value={focus} onChange={setFocus} />
+            <FocusSelector
+              value={focus}
+              onChange={setFocus}
+              onMore={() => setShowCustomizeSheet(true)}
+            />
 
             <View style={styles.actionContainer}>
               <Button
@@ -339,6 +360,10 @@ export const HomeScreen = () => {
         visible={showCustomizeSheet}
         currentPlan={null}
         loading={false}
+        initialDuration={duration}
+        initialEquipment={equipment}
+        initialEnergy={intensity.toLowerCase() as 'easy' | 'moderate' | 'intense'}
+        initialFocus={focus}
         onSubmit={handleCustomizeSubmit}
         onClose={() => setShowCustomizeSheet(false)}
       />

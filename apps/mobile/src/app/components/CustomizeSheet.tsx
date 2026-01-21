@@ -111,6 +111,11 @@ export type CustomizeSheetProps = {
   currentPlan?: TodayPlan | null;
   quickActions?: QuickActionPreset[];
   loading?: boolean;
+  /** Initial values to sync with parent state */
+  initialDuration?: number;
+  initialEquipment?: string[];
+  initialEnergy?: WorkoutEnergy;
+  initialFocus?: string;
   onSubmit: (request: GenerationRequest) => void;
   onUpdateStagedValue?: (
     key: QuickActionPreset['key'],
@@ -124,6 +129,10 @@ export const CustomizeSheet = ({
   currentPlan,
   quickActions,
   loading = false,
+  initialDuration,
+  initialEquipment,
+  initialEnergy,
+  initialFocus,
   onSubmit,
   onUpdateStagedValue,
   onClose,
@@ -153,24 +162,33 @@ export const CustomizeSheet = ({
     const parsedDuration = Number.parseInt(timeValue ?? '', 10);
     const nextDuration =
       currentPlan?.durationMinutes ??
-      (Number.isNaN(parsedDuration) ? DURATION_OPTIONS[2] : parsedDuration);
+      (!Number.isNaN(parsedDuration) ? parsedDuration : null) ??
+      initialDuration ??
+      DURATION_OPTIONS[2];
     const nextFocus =
       currentPlan?.focus ??
       normalizeFocusSelection(focusValue) ??
+      initialFocus ??
       FOCUS_OPTIONS[1].id;
     const nextEquipment =
-      currentPlan?.equipment ?? parseEquipmentSelection(equipmentValue);
+      currentPlan?.equipment ??
+      (equipmentValue ? parseEquipmentSelection(equipmentValue) : null) ??
+      initialEquipment ??
+      ['Bodyweight'];
     const nextEnergy =
-      currentPlan?.energy ?? normalizeEnergySelection(energyValue);
+      currentPlan?.energy ??
+      (energyValue ? normalizeEnergySelection(energyValue) : null) ??
+      initialEnergy ??
+      'moderate';
 
     setFeedback([]);
     setDuration(nextDuration);
     setFocus(nextFocus);
-    setEquipment(nextEquipment.length > 0 ? nextEquipment : ['Bodyweight']);
+    setEquipment(nextEquipment);
     setEnergy(nextEnergy);
     setNotes('');
     setFreeFormMode(false);
-  }, [visible, currentPlan, quickActions]);
+  }, [visible, currentPlan, quickActions, initialDuration, initialEquipment, initialEnergy, initialFocus]);
 
   const toggleFeedback = (value: RegenerationFeedback) => {
     setFeedback((prev) =>
