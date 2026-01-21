@@ -23,14 +23,14 @@ import { Button, Chip } from './DesignSystem';
 
 const DURATION_OPTIONS = [15, 30, 45, 60, 90]; // Standardized
 const FOCUS_OPTIONS = [
-  'Smart',
-  'Full Body',
-  'Upper Body',
-  'Lower Body',
-  'Core',
-  'Cardio',
-  'Strength',
-  'Mobility',
+  { id: 'Smart', label: 'Auto' },
+  { id: 'Full Body', label: 'Full Body' },
+  { id: 'Upper Body', label: 'Upper Body' },
+  { id: 'Lower Body', label: 'Lower Body' },
+  { id: 'Core', label: 'Core' },
+  { id: 'Cardio', label: 'Cardio' },
+  { id: 'Strength', label: 'Strength' },
+  { id: 'Mobility', label: 'Mobility' },
 ];
 const EQUIPMENT_OPTIONS = [
   'Bodyweight',
@@ -70,17 +70,17 @@ const normalizeFocusSelection = (
   if (!trimmed) return undefined;
   const normalized = trimmed.toLowerCase();
   const exactMatch = FOCUS_OPTIONS.find(
-    (option) => option.toLowerCase() === normalized
+    (option) => option.id.toLowerCase() === normalized || option.label.toLowerCase() === normalized
   );
   if (exactMatch) {
-    return exactMatch;
+    return exactMatch.id;
   }
   const candidateMatches = FOCUS_OPTIONS.filter((option) => {
-    const words = option.toLowerCase().split(/\s+/);
+    const words = option.id.toLowerCase().split(/\s+/);
     return words.includes(normalized);
   });
   if (candidateMatches.length === 1) {
-    return candidateMatches[0];
+    return candidateMatches[0].id;
   }
   return trimmed;
 };
@@ -137,7 +137,7 @@ export const CustomizeSheet = ({
 
   const [feedback, setFeedback] = useState<RegenerationFeedback[]>([]);
   const [duration, setDuration] = useState(DURATION_OPTIONS[2]);
-  const [focus, setFocus] = useState(FOCUS_OPTIONS[1]);
+  const [focus, setFocus] = useState(FOCUS_OPTIONS[1].id);
   const [equipment, setEquipment] = useState<string[]>(['Bodyweight']);
   const [energy, setEnergy] = useState<WorkoutEnergy>('moderate');
   const [notes, setNotes] = useState('');
@@ -157,7 +157,7 @@ export const CustomizeSheet = ({
     const nextFocus =
       currentPlan?.focus ??
       normalizeFocusSelection(focusValue) ??
-      FOCUS_OPTIONS[1];
+      FOCUS_OPTIONS[1].id;
     const nextEquipment =
       currentPlan?.equipment ?? parseEquipmentSelection(equipmentValue);
     const nextEnergy =
@@ -323,10 +323,10 @@ export const CustomizeSheet = ({
                   <View style={styles.chipsRow}>
                     {FOCUS_OPTIONS.map((f) => (
                       <Chip
-                        key={f}
-                        label={f}
-                        selected={focus === f}
-                        onPress={() => setFocus(f)}
+                        key={f.id}
+                        label={f.label}
+                        selected={focus === f.id}
+                        onPress={() => setFocus(f.id)}
                       />
                     ))}
                   </View>
