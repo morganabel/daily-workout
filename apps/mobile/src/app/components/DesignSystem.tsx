@@ -5,7 +5,6 @@ import {
   Pressable,
   StyleSheet,
   ViewStyle,
-  TextStyle,
   ActivityIndicator,
   PressableProps,
 } from 'react-native';
@@ -38,6 +37,8 @@ type ButtonProps = PressableProps & {
   loading?: boolean;
   variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'destructive';
   icon?: React.ReactNode;
+  accessibilityLabel?: string;
+  accessibilityHint?: string;
 };
 
 export const Button = ({
@@ -47,6 +48,8 @@ export const Button = ({
   disabled,
   style,
   icon,
+  accessibilityLabel,
+  accessibilityHint,
   ...props
 }: ButtonProps) => {
   const getButtonStyle = ({ pressed }: { pressed: boolean }) => [
@@ -71,7 +74,15 @@ export const Button = ({
   ];
 
   return (
-    <Pressable style={getButtonStyle} disabled={disabled || loading} {...props}>
+    <Pressable
+      style={getButtonStyle}
+      disabled={disabled || loading}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel || label}
+      accessibilityHint={accessibilityHint}
+      accessibilityState={{ disabled: disabled || loading }}
+      {...props}
+    >
       <View style={styles.buttonContent}>
         {loading ? (
           <ActivityIndicator
@@ -93,9 +104,22 @@ type ChipProps = PressableProps & {
   label: string;
   selected?: boolean;
   icon?: React.ReactNode;
+  accessibilityLabel?: string;
+  accessibilityHint?: string;
+  /** Use 'checkbox' for multi-select, 'radio' for single-select */
+  role?: 'checkbox' | 'radio' | 'button';
 };
 
-export const Chip = ({ label, selected, icon, style, ...props }: ChipProps) => (
+export const Chip = ({
+  label,
+  selected,
+  icon,
+  style,
+  accessibilityLabel,
+  accessibilityHint,
+  role = 'checkbox',
+  ...props
+}: ChipProps) => (
   <Pressable
     style={({ pressed }) => [
       styles.chip,
@@ -103,6 +127,10 @@ export const Chip = ({ label, selected, icon, style, ...props }: ChipProps) => (
       pressed && styles.chipPressed,
       style as ViewStyle,
     ]}
+    accessibilityRole={role}
+    accessibilityLabel={accessibilityLabel || label}
+    accessibilityHint={accessibilityHint}
+    accessibilityState={role === 'checkbox' ? { checked: selected } : { selected }}
     {...props}
   >
     {icon}

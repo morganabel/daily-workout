@@ -406,7 +406,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 20,
-    paddingTop: 60,
+    paddingTop: layout.safeAreaTop,
     paddingBottom: 40,
   },
   hero: {

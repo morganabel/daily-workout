@@ -8,8 +8,11 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
+// Routes that have tabs in the bottom navigation
+type TabRouteName = 'Home' | 'History' | 'Settings';
+
 type TabItem = {
-  name: keyof RootStackParamList;
+  name: TabRouteName;
   label: string;
   icon: keyof typeof Ionicons.glyphMap;
   activeIcon: keyof typeof Ionicons.glyphMap;
@@ -41,7 +44,7 @@ export const BottomNavigation = () => {
   const route = useRoute();
 
   return (
-    <View style={styles.container}>
+    <View style={styles.container} accessibilityRole="tablist">
       {TABS.map((tab) => {
         const isActive = route.name === tab.name;
         return (
@@ -50,9 +53,12 @@ export const BottomNavigation = () => {
             style={styles.tab}
             onPress={() => {
               if (!isActive) {
-                navigation.navigate(tab.name as any);
+                navigation.navigate(tab.name);
               }
             }}
+            accessibilityRole="tab"
+            accessibilityLabel={tab.label}
+            accessibilityState={{ selected: isActive }}
           >
             <Ionicons
               name={isActive ? tab.activeIcon : tab.icon}
@@ -77,7 +83,7 @@ export const BottomNavigation = () => {
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(255, 255, 255, 0.9)', // Translucent white
+    backgroundColor: palette.backgroundTranslucent,
     borderTopWidth: 1,
     borderTopColor: palette.border,
     paddingBottom: Platform.OS === 'ios' ? 24 : 12,
@@ -101,6 +107,5 @@ const styles = StyleSheet.create({
   label: {
     fontFamily: typography.fontFamily,
     fontSize: 10,
-    fontWeight: '600',
   },
 });

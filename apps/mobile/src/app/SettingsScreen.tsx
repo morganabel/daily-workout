@@ -7,12 +7,8 @@ import {
   ScrollView,
   TextInput,
   Alert,
-  Platform,
 } from 'react-native';
 import { userRepository } from './db/repositories/UserRepository';
-import { useNavigation } from '@react-navigation/native';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { RootStackParamList } from './navigation';
 import {
   UserPreferences,
   EQUIPMENT_OPTIONS,
@@ -20,9 +16,7 @@ import {
 } from '@workout-agent/shared';
 import { palette, typography, layout } from './theme';
 import { BottomNavigation } from './components/BottomNavigation';
-import { Card, Chip, Button, SectionHeader } from './components/DesignSystem';
-
-type SettingsNav = NativeStackNavigationProp<RootStackParamList, 'Settings'>;
+import { Chip, Button, SectionHeader } from './components/DesignSystem';
 
 const EXPERIENCE_LEVELS: { value: ExperienceLevel; label: string; description: string }[] = [
   { value: 'beginner', label: 'Beginner', description: 'New to fitness or returning after a long break' },
@@ -40,7 +34,7 @@ export const SettingsScreen = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
   const [injuryInput, setInjuryInput] = useState('');
-  const navigation = useNavigation<SettingsNav>();
+
 
   useEffect(() => {
     const loadPreferences = async () => {
@@ -271,7 +265,7 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: palette.background,
-    paddingTop: Platform.OS === 'android' ? 40 : 60,
+    paddingTop: layout.safeAreaTop,
   },
   header: {
     flexDirection: 'row',

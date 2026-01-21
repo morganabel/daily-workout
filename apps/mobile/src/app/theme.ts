@@ -1,3 +1,5 @@
+import { Platform } from 'react-native';
+
 // Light Theme Color Palette
 export const palette = {
   // Primary
@@ -6,6 +8,7 @@ export const palette = {
 
   // Backgrounds
   background: '#F8FAFC', // Slate 50
+  backgroundTranslucent: 'rgba(255, 255, 255, 0.9)', // Translucent white for overlays
   card: '#FFFFFF', // White
   cardSecondary: '#F1F5F9', // Slate 100
 
@@ -41,4 +44,8 @@ export const typography = {
 export const layout = {
   borderRadius: 16,
   padding: 20,
+  // Safe area padding for screens without SafeAreaView
+  safeAreaTop: Platform.OS === 'android' ? 40 : 60,
+  // Bottom navigation height (including safe area)
+  bottomNavHeight: Platform.OS === 'ios' ? 84 : 72,
 };

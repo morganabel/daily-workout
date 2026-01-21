@@ -208,7 +208,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingTop: 60,
+    paddingTop: layout.safeAreaTop,
     paddingBottom: 16,
     borderBottomWidth: 1,
     borderBottomColor: palette.border,

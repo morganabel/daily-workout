@@ -6,7 +6,6 @@ import {
   StyleSheet,
   Text,
   View,
-  Platform,
 } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -23,7 +22,8 @@ import {
 } from './services/api';
 import { RootStackParamList } from './navigation';
 import { userRepository } from './db/repositories/UserRepository';
-import { palette, typography } from './theme';
+import { workoutRepository } from './db/repositories/WorkoutRepository';
+import { palette, typography, layout } from './theme';
 import { BottomNavigation } from './components/BottomNavigation';
 import { Button, Card } from './components/DesignSystem';
 import { CustomizeSheet } from './components/CustomizeSheet';
@@ -280,7 +280,6 @@ export const HomeScreen = () => {
         text: 'Discard',
         style: 'destructive',
         onPress: async () => {
-          const { workoutRepository } = require('./db/repositories/WorkoutRepository');
           await workoutRepository.discardPlannedWorkout();
           await refetch();
         },
@@ -351,7 +350,7 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: palette.background,
-    paddingTop: Platform.OS === 'android' ? 40 : 60,
+    paddingTop: layout.safeAreaTop,
   },
   content: {
     paddingHorizontal: 20,

@@ -200,7 +200,7 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     borderBottomWidth: 1,
     borderBottomColor: palette.border,
-    paddingTop: 60,
+    paddingTop: layout.safeAreaTop,
   },
   backButton: {
     paddingHorizontal: 12,

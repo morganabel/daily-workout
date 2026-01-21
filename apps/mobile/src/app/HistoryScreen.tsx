@@ -7,7 +7,6 @@ import {
   Pressable,
   Alert,
   ActivityIndicator,
-  Platform,
 } from 'react-native';
 import Toast from 'react-native-root-toast';
 import { Ionicons } from '@expo/vector-icons';
@@ -234,7 +233,7 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: palette.background,
-    paddingTop: Platform.OS === 'android' ? 40 : 60,
+    paddingTop: layout.safeAreaTop,
   },
   header: {
     paddingHorizontal: 20,

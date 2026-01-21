@@ -90,8 +90,10 @@ describe('HomeScreen', () => {
     });
 
     expect(getByText(/Today's Setup/i)).toBeTruthy();
-    expect(getByText('DURATION')).toBeTruthy();
-    expect(getByText('EQUIPMENT')).toBeTruthy();
+    expect(getByText('FOCUS')).toBeTruthy();
+    expect(getByText('Auto')).toBeTruthy();
+    expect(getByText(/\d+ min/)).toBeTruthy();
+    expect(getByText('Bodyweight')).toBeTruthy();
     expect(getByText("Generate today's workout")).toBeTruthy();
   });
 
