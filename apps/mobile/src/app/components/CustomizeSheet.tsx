@@ -539,20 +539,20 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     borderColor: palette.border,
-    backgroundColor: palette.cardSecondary,
+    backgroundColor: palette.card,
     alignItems: 'center',
   },
   segmentedButtonSelected: {
     borderColor: palette.primary,
-    backgroundColor: `${palette.primary}22`,
+    backgroundColor: palette.primary,
   },
   segmentedButtonText: {
-    color: palette.textPrimary,
+    color: palette.textSecondary,
     fontSize: 14,
     fontFamily: typography.fontFamilyBold,
   },
   segmentedButtonTextSelected: {
-    color: palette.primary,
+    color: palette.textInverse,
   },
   sectionGroup: {
     gap: 24,
