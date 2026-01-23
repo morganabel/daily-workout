@@ -266,7 +266,7 @@ const styles = StyleSheet.create({
   },
   exerciseHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
     gap: 12,
   },
@@ -274,11 +274,15 @@ const styles = StyleSheet.create({
     color: palette.textPrimary,
     fontSize: 16,
     fontFamily: typography.fontFamilyBold,
+    flex: 1,
   },
   exercisePrescription: {
     color: palette.textSecondary,
     fontSize: 12,
     fontFamily: typography.fontFamily,
+    flexShrink: 0,
+    textAlign: 'right',
+    maxWidth: '40%',
   },
   exerciseDetail: {
     color: palette.textMuted,
