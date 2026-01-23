@@ -22,7 +22,6 @@ import {
 } from './services/api';
 import { RootStackParamList } from './navigation';
 import { userRepository } from './db/repositories/UserRepository';
-import { workoutRepository } from './db/repositories/WorkoutRepository';
 import { palette, typography } from './theme';
 import { BottomNavigation } from './components/BottomNavigation';
 import { Button, Card } from './components/DesignSystem';
@@ -189,30 +188,44 @@ const FocusSelector = ({
 const ActivePlanCard = ({
   plan,
   onStart,
-  onDiscard,
+  onPreview,
+  onCustomize,
 }: {
   plan: TodayPlan;
   onStart: () => void;
-  onDiscard: () => void;
+  onPreview: () => void;
+  onCustomize: () => void;
 }) => (
   <Card style={styles.activePlanCard}>
     <View style={styles.activePlanHeader}>
       <Text style={styles.activePlanLabel}>READY TO GO</Text>
-      <Pressable onPress={onDiscard}>
-        <Ionicons name="trash-outline" size={20} color={palette.destructive} />
-      </Pressable>
     </View>
     <Text style={styles.activePlanTitle}>{plan.focus}</Text>
     <Text style={styles.activePlanSubtitle}>
       {plan.durationMinutes} min • {plan.equipment.join(', ') || 'Bodyweight'}
     </Text>
-    <Text style={styles.activePlanDesc}>{plan.summary}</Text>
-    <Button
-      label="Start Workout"
-      onPress={onStart}
-      style={styles.activePlanButton}
-      icon={<Ionicons name="play" size={20} color={palette.textInverse} />}
-    />
+    <Text style={styles.activePlanDesc} numberOfLines={2}>{plan.summary}</Text>
+    <View style={styles.activePlanActions}>
+      <Button
+        label="Start Workout"
+        onPress={onStart}
+        icon={<Ionicons name="play" size={20} color={palette.textInverse} />}
+      />
+      <View style={styles.activePlanSecondaryRow}>
+        <Button
+          label="Preview"
+          onPress={onPreview}
+          variant="outline"
+          style={styles.activePlanSecondaryButton}
+        />
+        <Button
+          label="Customize"
+          onPress={onCustomize}
+          variant="outline"
+          style={styles.activePlanSecondaryButton}
+        />
+      </View>
+    </View>
   </Card>
 );
 
@@ -234,6 +247,7 @@ export const HomeScreen = () => {
   const [intensity, setIntensity] = useState('Moderate');
   const [generating, setGenerating] = useState(false);
   const [showCustomizeSheet, setShowCustomizeSheet] = useState(false);
+  const [customizeForRegeneration, setCustomizeForRegeneration] = useState(false);
 
   // Load user profile on mount
   useFocusEffect(
@@ -279,29 +293,49 @@ export const HomeScreen = () => {
     }
   };
 
-  const handleCustomizeSubmit = (request: GenerationRequest) => {
-    // Update local state from the sheet
-    if (request.timeMinutes) setDuration(request.timeMinutes);
-    if (request.equipment) setEquipment(request.equipment);
-    if (request.energy) {
-      // Capitalize first letter for display
-      setIntensity(request.energy.charAt(0).toUpperCase() + request.energy.slice(1));
+  const handleCustomizeSubmit = async (request: GenerationRequest) => {
+    if (customizeForRegeneration && plan) {
+      // Regeneration mode - generate a new workout
+      setShowCustomizeSheet(false);
+      setGenerating(true);
+      setGenerationStatus({ state: 'pending', submittedAt: new Date().toISOString() });
+
+      try {
+        await generateWorkout(request);
+        await refetch();
+        setGenerationStatus({ state: 'idle', submittedAt: null });
+      } catch (err) {
+        const apiError = err as ApiError;
+        setGenerationStatus({
+          state: 'error',
+          submittedAt: new Date().toISOString(),
+          message: apiError.message,
+        });
+        Alert.alert('Error', apiError.message || 'Failed to regenerate workout');
+      } finally {
+        setGenerating(false);
+        setCustomizeForRegeneration(false);
+      }
+    } else {
+      // Initial customization - just update local state
+      if (request.timeMinutes) setDuration(request.timeMinutes);
+      if (request.equipment) setEquipment(request.equipment);
+      if (request.energy) {
+        setIntensity(request.energy.charAt(0).toUpperCase() + request.energy.slice(1));
+      }
+      setShowCustomizeSheet(false);
     }
-    setShowCustomizeSheet(false);
   };
 
-  const handleDiscard = () => {
-    Alert.alert('Discard Workout', 'Are you sure?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Discard',
-        style: 'destructive',
-        onPress: async () => {
-          await workoutRepository.discardPlannedWorkout();
-          await refetch();
-        },
-      },
-    ]);
+  const handlePreview = () => {
+    if (plan) {
+      navigation.navigate('WorkoutPreview', { plan });
+    }
+  };
+
+  const handleCustomize = () => {
+    setCustomizeForRegeneration(true);
+    setShowCustomizeSheet(true);
   };
 
   const hasActivePlan = status === 'ready' && plan;
@@ -321,7 +355,8 @@ export const HomeScreen = () => {
           <ActivePlanCard
             plan={plan}
             onStart={() => navigation.navigate('ActiveWorkout', { plan })}
-            onDiscard={handleDiscard}
+            onPreview={handlePreview}
+            onCustomize={handleCustomize}
           />
         ) : (
           <>
@@ -358,14 +393,17 @@ export const HomeScreen = () => {
 
       <CustomizeSheet
         visible={showCustomizeSheet}
-        currentPlan={null}
-        loading={false}
+        currentPlan={customizeForRegeneration ? plan : null}
+        loading={generating}
         initialDuration={duration}
         initialEquipment={equipment}
         initialEnergy={intensity.toLowerCase() as 'easy' | 'moderate' | 'intense'}
         initialFocus={focus}
         onSubmit={handleCustomizeSubmit}
-        onClose={() => setShowCustomizeSheet(false)}
+        onClose={() => {
+          setShowCustomizeSheet(false);
+          setCustomizeForRegeneration(false);
+        }}
       />
     </View>
   );
@@ -569,9 +607,16 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: palette.textSecondary,
     lineHeight: 20,
-    marginBottom: 12,
   },
-  activePlanButton: {
+  activePlanActions: {
+    gap: 12,
     marginTop: 8,
+  },
+  activePlanSecondaryRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  activePlanSecondaryButton: {
+    flex: 1,
   },
 });

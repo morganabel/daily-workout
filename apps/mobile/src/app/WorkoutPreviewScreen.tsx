@@ -15,6 +15,7 @@ import {
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
 import type { TodayPlan, GenerationRequest } from '@workout-agent/shared';
+import { Ionicons } from '@expo/vector-icons';
 import { createTodayPlanMock } from '@workout-agent/shared';
 import { RootStackParamList } from './navigation';
 import { generateWorkout, type ApiError } from './services/api';
@@ -62,6 +63,20 @@ export const WorkoutPreviewScreen = () => {
 
   const equipmentList = plan.equipment.join(' • ');
   const sourceLabel = plan.source === 'ai' ? 'AI generated' : 'Manual entry';
+
+  const handleDiscard = () => {
+    Alert.alert('Discard Workout', 'Are you sure you want to discard this workout?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Discard',
+        style: 'destructive',
+        onPress: async () => {
+          await workoutRepository.discardPlannedWorkout();
+          navigation.navigate('Home');
+        },
+      },
+    ]);
+  };
 
   const handleRegenerate = async (request: GenerationRequest) => {
     if (regenerating) return;
@@ -174,6 +189,13 @@ export const WorkoutPreviewScreen = () => {
               variant="outline"
             />
           )}
+          <Button
+            label="Discard workout"
+            onPress={handleDiscard}
+            disabled={regenerating}
+            variant="ghost"
+            icon={<Ionicons name="trash-outline" size={18} color={palette.textSecondary} />}
+          />
         </View>
       </ScrollView>
       <CustomizeSheet
