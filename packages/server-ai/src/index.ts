@@ -20,6 +20,7 @@ import {
 } from './providers/registry';
 import { OpenAIProvider } from './providers/openai';
 import { GeminiProvider } from './providers/gemini';
+import { attachGeneratedIds } from './providers/utils';
 import type {
   AiProviderOptions,
   AiProvider,
@@ -98,6 +99,8 @@ export {
   getDefaultSchemaVersion,
   getSchemaForVersion,
   resetProviders, // For testing
+  registerProvider, // For testing
+  attachGeneratedIds,
 };
 
 // Export provider classes for custom router implementations
