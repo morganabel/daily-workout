@@ -2,6 +2,7 @@ import OpenAI from 'openai';
 import { zodTextFormat } from 'openai/helpers/zod';
 import {
   todayPlanSchema,
+  isAutoFocus,
   type GenerationRequest,
   type GenerationContext,
 } from '@workout-agent/shared';
@@ -63,7 +64,11 @@ export class OpenAIProvider implements AiProvider {
           {
             role: 'user',
             content: JSON.stringify({
-              request,
+              request: {
+                ...request,
+                // Filter out auto focus so it doesn't anchor the LLM
+                focus: isAutoFocus(request.focus) ? undefined : request.focus,
+              },
               context,
               instructions: INITIAL_GENERATION_INSTRUCTIONS,
             }),

@@ -225,7 +225,7 @@ export const CustomizeSheet = ({
 
   const handleSubmit = () => {
     const normalizedNotes = notes.trim() || undefined;
-    const normalizedFocus = focus === 'Smart' ? undefined : focus;
+    const normalizedFocus = focus;
 
     if (canStageValues) {
       applyStagedValues();
@@ -245,9 +245,7 @@ export const CustomizeSheet = ({
       energy,
     };
 
-    if (normalizedFocus) {
-      request.focus = normalizedFocus;
-    }
+    request.focus = normalizedFocus;
 
     if (normalizedNotes) {
       request.notes = normalizedNotes;

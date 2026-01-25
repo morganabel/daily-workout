@@ -2,7 +2,7 @@ import type {
   GenerationStatus,
   TodayPlan,
 } from '@workout-agent/shared';
-import type { LlmSchemaVersion } from './llm-transformer';
+import type { LlmSchemaVersion } from '@workout-agent-ce/server-ai';
 
 export type GenerationState = {
   plan: TodayPlan | null;

@@ -202,6 +202,13 @@ const sanitizeFocus = (value: string): string | undefined => {
   return trimmed.slice(0, MAX_FOCUS_LENGTH);
 };
 
+/**
+ * Checks if a focus value represents an "auto" or "smart" selection,
+ * meaning the AI should choose the most appropriate focus based on context.
+ */
+export const isAutoFocus = (focus?: string): boolean =>
+  Boolean(focus && ['smart', 'auto'].includes(focus.trim().toLowerCase()));
+
 const sanitizeEquipmentList = (value: string): string[] | undefined => {
   const tokens = value
     .split(',')
@@ -259,7 +266,6 @@ export const normalizeQuickActionValue = (
     }
     case 'focus': {
       const focus = sanitizeFocus(source);
-      if (focus === 'Smart') return {};
       return focus ? { focus } : {};
     }
     case 'equipment': {

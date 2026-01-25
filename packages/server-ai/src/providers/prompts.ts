@@ -1,6 +1,7 @@
-import type {
-  GenerationRequest,
-  RegenerationFeedback,
+import {
+  isAutoFocus,
+  type GenerationRequest,
+  type RegenerationFeedback,
 } from '@workout-agent/shared';
 
 export const SYSTEM_PROMPT =
@@ -54,7 +55,7 @@ export function buildRegenerationMessage(
   if (request.timeMinutes) {
     changes.push(`duration: ${request.timeMinutes} minutes`);
   }
-  if (request.focus) {
+  if (request.focus && !isAutoFocus(request.focus)) {
     changes.push(`focus: ${request.focus}`);
   }
   if (request.equipment && request.equipment.length > 0) {

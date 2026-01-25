@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@better-auth/expo": "*",
+    "@expo-google-fonts/manrope": "^0.4.2",
     "@expo/metro-config": "*",
     "@nozbe/watermelondb": "^0.28.0",
     "@nx/devkit": "*",
