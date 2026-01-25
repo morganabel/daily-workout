@@ -23,7 +23,9 @@ Workout Agent CE is the open-source community edition of a daily workout planner
 2. Start the backend:
    - **Stub auth (no DB)**: `npm run start` (Next.js on port 3000)
    - **Better Auth + Postgres (recommended)**: `npm run dev:server:db`
-3. Start the mobile app: `npm run dev:mobile` (Expo) and press `i`/`a` for iOS/Android, or use `npx nx run mobile:run-ios` for a simulator build.
+3. Start the mobile app:
+   - **Simulator/emulator**: `npm run dev:mobile` (Expo) and press `i`/`a`, or run `npx nx run mobile:run-ios` / `npx nx run mobile:run-android`.
+   - **Physical device (dev build)**: set `EXPO_PUBLIC_BACKEND_URL` to a URL reachable from your phone (use your machine’s LAN IP for local dev), then run `npx nx run mobile:run-ios -- --device` or `npx nx run mobile:run-android -- --device`.
 4. Provide an AI key either via environment variables (see below) or BYOK from the app’s Home → BYOK screen.
 
 ## Common scripts
@@ -58,6 +60,7 @@ GOOGLE_CLOUD_LOCATION=
 # GOOGLE_CLOUD_LOCATION are required.
 
 # Mobile app API target
+# For a physical device, this must be reachable from the phone (use your machine’s LAN IP for local dev).
 EXPO_PUBLIC_BACKEND_URL=http://localhost:3000
 
 # Better Auth (optional; enabled automatically when DATABASE_URL is set)
