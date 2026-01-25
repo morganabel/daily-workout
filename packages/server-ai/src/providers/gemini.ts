@@ -1,4 +1,4 @@
-import { GoogleGenAI } from '@google/genai';
+import { GoogleGenAI, GoogleGenAIOptions } from '@google/genai';
 import * as z from 'zod';
 import {
   todayPlanSchema,
@@ -42,21 +42,23 @@ export class GeminiProvider implements AiProvider {
           vertexEnv.location,
       );
 
-    const clientConfig: { apiKey?: string; baseUrl?: string; projectId?: string; location?: string } =
-      {};
+    const clientConfig: GoogleGenAIOptions = {};
 
     if (useVertex) {
-      clientConfig.projectId = vertexEnv.projectId;
+      clientConfig.vertexai = true;
+      clientConfig.project = vertexEnv.projectId;
       clientConfig.location = vertexEnv.location;
     } else {
       if (!options.apiKey) {
         throw new AiGenerationError('Missing API key', 'NO_API_KEY');
       }
       clientConfig.apiKey = options.apiKey;
-      if (options.apiBaseUrl) {
-        clientConfig.baseUrl = options.apiBaseUrl;
-      } else if (DEFAULT_API_BASE) {
-        clientConfig.baseUrl = DEFAULT_API_BASE;
+      const baseUrl = options.apiBaseUrl ?? DEFAULT_API_BASE;
+      if (baseUrl) {
+        clientConfig.httpOptions = {
+          ...(clientConfig.httpOptions ?? {}),
+          baseUrl,
+        };
       }
     }
 
