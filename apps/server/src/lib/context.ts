@@ -3,6 +3,7 @@ import {
   type GenerationContext,
   type GenerationRequest,
 } from '@workout-agent/shared';
+import { isAutoFocus } from './ai-providers/utils';
 
 /**
  * Extended request payload that includes client-provided context.
@@ -42,7 +43,7 @@ export async function loadGenerationContext(
         },
         preferences: {
           ...result.data.preferences,
-          focusBias: request.focus
+          focusBias: request.focus && !isAutoFocus(request.focus)
             ? [request.focus, ...(result.data.preferences.focusBias ?? []).slice(0, 2)]
             : result.data.preferences.focusBias,
         },
@@ -58,7 +59,7 @@ export async function loadGenerationContext(
       energyToday: request.energy ?? undefined,
     },
     preferences: {
-      focusBias: request.focus ? [request.focus] : undefined,
+      focusBias: request.focus && !isAutoFocus(request.focus) ? [request.focus] : undefined,
     },
     environment: {
       equipment: request.equipment ?? ['Bodyweight'],

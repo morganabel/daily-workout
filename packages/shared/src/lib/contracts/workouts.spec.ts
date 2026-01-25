@@ -65,7 +65,7 @@ describe('quick action helpers', () => {
         stagedValue: 'Smart',
       })
     );
-    expect(smartFocusResult).toEqual({});
+    expect(smartFocusResult).toEqual({ focus: 'Smart' });
   });
 
   it('builds a generation request from quick actions and base defaults', () => {

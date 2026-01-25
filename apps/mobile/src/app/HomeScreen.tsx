@@ -285,7 +285,7 @@ export const HomeScreen = () => {
         timeMinutes: duration,
         equipment,
         energy: intensity.toLowerCase() as WorkoutEnergy,
-        focus: focus === 'Smart' ? undefined : focus,
+        focus,
       };
 
       console.log('Generating workout:', request);

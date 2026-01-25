@@ -1,5 +1,38 @@
-import { attachGeneratedIds } from './utils';
+import { attachGeneratedIds, isAutoFocus } from './utils';
 import type { LlmTodayPlan } from '@workout-agent/shared';
+
+describe('isAutoFocus', () => {
+  it('returns true for "smart" (case-insensitive)', () => {
+    expect(isAutoFocus('smart')).toBe(true);
+    expect(isAutoFocus('Smart')).toBe(true);
+    expect(isAutoFocus('SMART')).toBe(true);
+  });
+
+  it('returns true for "auto" (case-insensitive)', () => {
+    expect(isAutoFocus('auto')).toBe(true);
+    expect(isAutoFocus('Auto')).toBe(true);
+    expect(isAutoFocus('AUTO')).toBe(true);
+  });
+
+  it('handles whitespace around the value', () => {
+    expect(isAutoFocus('  smart  ')).toBe(true);
+    expect(isAutoFocus(' auto ')).toBe(true);
+  });
+
+  it('returns false for specific focus values', () => {
+    expect(isAutoFocus('Push')).toBe(false);
+    expect(isAutoFocus('Pull')).toBe(false);
+    expect(isAutoFocus('Legs')).toBe(false);
+    expect(isAutoFocus('Core')).toBe(false);
+    expect(isAutoFocus('Cardio')).toBe(false);
+  });
+
+  it('returns false for undefined or empty values', () => {
+    expect(isAutoFocus(undefined)).toBe(false);
+    expect(isAutoFocus('')).toBe(false);
+    expect(isAutoFocus('   ')).toBe(false);
+  });
+});
 
 jest.mock('uuid', () => {
   let call = 0;

@@ -2,6 +2,7 @@ import type {
   GenerationRequest,
   RegenerationFeedback,
 } from '@workout-agent/shared';
+import { isAutoFocus } from './utils';
 
 export const SYSTEM_PROMPT =
   'You are a concise workout planner. Only reply with valid JSON that matches the schema and never include code fences, explanations, or markdown.';
@@ -23,7 +24,7 @@ export function buildRegenerationMessage(
 
   const hasStructured =
     Boolean(request.timeMinutes) ||
-    Boolean(request.focus) ||
+    Boolean(request.focus && !isAutoFocus(request.focus)) ||
     Boolean(request.energy) ||
     Boolean(request.equipment && request.equipment.length > 0) ||
     Boolean(feedback && feedback.length > 0);
@@ -54,7 +55,7 @@ export function buildRegenerationMessage(
   if (request.timeMinutes) {
     changes.push(`duration: ${request.timeMinutes} minutes`);
   }
-  if (request.focus) {
+  if (request.focus && !isAutoFocus(request.focus)) {
     changes.push(`focus: ${request.focus}`);
   }
   if (request.equipment && request.equipment.length > 0) {
