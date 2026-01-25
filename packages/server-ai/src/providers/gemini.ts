@@ -2,6 +2,7 @@ import { GoogleGenAI, GoogleGenAIOptions } from '@google/genai';
 import * as z from 'zod';
 import {
   todayPlanSchema,
+  isAutoFocus,
   type GenerationRequest,
   type GenerationContext,
 } from '@workout-agent/shared';
@@ -83,7 +84,11 @@ export class GeminiProvider implements AiProvider {
       prompt = buildRegenerationMessage(request, request.feedback);
     } else {
       prompt = `${SYSTEM_PROMPT}\n\n${JSON.stringify({
-        request,
+        request: {
+          ...request,
+          // Filter out auto focus so it doesn't anchor the LLM
+          focus: isAutoFocus(request.focus) ? undefined : request.focus,
+        },
         context,
         instructions: INITIAL_GENERATION_INSTRUCTIONS,
       })}`;
