@@ -15,6 +15,18 @@ jest.mock('@react-native-community/netinfo', () => ({
   default: mockNetInfo,
 }));
 
+// Mock expo-font globally
+jest.mock('expo-font', () => ({
+  useFonts: () => [true],
+  isLoaded: jest.fn().mockReturnValue(true),
+  loadAsync: jest.fn().mockResolvedValue(true),
+}));
+
+// Mock vector icons to avoid font loading issues
+jest.mock('@expo/vector-icons', () => ({
+  Ionicons: 'Ionicons',
+}));
+
 // expo-secure-store is mocked via moduleNameMapper to a local stub
 
 // Use LokiJS-based test database instead of native SQLite

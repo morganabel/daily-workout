@@ -15,8 +15,15 @@ import { SettingsScreen } from './SettingsScreen';
 import { SignInScreen } from './SignInScreen';
 import { SignUpScreen } from './SignUpScreen';
 import { useDeviceToken } from './hooks/useDeviceToken';
+import {
+  useFonts,
+  Manrope_600SemiBold,
+  Manrope_700Bold,
+  Manrope_800ExtraBold,
+} from '@expo-google-fonts/manrope';
+import { palette } from './theme';
 
-const backgroundColor = '#030914';
+const backgroundColor = palette.background;
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export const App = () => {
@@ -24,9 +31,19 @@ export const App = () => {
   // The hook will auto-generate one if none is stored yet.
   useDeviceToken();
 
+  const [fontsLoaded] = useFonts({
+    Manrope_600SemiBold,
+    Manrope_700Bold,
+    Manrope_800ExtraBold,
+  });
+
+  if (!fontsLoaded) {
+    return null;
+  }
+
   return (
     <RootSiblingParent>
-      <StatusBar barStyle="light-content" backgroundColor={backgroundColor} />
+      <StatusBar barStyle="dark-content" backgroundColor={backgroundColor} />
       <NavigationContainer>
         <SafeAreaView style={{ flex: 1, backgroundColor }}>
           <Stack.Navigator

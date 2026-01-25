@@ -21,6 +21,8 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from './navigation';
 import { authClient } from './services/auth-client';
+import { palette, typography } from './theme';
+import { Button } from './components/DesignSystem';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -120,7 +122,7 @@ export const SignUpScreen: React.FC = () => {
               value={name}
               onChangeText={setName}
               placeholder="Your name"
-              placeholderTextColor="#6B7280"
+              placeholderTextColor={palette.textMuted}
               autoCapitalize="words"
               autoCorrect={false}
               editable={!isLoading}
@@ -134,7 +136,7 @@ export const SignUpScreen: React.FC = () => {
               value={email}
               onChangeText={setEmail}
               placeholder="your@email.com"
-              placeholderTextColor="#6B7280"
+              placeholderTextColor={palette.textMuted}
               keyboardType="email-address"
               autoCapitalize="none"
               autoCorrect={false}
@@ -149,7 +151,7 @@ export const SignUpScreen: React.FC = () => {
               value={password}
               onChangeText={setPassword}
               placeholder="At least 8 characters"
-              placeholderTextColor="#6B7280"
+              placeholderTextColor={palette.textMuted}
               secureTextEntry
               editable={!isLoading}
             />
@@ -162,7 +164,7 @@ export const SignUpScreen: React.FC = () => {
               value={confirmPassword}
               onChangeText={setConfirmPassword}
               placeholder="••••••••"
-              placeholderTextColor="#6B7280"
+              placeholderTextColor={palette.textMuted}
               secureTextEntry
               editable={!isLoading}
             />
@@ -174,17 +176,12 @@ export const SignUpScreen: React.FC = () => {
             </View>
           )}
 
-          <TouchableOpacity
-            style={[styles.button, isLoading && styles.buttonDisabled]}
+          <Button
+            label="Create Account"
             onPress={handleSignUp}
-            disabled={isLoading}
-          >
-            {isLoading ? (
-              <ActivityIndicator color="#FFFFFF" />
-            ) : (
-              <Text style={styles.buttonText}>Create Account</Text>
-            )}
-          </TouchableOpacity>
+            loading={isLoading}
+            variant="primary"
+          />
 
           <View style={styles.footer}>
             <Text style={styles.footerText}>Already have an account?</Text>
@@ -209,7 +206,7 @@ export const SignUpScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#030914',
+    backgroundColor: palette.background,
   },
   scrollContent: {
     flexGrow: 1,
@@ -221,14 +218,15 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 28,
-    fontWeight: '700',
-    color: '#FFFFFF',
+    color: palette.textPrimary,
     marginBottom: 8,
+    fontFamily: typography.fontFamilyExtraBold,
   },
   subtitle: {
     fontSize: 16,
-    color: '#9CA3AF',
+    color: palette.textSecondary,
     lineHeight: 24,
+    fontFamily: typography.fontFamily,
   },
   form: {
     gap: 16,
@@ -238,44 +236,31 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 14,
-    fontWeight: '500',
-    color: '#E5E7EB',
+    color: palette.textPrimary,
+    fontFamily: typography.fontFamilyBold,
   },
   input: {
-    backgroundColor: '#1F2937',
+    backgroundColor: palette.cardSecondary,
     borderRadius: 12,
     padding: 16,
     fontSize: 16,
-    color: '#FFFFFF',
+    color: palette.textPrimary,
     borderWidth: 1,
-    borderColor: '#374151',
+    borderColor: palette.border,
+    fontFamily: typography.fontFamily,
   },
   errorContainer: {
-    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    backgroundColor: palette.destructiveBg,
     padding: 12,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: 'rgba(239, 68, 68, 0.3)',
+    borderColor: palette.destructive,
   },
   errorText: {
-    color: '#EF4444',
+    color: palette.destructive,
     fontSize: 14,
     textAlign: 'center',
-  },
-  button: {
-    backgroundColor: '#3B82F6',
-    borderRadius: 12,
-    padding: 16,
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  buttonDisabled: {
-    opacity: 0.6,
-  },
-  buttonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
+    fontFamily: typography.fontFamily,
   },
   footer: {
     flexDirection: 'row',
@@ -285,21 +270,23 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   footerText: {
-    color: '#9CA3AF',
+    color: palette.textSecondary,
     fontSize: 14,
+    fontFamily: typography.fontFamily,
   },
   linkText: {
-    color: '#3B82F6',
+    color: palette.primary,
     fontSize: 14,
-    fontWeight: '600',
+    fontFamily: typography.fontFamilyBold,
   },
   skipButton: {
     alignItems: 'center',
     marginTop: 24,
   },
   skipText: {
-    color: '#6B7280',
+    color: palette.textMuted,
     fontSize: 14,
+    fontFamily: typography.fontFamily,
   },
 });
 

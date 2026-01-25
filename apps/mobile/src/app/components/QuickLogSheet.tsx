@@ -11,20 +11,8 @@ import {
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import Toast from 'react-native-root-toast';
-
-const palette = {
-  background: '#030914',
-  card: '#0d1322',
-  cardSecondary: '#111a30',
-  border: '#1d2943',
-  accent: '#6efacc',
-  accentMuted: '#233746',
-  textPrimary: '#f5f6fb',
-  textSecondary: '#9cabc4',
-  textMuted: '#5c6a85',
-  warning: '#ffb347',
-  destructive: '#ff6b6b',
-};
+import { palette, typography } from '../theme';
+import { Button, Chip } from './DesignSystem';
 
 export type QuickLogPayload = {
   name: string;
@@ -252,23 +240,12 @@ export const QuickLogSheet = ({
               />
               <View style={styles.chipGrid}>
                 {FOCUS_OPTIONS.map((option) => (
-                  <Pressable
+                  <Chip
                     key={option}
-                    style={[
-                      styles.chip,
-                      focus === option && styles.chipSelected,
-                    ]}
+                    label={option}
+                    selected={focus === option}
                     onPress={() => setFocus(focus === option ? '' : option)}
-                  >
-                    <Text
-                      style={[
-                        styles.chipText,
-                        focus === option && styles.chipTextSelected,
-                      ]}
-                    >
-                      {option}
-                    </Text>
-                  </Pressable>
+                  />
                 ))}
               </View>
               {errors.name && <Text style={styles.errorText}>{errors.name}</Text>}
@@ -297,54 +274,24 @@ export const QuickLogSheet = ({
                 <View style={styles.fieldGroup}>
                   <Text style={styles.label}>When?</Text>
                   <View style={styles.dateOptions}>
-                    <Pressable
-                      style={[
-                        styles.dateChip,
-                        dateOption === 'today' && styles.chipSelected,
-                      ]}
-                      onPress={() => handleDateOptionPress('today')}
-                    >
-                      <Text
-                        style={[
-                          styles.chipText,
-                          dateOption === 'today' && styles.chipTextSelected,
-                        ]}
-                      >
-                        Today
-                      </Text>
-                    </Pressable>
-                    <Pressable
-                      style={[
-                        styles.dateChip,
-                        dateOption === 'yesterday' && styles.chipSelected,
-                      ]}
-                      onPress={() => handleDateOptionPress('yesterday')}
-                    >
-                      <Text
-                        style={[
-                          styles.chipText,
-                          dateOption === 'yesterday' && styles.chipTextSelected,
-                        ]}
-                      >
-                        Yesterday
-                      </Text>
-                    </Pressable>
-                    <Pressable
-                      style={[
-                        styles.dateChip,
-                        dateOption === 'custom' && styles.chipSelected,
-                      ]}
-                      onPress={() => handleDateOptionPress('custom')}
-                    >
-                      <Text
-                        style={[
-                          styles.chipText,
-                          dateOption === 'custom' && styles.chipTextSelected,
-                        ]}
-                      >
-                        {dateOption === 'custom' ? formatDate(customDate) : 'Custom...'}
-                      </Text>
-                    </Pressable>
+                    <Chip
+                        label="Today"
+                        selected={dateOption === 'today'}
+                        onPress={() => handleDateOptionPress('today')}
+                        style={{ flex: 1, justifyContent: 'center' }}
+                    />
+                    <Chip
+                        label="Yesterday"
+                        selected={dateOption === 'yesterday'}
+                        onPress={() => handleDateOptionPress('yesterday')}
+                        style={{ flex: 1, justifyContent: 'center' }}
+                    />
+                    <Chip
+                        label={dateOption === 'custom' ? formatDate(customDate) : 'Custom...'}
+                        selected={dateOption === 'custom'}
+                        onPress={() => handleDateOptionPress('custom')}
+                        style={{ flex: 1, justifyContent: 'center' }}
+                    />
                   </View>
 
                   {/* Date picker for iOS (inline) or after selection on Android */}
@@ -356,7 +303,7 @@ export const QuickLogSheet = ({
                         display="spinner"
                         onChange={handleDateChange}
                         maximumDate={new Date()}
-                        themeVariant="dark"
+                        themeVariant="light"
                       />
                       <Pressable
                         style={styles.datePickerDone}
@@ -412,28 +359,19 @@ export const QuickLogSheet = ({
 
           {/* Actions */}
           <View style={styles.actions}>
-            <Pressable
-              style={({ pressed }) => [
-                styles.secondaryButton,
-                pressed && { opacity: 0.7 },
-              ]}
+            <Button
+              label="Cancel"
               onPress={handleClose}
-            >
-              <Text style={styles.secondaryButtonText}>Cancel</Text>
-            </Pressable>
-            <Pressable
-              style={({ pressed }) => [
-                styles.primaryButton,
-                pressed && { opacity: 0.9 },
-                !canSubmit && styles.primaryButtonDisabled,
-              ]}
+              variant="secondary"
+              style={{ flex: 1 }}
+            />
+            <Button
+              label={submitting ? 'Saving...' : 'Save log'}
               onPress={handleSubmit}
               disabled={!canSubmit}
-            >
-              <Text style={styles.primaryButtonText}>
-                {submitting ? 'Saving...' : 'Save log'}
-              </Text>
-            </Pressable>
+              variant="primary"
+              style={{ flex: 1 }}
+            />
           </View>
         </View>
       </View>
@@ -453,7 +391,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 24,
     padding: 20,
     paddingBottom: 32,
-    maxHeight: '85%',
+    maxHeight: '90%',
   },
   scrollContent: {
     flexGrow: 0,
@@ -469,11 +407,12 @@ const styles = StyleSheet.create({
   title: {
     color: palette.textPrimary,
     fontSize: 22,
-    fontWeight: '600',
+    fontFamily: typography.fontFamilyExtraBold,
   },
   subtitle: {
     color: palette.textSecondary,
     fontSize: 15,
+    fontFamily: typography.fontFamily,
     marginTop: 4,
     marginBottom: 16,
   },
@@ -484,12 +423,13 @@ const styles = StyleSheet.create({
   label: {
     color: palette.textPrimary,
     fontSize: 15,
-    fontWeight: '600',
+    fontFamily: typography.fontFamilyBold,
   },
   labelHint: {
     color: palette.textMuted,
     fontSize: 13,
     fontWeight: '400',
+    fontFamily: typography.fontFamily,
   },
   textInput: {
     backgroundColor: palette.cardSecondary,
@@ -500,6 +440,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     color: palette.textPrimary,
     fontSize: 15,
+    fontFamily: typography.fontFamily,
   },
   textInputMultiline: {
     minHeight: 60,
@@ -513,38 +454,9 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 8,
   },
-  chip: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: palette.border,
-    backgroundColor: palette.cardSecondary,
-  },
   dateOptions: {
     flexDirection: 'row',
     gap: 8,
-  },
-  dateChip: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: palette.border,
-    backgroundColor: palette.cardSecondary,
-  },
-  chipSelected: {
-    borderColor: palette.accent,
-    backgroundColor: `${palette.accent}22`,
-  },
-  chipText: {
-    color: palette.textPrimary,
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  chipTextSelected: {
-    color: palette.accent,
-    fontWeight: '600',
   },
   errorText: {
     color: palette.warning,
@@ -559,13 +471,14 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   detailsToggleText: {
-    color: palette.accent,
+    color: palette.primary,
     fontSize: 14,
-    fontWeight: '600',
+    fontFamily: typography.fontFamilyBold,
   },
   detailsSummary: {
     color: palette.textMuted,
     fontSize: 13,
+    fontFamily: typography.fontFamily,
   },
   detailsSection: {
     borderTopWidth: 1,
@@ -585,9 +498,9 @@ const styles = StyleSheet.create({
     borderTopColor: palette.border,
   },
   datePickerDoneText: {
-    color: palette.accent,
+    color: palette.primary,
     fontSize: 16,
-    fontWeight: '600',
+    fontFamily: typography.fontFamilyBold,
   },
   actions: {
     flexDirection: 'row',
@@ -596,33 +509,5 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     borderTopWidth: 1,
     borderTopColor: palette.border,
-  },
-  primaryButton: {
-    flex: 1,
-    backgroundColor: palette.accent,
-    paddingVertical: 14,
-    borderRadius: 14,
-    alignItems: 'center',
-  },
-  primaryButtonDisabled: {
-    opacity: 0.4,
-  },
-  primaryButtonText: {
-    color: '#031b1b',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  secondaryButton: {
-    flex: 1,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: palette.border,
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  secondaryButtonText: {
-    color: palette.textPrimary,
-    fontSize: 16,
-    fontWeight: '500',
   },
 });

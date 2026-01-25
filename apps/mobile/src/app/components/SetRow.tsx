@@ -1,18 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, Pressable, TextInput } from 'react-native';
 import type { WorkoutSetLog } from '@workout-agent/shared';
-
-const palette = {
-  background: '#030914',
-  card: '#0d1322',
-  cardSecondary: '#111a30',
-  border: '#1d2943',
-  textPrimary: '#f5f6fb',
-  textSecondary: '#9cabc4',
-  textMuted: '#5c6a85',
-  success: '#4ade80',
-  destructive: '#ff6b6b',
-};
+import { palette, typography } from '../theme';
 
 /**
  * Parse a string value to an optional number.
@@ -165,7 +154,7 @@ const styles = StyleSheet.create({
     borderColor: palette.success,
   },
   checkmark: {
-    color: '#000',
+    color: '#fff',
     fontWeight: 'bold',
     fontSize: 14,
   },
@@ -173,6 +162,7 @@ const styles = StyleSheet.create({
     color: palette.textSecondary,
     fontSize: 12,
     width: 50,
+    fontFamily: typography.fontFamily,
   },
   setInputs: {
     flex: 1,
@@ -190,6 +180,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     color: palette.textPrimary,
     backgroundColor: palette.cardSecondary,
+    fontFamily: typography.fontFamily,
   },
   unitToggle: {
     paddingHorizontal: 8,
@@ -203,6 +194,7 @@ const styles = StyleSheet.create({
     color: palette.textSecondary,
     fontSize: 12,
     fontWeight: '600',
+    fontFamily: typography.fontFamilyBold,
   },
   removeSetButton: {
     width: 24,

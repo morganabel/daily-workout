@@ -14,20 +14,8 @@ import type { WorkoutExerciseLog, WorkoutSetLog } from '@workout-agent/shared';
 import { workoutRepository } from './db/repositories/WorkoutRepository';
 import { RootStackParamList } from './navigation';
 import { SetRow } from './components/SetRow';
-
-const palette = {
-  background: '#030914',
-  card: '#0d1322',
-  cardSecondary: '#111a30',
-  border: '#1d2943',
-  accent: '#6efacc',
-  accentMuted: '#233746',
-  textPrimary: '#f5f6fb',
-  textSecondary: '#9cabc4',
-  textMuted: '#5c6a85',
-  success: '#4ade80',
-  destructive: '#ff6b6b',
-};
+import { palette, typography, layout } from './theme';
+import { Button } from './components/DesignSystem';
 
 type ActiveWorkoutNavigation = NativeStackNavigationProp<
   RootStackParamList,
@@ -397,30 +385,18 @@ export const ActiveWorkoutScreen = () => {
           <Text style={styles.timerText}>{formatTime(durationSeconds)}</Text>
         </View>
         <View style={styles.headerActions}>
-          <Pressable
+          <Button
+            label="Cancel"
             onPress={handleCancel}
-            style={({ pressed }) => [
-              styles.cancelButtonHeader,
-              pressed && { opacity: 0.8 },
-            ]}
-            accessibilityRole="button"
-            accessibilityLabel="Cancel workout"
-            accessibilityHint="Leave without logging this workout"
-          >
-            <Text style={styles.cancelButtonHeaderText}>Cancel</Text>
-          </Pressable>
-          <Pressable
+            variant="secondary"
+            style={styles.headerButton}
+          />
+          <Button
+            label="Finish"
             onPress={handleFinish}
-            style={({ pressed }) => [
-              styles.finishButtonHeader,
-              pressed && { opacity: 0.8 },
-            ]}
-            accessibilityRole="button"
-            accessibilityLabel="Finish workout"
-            accessibilityHint="Completes the current workout session"
-          >
-            <Text style={styles.finishButtonHeaderText}>Finish</Text>
-          </Pressable>
+            variant="secondary"
+            style={styles.headerButton}
+          />
         </View>
       </View>
 
@@ -429,7 +405,7 @@ export const ActiveWorkoutScreen = () => {
 
         {loading ? (
           <View style={styles.loadingState}>
-            <ActivityIndicator color={palette.accent} />
+            <ActivityIndicator color={palette.primary} />
             <Text style={styles.loadingText}>Preparing your sets…</Text>
           </View>
         ) : groupedBlocks.length === 0 ? (
@@ -468,18 +444,11 @@ export const ActiveWorkoutScreen = () => {
       </ScrollView>
 
       <View style={styles.footer}>
-        <Pressable
+        <Button
+          label="Complete Workout"
           onPress={handleFinish}
-          style={({ pressed }) => [
-            styles.finishButton,
-            pressed && { opacity: 0.9 },
-          ]}
-          accessibilityRole="button"
-          accessibilityLabel="Complete Workout"
-          accessibilityHint="Saves your progress and finishes the session"
-        >
-          <Text style={styles.finishButtonText}>Complete Workout</Text>
-        </Pressable>
+          variant="primary"
+        />
       </View>
     </View>
   );
@@ -603,7 +572,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingTop: 60,
+    paddingTop: layout.safeAreaTop,
     paddingBottom: 16,
     borderBottomWidth: 1,
     borderBottomColor: palette.border,
@@ -617,37 +586,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
+  headerButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+  },
   timerText: {
-    color: palette.accent,
+    color: palette.primary,
     fontSize: 32,
     fontWeight: '700',
     fontVariant: ['tabular-nums'],
-  },
-  finishButtonHeader: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    backgroundColor: palette.cardSecondary,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: palette.border,
-  },
-  finishButtonHeaderText: {
-    color: palette.textPrimary,
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  cancelButtonHeader: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: palette.border,
-    backgroundColor: palette.cardSecondary,
-  },
-  cancelButtonHeaderText: {
-    color: palette.textSecondary,
-    fontSize: 14,
-    fontWeight: '600',
+    fontFamily: typography.fontFamilyBold,
   },
   scrollContent: {
     padding: 20,
@@ -659,6 +607,7 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 1,
     marginBottom: -12,
+    fontFamily: typography.fontFamilyBold,
   },
   loadingState: {
     paddingVertical: 40,
@@ -667,11 +616,13 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     color: palette.textSecondary,
+    fontFamily: typography.fontFamily,
   },
   emptyText: {
     color: palette.textMuted,
     textAlign: 'center',
     marginTop: 24,
+    fontFamily: typography.fontFamily,
   },
   blockCard: {
     gap: 16,
@@ -680,6 +631,7 @@ const styles = StyleSheet.create({
     color: palette.textPrimary,
     fontSize: 20,
     fontWeight: '600',
+    fontFamily: typography.fontFamilyExtraBold,
   },
   exerciseList: {
     backgroundColor: palette.card,
@@ -707,18 +659,22 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     flex: 1,
+    fontFamily: typography.fontFamilyBold,
   },
   exercisePrescription: {
     color: palette.textSecondary,
     fontSize: 13,
+    fontFamily: typography.fontFamily,
   },
   exerciseDetail: {
     color: palette.textMuted,
     fontSize: 12,
+    fontFamily: typography.fontFamily,
   },
   exerciseLastTime: {
-    color: palette.accent,
+    color: palette.primary,
     fontSize: 12,
+    fontFamily: typography.fontFamily,
   },
   exerciseActions: {
     flexDirection: 'row',
@@ -739,10 +695,16 @@ const styles = StyleSheet.create({
     backgroundColor: palette.success,
     borderColor: palette.success,
   },
+  checkmark: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
   exerciseActionLabel: {
     color: palette.textSecondary,
     fontSize: 13,
     fontWeight: '600',
+    fontFamily: typography.fontFamilyBold,
   },
   expandButton: {
     marginLeft: 'auto',
@@ -757,6 +719,7 @@ const styles = StyleSheet.create({
     color: palette.textSecondary,
     fontSize: 12,
     fontWeight: '600',
+    fontFamily: typography.fontFamily,
   },
   setList: {
     marginTop: 12,
@@ -775,6 +738,7 @@ const styles = StyleSheet.create({
     color: palette.textSecondary,
     fontWeight: '600',
     fontSize: 13,
+    fontFamily: typography.fontFamilyBold,
   },
   footerSpacer: {
     height: 100,
@@ -789,16 +753,5 @@ const styles = StyleSheet.create({
     backgroundColor: palette.background,
     borderTopWidth: 1,
     borderTopColor: palette.border,
-  },
-  finishButton: {
-    backgroundColor: palette.accent,
-    paddingVertical: 18,
-    borderRadius: 16,
-    alignItems: 'center',
-  },
-  finishButtonText: {
-    color: '#031b1b',
-    fontSize: 18,
-    fontWeight: '700',
   },
 });

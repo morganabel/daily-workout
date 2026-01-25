@@ -17,20 +17,8 @@ import type {
 import { workoutRepository } from './db/repositories/WorkoutRepository';
 import type { RootStackParamList } from './navigation';
 import { SetRow } from './components/SetRow';
-
-const palette = {
-  background: '#030914',
-  card: '#0d1322',
-  cardSecondary: '#111a30',
-  border: '#1d2943',
-  accent: '#6efacc',
-  accentMuted: '#233746',
-  textPrimary: '#f5f6fb',
-  textSecondary: '#9cabc4',
-  textMuted: '#5c6a85',
-  success: '#4ade80',
-  destructive: '#ff6b6b',
-};
+import { palette, typography, layout } from './theme';
+import { Card } from './components/DesignSystem';
 
 type SessionDetailRoute = RouteProp<RootStackParamList, 'WorkoutSessionDetail'>;
 
@@ -105,7 +93,7 @@ export const WorkoutSessionDetailScreen = () => {
   if (loading) {
     return (
       <View style={styles.loadingScreen}>
-        <ActivityIndicator color={palette.accent} />
+        <ActivityIndicator color={palette.primary} />
         <Text style={styles.loadingText}>Loading session…</Text>
       </View>
     );
@@ -145,14 +133,14 @@ export const WorkoutSessionDetailScreen = () => {
         </Pressable>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <Text style={styles.metaText}>
           {new Date(sessionDetail.completedAt).toLocaleDateString()} •{' '}
           {sessionDetail.durationMinutes} min
         </Text>
 
         {sessionDetail.exercises.map((exercise) => (
-          <View key={exercise.id} style={styles.exerciseCard}>
+          <Card key={exercise.id} style={styles.exerciseCard}>
             <View style={styles.exerciseHeader}>
               <Text style={styles.exerciseName}>{exercise.name}</Text>
               {exercise.prescription ? (
@@ -193,7 +181,7 @@ export const WorkoutSessionDetailScreen = () => {
                 <Text style={styles.addSetText}>Add set</Text>
               </Pressable>
             ) : null}
-          </View>
+          </Card>
         ))}
       </ScrollView>
     </View>
@@ -214,12 +202,13 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     color: palette.textSecondary,
+    fontFamily: typography.fontFamily,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingTop: 60,
+    paddingTop: layout.safeAreaTop,
     paddingBottom: 16,
     borderBottomWidth: 1,
     borderBottomColor: palette.border,
@@ -239,13 +228,14 @@ const styles = StyleSheet.create({
   title: {
     color: palette.textPrimary,
     fontSize: 18,
-    fontWeight: '700',
+    fontFamily: typography.fontFamilyBold,
   },
   subtitle: {
     color: palette.textMuted,
     fontSize: 12,
     textTransform: 'uppercase',
     letterSpacing: 1,
+    fontFamily: typography.fontFamilyBold,
   },
   editButton: {
     paddingHorizontal: 12,
@@ -259,6 +249,7 @@ const styles = StyleSheet.create({
     color: palette.textSecondary,
     fontWeight: '600',
     fontSize: 12,
+    fontFamily: typography.fontFamily,
   },
   scrollContent: {
     padding: 20,
@@ -268,36 +259,38 @@ const styles = StyleSheet.create({
   metaText: {
     color: palette.textSecondary,
     fontSize: 13,
+    fontFamily: typography.fontFamily,
   },
   exerciseCard: {
-    backgroundColor: palette.card,
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: palette.border,
+    gap: 8,
   },
   exerciseHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
     gap: 12,
   },
   exerciseName: {
     color: palette.textPrimary,
     fontSize: 16,
-    fontWeight: '600',
+    fontFamily: typography.fontFamilyBold,
+    flex: 1,
   },
   exercisePrescription: {
     color: palette.textSecondary,
     fontSize: 12,
+    fontFamily: typography.fontFamily,
+    flexShrink: 0,
+    textAlign: 'right',
+    maxWidth: '40%',
   },
   exerciseDetail: {
     color: palette.textMuted,
     fontSize: 12,
-    marginTop: 6,
+    fontFamily: typography.fontFamily,
   },
   setList: {
-    marginTop: 12,
+    marginTop: 8,
     gap: 10,
   },
   addSetButton: {
@@ -313,5 +306,6 @@ const styles = StyleSheet.create({
     color: palette.textSecondary,
     fontWeight: '600',
     fontSize: 13,
+    fontFamily: typography.fontFamily,
   },
 });
