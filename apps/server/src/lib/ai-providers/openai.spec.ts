@@ -9,6 +9,7 @@ import { AiGenerationError } from './types';
 
 jest.mock('openai');
 jest.mock('./utils', () => ({
+  ...jest.requireActual('./utils'),
   attachGeneratedIds: jest.fn((plan: LlmTodayPlan) => ({
     id: 'mock-plan-id',
     ...plan,

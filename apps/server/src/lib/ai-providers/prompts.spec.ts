@@ -18,6 +18,7 @@ describe('buildRegenerationMessage', () => {
       const message = buildRegenerationMessage(request);
 
       expect(message).not.toContain('focus: Smart');
+      expect(message).not.toContain('focus: auto');
       expect(message).toContain('duration: 30 minutes');
     });
 
@@ -41,6 +42,7 @@ describe('buildRegenerationMessage', () => {
       const message = buildRegenerationMessage(request);
 
       expect(message).not.toContain('focus: AUTO');
+      expect(message).not.toContain('focus: auto');
     });
 
     it('includes specific focus values in structured changes', () => {
@@ -67,7 +69,7 @@ describe('buildRegenerationMessage', () => {
   });
 
   describe('hasStructured detection with auto-focus', () => {
-    it('treats request with only auto-focus as unstructured when combined with notes', () => {
+    it('treats request with only auto-focus as structured when combined with notes', () => {
       const request: GenerationRequest = {
         focus: 'Smart',
         notes: 'Make it harder',
@@ -75,8 +77,9 @@ describe('buildRegenerationMessage', () => {
 
       const message = buildRegenerationMessage(request);
 
-      // When unstructured, notes get the "single source of truth" treatment
-      expect(message).toContain('single source of truth');
+      // When structured, notes get the "prioritize" treatment
+      expect(message).toContain('Prioritize the user instructions');
+      expect(message).not.toContain('single source of truth');
     });
 
     it('treats request with specific focus as structured when combined with notes', () => {

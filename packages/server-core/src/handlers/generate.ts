@@ -10,6 +10,7 @@ import { loadGenerationContext, type GenerationRequestWithContext } from '../uti
 import {
   generationRequestSchema,
   generationContextSchema,
+  isAutoFocus,
   todayPlanSchema,
   createTodayPlanMock,
   type TodayPlan,
@@ -205,7 +206,10 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
     const mockPlan = () =>
       createTodayPlanMock({
         durationMinutes: generationRequest.timeMinutes ?? 30,
-        focus: generationRequest.focus ?? 'Full Body',
+        focus:
+          generationRequest.focus && !isAutoFocus(generationRequest.focus)
+            ? generationRequest.focus
+            : 'Full Body',
         equipment: generationRequest.equipment ?? ['Bodyweight'],
         energy: generationRequest.energy ?? 'moderate',
       });

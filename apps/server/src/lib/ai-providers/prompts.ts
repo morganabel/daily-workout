@@ -24,7 +24,7 @@ export function buildRegenerationMessage(
 
   const hasStructured =
     Boolean(request.timeMinutes) ||
-    Boolean(request.focus && !isAutoFocus(request.focus)) ||
+    Boolean(request.focus) ||
     Boolean(request.energy) ||
     Boolean(request.equipment && request.equipment.length > 0) ||
     Boolean(feedback && feedback.length > 0);
