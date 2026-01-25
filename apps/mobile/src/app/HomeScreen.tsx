@@ -42,6 +42,21 @@ type HomeScreenNavigation = NativeStackNavigationProp<RootStackParamList, 'Home'
 
 // --- Components ---
 
+const SetupProfileCard = ({ onPress }: { onPress: () => void }) => (
+  <Pressable style={styles.setupCard} onPress={onPress}>
+    <View style={styles.setupIconContainer}>
+      <Ionicons name="sparkles" size={24} color={palette.textInverse} />
+    </View>
+    <View style={styles.setupContent}>
+      <Text style={styles.setupTitle}>Set up your profile</Text>
+      <Text style={styles.setupDescription}>
+        Tell us about your equipment and goals for personalized workouts.
+      </Text>
+    </View>
+    <Ionicons name="arrow-forward" size={20} color={palette.primary} />
+  </Pressable>
+);
+
 const SetupSummaryRow = ({
   duration,
   equipment,
@@ -248,14 +263,13 @@ export const HomeScreen = () => {
   const [generating, setGenerating] = useState(false);
   const [showCustomizeSheet, setShowCustomizeSheet] = useState(false);
   const [customizeForRegeneration, setCustomizeForRegeneration] = useState(false);
+  const [showProfileSetup, setShowProfileSetup] = useState(false);
 
   // Load user profile on mount
   useFocusEffect(
     useCallback(() => {
       userRepository.hasConfiguredProfile().then((hasProfile) => {
-        if (!hasProfile) {
-          // Could show onboarding banner here if needed
-        }
+        setShowProfileSetup(!hasProfile);
       });
     }, [])
   );
@@ -352,6 +366,10 @@ export const HomeScreen = () => {
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        {showProfileSetup && (
+          <SetupProfileCard onPress={() => navigation.navigate('Settings')} />
+        )}
+
         {hasActivePlan ? (
           <ActivePlanCard
             plan={plan}
@@ -436,6 +454,47 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: palette.textSecondary,
     marginTop: 4,
+  },
+
+  // Setup Card
+  setupCard: {
+    backgroundColor: palette.card,
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: palette.primary,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    shadowColor: palette.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 4,
+  },
+  setupIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: palette.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  setupContent: {
+    flex: 1,
+    gap: 4,
+  },
+  setupTitle: {
+    fontFamily: typography.fontFamilyBold,
+    fontSize: 16,
+    color: palette.textPrimary,
+  },
+  setupDescription: {
+    fontFamily: typography.fontFamily,
+    fontSize: 13,
+    color: palette.textSecondary,
+    lineHeight: 18,
   },
 
   // Summary Row
