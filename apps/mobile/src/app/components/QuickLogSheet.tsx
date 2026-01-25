@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import Toast from 'react-native-root-toast';
-import { palette, typography, layout } from '../theme';
+import { palette, typography } from '../theme';
 import { Button, Chip } from './DesignSystem';
 
 export type QuickLogPayload = {

@@ -21,7 +21,7 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from './navigation';
 import { authClient } from './services/auth-client';
-import { palette, typography, layout } from './theme';
+import { palette, typography } from './theme';
 import { Button } from './components/DesignSystem';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;

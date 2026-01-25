@@ -369,7 +369,6 @@ const styles = StyleSheet.create({
   },
   addButton: {
     paddingVertical: 0,
-    height: 'auto',
   },
   injuryList: {
     flexDirection: 'row',

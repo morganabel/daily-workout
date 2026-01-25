@@ -18,7 +18,7 @@ import type {
   WorkoutEnergy,
   QuickActionPreset,
 } from '@workout-agent/shared';
-import { palette, typography, layout } from '../theme';
+import { palette, typography } from '../theme';
 import { Button, Chip } from './DesignSystem';
 
 const DURATION_OPTIONS = [15, 30, 45, 60, 90]; // Standardized
@@ -146,7 +146,7 @@ export const CustomizeSheet = ({
 
   const [feedback, setFeedback] = useState<RegenerationFeedback[]>([]);
   const [duration, setDuration] = useState(DURATION_OPTIONS[2]);
-  const [focus, setFocus] = useState(FOCUS_OPTIONS[1].id);
+  const [focus, setFocus] = useState(FOCUS_OPTIONS[0].id);
   const [equipment, setEquipment] = useState<string[]>(['Bodyweight']);
   const [energy, setEnergy] = useState<WorkoutEnergy>('moderate');
   const [notes, setNotes] = useState('');
@@ -166,10 +166,10 @@ export const CustomizeSheet = ({
       initialDuration ??
       DURATION_OPTIONS[2];
     const nextFocus =
-      currentPlan?.focus ??
+      normalizeFocusSelection(currentPlan?.focus) ??
       normalizeFocusSelection(focusValue) ??
       initialFocus ??
-      FOCUS_OPTIONS[1].id;
+      FOCUS_OPTIONS[0].id;
     const nextEquipment =
       currentPlan?.equipment ??
       (equipmentValue ? parseEquipmentSelection(equipmentValue) : null) ??

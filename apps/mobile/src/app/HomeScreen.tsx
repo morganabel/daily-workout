@@ -323,6 +323,7 @@ export const HomeScreen = () => {
       if (request.energy) {
         setIntensity(request.energy.charAt(0).toUpperCase() + request.energy.slice(1));
       }
+      setFocus(request.focus ?? 'Smart');
       setShowCustomizeSheet(false);
     }
   };

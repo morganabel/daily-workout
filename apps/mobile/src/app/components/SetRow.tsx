@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, Pressable, TextInput } from 'react-native';
 import type { WorkoutSetLog } from '@workout-agent/shared';
-import { palette, typography, layout } from '../theme';
+import { palette, typography } from '../theme';
 
 /**
  * Parse a string value to an optional number.
