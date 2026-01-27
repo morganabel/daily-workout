@@ -18,7 +18,7 @@ export const INITIAL_GENERATION_INSTRUCTIONS =
  */
 export function buildRegenerationMessage(
   request: GenerationRequest,
-  feedback?: RegenerationFeedback[],
+  feedback?: RegenerationFeedback[]
 ): string {
   const parts: string[] = [];
 
@@ -69,15 +69,43 @@ export function buildRegenerationMessage(
     parts.push(`Requested changes: ${changes.join(', ')}.`);
   }
 
+  // Include upcoming events context if provided
+  if (request.upcomingEvents && request.upcomingEvents.length > 0) {
+    const upcomingDescriptions = request.upcomingEvents.map((event) => {
+      const details: string[] = [];
+      if (event.allDay) {
+        details.push('all-day');
+      } else if (event.startsAt) {
+        details.push(`starts ${event.startsAt}`);
+      }
+      if (event.durationMinutes) {
+        details.push(`${event.durationMinutes} min`);
+      }
+      if (event.intensity) {
+        details.push(`${event.intensity} intensity`);
+      }
+      if (event.tags && event.tags.length > 0) {
+        details.push(`tags: ${event.tags.join(', ')}`);
+      }
+      if (event.notes) {
+        details.push(`notes: ${event.notes}`);
+      }
+      return `${event.title} (${event.kind}) on ${event.localDate}${
+        details.length > 0 ? `, ${details.join(', ')}` : ''
+      }`;
+    });
+    parts.push(`Upcoming events: ${upcomingDescriptions.join('; ')}.`);
+  }
+
   // Handle user notes - this is the key addition from main
   if (request.notes) {
     if (!hasStructured) {
       parts.push(
-        'The instructions below are free form feedback from the user. Treat the instructions below as the single source of truth. Override any prior context or workout details when there is a conflict.',
+        'The instructions below are free form feedback from the user. Treat the instructions below as the single source of truth. Override any prior context or workout details when there is a conflict.'
       );
     } else {
       parts.push(
-        'Prioritize the user instructions below over any previous context or the earlier workout. If there is a conflict, follow the new instructions.',
+        'Prioritize the user instructions below over any previous context or the earlier workout. If there is a conflict, follow the new instructions.'
       );
     }
     parts.push(`User explicit instructions: ${request.notes}`);

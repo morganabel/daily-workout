@@ -5,6 +5,8 @@ import {
   workoutExerciseLogSchema,
   workoutSessionDetailSchema,
   workoutLogPayloadSchema,
+  generationRequestSchema,
+  MAX_UPCOMING_EVENTS,
   createSessionDetailMock,
   createWorkoutExerciseLogMock,
   createWorkoutSetLogMock,
@@ -200,5 +202,39 @@ describe('isAutoFocus', () => {
     expect(isAutoFocus(undefined)).toBe(false);
     expect(isAutoFocus('')).toBe(false);
     expect(isAutoFocus('   ')).toBe(false);
+  });
+});
+
+describe('generation request upcoming events', () => {
+  it('accepts up to the maximum upcoming events', () => {
+    const upcomingEvents = Array.from(
+      { length: MAX_UPCOMING_EVENTS },
+      (_, index) => ({
+        kind: 'hike',
+        title: `Trail ${index + 1}`,
+        localDate: '2025-06-0' + ((index % 9) + 1),
+      })
+    );
+
+    const result = generationRequestSchema.safeParse({
+      timeMinutes: 30,
+      upcomingEvents,
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects requests with too many upcoming events', () => {
+    const upcomingEvents = Array.from(
+      { length: MAX_UPCOMING_EVENTS + 1 },
+      (_, index) => ({
+        kind: 'run',
+        title: `Run ${index + 1}`,
+        localDate: '2025-06-15',
+      })
+    );
+
+    const result = generationRequestSchema.safeParse({ upcomingEvents });
+    expect(result.success).toBe(false);
   });
 });
