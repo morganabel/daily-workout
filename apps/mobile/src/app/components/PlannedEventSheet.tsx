@@ -300,7 +300,6 @@ export const PlannedEventSheet = ({
             <View style={styles.fieldGroup}>
               <Text style={styles.label}>Date</Text>
               <View style={styles.row}>
-                \
                 <Pressable
                   style={styles.selectButton}
                   onPress={() => setShowDatePicker(true)}
