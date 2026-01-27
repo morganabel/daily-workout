@@ -7,6 +7,7 @@ import type {
   WorkoutSetLog,
   WeightUnit,
 } from '@workout-agent/shared';
+import { endOfDay, startOfDay } from '../../utils/date';
 import { database } from '../index';
 import Workout from '../models/Workout';
 import Exercise from '../models/Exercise';
@@ -20,6 +21,14 @@ import {
 } from '../mappers/workoutMapper';
 
 const DEFAULT_SET_COUNT = 3;
+
+const getDayBounds = (timestamp: number) => {
+  const date = new Date(timestamp);
+  return {
+    start: startOfDay(date).getTime(),
+    end: endOfDay(date).getTime(),
+  };
+};
 
 const normalizeExerciseName = (name: string): string =>
   name
@@ -84,15 +93,19 @@ export class WorkoutRepository {
     return this.workouts.query(...conditions);
   }
 
+  private buildPlannedWorkoutQueryForDate(timestamp: number) {
+    const { start, end } = getDayBounds(timestamp);
+    return this.workouts.query(
+      Q.where('status', 'planned'),
+      Q.where('archived_at', null),
+      Q.where('scheduled_date', Q.between(start, end)),
+      Q.sortBy('scheduled_date', Q.desc),
+      Q.take(1)
+    );
+  }
+
   observeTodayWorkout() {
-    return this.workouts
-      .query(
-        Q.where('status', 'planned'),
-        Q.where('archived_at', null),
-        Q.sortBy('scheduled_date', Q.desc),
-        Q.take(1)
-      )
-      .observe();
+    return this.buildPlannedWorkoutQueryForDate(Date.now()).observe();
   }
 
   observeRecentSessions(limit = 3, options?: { includeArchived?: boolean }) {
@@ -100,6 +113,26 @@ export class WorkoutRepository {
       limit,
       Boolean(options?.includeArchived)
     ).observe();
+  }
+
+  observeCompletedSessionsByDateRange(
+    start: number,
+    end: number,
+    options?: { includeArchived?: boolean }
+  ) {
+    const conditions: Array<
+      ReturnType<typeof Q.where> | ReturnType<typeof Q.sortBy>
+    > = [
+      Q.where('status', 'completed'),
+      Q.where('completed_at', Q.between(start, end)),
+      Q.sortBy('completed_at', Q.desc),
+    ];
+
+    if (!options?.includeArchived) {
+      conditions.unshift(Q.where('archived_at', null));
+    }
+
+    return this.workouts.query(...conditions).observe();
   }
 
   async listRecentSessions(limit = 5, options?: { includeArchived?: boolean }) {
@@ -110,24 +143,57 @@ export class WorkoutRepository {
     return query.fetch();
   }
 
+  async listCompletedSessionsByDateRange(
+    start: number,
+    end: number,
+    options?: { includeArchived?: boolean }
+  ) {
+    const conditions: Array<
+      ReturnType<typeof Q.where> | ReturnType<typeof Q.sortBy>
+    > = [
+      Q.where('status', 'completed'),
+      Q.where('completed_at', Q.between(start, end)),
+      Q.sortBy('completed_at', Q.desc),
+    ];
+
+    if (!options?.includeArchived) {
+      conditions.unshift(Q.where('archived_at', null));
+    }
+
+    return this.workouts.query(...conditions).fetch();
+  }
+
   async getTodayWorkout(): Promise<Workout | null> {
-    const workouts = await this.workouts
-      .query(
-        Q.where('status', 'planned'),
-        Q.where('archived_at', null),
-        Q.sortBy('scheduled_date', Q.desc),
-        Q.take(1)
-      )
-      .fetch();
+    const workouts = await this.buildPlannedWorkoutQueryForDate(
+      Date.now()
+    ).fetch();
     return workouts.length > 0 ? workouts[0] : null;
   }
 
-  async saveGeneratedPlan(plan: TodayPlan) {
-    const payload = planToPersistence(plan);
+  async getPlannedWorkoutForDate(timestamp: number): Promise<Workout | null> {
+    const workouts = await this.buildPlannedWorkoutQueryForDate(
+      timestamp
+    ).fetch();
+    return workouts.length > 0 ? workouts[0] : null;
+  }
+
+  async saveGeneratedPlan(
+    plan: TodayPlan,
+    options?: { scheduledDate?: number }
+  ) {
+    const now = Date.now();
+    const payload = planToPersistence(plan, now);
+    const scheduledDate = options?.scheduledDate ?? now;
+    payload.workout.scheduledDate = scheduledDate;
 
     await database.write(async () => {
+      const { start, end } = getDayBounds(scheduledDate);
       const existing = await this.workouts
-        .query(Q.where('status', 'planned'))
+        .query(
+          Q.where('status', 'planned'),
+          Q.where('archived_at', null),
+          Q.where('scheduled_date', Q.between(start, end))
+        )
         .fetch();
       await Promise.all(
         existing.map((workout) => workout.destroyPermanently())
@@ -145,7 +211,7 @@ export class WorkoutRepository {
         w.source = payload.workout.source ?? undefined;
         w.equipmentJson = payload.workout.equipmentJson ?? undefined;
         w.planJson = payload.workout.planJson ?? undefined;
-        w.scheduledDate = payload.workout.scheduledDate ?? Date.now();
+        w.scheduledDate = scheduledDate;
         w.completedAt = payload.workout.completedAt ?? undefined;
         w.durationSeconds = payload.workout.durationSeconds ?? undefined;
         w.archivedAt = undefined;

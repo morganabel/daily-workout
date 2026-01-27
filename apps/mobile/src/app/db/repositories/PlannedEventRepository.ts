@@ -1,0 +1,257 @@
+import { Q } from '@nozbe/watermelondb';
+import type {
+  PlannedEvent,
+  PlannedEventInput,
+  PlannedEventPatch,
+  UpcomingEventContext,
+} from '@workout-agent/shared';
+import { MAX_UPCOMING_EVENTS } from '@workout-agent/shared';
+import { database } from '../index';
+import PlannedEventModel from '../models/PlannedEvent';
+import { formatLocalDate, getLocalDateFromTimestamp } from '../../utils/date';
+
+const parseJson = <T>(value?: string | null): T | undefined => {
+  if (!value) return undefined;
+  try {
+    return JSON.parse(value) as T;
+  } catch {
+    return undefined;
+  }
+};
+
+const serializeJson = (value?: unknown): string | undefined => {
+  if (value === undefined) return undefined;
+  return JSON.stringify(value);
+};
+
+const serializeTags = (tags?: string[]): string | undefined => {
+  if (!tags || tags.length === 0) return undefined;
+  return JSON.stringify(tags);
+};
+
+const intensityOptions = new Set(['low', 'moderate', 'high']);
+const statusOptions = new Set(['planned', 'canceled']);
+
+const coerceIntensity = (
+  value?: string | null
+): PlannedEvent['intensity'] | undefined =>
+  value && intensityOptions.has(value)
+    ? (value as PlannedEvent['intensity'])
+    : undefined;
+
+const coerceStatus = (
+  value?: string | null
+): PlannedEvent['status'] | undefined =>
+  value && statusOptions.has(value)
+    ? (value as PlannedEvent['status'])
+    : undefined;
+
+const buildPlannedEvent = (event: PlannedEventModel): PlannedEvent => ({
+  id: event.id,
+  kind: event.kind,
+  title: event.title,
+  localDate: event.localDate,
+  createdAtTimezone: event.createdAtTimezone,
+  startsAt: event.startsAt ?? undefined,
+  endsAt: event.endsAt ?? undefined,
+  allDay: event.allDay ?? undefined,
+  durationMinutes: event.durationMinutes ?? undefined,
+  intensity: coerceIntensity(event.intensity),
+  tags: parseJson<string[]>(event.tagsJson),
+  notes: event.notes ?? undefined,
+  status: coerceStatus(event.status),
+  linkedWorkoutId: event.linkedWorkoutId ?? undefined,
+  details: parseJson<Record<string, unknown>>(event.detailsJson),
+  metadata: parseJson<Record<string, unknown>>(event.metadataJson),
+  createdAt: event.createdAt,
+  updatedAt: event.updatedAt,
+  archivedAt: event.archivedAt ?? undefined,
+});
+
+const buildUpcomingContext = (
+  event: PlannedEventModel
+): UpcomingEventContext => ({
+  kind: event.kind,
+  title: event.title,
+  localDate: event.localDate,
+  startsAt: event.startsAt ? new Date(event.startsAt).toISOString() : undefined,
+  durationMinutes: event.durationMinutes ?? undefined,
+  allDay: event.allDay ?? undefined,
+  intensity: event.intensity as UpcomingEventContext['intensity'],
+  tags: parseJson<string[]>(event.tagsJson),
+  notes: event.notes ?? undefined,
+  metadata: parseJson<Record<string, unknown>>(event.metadataJson),
+});
+
+export class PlannedEventRepository {
+  private plannedEvents =
+    database.collections.get<PlannedEventModel>('planned_events');
+
+  toPlannedEvent(record: PlannedEventModel): PlannedEvent {
+    return buildPlannedEvent(record);
+  }
+
+  observeEvents(options?: { includeArchived?: boolean }) {
+    const conditions: Array<
+      ReturnType<typeof Q.where> | ReturnType<typeof Q.sortBy>
+    > = [Q.sortBy('local_date', Q.asc), Q.sortBy('starts_at', Q.asc)];
+
+    if (!options?.includeArchived) {
+      conditions.unshift(Q.where('archived_at', null));
+    }
+
+    return this.plannedEvents.query(...conditions).observe();
+  }
+
+  async listEventsByLocalDate(
+    localDate: string,
+    options?: { includeArchived?: boolean }
+  ): Promise<PlannedEvent[]> {
+    const conditions = [Q.where('local_date', localDate)];
+    if (!options?.includeArchived) {
+      conditions.push(Q.where('archived_at', null));
+    }
+    const events = await this.plannedEvents.query(...conditions).fetch();
+    return events.map(buildPlannedEvent);
+  }
+
+  async listUpcomingEventContext(
+    daysAhead = 7,
+    limit = MAX_UPCOMING_EVENTS
+  ): Promise<UpcomingEventContext[]> {
+    const today = new Date();
+    const end = new Date(today);
+    end.setDate(end.getDate() + daysAhead);
+
+    const startLocalDate = formatLocalDate(today);
+    const endLocalDate = formatLocalDate(end);
+
+    const events = await this.plannedEvents
+      .query(
+        Q.where('archived_at', null),
+        Q.sortBy('local_date', Q.asc),
+        Q.sortBy('starts_at', Q.asc)
+      )
+      .fetch();
+
+    return events
+      .filter(
+        (event) =>
+          event.status !== 'canceled' &&
+          event.localDate >= startLocalDate &&
+          event.localDate <= endLocalDate
+      )
+      .map(buildUpcomingContext)
+      .slice(0, limit);
+  }
+
+  async createPlannedEvent(input: PlannedEventInput): Promise<PlannedEvent> {
+    const event = await database.write(async () =>
+      this.plannedEvents.create((record) => {
+        record.kind = input.kind;
+        record.title = input.title;
+        record.localDate = input.localDate;
+        record.createdAtTimezone = input.createdAtTimezone;
+        record.startsAt = input.startsAt ?? undefined;
+        record.endsAt = input.endsAt ?? undefined;
+        record.allDay = input.allDay ?? undefined;
+        record.durationMinutes = input.durationMinutes ?? undefined;
+        record.intensity = input.intensity ?? undefined;
+        record.tagsJson = serializeTags(input.tags);
+        record.notes = input.notes ?? undefined;
+        record.status = input.status ?? 'planned';
+        record.linkedWorkoutId = input.linkedWorkoutId ?? undefined;
+        record.detailsJson = serializeJson(input.details);
+        record.metadataJson = serializeJson(input.metadata);
+        record.archivedAt = undefined;
+      })
+    );
+
+    return buildPlannedEvent(event);
+  }
+
+  async updatePlannedEvent(patch: PlannedEventPatch): Promise<PlannedEvent> {
+    const event = await this.plannedEvents.find(patch.id);
+
+    const updated = await database.write(async () =>
+      event.update((record) => {
+        if (patch.kind !== undefined) record.kind = patch.kind;
+        if (patch.title !== undefined) record.title = patch.title;
+        if (patch.localDate !== undefined) record.localDate = patch.localDate;
+        if (patch.createdAtTimezone !== undefined) {
+          record.createdAtTimezone = patch.createdAtTimezone;
+        }
+        if (patch.startsAt !== undefined)
+          record.startsAt = patch.startsAt ?? undefined;
+        if (patch.endsAt !== undefined)
+          record.endsAt = patch.endsAt ?? undefined;
+        if (patch.allDay !== undefined)
+          record.allDay = patch.allDay ?? undefined;
+        if (patch.durationMinutes !== undefined) {
+          record.durationMinutes = patch.durationMinutes ?? undefined;
+        }
+        if (patch.intensity !== undefined)
+          record.intensity = patch.intensity ?? undefined;
+        if (patch.tags !== undefined)
+          record.tagsJson = serializeTags(patch.tags);
+        if (patch.notes !== undefined) record.notes = patch.notes ?? undefined;
+        if (patch.status !== undefined)
+          record.status = patch.status ?? undefined;
+        if (patch.linkedWorkoutId !== undefined) {
+          record.linkedWorkoutId = patch.linkedWorkoutId ?? undefined;
+        }
+        if (patch.details !== undefined)
+          record.detailsJson = serializeJson(patch.details);
+        if (patch.metadata !== undefined)
+          record.metadataJson = serializeJson(patch.metadata);
+      })
+    );
+
+    return buildPlannedEvent(updated);
+  }
+
+  async archivePlannedEvent(eventId: string): Promise<void> {
+    const event = await this.plannedEvents.find(eventId);
+    await database.write(async () => {
+      await event.update((record) => {
+        record.archivedAt = Date.now();
+      });
+    });
+  }
+
+  async getPlannedEventById(eventId: string): Promise<PlannedEvent | null> {
+    try {
+      const event = await this.plannedEvents.find(eventId);
+      return buildPlannedEvent(event);
+    } catch {
+      return null;
+    }
+  }
+
+  async listEventsForLocalDate(localDate: string): Promise<PlannedEvent[]> {
+    const events = await this.plannedEvents
+      .query(Q.where('local_date', localDate), Q.where('archived_at', null))
+      .fetch();
+    return events.map(buildPlannedEvent);
+  }
+
+  async listEventsByDateRange(
+    start: number,
+    end: number
+  ): Promise<PlannedEvent[]> {
+    const startLocalDate = getLocalDateFromTimestamp(start);
+    const endLocalDate = getLocalDateFromTimestamp(end);
+    const events = await this.plannedEvents
+      .query(Q.where('archived_at', null), Q.sortBy('local_date', Q.asc))
+      .fetch();
+
+    return events
+      .filter(
+        (event) =>
+          event.localDate >= startLocalDate && event.localDate <= endLocalDate
+      )
+      .map(buildPlannedEvent);
+  }
+}
+
+export const plannedEventRepository = new PlannedEventRepository();

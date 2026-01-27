@@ -7,6 +7,7 @@ import LokiJSAdapter from '@nozbe/watermelondb/adapters/lokijs';
 import { schema } from './schema';
 import User from './models/User';
 import Workout from './models/Workout';
+import PlannedEvent from './models/PlannedEvent';
 import Exercise from './models/Exercise';
 import Set from './models/Set';
 
@@ -22,7 +23,7 @@ export function createTestDatabase(): Database {
 
   return new Database({
     adapter,
-    modelClasses: [User, Workout, Exercise, Set],
+    modelClasses: [User, Workout, PlannedEvent, Exercise, Set],
   });
 }
 
@@ -39,4 +40,3 @@ export function getTestDatabase(): Database {
 export function resetTestDatabase(): void {
   testDatabase = null;
 }
-
