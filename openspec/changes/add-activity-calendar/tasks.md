@@ -11,4 +11,4 @@
 
 ## 2. Validation
 
-- [ ] 2.1 Run `openspec validate add-activity-calendar --strict`
+- [x] 2.1 Run `openspec validate add-activity-calendar --strict`
