@@ -48,6 +48,8 @@ type HistoryNav = NativeStackNavigationProp<RootStackParamList, 'History'>;
 
 type ViewMode = 'calendar' | 'list';
 
+type CalendarView = 'month' | 'week';
+
 type CalendarCell = {
   date: Date;
   localDate: string;
@@ -157,6 +159,27 @@ const buildCalendarCells = (currentMonth: Date): CalendarCell[] => {
   });
 };
 
+const getWeekStart = (date: Date) => {
+  const start = new Date(date);
+  start.setDate(start.getDate() - start.getDay());
+  return start;
+};
+
+const buildWeekCells = (anchorDate: Date): CalendarCell[] => {
+  const start = getWeekStart(anchorDate);
+  return Array.from({ length: 7 }, (_, index) => {
+    const cellDate = new Date(start);
+    cellDate.setDate(start.getDate() + index);
+    return {
+      date: cellDate,
+      localDate: formatLocalDate(cellDate),
+      isCurrentMonth:
+        cellDate.getMonth() === anchorDate.getMonth() &&
+        cellDate.getFullYear() === anchorDate.getFullYear(),
+    };
+  });
+};
+
 const sortAgendaItems = (items: CalendarItem[]) => {
   const getSortMeta = (item: CalendarItem) => {
     if (item.type === 'planned-event') {
@@ -186,8 +209,11 @@ const sortAgendaItems = (items: CalendarItem[]) => {
 export const HistoryScreen = () => {
   const navigation = useNavigation<HistoryNav>();
   const [viewMode, setViewMode] = useState<ViewMode>('calendar');
+  const [calendarView, setCalendarView] = useState<CalendarView>('week');
   const [currentMonth, setCurrentMonth] = useState(getMonthStart(new Date()));
-  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [selectedDate, setSelectedDate] = useState<string | null>(
+    formatLocalDate(new Date())
+  );
   const [monthSessions, setMonthSessions] = useState<WorkoutSessionSummary[]>(
     []
   );
@@ -273,6 +299,12 @@ export const HistoryScreen = () => {
     }
   }, [currentMonth, selectedDate]);
 
+  useEffect(() => {
+    if (!selectedDate && calendarView !== 'month') {
+      setCalendarView('month');
+    }
+  }, [calendarView, selectedDate]);
+
   const plannedEventsForMonth = useMemo(
     () =>
       plannedEvents.filter(
@@ -330,10 +362,26 @@ export const HistoryScreen = () => {
     return sortAgendaItems(items);
   }, [itemsByDate, selectedDate]);
 
+  const selectedDay = useMemo(
+    () => (selectedDate ? parseLocalDate(selectedDate) : null),
+    [selectedDate]
+  );
+
   const calendarCells = useMemo(
     () => buildCalendarCells(currentMonth),
     [currentMonth]
   );
+
+  const weekCells = useMemo(
+    () => buildWeekCells(selectedDay ?? new Date()),
+    [selectedDay]
+  );
+
+  const visibleCalendarCells =
+    calendarView === 'week' ? weekCells : calendarCells;
+
+  const calendarHeaderDate =
+    calendarView === 'week' && selectedDay ? selectedDay : currentMonth;
 
   const handleArchiveToggle = async (session: WorkoutSessionSummary) => {
     try {
@@ -401,13 +449,56 @@ export const HistoryScreen = () => {
     navigation.navigate('WorkoutSessionDetail', { workoutId: session.id });
   };
 
+  const shiftWeek = useCallback(
+    (direction: number) => {
+      if (!selectedDay) return;
+      const next = new Date(selectedDay);
+      next.setDate(next.getDate() + direction * 7);
+      setSelectedDate(formatLocalDate(next));
+      setCurrentMonth(getMonthStart(next));
+    },
+    [selectedDay]
+  );
+
+  const handlePrevRange = () => {
+    if (calendarView === 'week') {
+      shiftWeek(-1);
+      return;
+    }
+    setCurrentMonth(
+      getMonthStart(
+        new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1)
+      )
+    );
+  };
+
+  const handleNextRange = () => {
+    if (calendarView === 'week') {
+      shiftWeek(1);
+      return;
+    }
+    setCurrentMonth(
+      getMonthStart(
+        new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1)
+      )
+    );
+  };
+
+  const handleToggleCalendarView = () => {
+    if (!selectedDate) return;
+    setCalendarView((prev) => (prev === 'week' ? 'month' : 'week'));
+  };
+
   const handleSelectDate = (cell: CalendarCell) => {
     if (!cell.isCurrentMonth) {
       setCurrentMonth(getMonthStart(cell.date));
     }
-    setSelectedDate((prev) =>
-      prev === cell.localDate ? null : cell.localDate
-    );
+    const nextSelectedDate =
+      selectedDate === cell.localDate ? null : cell.localDate;
+    setSelectedDate(nextSelectedDate);
+    if (nextSelectedDate) {
+      setCalendarView('week');
+    }
   };
 
   const handleQuickLogSubmit = async (payload: {
@@ -736,17 +827,7 @@ export const HistoryScreen = () => {
               <View style={styles.calendarHeader}>
                 <Pressable
                   style={styles.calendarNavButton}
-                  onPress={() =>
-                    setCurrentMonth(
-                      getMonthStart(
-                        new Date(
-                          currentMonth.getFullYear(),
-                          currentMonth.getMonth() - 1,
-                          1
-                        )
-                      )
-                    )
-                  }
+                  onPress={handlePrevRange}
                 >
                   <Ionicons
                     name="chevron-back"
@@ -754,22 +835,27 @@ export const HistoryScreen = () => {
                     color={palette.textSecondary}
                   />
                 </Pressable>
-                <Text style={styles.calendarTitle}>
-                  {formatMonthLabel(currentMonth)}
-                </Text>
+                <Pressable
+                  style={styles.calendarTitleButton}
+                  onPress={handleToggleCalendarView}
+                  disabled={!selectedDate}
+                >
+                  <Text style={styles.calendarTitle}>
+                    {formatMonthLabel(calendarHeaderDate)}
+                  </Text>
+                  {selectedDate && (
+                    <Ionicons
+                      name={
+                        calendarView === 'week' ? 'chevron-down' : 'chevron-up'
+                      }
+                      size={16}
+                      color={palette.textMuted}
+                    />
+                  )}
+                </Pressable>
                 <Pressable
                   style={styles.calendarNavButton}
-                  onPress={() =>
-                    setCurrentMonth(
-                      getMonthStart(
-                        new Date(
-                          currentMonth.getFullYear(),
-                          currentMonth.getMonth() + 1,
-                          1
-                        )
-                      )
-                    )
-                  }
+                  onPress={handleNextRange}
                 >
                   <Ionicons
                     name="chevron-forward"
@@ -788,7 +874,7 @@ export const HistoryScreen = () => {
               </View>
 
               <View style={styles.calendarGrid}>
-                {calendarCells.map((cell) => {
+                {visibleCalendarCells.map((cell) => {
                   const isToday = isSameDay(cell.date, new Date());
                   const isSelected = selectedDate === cell.localDate;
                   const markerCount = Math.min(
@@ -997,6 +1083,13 @@ const styles = StyleSheet.create({
   },
   calendarNavButton: {
     padding: 6,
+  },
+  calendarTitleButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 4,
+    paddingHorizontal: 6,
   },
   calendarTitle: {
     fontSize: 18,
