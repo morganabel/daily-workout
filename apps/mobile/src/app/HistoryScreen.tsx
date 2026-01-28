@@ -8,6 +8,7 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-root-toast';
 import type {
   CalendarItem,
@@ -533,13 +534,27 @@ export const HistoryScreen = () => {
                 <View style={styles.dayActions}>
                   <Button
                     label="Quick log"
-                    variant="secondary"
+                    variant="primary"
+                    icon={
+                      <Ionicons
+                        name="add"
+                        size={18}
+                        color={palette.textInverse}
+                      />
+                    }
                     onPress={() => setShowQuickLog(true)}
                     style={{ flex: 1 }}
                   />
                   <Button
                     label="Plan event"
-                    variant="outline"
+                    variant="secondary"
+                    icon={
+                      <Ionicons
+                        name="calendar-outline"
+                        size={18}
+                        color={palette.textPrimary}
+                      />
+                    }
                     onPress={() => {
                       setEditingEvent(null);
                       setShowPlanSheet(true);
