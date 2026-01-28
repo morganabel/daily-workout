@@ -9,7 +9,6 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import Toast from 'react-native-root-toast';
-import { Ionicons } from '@expo/vector-icons';
 import type {
   CalendarItem,
   GenerationRequest,
@@ -33,178 +32,27 @@ import {
 } from './services/api';
 import { palette, typography, layout } from './theme';
 import { BottomNavigation } from './components/BottomNavigation';
-import { Button, Card, Chip } from './components/DesignSystem';
+import { Button, Chip } from './components/DesignSystem';
+import { HistoryAgendaItem } from './components/HistoryAgendaItem';
+import { HistoryCalendar } from './components/HistoryCalendar';
+import { HistorySessionCard } from './components/HistorySessionCard';
 import { QuickLogSheet } from './components/QuickLogSheet';
 import { PlannedEventSheet } from './components/PlannedEventSheet';
+import { formatLocalDate, parseLocalDate } from './utils/date';
 import {
-  endOfDay,
-  formatLocalDate,
-  isSameDay,
-  parseLocalDate,
-  startOfDay,
-} from './utils/date';
+  type CalendarCell,
+  type CalendarView,
+  buildCalendarCells,
+  buildWeekCells,
+  formatDayHeader,
+  getMonthRange,
+  getMonthStart,
+  sortAgendaItems,
+} from './utils/historyCalendar';
 
 type HistoryNav = NativeStackNavigationProp<RootStackParamList, 'History'>;
 
 type ViewMode = 'calendar' | 'list';
-
-type CalendarView = 'month' | 'week';
-
-type CalendarCell = {
-  date: Date;
-  localDate: string;
-  isCurrentMonth: boolean;
-};
-
-const WEEKDAY_LABELS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
-
-const EVENT_KIND_META: Record<
-  string,
-  { icon: keyof typeof Ionicons.glyphMap; color: string; background: string }
-> = {
-  workout: {
-    icon: 'barbell',
-    color: palette.primary,
-    background: '#E0F2FE',
-  },
-  hike: {
-    icon: 'walk',
-    color: palette.success,
-    background: palette.successBg,
-  },
-  run: {
-    icon: 'speedometer',
-    color: palette.accentIndigo,
-    background: '#E0E7FF',
-  },
-  sport: {
-    icon: 'football',
-    color: palette.accentPurple,
-    background: '#F3E8FF',
-  },
-  rest: {
-    icon: 'moon',
-    color: palette.textSecondary,
-    background: palette.cardSecondary,
-  },
-  travel: {
-    icon: 'airplane',
-    color: palette.warning,
-    background: palette.warningBg,
-  },
-  other: {
-    icon: 'ellipsis-horizontal',
-    color: palette.textSecondary,
-    background: palette.cardSecondary,
-  },
-};
-
-const getKindMeta = (kind: string) =>
-  EVENT_KIND_META[kind] ?? {
-    ...EVENT_KIND_META.other,
-    icon: 'calendar',
-  };
-
-const formatMonthLabel = (date: Date) =>
-  date.toLocaleDateString([], { month: 'long', year: 'numeric' });
-
-const formatDayHeader = (localDate: string) => {
-  const date = parseLocalDate(localDate);
-  return date
-    .toLocaleDateString([], { weekday: 'long', month: 'short', day: 'numeric' })
-    .toUpperCase();
-};
-
-const formatTime = (date: Date) =>
-  date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-
-const getMonthStart = (date: Date) =>
-  new Date(date.getFullYear(), date.getMonth(), 1);
-const getMonthEnd = (date: Date) =>
-  new Date(date.getFullYear(), date.getMonth() + 1, 0);
-
-const getMonthRange = (date: Date) => {
-  const start = getMonthStart(date);
-  const end = getMonthEnd(date);
-  return {
-    start,
-    end,
-    startTimestamp: startOfDay(start).getTime(),
-    endTimestamp: endOfDay(end).getTime(),
-    startLocalDate: formatLocalDate(start),
-    endLocalDate: formatLocalDate(end),
-  };
-};
-
-const getCalendarGridStart = (date: Date) => {
-  const start = getMonthStart(date);
-  const offset = start.getDay();
-  const gridStart = new Date(start);
-  gridStart.setDate(start.getDate() - offset);
-  return gridStart;
-};
-
-const buildCalendarCells = (currentMonth: Date): CalendarCell[] => {
-  const start = getCalendarGridStart(currentMonth);
-  return Array.from({ length: 42 }, (_, index) => {
-    const cellDate = new Date(start);
-    cellDate.setDate(start.getDate() + index);
-    return {
-      date: cellDate,
-      localDate: formatLocalDate(cellDate),
-      isCurrentMonth:
-        cellDate.getMonth() === currentMonth.getMonth() &&
-        cellDate.getFullYear() === currentMonth.getFullYear(),
-    };
-  });
-};
-
-const getWeekStart = (date: Date) => {
-  const start = new Date(date);
-  start.setDate(start.getDate() - start.getDay());
-  return start;
-};
-
-const buildWeekCells = (anchorDate: Date): CalendarCell[] => {
-  const start = getWeekStart(anchorDate);
-  return Array.from({ length: 7 }, (_, index) => {
-    const cellDate = new Date(start);
-    cellDate.setDate(start.getDate() + index);
-    return {
-      date: cellDate,
-      localDate: formatLocalDate(cellDate),
-      isCurrentMonth:
-        cellDate.getMonth() === anchorDate.getMonth() &&
-        cellDate.getFullYear() === anchorDate.getFullYear(),
-    };
-  });
-};
-
-const sortAgendaItems = (items: CalendarItem[]) => {
-  const getSortMeta = (item: CalendarItem) => {
-    if (item.type === 'planned-event') {
-      const hasTime = Boolean(item.startsAt) && !item.allDay;
-      return {
-        allDay: !hasTime,
-        timestamp:
-          hasTime && item.startsAt ? new Date(item.startsAt).getTime() : 0,
-      };
-    }
-    return {
-      allDay: false,
-      timestamp: item.completedAt ? new Date(item.completedAt).getTime() : 0,
-    };
-  };
-
-  return items.slice().sort((a, b) => {
-    const metaA = getSortMeta(a);
-    const metaB = getSortMeta(b);
-    if (metaA.allDay !== metaB.allDay) {
-      return metaA.allDay ? 1 : -1;
-    }
-    return metaA.timestamp - metaB.timestamp;
-  });
-};
 
 export const HistoryScreen = () => {
   const navigation = useNavigation<HistoryNav>();
@@ -320,6 +168,12 @@ export const HistoryScreen = () => {
     plannedEvents.forEach((event) => map.set(event.id, event));
     return map;
   }, [plannedEvents]);
+
+  const sessionById = useMemo(() => {
+    const map = new Map<string, WorkoutSessionSummary>();
+    monthSessions.forEach((session) => map.set(session.id, session));
+    return map;
+  }, [monthSessions]);
 
   const calendarItems = useMemo<CalendarItem[]>(() => {
     const sessionItems = monthSessions.map((session) => ({
@@ -501,6 +355,11 @@ export const HistoryScreen = () => {
     }
   };
 
+  const handleEditEvent = (event: PlannedEvent) => {
+    setEditingEvent(event);
+    setShowPlanSheet(true);
+  };
+
   const handleQuickLogSubmit = async (payload: {
     name: string;
     focus: string;
@@ -604,175 +463,6 @@ export const HistoryScreen = () => {
     );
   };
 
-  const renderSessionCard = (
-    session: WorkoutSessionSummary,
-    options?: { showActions?: boolean }
-  ) => {
-    const showActions = options?.showActions ?? false;
-    return (
-      <Card key={session.id} style={styles.card}>
-        <Pressable onPress={() => handleOpenSession(session)}>
-          <View style={styles.cardHeader}>
-            <View style={styles.cardInfo}>
-              <Text style={styles.workoutName}>{session.name}</Text>
-              <Text style={styles.workoutFocus}>{session.focus}</Text>
-            </View>
-            {showActions && (
-              <Pressable
-                onPress={() => handleFavoriteToggle(session)}
-                hitSlop={10}
-              >
-                <Ionicons
-                  name={session.isFavorite ? 'heart' : 'heart-outline'}
-                  size={24}
-                  color={
-                    session.isFavorite ? palette.destructive : palette.textMuted
-                  }
-                />
-              </Pressable>
-            )}
-          </View>
-
-          <Text style={styles.workoutMeta}>
-            {new Date(session.completedAt).toLocaleDateString()} •{' '}
-            {session.durationMinutes} min
-          </Text>
-
-          {showActions && (
-            <View style={styles.badges}>
-              {session.archivedAt && (
-                <View style={[styles.badge, styles.archivedBadge]}>
-                  <Text style={styles.archivedBadgeText}>Archived</Text>
-                </View>
-              )}
-            </View>
-          )}
-
-          {showActions && (
-            <View style={styles.historyActions}>
-              <Pressable
-                style={({ pressed }) => [
-                  styles.historyActionButton,
-                  pressed && { opacity: 0.7 },
-                ]}
-                onPress={() => handleArchiveToggle(session)}
-              >
-                <Text style={styles.historyActionText}>
-                  {session.archivedAt ? 'Unarchive' : 'Archive'}
-                </Text>
-              </Pressable>
-              <Pressable
-                style={({ pressed }) => [
-                  styles.historyActionButton,
-                  pressed && { opacity: 0.7 },
-                ]}
-                onPress={() => handleDelete(session)}
-              >
-                <Text
-                  style={[
-                    styles.historyActionText,
-                    styles.historyActionDestructive,
-                  ]}
-                >
-                  Delete
-                </Text>
-              </Pressable>
-            </View>
-          )}
-        </Pressable>
-      </Card>
-    );
-  };
-
-  const renderAgendaItem = (item: CalendarItem) => {
-    if (item.type === 'planned-event') {
-      const event = plannedEventById.get(item.eventId);
-      const meta = getKindMeta(item.kind);
-      const timeLabel = item.allDay
-        ? 'All day'
-        : item.startsAt
-        ? formatTime(new Date(item.startsAt))
-        : 'Any time';
-      const showGenerate =
-        item.kind === 'workout' && item.localDate > formatLocalDate(new Date());
-
-      return (
-        <Pressable
-          key={item.eventId}
-          onPress={() => {
-            if (event) {
-              setEditingEvent(event);
-              setShowPlanSheet(true);
-            }
-          }}
-        >
-          <View style={styles.agendaCard}>
-            <View
-              style={[styles.agendaIcon, { backgroundColor: meta.background }]}
-            >
-              <Ionicons name={meta.icon} size={20} color={meta.color} />
-            </View>
-            <View style={styles.agendaInfo}>
-              <Text style={styles.agendaTitle}>{item.title}</Text>
-              <Text style={styles.agendaMeta}>
-                {timeLabel}
-                {event?.durationMinutes
-                  ? ` • ${event.durationMinutes} min`
-                  : ''}
-              </Text>
-            </View>
-            {showGenerate && event && (
-              <Pressable
-                style={styles.agendaAction}
-                onPress={() => handleGenerateForEvent(event)}
-                disabled={generatingEventId === event.id}
-              >
-                <Text style={styles.agendaActionText}>
-                  {generatingEventId === event.id ? 'Generating…' : 'Generate'}
-                </Text>
-              </Pressable>
-            )}
-          </View>
-        </Pressable>
-      );
-    }
-
-    const meta = getKindMeta('workout');
-    const completedAt = item.completedAt
-      ? formatTime(new Date(item.completedAt))
-      : 'Completed';
-
-    return (
-      <Pressable
-        key={item.sessionId}
-        onPress={() => {
-          const session = monthSessions.find((s) => s.id === item.sessionId);
-          if (session) handleOpenSession(session);
-        }}
-      >
-        <View style={styles.agendaCard}>
-          <View
-            style={[styles.agendaIcon, { backgroundColor: meta.background }]}
-          >
-            <Ionicons name={meta.icon} size={20} color={meta.color} />
-          </View>
-          <View style={styles.agendaInfo}>
-            <Text style={styles.agendaTitle}>{item.title}</Text>
-            <Text style={styles.agendaMeta}>
-              {completedAt}
-              {item.durationMinutes ? ` • ${item.durationMinutes} min` : ''}
-            </Text>
-          </View>
-          <Ionicons
-            name="chevron-forward"
-            size={20}
-            color={palette.textMuted}
-          />
-        </View>
-      </Pressable>
-    );
-  };
-
   return (
     <View style={styles.screen}>
       <View style={styles.header}>
@@ -823,104 +513,17 @@ export const HistoryScreen = () => {
       >
         {viewMode === 'calendar' ? (
           <>
-            <Card style={styles.calendarCard}>
-              <View style={styles.calendarHeader}>
-                <Pressable
-                  style={styles.calendarNavButton}
-                  onPress={handlePrevRange}
-                >
-                  <Ionicons
-                    name="chevron-back"
-                    size={20}
-                    color={palette.textSecondary}
-                  />
-                </Pressable>
-                <Pressable
-                  style={styles.calendarTitleButton}
-                  onPress={handleToggleCalendarView}
-                  disabled={!selectedDate}
-                >
-                  <Text style={styles.calendarTitle}>
-                    {formatMonthLabel(calendarHeaderDate)}
-                  </Text>
-                  {selectedDate && (
-                    <Ionicons
-                      name={
-                        calendarView === 'week' ? 'chevron-down' : 'chevron-up'
-                      }
-                      size={16}
-                      color={palette.textMuted}
-                    />
-                  )}
-                </Pressable>
-                <Pressable
-                  style={styles.calendarNavButton}
-                  onPress={handleNextRange}
-                >
-                  <Ionicons
-                    name="chevron-forward"
-                    size={20}
-                    color={palette.textSecondary}
-                  />
-                </Pressable>
-              </View>
-
-              <View style={styles.weekRow}>
-                {WEEKDAY_LABELS.map((label) => (
-                  <Text key={label} style={styles.weekLabel}>
-                    {label}
-                  </Text>
-                ))}
-              </View>
-
-              <View style={styles.calendarGrid}>
-                {visibleCalendarCells.map((cell) => {
-                  const isToday = isSameDay(cell.date, new Date());
-                  const isSelected = selectedDate === cell.localDate;
-                  const markerCount = Math.min(
-                    itemsByDate.get(cell.localDate)?.length ?? 0,
-                    3
-                  );
-                  return (
-                    <Pressable
-                      key={cell.localDate}
-                      style={styles.calendarCell}
-                      onPress={() => handleSelectDate(cell)}
-                    >
-                      <View
-                        style={[
-                          styles.calendarCellInner,
-                          isSelected && styles.calendarCellSelected,
-                          isToday && styles.calendarCellToday,
-                        ]}
-                      >
-                        <Text
-                          style={[
-                            styles.calendarCellText,
-                            !cell.isCurrentMonth && styles.calendarCellMuted,
-                            isSelected && styles.calendarCellTextSelected,
-                          ]}
-                        >
-                          {cell.date.getDate()}
-                        </Text>
-                        {markerCount > 0 && (
-                          <View style={styles.markerRow}>
-                            {Array.from({ length: markerCount }).map(
-                              (_, index) => (
-                                <View
-                                  key={`${cell.localDate}-marker-${index}`}
-                                  style={styles.markerDot}
-                                />
-                              )
-                            )}
-                          </View>
-                        )}
-                      </View>
-                    </Pressable>
-                  );
-                })}
-              </View>
-            </Card>
+            <HistoryCalendar
+              calendarView={calendarView}
+              calendarHeaderDate={calendarHeaderDate}
+              selectedDate={selectedDate}
+              visibleCalendarCells={visibleCalendarCells}
+              itemsByDate={itemsByDate}
+              onPrevRange={handlePrevRange}
+              onNextRange={handleNextRange}
+              onToggleView={handleToggleCalendarView}
+              onSelectDate={handleSelectDate}
+            />
 
             {selectedDate ? (
               <>
@@ -950,7 +553,33 @@ export const HistoryScreen = () => {
                     No activity planned or completed yet.
                   </Text>
                 ) : (
-                  agendaItems.map(renderAgendaItem)
+                  agendaItems.map((item) => (
+                    <HistoryAgendaItem
+                      key={
+                        item.type === 'planned-event'
+                          ? item.eventId
+                          : item.sessionId
+                      }
+                      item={item}
+                      plannedEvent={
+                        item.type === 'planned-event'
+                          ? plannedEventById.get(item.eventId)
+                          : undefined
+                      }
+                      session={
+                        item.type === 'workout-session'
+                          ? sessionById.get(item.sessionId)
+                          : undefined
+                      }
+                      isGenerating={
+                        item.type === 'planned-event' &&
+                        generatingEventId === item.eventId
+                      }
+                      onEditEvent={handleEditEvent}
+                      onGenerateWorkout={handleGenerateForEvent}
+                      onOpenSession={handleOpenSession}
+                    />
+                  ))
                 )}
               </>
             ) : (
@@ -961,9 +590,13 @@ export const HistoryScreen = () => {
                     No completed workouts yet.
                   </Text>
                 ) : (
-                  recentSessions.map((session) =>
-                    renderSessionCard(session, { showActions: false })
-                  )
+                  recentSessions.map((session) => (
+                    <HistorySessionCard
+                      key={session.id}
+                      session={session}
+                      onOpen={handleOpenSession}
+                    />
+                  ))
                 )}
               </>
             )}
@@ -989,9 +622,17 @@ export const HistoryScreen = () => {
                 <Text style={styles.emptyText}>No completed workouts yet.</Text>
               )
             ) : (
-              history.map((session) =>
-                renderSessionCard(session, { showActions: true })
-              )
+              history.map((session) => (
+                <HistorySessionCard
+                  key={session.id}
+                  session={session}
+                  showActions
+                  onOpen={handleOpenSession}
+                  onToggleArchive={handleArchiveToggle}
+                  onToggleFavorite={handleFavoriteToggle}
+                  onDelete={handleDelete}
+                />
+              ))
             )}
           </>
         )}
@@ -1072,88 +713,6 @@ const styles = StyleSheet.create({
     paddingTop: 24,
     paddingBottom: layout.bottomNavHeight + 40,
   },
-  calendarCard: {
-    padding: 16,
-  },
-  calendarHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  calendarNavButton: {
-    padding: 6,
-  },
-  calendarTitleButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingVertical: 4,
-    paddingHorizontal: 6,
-  },
-  calendarTitle: {
-    fontSize: 18,
-    fontFamily: typography.fontFamilyBold,
-    color: palette.textPrimary,
-  },
-  weekRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 6,
-    paddingHorizontal: 4,
-  },
-  weekLabel: {
-    width: 32,
-    textAlign: 'center',
-    fontSize: 12,
-    fontFamily: typography.fontFamily,
-    color: palette.textMuted,
-  },
-  calendarGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
-  calendarCell: {
-    width: '14.28%',
-    alignItems: 'center',
-    paddingVertical: 6,
-  },
-  calendarCellInner: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-  },
-  calendarCellToday: {
-    borderWidth: 1,
-    borderColor: palette.borderDark,
-  },
-  calendarCellSelected: {
-    backgroundColor: palette.primary,
-  },
-  calendarCellText: {
-    fontSize: 14,
-    fontFamily: typography.fontFamilyBold,
-    color: palette.textPrimary,
-  },
-  calendarCellTextSelected: {
-    color: palette.textInverse,
-  },
-  calendarCellMuted: {
-    color: palette.textMuted,
-  },
-  markerRow: {
-    flexDirection: 'row',
-    gap: 4,
-    marginTop: 4,
-  },
-  markerDot: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: palette.primary,
-  },
   dayHeader: {
     marginTop: 24,
     marginBottom: 12,
@@ -1173,49 +732,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: typography.fontFamilyBold,
     color: palette.textPrimary,
-  },
-  agendaCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    padding: 14,
-    borderRadius: 16,
-    backgroundColor: palette.card,
-    borderWidth: 1,
-    borderColor: palette.border,
-    marginBottom: 12,
-  },
-  agendaIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  agendaInfo: {
-    flex: 1,
-  },
-  agendaTitle: {
-    fontSize: 16,
-    fontFamily: typography.fontFamilyBold,
-    color: palette.textPrimary,
-  },
-  agendaMeta: {
-    marginTop: 4,
-    fontSize: 13,
-    fontFamily: typography.fontFamily,
-    color: palette.textSecondary,
-  },
-  agendaAction: {
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 12,
-    backgroundColor: palette.cardSecondary,
-  },
-  agendaActionText: {
-    fontSize: 12,
-    fontFamily: typography.fontFamilyBold,
-    color: palette.primary,
   },
   emptyText: {
     textAlign: 'center',
@@ -1237,70 +753,5 @@ const styles = StyleSheet.create({
     marginTop: 12,
     color: palette.textMuted,
     fontSize: 14,
-  },
-  card: {
-    marginBottom: 16,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  cardInfo: {
-    flex: 1,
-  },
-  workoutName: {
-    fontSize: 18,
-    fontFamily: typography.fontFamilyBold,
-    color: palette.textPrimary,
-  },
-  workoutFocus: {
-    fontSize: 14,
-    fontFamily: typography.fontFamily,
-    color: palette.textSecondary,
-    marginTop: 2,
-  },
-  workoutMeta: {
-    fontSize: 13,
-    fontFamily: typography.fontFamily,
-    color: palette.textMuted,
-    marginTop: 8,
-  },
-  badges: {
-    flexDirection: 'row',
-    gap: 8,
-    marginTop: 10,
-  },
-  badge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-    backgroundColor: palette.cardSecondary,
-  },
-  archivedBadge: {
-    backgroundColor: palette.cardSecondary,
-  },
-  archivedBadgeText: {
-    fontSize: 12,
-    fontFamily: typography.fontFamilyBold,
-    color: palette.textMuted,
-  },
-  historyActions: {
-    flexDirection: 'row',
-    gap: 12,
-    marginTop: 16,
-    justifyContent: 'flex-end',
-  },
-  historyActionButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-  },
-  historyActionText: {
-    fontSize: 13,
-    fontFamily: typography.fontFamilyBold,
-    color: palette.textSecondary,
-  },
-  historyActionDestructive: {
-    color: palette.destructive,
   },
 });
