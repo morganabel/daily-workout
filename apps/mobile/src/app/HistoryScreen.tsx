@@ -39,14 +39,13 @@ import { HistoryCalendar } from './components/HistoryCalendar';
 import { HistorySessionCard } from './components/HistorySessionCard';
 import { QuickLogSheet } from './components/QuickLogSheet';
 import { PlannedEventSheet } from './components/PlannedEventSheet';
-import { formatLocalDate, parseLocalDate } from './utils/date';
+import { endOfDay, formatLocalDate, parseLocalDate, startOfDay } from './utils/date';
 import {
   type CalendarCell,
   type CalendarView,
   buildCalendarCells,
   buildWeekCells,
   formatDayHeader,
-  getMonthRange,
   getMonthStart,
   sortAgendaItems,
 } from './utils/historyCalendar';
@@ -80,13 +79,26 @@ export const HistoryScreen = () => {
     null
   );
 
-  const monthRange = useMemo(() => getMonthRange(currentMonth), [currentMonth]);
+  const visibleRange = useMemo(() => {
+    const cells =
+      calendarView === 'week'
+        ? buildWeekCells(selectedDate ? parseLocalDate(selectedDate) : new Date())
+        : buildCalendarCells(currentMonth);
+    const first = cells[0];
+    const last = cells[cells.length - 1];
+    return {
+      startTimestamp: startOfDay(first.date).getTime(),
+      endTimestamp: endOfDay(last.date).getTime(),
+      startLocalDate: first.localDate,
+      endLocalDate: last.localDate,
+    };
+  }, [calendarView, currentMonth, selectedDate]);
 
   useEffect(() => {
     const subscription = workoutRepository
       .observeCompletedSessionsByDateRange(
-        monthRange.startTimestamp,
-        monthRange.endTimestamp,
+        visibleRange.startTimestamp,
+        visibleRange.endTimestamp,
         { includeArchived: false }
       )
       .subscribe((workouts) => {
@@ -97,7 +109,7 @@ export const HistoryScreen = () => {
       });
 
     return () => subscription.unsubscribe();
-  }, [monthRange.endTimestamp, monthRange.startTimestamp]);
+  }, [visibleRange.endTimestamp, visibleRange.startTimestamp]);
 
   useEffect(() => {
     const subscription = plannedEventRepository
@@ -154,14 +166,14 @@ export const HistoryScreen = () => {
     }
   }, [calendarView, selectedDate]);
 
-  const plannedEventsForMonth = useMemo(
+  const plannedEventsForRange = useMemo(
     () =>
       plannedEvents.filter(
         (event) =>
-          event.localDate >= monthRange.startLocalDate &&
-          event.localDate <= monthRange.endLocalDate
+          event.localDate >= visibleRange.startLocalDate &&
+          event.localDate <= visibleRange.endLocalDate
       ),
-    [monthRange.endLocalDate, monthRange.startLocalDate, plannedEvents]
+    [visibleRange.endLocalDate, visibleRange.startLocalDate, plannedEvents]
   );
 
   const plannedEventById = useMemo(() => {
@@ -186,7 +198,7 @@ export const HistoryScreen = () => {
       durationMinutes: session.durationMinutes,
     }));
 
-    const eventItems = plannedEventsForMonth.map((event) => ({
+    const eventItems = plannedEventsForRange.map((event) => ({
       type: 'planned-event' as const,
       localDate: event.localDate,
       eventId: event.id,
@@ -199,7 +211,7 @@ export const HistoryScreen = () => {
     }));
 
     return [...sessionItems, ...eventItems];
-  }, [monthSessions, plannedEventsForMonth]);
+  }, [monthSessions, plannedEventsForRange]);
 
   const itemsByDate = useMemo(() => {
     const map = new Map<string, CalendarItem[]>();

@@ -77,7 +77,7 @@ const buildUpcomingContext = (
   startsAt: event.startsAt ? new Date(event.startsAt).toISOString() : undefined,
   durationMinutes: event.durationMinutes ?? undefined,
   allDay: event.allDay ?? undefined,
-  intensity: event.intensity as UpcomingEventContext['intensity'],
+  intensity: coerceIntensity(event.intensity) as UpcomingEventContext['intensity'],
   tags: parseJson<string[]>(event.tagsJson),
   notes: event.notes ?? undefined,
   metadata: parseJson<Record<string, unknown>>(event.metadataJson),
@@ -175,34 +175,34 @@ export class PlannedEventRepository {
 
     const updated = await database.write(async () =>
       event.update((record) => {
-        if (patch.kind !== undefined) record.kind = patch.kind;
-        if (patch.title !== undefined) record.title = patch.title;
-        if (patch.localDate !== undefined) record.localDate = patch.localDate;
-        if (patch.createdAtTimezone !== undefined) {
-          record.createdAtTimezone = patch.createdAtTimezone;
+        if ('kind' in patch) record.kind = patch.kind!;
+        if ('title' in patch) record.title = patch.title!;
+        if ('localDate' in patch) record.localDate = patch.localDate!;
+        if ('createdAtTimezone' in patch) {
+          record.createdAtTimezone = patch.createdAtTimezone!;
         }
-        if (patch.startsAt !== undefined)
+        if ('startsAt' in patch)
           record.startsAt = patch.startsAt ?? undefined;
-        if (patch.endsAt !== undefined)
+        if ('endsAt' in patch)
           record.endsAt = patch.endsAt ?? undefined;
-        if (patch.allDay !== undefined)
+        if ('allDay' in patch)
           record.allDay = patch.allDay ?? undefined;
-        if (patch.durationMinutes !== undefined) {
+        if ('durationMinutes' in patch) {
           record.durationMinutes = patch.durationMinutes ?? undefined;
         }
-        if (patch.intensity !== undefined)
+        if ('intensity' in patch)
           record.intensity = patch.intensity ?? undefined;
-        if (patch.tags !== undefined)
+        if ('tags' in patch)
           record.tagsJson = serializeTags(patch.tags);
-        if (patch.notes !== undefined) record.notes = patch.notes ?? undefined;
-        if (patch.status !== undefined)
+        if ('notes' in patch) record.notes = patch.notes ?? undefined;
+        if ('status' in patch)
           record.status = patch.status ?? undefined;
-        if (patch.linkedWorkoutId !== undefined) {
+        if ('linkedWorkoutId' in patch) {
           record.linkedWorkoutId = patch.linkedWorkoutId ?? undefined;
         }
-        if (patch.details !== undefined)
+        if ('details' in patch)
           record.detailsJson = serializeJson(patch.details);
-        if (patch.metadata !== undefined)
+        if ('metadata' in patch)
           record.metadataJson = serializeJson(patch.metadata);
       })
     );
