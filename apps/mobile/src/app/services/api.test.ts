@@ -1,5 +1,11 @@
 import type { WorkoutSessionSummary } from '@workout-agent/shared';
-import { buildGenerationContext, archiveWorkoutSession, deleteWorkoutSession, unarchiveWorkoutSession, quickLogWorkout } from './api';
+import {
+  buildGenerationContext,
+  archiveWorkoutSession,
+  deleteWorkoutSession,
+  unarchiveWorkoutSession,
+  quickLogWorkout,
+} from './api';
 import { workoutRepository } from '../db/repositories/WorkoutRepository';
 import { userRepository } from '../db/repositories/UserRepository';
 
@@ -26,7 +32,9 @@ jest.mock('../db/repositories/UserRepository', () => ({
   },
 }));
 
-const mockWorkoutRepository = workoutRepository as jest.Mocked<typeof workoutRepository>;
+const mockWorkoutRepository = workoutRepository as jest.Mocked<
+  typeof workoutRepository
+>;
 const mockUserRepository = userRepository as jest.Mocked<typeof userRepository>;
 
 describe('buildGenerationContext', () => {
@@ -59,7 +67,7 @@ describe('buildGenerationContext', () => {
       focus: 'Full Body',
       durationMinutes: 20,
       completedAt: now,
-      source: 'generated',
+      source: 'ai',
     };
 
     // listRecentSessions with includeArchived: false returns only non-archived workouts
@@ -72,9 +80,14 @@ describe('buildGenerationContext', () => {
       .mockReturnValueOnce(session1)
       .mockReturnValueOnce(session2);
 
-    const context = await buildGenerationContext({ timeMinutes: 30, focus: 'Legs' });
+    const context = await buildGenerationContext({
+      timeMinutes: 30,
+      focus: 'Legs',
+    });
 
-    expect(mockWorkoutRepository.listRecentSessions).toHaveBeenCalledWith(5, { includeArchived: false });
+    expect(mockWorkoutRepository.listRecentSessions).toHaveBeenCalledWith(5, {
+      includeArchived: false,
+    });
     expect(context.recentSessions).toEqual([session1, session2]);
   });
 });
@@ -90,7 +103,9 @@ describe('workout archive/delete mutations', () => {
     await deleteWorkoutSession('w3');
 
     expect(mockWorkoutRepository.archiveWorkoutById).toHaveBeenCalledWith('w1');
-    expect(mockWorkoutRepository.unarchiveWorkoutById).toHaveBeenCalledWith('w2');
+    expect(mockWorkoutRepository.unarchiveWorkoutById).toHaveBeenCalledWith(
+      'w2'
+    );
     expect(mockWorkoutRepository.deleteWorkoutById).toHaveBeenCalledWith('w3');
   });
 });
@@ -111,7 +126,9 @@ describe('quickLogWorkout', () => {
       source: 'manual',
     };
 
-    mockWorkoutRepository.quickLogManualSession.mockResolvedValue(mockWorkout as any);
+    mockWorkoutRepository.quickLogManualSession.mockResolvedValue(
+      mockWorkout as any
+    );
     mockWorkoutRepository.toSessionSummary.mockReturnValue(mockSummary);
 
     const result = await quickLogWorkout({
@@ -125,7 +142,9 @@ describe('quickLogWorkout', () => {
       focus: 'Cardio',
       durationMinutes: 30,
     });
-    expect(mockWorkoutRepository.toSessionSummary).toHaveBeenCalledWith(mockWorkout);
+    expect(mockWorkoutRepository.toSessionSummary).toHaveBeenCalledWith(
+      mockWorkout
+    );
     expect(result).toEqual(mockSummary);
   });
 
@@ -141,7 +160,9 @@ describe('quickLogWorkout', () => {
     };
     const completedAt = Date.now() - 2 * 60 * 60 * 1000;
 
-    mockWorkoutRepository.quickLogManualSession.mockResolvedValue(mockWorkout as any);
+    mockWorkoutRepository.quickLogManualSession.mockResolvedValue(
+      mockWorkout as any
+    );
     mockWorkoutRepository.toSessionSummary.mockReturnValue(mockSummary);
 
     await quickLogWorkout({

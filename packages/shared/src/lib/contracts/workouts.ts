@@ -105,7 +105,11 @@ export const workoutSetLogSchema = z
     rpe: z.number().int().min(1).max(10).optional(),
   })
   .superRefine((value, ctx) => {
-    if (value.weight !== undefined && value.weight !== null && !value.weightUnit) {
+    if (
+      value.weight !== undefined &&
+      value.weight !== null &&
+      !value.weightUnit
+    ) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: 'weightUnit is required when weight is present',
@@ -146,6 +150,98 @@ export const workoutSessionDetailSchema = workoutSessionSummarySchema.extend({
   exercises: z.array(workoutExerciseLogSchema),
 });
 export type WorkoutSessionDetail = z.infer<typeof workoutSessionDetailSchema>;
+
+export const localDateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+export type LocalDate = z.infer<typeof localDateSchema>;
+
+export const timezoneSchema = z.string().min(1);
+export type Timezone = z.infer<typeof timezoneSchema>;
+
+export const canonicalEventKinds = [
+  'workout',
+  'hike',
+  'run',
+  'sport',
+  'rest',
+  'travel',
+  'other',
+] as const;
+export type CanonicalEventKind = (typeof canonicalEventKinds)[number];
+export const canonicalEventKindSchema = z.enum(canonicalEventKinds);
+
+export const plannedEventIntensitySchema = z.enum(['low', 'moderate', 'high']);
+export type PlannedEventIntensity = z.infer<typeof plannedEventIntensitySchema>;
+
+export const plannedEventInputSchema = z.object({
+  kind: z.string(),
+  title: z.string(),
+  localDate: localDateSchema,
+  createdAtTimezone: timezoneSchema,
+  startsAt: z.number().int().positive().optional(),
+  endsAt: z.number().int().positive().optional(),
+  allDay: z.boolean().optional(),
+  durationMinutes: z.number().int().positive().optional(),
+  intensity: plannedEventIntensitySchema.optional(),
+  tags: z.array(z.string()).optional(),
+  notes: z.string().optional(),
+  status: z.enum(['planned', 'canceled']).optional(),
+  linkedWorkoutId: z.string().optional(),
+  details: z.record(z.string(), z.unknown()).optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
+});
+export type PlannedEventInput = z.infer<typeof plannedEventInputSchema>;
+
+export const plannedEventSchema = plannedEventInputSchema.extend({
+  id: z.string(),
+  createdAt: z.number().int().positive(),
+  updatedAt: z.number().int().positive(),
+  archivedAt: z.number().int().positive().optional(),
+});
+export type PlannedEvent = z.infer<typeof plannedEventSchema>;
+
+export const plannedEventPatchSchema = plannedEventInputSchema
+  .partial()
+  .extend({
+    id: z.string(),
+  });
+export type PlannedEventPatch = z.infer<typeof plannedEventPatchSchema>;
+
+export const calendarItemSchema = z.discriminatedUnion('type', [
+  z.object({
+    type: z.literal('workout-session'),
+    localDate: localDateSchema,
+    sessionId: z.string(),
+    title: z.string(),
+    completedAt: z.string().datetime().optional(),
+    durationMinutes: z.number().int().positive().optional(),
+  }),
+  z.object({
+    type: z.literal('planned-event'),
+    localDate: localDateSchema,
+    eventId: z.string(),
+    kind: z.string(),
+    title: z.string(),
+    startsAt: z.string().datetime().optional(),
+    allDay: z.boolean().optional(),
+  }),
+]);
+export type CalendarItem = z.infer<typeof calendarItemSchema>;
+
+export const upcomingEventContextSchema = z.object({
+  kind: z.string(),
+  title: z.string(),
+  localDate: localDateSchema,
+  startsAt: z.string().datetime().optional(),
+  durationMinutes: z.number().int().positive().optional(),
+  allDay: z.boolean().optional(),
+  intensity: plannedEventIntensitySchema.optional(),
+  tags: z.array(z.string()).optional(),
+  notes: z.string().optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
+});
+export type UpcomingEventContext = z.infer<typeof upcomingEventContextSchema>;
+
+export const MAX_UPCOMING_EVENTS = 10;
 
 export const workoutLogPayloadSchema = z
   .object({
@@ -329,6 +425,11 @@ export const generationRequestSchema = z
     previousResponseId: z.string().optional(),
     // For regeneration: user feedback about what was wrong
     feedback: z.array(regenerationFeedbackSchema).optional(),
+    // Optional upcoming events context (bounded)
+    upcomingEvents: z
+      .array(upcomingEventContextSchema)
+      .max(MAX_UPCOMING_EVENTS)
+      .optional(),
     // Optional provider selection and model override
     provider: aiProviderSchema.optional(),
   })

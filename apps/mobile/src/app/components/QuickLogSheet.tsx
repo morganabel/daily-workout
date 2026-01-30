@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Modal,
   Platform,
@@ -26,6 +26,7 @@ type QuickLogSheetProps = {
   visible: boolean;
   onSubmit: (payload: QuickLogPayload) => Promise<void>;
   onClose: () => void;
+  initialDate?: Date | null;
 };
 
 const FOCUS_OPTIONS = [
@@ -52,17 +53,24 @@ const startOfDay = (date: Date): Date => {
 const formatDate = (date: Date): string => {
   const today = startOfDay(new Date());
   const target = startOfDay(date);
-  const diffDays = Math.round((today.getTime() - target.getTime()) / (1000 * 60 * 60 * 24));
+  const diffDays = Math.round(
+    (today.getTime() - target.getTime()) / (1000 * 60 * 60 * 24)
+  );
 
   if (diffDays === 0) return 'Today';
   if (diffDays === 1) return 'Yesterday';
-  return date.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
+  return date.toLocaleDateString([], {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
 };
 
 export const QuickLogSheet = ({
   visible,
   onSubmit,
   onClose,
+  initialDate,
 }: QuickLogSheetProps) => {
   const [name, setName] = useState('');
   const [focus, setFocus] = useState('');
@@ -77,17 +85,38 @@ export const QuickLogSheet = ({
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [durationInput, setDurationInput] = useState('');
 
+  const resolveInitialDate = (
+    date?: Date | null
+  ): { option: DateOption; date: Date } => {
+    const targetDate = date ?? new Date();
+    const today = new Date();
+    const isToday =
+      startOfDay(targetDate).getTime() === startOfDay(today).getTime();
+    return {
+      option: isToday ? 'today' : 'custom',
+      date: targetDate,
+    };
+  };
+
   const resetForm = () => {
+    const { option, date } = resolveInitialDate(initialDate);
     setName('');
     setFocus('');
     setNote('');
     setErrors({});
     setShowDetails(false);
-    setDateOption('today');
-    setCustomDate(new Date());
+    setDateOption(option);
+    setCustomDate(date);
     setShowDatePicker(false);
     setDurationInput('');
   };
+
+  useEffect(() => {
+    if (!visible) return;
+    const { option, date } = resolveInitialDate(initialDate);
+    setDateOption(option);
+    setCustomDate(date);
+  }, [initialDate, visible]);
 
   const handleClose = () => {
     resetForm();
@@ -192,7 +221,8 @@ export const QuickLogSheet = ({
 
   const canSubmit = (name.trim() || focus) && !submitting;
 
-  const hasCustomizations = durationInput.trim() !== '' || dateOption !== 'today';
+  const hasCustomizations =
+    durationInput.trim() !== '' || dateOption !== 'today';
 
   // Get display text for current date selection
   const getDateDisplayText = (): string => {
@@ -248,7 +278,9 @@ export const QuickLogSheet = ({
                   />
                 ))}
               </View>
-              {errors.name && <Text style={styles.errorText}>{errors.name}</Text>}
+              {errors.name && (
+                <Text style={styles.errorText}>{errors.name}</Text>
+              )}
             </View>
 
             {/* Edit details toggle */}
@@ -275,22 +307,26 @@ export const QuickLogSheet = ({
                   <Text style={styles.label}>When?</Text>
                   <View style={styles.dateOptions}>
                     <Chip
-                        label="Today"
-                        selected={dateOption === 'today'}
-                        onPress={() => handleDateOptionPress('today')}
-                        style={{ flex: 1, justifyContent: 'center' }}
+                      label="Today"
+                      selected={dateOption === 'today'}
+                      onPress={() => handleDateOptionPress('today')}
+                      style={{ flex: 1, justifyContent: 'center' }}
                     />
                     <Chip
-                        label="Yesterday"
-                        selected={dateOption === 'yesterday'}
-                        onPress={() => handleDateOptionPress('yesterday')}
-                        style={{ flex: 1, justifyContent: 'center' }}
+                      label="Yesterday"
+                      selected={dateOption === 'yesterday'}
+                      onPress={() => handleDateOptionPress('yesterday')}
+                      style={{ flex: 1, justifyContent: 'center' }}
                     />
                     <Chip
-                        label={dateOption === 'custom' ? formatDate(customDate) : 'Custom...'}
-                        selected={dateOption === 'custom'}
-                        onPress={() => handleDateOptionPress('custom')}
-                        style={{ flex: 1, justifyContent: 'center' }}
+                      label={
+                        dateOption === 'custom'
+                          ? formatDate(customDate)
+                          : 'Custom...'
+                      }
+                      selected={dateOption === 'custom'}
+                      onPress={() => handleDateOptionPress('custom')}
+                      style={{ flex: 1, justifyContent: 'center' }}
                     />
                   </View>
 
@@ -327,7 +363,10 @@ export const QuickLogSheet = ({
                 {/* Duration input */}
                 <View style={styles.fieldGroup}>
                   <Text style={styles.label}>
-                    Duration <Text style={styles.labelHint}>(minutes, defaults to 60)</Text>
+                    Duration{' '}
+                    <Text style={styles.labelHint}>
+                      (minutes, defaults to 60)
+                    </Text>
                   </Text>
                   <TextInput
                     style={[styles.textInput, styles.durationInput]}
@@ -342,7 +381,9 @@ export const QuickLogSheet = ({
 
                 {/* Note */}
                 <View style={styles.fieldGroup}>
-                  <Text style={styles.label}>Note <Text style={styles.labelHint}>(optional)</Text></Text>
+                  <Text style={styles.label}>
+                    Note <Text style={styles.labelHint}>(optional)</Text>
+                  </Text>
                   <TextInput
                     style={[styles.textInput, styles.textInputMultiline]}
                     placeholder="Any details to remember..."

@@ -15,6 +15,7 @@ import { getDeviceToken } from '../storage/deviceToken';
 import { getByokApiKey, getByokConfig } from '../storage/byokKey';
 import { userRepository } from '../db/repositories/UserRepository';
 import { workoutRepository } from '../db/repositories/WorkoutRepository';
+import { plannedEventRepository } from '../db/repositories/PlannedEventRepository';
 import {
   getSessionCookie,
   getSessionToken,
@@ -221,27 +222,37 @@ export async function buildGenerationContext(
  * since the LLM already has the conversation context.
  */
 export async function generateWorkout(
-  request: GenerationRequest
+  request: GenerationRequest,
+  options?: { scheduledDate?: number }
 ): Promise<TodayPlan> {
-  const isRegeneration = Boolean(request.previousResponseId);
+  const upcomingEvents =
+    request.upcomingEvents ??
+    (await plannedEventRepository.listUpcomingEventContext());
+
+  const requestWithEvents = upcomingEvents?.length
+    ? { ...request, upcomingEvents }
+    : request;
+
+  const isRegeneration = Boolean(requestWithEvents.previousResponseId);
 
   let enrichedRequest: GenerationRequest & { context?: GenerationContext };
 
   if (isRegeneration) {
     // For regeneration, don't send full context - the LLM has it from the conversation
-    enrichedRequest = { ...request };
+    enrichedRequest = { ...requestWithEvents };
     console.log('[API] Regeneration request:', {
-      previousResponseId: request.previousResponseId,
-      feedback: request.feedback,
-      timeMinutes: request.timeMinutes,
-      focus: request.focus,
-      equipment: request.equipment,
-      energy: request.energy,
+      previousResponseId: requestWithEvents.previousResponseId,
+      feedback: requestWithEvents.feedback,
+      timeMinutes: requestWithEvents.timeMinutes,
+      focus: requestWithEvents.focus,
+      equipment: requestWithEvents.equipment,
+      energy: requestWithEvents.energy,
+      upcomingEvents: requestWithEvents.upcomingEvents?.length ?? 0,
     });
   } else {
     // For initial generation, build full context
-    const context = await buildGenerationContext(request);
-    enrichedRequest = { ...request, context };
+    const context = await buildGenerationContext(requestWithEvents);
+    enrichedRequest = { ...requestWithEvents, context };
     console.log('[API] Generation context:', JSON.stringify(context, null, 2));
   }
 
@@ -250,7 +261,9 @@ export async function generateWorkout(
     body: JSON.stringify(enrichedRequest),
   });
 
-  await workoutRepository.saveGeneratedPlan(plan);
+  await workoutRepository.saveGeneratedPlan(plan, {
+    scheduledDate: options?.scheduledDate,
+  });
   return plan;
 }
 
