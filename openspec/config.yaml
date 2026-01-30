@@ -1,0 +1,29 @@
+schema: spec-driven
+
+context: |
+  Mission: open-source AI workout companion; a personal trainer with memory.
+  Product principles: radical simplicity, fast logging (one-tap Done, quick edits, voice/free-text, backfill), privacy-first with optional encrypted sync.
+  Experience: quick inputs (focus, time, equipment, intensity, constraints/injuries) generate workouts; adapts to preferences, performance, schedule, and planned events.
+  Business model: open-core freemium. CE (AGPL) is self-hostable/offline with BYOK and no artificial limits; hosted is usage-metered with free/paid tiers and optional add-ons.
+  Stack: Nx 22.0.2 monorepo, TypeScript 5.9, Next.js 15 App Router (apps/server), Expo 53 + React Native 0.79 (apps/mobile), PostgreSQL + Drizzle (packages/server-db), Zod schemas (packages/shared).
+  AI: OpenAI + Gemini providers (OpenAI Responses API JSON parsing); BYOK headers x-ai-provider/x-openai-key/x-gemini-key/x-ai-key; deterministic mock fallback when no key.
+  Provider routing: DefaultModelRouter in packages/server-ai; server wiring in apps/server/src/lib/wiring.ts; AI_PROVIDER selects default.
+  Gemini can use Vertex AI via GOOGLE_GENAI_USE_VERTEXAI + GOOGLE_CLOUD_PROJECT/LOCATION.
+  Auth: Better Auth when AUTH_MODE=better-auth or DATABASE_URL is set; stub auth otherwise (accepts any Bearer token). Hosted requires Better Auth. Device token is a stub-mode fallback.
+  Domain model: User, UserPreferences (experience level, goal, energy, style, equipment, constraints), EquipmentProfile, WorkoutSession (summary/detail, archived/favorite), TodayPlan, PlannedEvent/CalendarItem, Memory (planned).
+  Env: EDITION=CE|HOSTED (OSS alias), OPENAI_API_KEY/GEMINI_API_KEY optional, BETTER_AUTH_SECRET/BETTER_AUTH_URL required for Better Auth.
+  Hosted behavior: BYOK_REQUIRED 402 when hosted without key; QUOTA_EXCEEDED 429 on usage limits; CE uses no-op policy/metering.
+  Testing: Jest for server/mobile, Zod validation at API boundaries.
+  Mobile installs: use `npx nx run mobile:install --packages=...`.
+
+rules:
+  proposal:
+    - Call out CE vs hosted impact, including quotas or billing overlays.
+    - Note affected apps/packages and specs.
+  specs:
+    - Use #### Scenario headings with **WHEN/THEN** steps.
+    - Prefer requirements that preserve radical simplicity and privacy-first defaults.
+  design:
+    - Document migration/backward-compat concerns for hosted edition changes.
+  tasks:
+    - Break into implementable steps with validation notes.
