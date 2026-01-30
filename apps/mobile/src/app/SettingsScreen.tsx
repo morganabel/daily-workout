@@ -14,14 +14,30 @@ import {
   EQUIPMENT_OPTIONS,
   ExperienceLevel,
 } from '@workout-agent/shared';
-import { palette, typography, layout } from './theme';
+import { palette, typography } from './theme';
 import { BottomNavigation } from './components/BottomNavigation';
 import { Chip, Button, SectionHeader } from './components/DesignSystem';
 
-const EXPERIENCE_LEVELS: { value: ExperienceLevel; label: string; description: string }[] = [
-  { value: 'beginner', label: 'Beginner', description: 'New to fitness or returning after a long break' },
-  { value: 'intermediate', label: 'Intermediate', description: '1-3 years of consistent training' },
-  { value: 'advanced', label: 'Advanced', description: '3+ years with solid technique' },
+const EXPERIENCE_LEVELS: {
+  value: ExperienceLevel;
+  label: string;
+  description: string;
+}[] = [
+  {
+    value: 'beginner',
+    label: 'Beginner',
+    description: 'New to fitness or returning after a long break',
+  },
+  {
+    value: 'intermediate',
+    label: 'Intermediate',
+    description: '1-3 years of consistent training',
+  },
+  {
+    value: 'advanced',
+    label: 'Advanced',
+    description: '3+ years with solid technique',
+  },
 ];
 
 export const SettingsScreen = () => {
@@ -35,7 +51,6 @@ export const SettingsScreen = () => {
   const [hasChanges, setHasChanges] = useState(false);
   const [injuryInput, setInjuryInput] = useState('');
 
-
   useEffect(() => {
     const loadPreferences = async () => {
       const prefs = await userRepository.getPreferences();
@@ -44,13 +59,13 @@ export const SettingsScreen = () => {
     loadPreferences();
   }, []);
 
-  const updateField = useCallback(<K extends keyof UserPreferences>(
-    key: K,
-    value: UserPreferences[K],
-  ) => {
-    setPreferences((prev) => ({ ...prev, [key]: value }));
-    setHasChanges(true);
-  }, []);
+  const updateField = useCallback(
+    <K extends keyof UserPreferences>(key: K, value: UserPreferences[K]) => {
+      setPreferences((prev) => ({ ...prev, [key]: value }));
+      setHasChanges(true);
+    },
+    []
+  );
 
   const toggleEquipment = useCallback((item: string) => {
     setPreferences((prev) => {
@@ -98,7 +113,10 @@ export const SettingsScreen = () => {
       Alert.alert('Saved', 'Your profile has been updated.');
     } catch (e) {
       console.error('Failed to save preferences', e);
-      Alert.alert('Error', 'Failed to save your preferences. Please try again.');
+      Alert.alert(
+        'Error',
+        'Failed to save your preferences. Please try again.'
+      );
     } finally {
       setIsSaving(false);
     }
@@ -128,12 +146,16 @@ export const SettingsScreen = () => {
         </Pressable>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
         {/* Equipment Section */}
         <View style={styles.section}>
           <SectionHeader title="My Equipment" />
           <Text style={styles.sectionDescription}>
-            Select the equipment you have access to. This helps generate workouts tailored to your setup.
+            Select the equipment you have access to. This helps generate
+            workouts tailored to your setup.
           </Text>
           <View style={styles.chipContainer}>
             {EQUIPMENT_OPTIONS.map((item) => {
@@ -162,7 +184,10 @@ export const SettingsScreen = () => {
               return (
                 <Pressable
                   key={level.value}
-                  style={[styles.levelCard, isSelected && styles.levelCardSelected]}
+                  style={[
+                    styles.levelCard,
+                    isSelected && styles.levelCardSelected,
+                  ]}
                   onPress={() => updateField('experienceLevel', level.value)}
                 >
                   <Text
@@ -173,7 +198,9 @@ export const SettingsScreen = () => {
                   >
                     {level.label}
                   </Text>
-                  <Text style={styles.levelDescription}>{level.description}</Text>
+                  <Text style={styles.levelDescription}>
+                    {level.description}
+                  </Text>
                 </Pressable>
               );
             })}
@@ -226,10 +253,7 @@ export const SettingsScreen = () => {
               {preferences.injuries.map((injury) => (
                 <View key={injury} style={styles.injuryTag}>
                   <Text style={styles.injuryTagText}>{injury}</Text>
-                  <Pressable
-                    onPress={() => removeInjury(injury)}
-                    hitSlop={8}
-                  >
+                  <Pressable onPress={() => removeInjury(injury)} hitSlop={8}>
                     <Text style={styles.injuryRemove}>×</Text>
                   </Pressable>
                 </View>
@@ -265,7 +289,6 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: palette.background,
-    paddingTop: layout.safeAreaTop,
   },
   header: {
     flexDirection: 'row',
