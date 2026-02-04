@@ -6,6 +6,7 @@ import {
   type GenerationRequest,
   type GenerationContext,
 } from '@workout-agent/shared';
+import { createLogger } from '@workout-agent-ce/server-core';
 import type { AiProvider, AiProviderOptions, GenerationResult } from './types';
 import { AiGenerationError } from './types';
 import {
@@ -24,11 +25,14 @@ const DEFAULT_API_BASE =
   process.env.OPENAI_API_BASE ?? 'https://api.openai.com/v1';
 
 export class OpenAIProvider implements AiProvider {
+  private readonly log = createLogger({ route: 'ai.openai' });
+
   async generate(
     request: GenerationRequest,
     context: GenerationContext,
     options: AiProviderOptions,
   ): Promise<GenerationResult> {
+    const { log } = this;
     if (!options.apiKey) {
       throw new AiGenerationError('Missing API key', 'NO_API_KEY');
     }
@@ -95,11 +99,12 @@ export class OpenAIProvider implements AiProvider {
       });
       planPayload = response.output_parsed;
       responseId = response.id;
-      console.log(
-        '[workouts.generate] model call completed',
-        `${((Date.now() - started) / 1000).toFixed(1)}s`,
-        isRegeneration ? '(regeneration)' : '(initial)',
-      );
+      log.info('model call completed', {
+        provider: 'openai',
+        model,
+        durationMs: Date.now() - started,
+        isRegeneration,
+      });
     } catch (error) {
       const originalMessage =
         error instanceof Error ? error.message : String(error);
@@ -128,8 +133,9 @@ export class OpenAIProvider implements AiProvider {
 
     if (!transformResult.success) {
       // Treat transformation failures as provider errors
-      console.error('[openai.generate] transformation failed', {
-        error: transformResult.error.message,
+      log.error('transformation failed', {
+        provider: 'openai',
+        message: transformResult.error.message,
         schemaVersion: transformResult.schemaVersion,
       });
       throw new AiGenerationError(
@@ -141,7 +147,8 @@ export class OpenAIProvider implements AiProvider {
     // Enrich the transformed plan with provider-specific metadata
     const plan = { ...transformResult.plan, source: 'ai' as const, responseId };
 
-    console.log('[openai.generate] transformation succeeded', {
+    log.info('transformation succeeded', {
+      provider: 'openai',
       schemaVersion: transformResult.schemaVersion,
     });
 

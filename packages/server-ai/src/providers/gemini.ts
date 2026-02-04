@@ -6,6 +6,7 @@ import {
   type GenerationRequest,
   type GenerationContext,
 } from '@workout-agent/shared';
+import { createLogger } from '@workout-agent-ce/server-core';
 import type { AiProvider, AiProviderOptions, GenerationResult } from './types';
 import { AiGenerationError } from './types';
 import {
@@ -28,11 +29,14 @@ const getVertexEnvConfig = () => ({
 });
 
 export class GeminiProvider implements AiProvider {
+  private readonly log = createLogger({ route: 'ai.gemini' });
+
   async generate(
     request: GenerationRequest,
     context: GenerationContext,
     options: AiProviderOptions,
   ): Promise<GenerationResult> {
+    const { log } = this;
     const vertexEnv = getVertexEnvConfig();
     const useVertex =
       options.useVertexAi ??
@@ -126,11 +130,13 @@ export class GeminiProvider implements AiProvider {
       // Validate against selected Zod schema
       planPayload = selectedSchema.parse(parsed);
 
-      console.log(
-        '[workouts.generate] model call completed',
-        `${((Date.now() - started) / 1000).toFixed(1)}s`,
-        isRegeneration ? '(regeneration)' : '(initial)',
-      );
+      log.info('model call completed', {
+        provider: 'gemini',
+        model,
+        useVertexAi: useVertex,
+        durationMs: Date.now() - started,
+        isRegeneration,
+      });
     } catch (error) {
       const originalMessage =
         error instanceof Error ? error.message : String(error);
@@ -159,8 +165,9 @@ export class GeminiProvider implements AiProvider {
 
     if (!transformResult.success) {
       // Treat transformation failures as provider errors
-      console.error('[gemini.generate] transformation failed', {
-        error: transformResult.error.message,
+      log.error('transformation failed', {
+        provider: 'gemini',
+        message: transformResult.error.message,
         schemaVersion: transformResult.schemaVersion,
       });
       throw new AiGenerationError(
@@ -172,7 +179,8 @@ export class GeminiProvider implements AiProvider {
     // Enrich the transformed plan with provider-specific metadata
     const plan = { ...transformResult.plan, source: 'ai' as const, responseId };
 
-    console.log('[gemini.generate] transformation succeeded', {
+    log.info('transformation succeeded', {
+      provider: 'gemini',
       schemaVersion: transformResult.schemaVersion,
     });
 

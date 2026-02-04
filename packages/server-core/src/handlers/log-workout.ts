@@ -1,5 +1,6 @@
 import type { AuthProvider, GenerationStore } from '../types';
 import { createErrorResponse } from '../utils/errors';
+import { attachRequestId, createRequestContext } from '../utils/logging';
 import {
   workoutLogPayloadSchema,
   workoutSessionSummarySchema,
@@ -27,14 +28,19 @@ export function createLogWorkoutHandler(deps: LogWorkoutHandlerDeps) {
     request: Request,
     planId: string
   ): Promise<Response> {
+    const { requestId, urlPath, startedAt, log } = createRequestContext(request, 'workouts.log');
+
     // Authenticate request
     const auth = await deps.auth.authenticate(request);
     if (!auth) {
-      return createErrorResponse(
+      log.info('request unauthorized', { method: request.method, path: urlPath });
+      const response = createErrorResponse(
         'UNAUTHORIZED',
         'Invalid or missing session',
         401
       );
+      attachRequestId(response, requestId);
+      return response;
     }
 
     let payload: unknown = {};
@@ -44,21 +50,30 @@ export function createLogWorkoutHandler(deps: LogWorkoutHandlerDeps) {
         payload = JSON.parse(text);
       }
     } catch (error) {
-      console.error('Failed to parse JSON payload in logWorkoutHandler', error);
-      return createErrorResponse(
+      log.warn('invalid json body', { method: request.method, path: urlPath, error });
+      const response = createErrorResponse(
         'VALIDATION_ERROR',
         'Malformed JSON in request body',
         400
       );
+      attachRequestId(response, requestId);
+      return response;
     }
 
     const parsedPayload = workoutLogPayloadSchema.safeParse(payload);
     if (!parsedPayload.success) {
-      return createErrorResponse(
+      log.warn('request validation failed', {
+        method: request.method,
+        path: urlPath,
+        issues: parsedPayload.error.issues.length,
+      });
+      const response = createErrorResponse(
         'VALIDATION_ERROR',
         'Invalid workout log payload',
         400
       );
+      attachRequestId(response, requestId);
+      return response;
     }
 
     // TODO: Verify plan exists and belongs to user
@@ -92,6 +107,15 @@ export function createLogWorkoutHandler(deps: LogWorkoutHandlerDeps) {
 
     // TODO: Return updated recentSessions list (last 3) instead of just the new one
     // For now, return the new session
-    return Response.json(validated);
+    const response = Response.json(validated);
+    attachRequestId(response, requestId);
+    log.info('request completed', {
+      method: request.method,
+      path: urlPath,
+      status: 200,
+      durationMs: Date.now() - startedAt,
+      planIdPresent: Boolean(planId),
+    });
+    return response;
   };
 }

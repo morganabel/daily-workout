@@ -12,7 +12,11 @@
  * can detect backend capabilities before attempting auth.
  */
 
-import { PROTOCOL_VERSION } from '@workout-agent-ce/server-core';
+import {
+  PROTOCOL_VERSION,
+  attachRequestId,
+  createRequestContext,
+} from '@workout-agent-ce/server-core';
 import {
   createStubMetaResponse,
   createBetterAuthMetaResponse,
@@ -20,7 +24,8 @@ import {
 } from '@workout-agent/shared';
 import { getAuthContext } from '@/lib/auth-context';
 
-export async function GET(): Promise<Response> {
+export async function GET(request: Request): Promise<Response> {
+  const { requestId, startedAt, log } = createRequestContext(request, 'api.meta');
   const ctx = getAuthContext();
 
   // Determine edition from environment
@@ -37,5 +42,15 @@ export async function GET(): Promise<Response> {
   // Validate response (ensures type safety)
   const validated = metaResponseSchema.parse(response);
 
-  return Response.json(validated);
+  const res = Response.json(validated);
+  attachRequestId(res, requestId);
+  log.info('request completed', {
+    method: request.method,
+    path: '/api/meta',
+    status: 200,
+    durationMs: Date.now() - startedAt,
+    authMode: ctx.mode,
+    edition,
+  });
+  return res;
 }

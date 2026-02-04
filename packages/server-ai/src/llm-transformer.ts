@@ -5,6 +5,7 @@ import {
   todayPlanSchema,
   type LlmTodayPlanFlat,
 } from '@workout-agent/shared';
+import { createLogger } from '@workout-agent-ce/server-core';
 import { attachGeneratedIds } from './providers/utils';
 
 /**
@@ -379,16 +380,17 @@ export function selectSchemaVersion(
 export function getDefaultSchemaVersion(
   config: SchemaSelectionConfig = {},
 ): LlmSchemaVersion {
+  const log = createLogger({ route: 'llm.schema' });
   // Check for environment variable override
   const rawEnvOverride = process.env.LLM_SCHEMA_VERSION;
   if (rawEnvOverride !== undefined) {
     if (rawEnvOverride === 'v1-current' || rawEnvOverride === 'v2-flat') {
       return selectSchemaVersion({ ...config, override: rawEnvOverride });
     }
-    console.warn(
-      `[llm-transformer] Ignoring invalid LLM_SCHEMA_VERSION value: "${rawEnvOverride}". ` +
-        'Expected "v1-current" or "v2-flat". Falling back to automatic selection.',
-    );
+    log.warn('ignoring invalid LLM_SCHEMA_VERSION; falling back to auto selection', {
+      value: rawEnvOverride,
+      expected: ['v1-current', 'v2-flat'],
+    });
   }
 
   // Use schema selection algorithm

@@ -6,6 +6,7 @@
  */
 
 import type { AuthProvider, AuthResult } from '@workout-agent-ce/server-core';
+import { createLogger, redactSensitiveStrings } from '@workout-agent-ce/server-core';
 import type { Auth } from './auth.js';
 
 /**
@@ -18,9 +19,12 @@ import type { Auth } from './auth.js';
  * - Ignores x-user-id and similar headers (identity from session only)
  */
 export class BetterAuthProvider implements AuthProvider {
+  private readonly log = createLogger({ route: 'auth.better' });
+
   constructor(private readonly auth: Auth) {}
 
   async authenticate(request: Request): Promise<AuthResult | null> {
+    const { log } = this;
     const authHeader = request.headers.get('authorization');
     const cookieHeader = request.headers.get('cookie');
 
@@ -56,7 +60,12 @@ export class BetterAuthProvider implements AuthProvider {
       };
     } catch (error) {
       // Session validation failed - don't log the token (security)
-      console.warn('[BetterAuthProvider] Session validation failed');
+      log.warn('session validation failed', {
+        message:
+          error instanceof Error
+            ? redactSensitiveStrings(error.message)
+            : redactSensitiveStrings(String(error)),
+      });
       return null;
     }
   }
