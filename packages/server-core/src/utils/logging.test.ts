@@ -130,7 +130,7 @@ describe('Logger', () => {
   });
 
   it('emits JSON to console.log at info level', () => {
-    const spy = jest.spyOn(console, 'log').mockImplementation(() => {});
+    const spy = jest.spyOn(console, 'log').mockImplementation(() => undefined);
     try {
       const logger = createLogger({ route: 'test' });
       logger.info('hello world', { key: 'value' });
@@ -148,7 +148,7 @@ describe('Logger', () => {
   });
 
   it('emits to console.error at error level', () => {
-    const spy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    const spy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
     try {
       const logger = createLogger({ route: 'test' });
       logger.error('something broke');
@@ -162,7 +162,7 @@ describe('Logger', () => {
   });
 
   it('emits to console.warn at warn level', () => {
-    const spy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const spy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
     try {
       const logger = createLogger({ route: 'test' });
       logger.warn('careful');
@@ -179,8 +179,8 @@ describe('Logger', () => {
     process.env.LOG_LEVEL = 'warn';
     resetLoggerForTest();
 
-    const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
-    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const logSpy = jest.spyOn(console, 'log').mockImplementation(() => undefined);
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
     try {
       const logger = createLogger({ route: 'test' });
       logger.info('should be suppressed');
@@ -195,7 +195,7 @@ describe('Logger', () => {
   });
 
   it('normalizes error objects in data', () => {
-    const spy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    const spy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
     try {
       const logger = createLogger({ route: 'test' });
       logger.error('failed', { error: new Error('boom') });
@@ -210,7 +210,7 @@ describe('Logger', () => {
   });
 
   it('prefixes reserved field names in data', () => {
-    const spy = jest.spyOn(console, 'log').mockImplementation(() => {});
+    const spy = jest.spyOn(console, 'log').mockImplementation(() => undefined);
     try {
       const logger = createLogger({ route: 'test' });
       logger.info('test', { level: 'custom', msg: 'custom', safe: 'ok' });
@@ -224,8 +224,21 @@ describe('Logger', () => {
     }
   });
 
+  it('redacts reserved context field in data by default', () => {
+    const spy = jest.spyOn(console, 'log').mockImplementation(() => undefined);
+    try {
+      const logger = createLogger({ route: 'test' });
+      logger.info('test', { context: { userId: 'u123', safe: 'ok' } });
+
+      const parsed = JSON.parse(spy.mock.calls[0][0] as string);
+      expect(parsed.data._context).toBe('[REDACTED]');
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
   it('redacts secrets from logged data', () => {
-    const spy = jest.spyOn(console, 'log').mockImplementation(() => {});
+    const spy = jest.spyOn(console, 'log').mockImplementation(() => undefined);
     try {
       const logger = createLogger({ route: 'test' });
       logger.info('test', { password: 'secret123', safe: 'ok' });
@@ -239,7 +252,7 @@ describe('Logger', () => {
   });
 
   it('redacts PII from logged data by default', () => {
-    const spy = jest.spyOn(console, 'log').mockImplementation(() => {});
+    const spy = jest.spyOn(console, 'log').mockImplementation(() => undefined);
     try {
       const logger = createLogger({ route: 'test' });
       logger.info('test', { userId: 'u123', provider: 'openai' });
@@ -256,7 +269,7 @@ describe('Logger', () => {
     process.env.LOG_PII = 'true';
     resetLoggerForTest();
 
-    const spy = jest.spyOn(console, 'log').mockImplementation(() => {});
+    const spy = jest.spyOn(console, 'log').mockImplementation(() => undefined);
     try {
       const logger = createLogger({ route: 'test' });
       logger.info('test', { userId: 'u123', provider: 'openai' });
@@ -315,6 +328,24 @@ describe('getOrCreateRequestId', () => {
       },
     });
     expect(getOrCreateRequestId(request)).toBe('primary');
+  });
+
+  it('rejects request IDs that look like secrets', () => {
+    const request = new Request('http://localhost', {
+      headers: { 'x-request-id': 'sk-test-123' },
+    });
+    const id = getOrCreateRequestId(request);
+    expect(id).toBeDefined();
+    expect(id).not.toBe('sk-test-123');
+  });
+
+  it('rejects request IDs with unsafe characters', () => {
+    const request = new Request('http://localhost', {
+      headers: { 'x-request-id': 'bad id with spaces' },
+    });
+    const id = getOrCreateRequestId(request);
+    expect(id).toBeDefined();
+    expect(id).not.toBe('bad id with spaces');
   });
 });
 

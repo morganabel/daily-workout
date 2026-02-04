@@ -98,17 +98,28 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
   return async function generateHandler(request: Request): Promise<Response> {
     const { requestId, urlPath, startedAt, log } = createRequestContext(request, 'workouts.generate');
 
+    const errorResponse = (
+      code: Parameters<typeof createErrorResponse>[0],
+      message: string,
+      status: number,
+    ): Response => {
+      const response = createErrorResponse(code, message, status);
+      attachRequestId(response, requestId);
+      log.info('request completed', {
+        method: request.method,
+        path: urlPath,
+        status,
+        durationMs: Date.now() - startedAt,
+        code,
+      });
+      return response;
+    };
+
     // Authenticate request
     const auth = await deps.auth.authenticate(request);
     if (!auth) {
       log.info('request unauthorized', { method: request.method, path: urlPath });
-      const response = createErrorResponse(
-        'UNAUTHORIZED',
-        'Invalid or missing session',
-        401
-      );
-      attachRequestId(response, requestId);
-      return response;
+      return errorResponse('UNAUTHORIZED', 'Invalid or missing session', 401);
     }
 
     // Parse and validate request body
@@ -117,9 +128,7 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
       body = await request.json();
     } catch {
       log.warn('invalid json body', { method: request.method, path: urlPath });
-      const response = createErrorResponse('VALIDATION_ERROR', 'Invalid JSON in request body');
-      attachRequestId(response, requestId);
-      return response;
+      return errorResponse('VALIDATION_ERROR', 'Invalid JSON in request body', 400);
     }
 
     const parseResult = generationRequestWithContextSchema.safeParse(body);
@@ -129,12 +138,11 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
         path: urlPath,
         issues: parseResult.error.issues.length,
       });
-      const response = createErrorResponse(
+      return errorResponse(
         'VALIDATION_ERROR',
-        `Invalid request: ${parseResult.error.message}`
+        `Invalid request: ${parseResult.error.message}`,
+        400,
       );
-      attachRequestId(response, requestId);
-      return response;
     }
 
     const generationRequest: GenerationRequestWithContext = parseResult.data;
@@ -149,10 +157,10 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
     let provider: 'openai' | 'gemini';
     if (providerHeader) {
       if (!deps.router.isSupportedProvider(providerHeader)) {
-        return createErrorResponse(
+        return errorResponse(
           'INVALID_PROVIDER',
           `Unsupported provider: ${providerHeader}. Supported providers: openai, gemini`,
-          400
+          400,
         );
       }
       provider = providerHeader as 'openai' | 'gemini';
@@ -194,10 +202,10 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
 
     // Check BYOK requirement for hosted edition
     if (!apiKey && !useVertexAi && deps.config.edition === 'HOSTED') {
-      return createErrorResponse(
+      return errorResponse(
         'BYOK_REQUIRED',
         `API key required for ${provider} provider in hosted mode`,
-        402
+        402,
       );
     }
 
@@ -205,10 +213,10 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
     if (deps.policy) {
       const policyResult = await deps.policy.canGenerate(auth.userId, generationRequest);
       if (!policyResult.allowed) {
-        return createErrorResponse(
+        return errorResponse(
           'QUOTA_EXCEEDED',
           policyResult.reason ?? 'Quota exceeded',
-          policyResult.statusCode ?? 429
+          policyResult.statusCode ?? 429,
         );
       }
     }

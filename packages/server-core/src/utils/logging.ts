@@ -68,7 +68,11 @@ export function redactSecretsAndPii<T>(input: T): T {
   return redactInternal(input, { redactPii: true });
 }
 
-function redactInternal<T>(input: T, opts: { redactPii: boolean }): T {
+function redactInternal<T>(
+  input: T,
+  opts: { redactPii: boolean },
+  seen: WeakSet<object> = new WeakSet<object>(),
+): T {
   if (input === null || input === undefined) {
     return input;
   }
@@ -78,18 +82,32 @@ function redactInternal<T>(input: T, opts: { redactPii: boolean }): T {
   }
 
   if (Array.isArray(input)) {
-    return input.map((item) => redactInternal(item, opts)) as unknown as T;
+    if (seen.has(input)) {
+      return '[Circular]' as unknown as T;
+    }
+    seen.add(input);
+    return input.map((item) => redactInternal(item, opts, seen)) as unknown as T;
   }
 
   if (typeof input === 'object') {
+    if (seen.has(input as object)) {
+      return '[Circular]' as unknown as T;
+    }
+    seen.add(input as object);
+
     const redacted: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(input as Record<string, unknown>)) {
-      const isSecretKey = SECRET_KEY_PATTERNS.some((pattern) => pattern.test(key));
+      const normalizedKey = key.replace(/^_+/, '');
+      const isSecretKey = SECRET_KEY_PATTERNS.some((pattern) =>
+        pattern.test(normalizedKey),
+      );
       const isPiiKey = opts.redactPii
-        ? PII_KEY_PATTERNS.some((pattern) => pattern.test(key))
+        ? PII_KEY_PATTERNS.some((pattern) => pattern.test(normalizedKey))
         : false;
       redacted[key] =
-        isSecretKey || isPiiKey ? '[REDACTED]' : redactInternal(value, opts);
+        isSecretKey || isPiiKey
+          ? '[REDACTED]'
+          : redactInternal(value, opts, seen);
     }
     return redacted as unknown as T;
   }
@@ -198,6 +216,38 @@ function splitReservedData(data: Record<string, unknown> | undefined): {
   return { data: result, error };
 }
 
+function sanitizeContext(
+  context: LoggerContext,
+  allowPii: boolean
+): Record<string, unknown> {
+  const raw = context as unknown as Record<string, unknown>;
+  const sanitized: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(raw)) {
+    sanitized[key] = typeof value === 'string' ? redactSensitiveStrings(value) : value;
+  }
+  return allowPii ? redactSecrets(sanitized) : redactSecretsAndPii(sanitized);
+}
+
+function safeJsonStringify(value: unknown): string | null {
+  const seen = new WeakSet<object>();
+  try {
+    return JSON.stringify(value, (_key, innerValue) => {
+      if (typeof innerValue === 'bigint') {
+        return innerValue.toString();
+      }
+      if (typeof innerValue === 'object' && innerValue !== null) {
+        if (seen.has(innerValue)) {
+          return '[Circular]';
+        }
+        seen.add(innerValue);
+      }
+      return innerValue;
+    });
+  } catch {
+    return null;
+  }
+}
+
 function emitLog(
   level: Exclude<LogLevel, 'silent'>,
   message: string,
@@ -206,27 +256,50 @@ function emitLog(
 ): void {
   if (!shouldLog(level)) return;
 
-  const { data: cleanedData, error } = splitReservedData(data);
-  const allowPii = shouldIncludePii();
+  try {
+    const { data: cleanedData, error } = splitReservedData(data);
+    const allowPii = shouldIncludePii();
 
-  const entry: Record<string, unknown> = {
-    ts: new Date().toISOString(),
-    level,
-    msg: message,
-    context: context,
-    ...(cleanedData && Object.keys(cleanedData).length > 0
-      ? { data: allowPii ? redactSecrets(cleanedData) : redactSecretsAndPii(cleanedData) }
-      : {}),
-    ...(error !== undefined ? { error: normalizeError(error) } : {}),
-  };
+    const redactedMessage = redactSensitiveStrings(message);
+    const redactedContext = sanitizeContext(context, allowPii);
 
-  const line = JSON.stringify(entry);
-  if (level === 'error') {
-    console.error(line);
-  } else if (level === 'warn') {
-    console.warn(line);
-  } else {
-    console.log(line);
+    const entry: Record<string, unknown> = {
+      ts: new Date().toISOString(),
+      level,
+      msg: redactedMessage,
+      context: redactedContext,
+      ...(cleanedData && Object.keys(cleanedData).length > 0
+        ? { data: allowPii ? redactSecrets(cleanedData) : redactSecretsAndPii(cleanedData) }
+        : {}),
+      ...(error !== undefined ? { error: normalizeError(error) } : {}),
+    };
+
+    const line = safeJsonStringify(entry);
+    if (!line) {
+      return;
+    }
+
+    if (level === 'error') {
+      console.error(line);
+    } else if (level === 'warn') {
+      console.warn(line);
+    } else {
+      console.log(line);
+    }
+  } catch {
+    // Last resort: never allow logging to crash request handling.
+    try {
+      const fallback = safeJsonStringify({
+        ts: new Date().toISOString(),
+        level,
+        msg: redactSensitiveStrings(message),
+      });
+      if (fallback) {
+        console.log(fallback);
+      }
+    } catch {
+      // ignore
+    }
   }
 }
 
@@ -270,6 +343,23 @@ function createFallbackRequestId(): string {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
+function isSafeRequestId(candidate: string): boolean {
+  if (!candidate) return false;
+  if (candidate.length > 128) return false;
+  if (candidate.includes('\n') || candidate.includes('\r') || candidate.includes('\t')) {
+    return false;
+  }
+  // Allow conservative set and common AWS trace format ("Root=1-...").
+  if (!/^[A-Za-z0-9\-_.:/=]+$/.test(candidate)) {
+    return false;
+  }
+  // Reject values that look like secrets/tokens (including sk-/Bearer/AIZA and hex blobs).
+  if (redactSensitiveStrings(candidate) !== candidate) {
+    return false;
+  }
+  return true;
+}
+
 export function getOrCreateRequestId(request: Request): string {
   const header =
     request.headers.get('x-request-id') ??
@@ -277,7 +367,10 @@ export function getOrCreateRequestId(request: Request): string {
     request.headers.get('x-amzn-trace-id');
   const trimmed = header?.trim();
   if (trimmed) {
-    return trimmed.slice(0, 128);
+    const candidate = trimmed.slice(0, 128);
+    if (isSafeRequestId(candidate)) {
+      return candidate;
+    }
   }
 
   const maybeUuid = globalThis.crypto?.randomUUID?.();

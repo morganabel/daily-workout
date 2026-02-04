@@ -10,7 +10,6 @@ export {
   createLogger,
   getOrCreateRequestId,
   attachRequestId,
-  resetLoggerForTest,
   getUrlPath,
   createRequestContext,
   type Logger,
