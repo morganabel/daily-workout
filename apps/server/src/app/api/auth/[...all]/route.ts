@@ -16,8 +16,7 @@
 import { getAuthContext } from '@/lib/auth-context';
 import {
   attachRequestId,
-  createLogger,
-  getOrCreateRequestId,
+  createRequestContext,
 } from '@workout-agent-ce/server-core';
 import { createAuthHandler } from '@workout-agent-ce/server-auth';
 
@@ -25,9 +24,7 @@ import { createAuthHandler } from '@workout-agent-ce/server-auth';
  * Handler that delegates to Better Auth or returns 404 for stub mode
  */
 async function handler(request: Request): Promise<Response> {
-  const requestId = getOrCreateRequestId(request);
-  const startedAt = Date.now();
-  const log = createLogger({ route: 'api.auth', requestId });
+  const { requestId, startedAt, log } = createRequestContext(request, 'api.auth');
   const ctx = getAuthContext();
 
   if (ctx.mode !== 'better-auth' || !ctx.auth) {

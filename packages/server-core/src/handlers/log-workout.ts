@@ -1,6 +1,6 @@
 import type { AuthProvider, GenerationStore } from '../types';
 import { createErrorResponse } from '../utils/errors';
-import { attachRequestId, createLogger, getOrCreateRequestId } from '../utils/logging';
+import { attachRequestId, createRequestContext } from '../utils/logging';
 import {
   workoutLogPayloadSchema,
   workoutSessionSummarySchema,
@@ -28,16 +28,7 @@ export function createLogWorkoutHandler(deps: LogWorkoutHandlerDeps) {
     request: Request,
     planId: string
   ): Promise<Response> {
-    const requestId = getOrCreateRequestId(request);
-    const urlPath = (() => {
-      try {
-        return new URL(request.url).pathname;
-      } catch {
-        return 'unknown';
-      }
-    })();
-    const startedAt = Date.now();
-    const log = createLogger({ route: 'workouts.log', requestId });
+    const { requestId, urlPath, startedAt, log } = createRequestContext(request, 'workouts.log');
 
     // Authenticate request
     const auth = await deps.auth.authenticate(request);
@@ -59,7 +50,7 @@ export function createLogWorkoutHandler(deps: LogWorkoutHandlerDeps) {
         payload = JSON.parse(text);
       }
     } catch (error) {
-      log.info('invalid json body', { method: request.method, path: urlPath, error });
+      log.warn('invalid json body', { method: request.method, path: urlPath, error });
       const response = createErrorResponse(
         'VALIDATION_ERROR',
         'Malformed JSON in request body',
@@ -71,7 +62,7 @@ export function createLogWorkoutHandler(deps: LogWorkoutHandlerDeps) {
 
     const parsedPayload = workoutLogPayloadSchema.safeParse(payload);
     if (!parsedPayload.success) {
-      log.info('request validation failed', {
+      log.warn('request validation failed', {
         method: request.method,
         path: urlPath,
         issues: parsedPayload.error.issues.length,

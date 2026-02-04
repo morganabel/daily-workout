@@ -1,13 +1,10 @@
 import {
   attachRequestId,
-  createLogger,
-  getOrCreateRequestId,
+  createRequestContext,
 } from '@workout-agent-ce/server-core';
 
 export async function GET(request: Request) {
-  const requestId = getOrCreateRequestId(request);
-  const startedAt = Date.now();
-  const log = createLogger({ route: 'api.hello', requestId });
+  const { requestId, startedAt, log } = createRequestContext(request, 'api.hello');
 
   const res = new Response('Hello, from API!');
   attachRequestId(res, requestId);

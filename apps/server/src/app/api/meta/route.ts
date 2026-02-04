@@ -12,11 +12,10 @@
  * can detect backend capabilities before attempting auth.
  */
 
-import { PROTOCOL_VERSION } from '@workout-agent-ce/server-core';
 import {
+  PROTOCOL_VERSION,
   attachRequestId,
-  createLogger,
-  getOrCreateRequestId,
+  createRequestContext,
 } from '@workout-agent-ce/server-core';
 import {
   createStubMetaResponse,
@@ -26,9 +25,7 @@ import {
 import { getAuthContext } from '@/lib/auth-context';
 
 export async function GET(request: Request): Promise<Response> {
-  const requestId = getOrCreateRequestId(request);
-  const startedAt = Date.now();
-  const log = createLogger({ route: 'api.meta', requestId });
+  const { requestId, startedAt, log } = createRequestContext(request, 'api.meta');
   const ctx = getAuthContext();
 
   // Determine edition from environment

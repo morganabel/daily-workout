@@ -1,7 +1,7 @@
 import type { AuthProvider, GenerationStore } from '../types';
 import { createErrorResponse } from '../utils/errors';
 import { buildQuickActions } from '../utils/quick-actions';
-import { attachRequestId, createLogger, getOrCreateRequestId } from '../utils/logging';
+import { attachRequestId, createRequestContext } from '../utils/logging';
 import {
   homeSnapshotSchema,
   createHomeSnapshotMock,
@@ -25,16 +25,7 @@ export interface SnapshotHandlerDeps {
  */
 export function createSnapshotHandler(deps: SnapshotHandlerDeps) {
   return async function snapshotHandler(request: Request): Promise<Response> {
-    const requestId = getOrCreateRequestId(request);
-    const urlPath = (() => {
-      try {
-        return new URL(request.url).pathname;
-      } catch {
-        return 'unknown';
-      }
-    })();
-    const startedAt = Date.now();
-    const log = createLogger({ route: 'home.snapshot', requestId });
+    const { requestId, urlPath, startedAt, log } = createRequestContext(request, 'home.snapshot');
 
     // Authenticate request
     const auth = await deps.auth.authenticate(request);

@@ -25,12 +25,14 @@ const DEFAULT_API_BASE =
   process.env.OPENAI_API_BASE ?? 'https://api.openai.com/v1';
 
 export class OpenAIProvider implements AiProvider {
+  private readonly log = createLogger({ route: 'ai.openai' });
+
   async generate(
     request: GenerationRequest,
     context: GenerationContext,
     options: AiProviderOptions,
   ): Promise<GenerationResult> {
-    const log = createLogger({ route: 'ai.openai' });
+    const { log } = this;
     if (!options.apiKey) {
       throw new AiGenerationError('Missing API key', 'NO_API_KEY');
     }

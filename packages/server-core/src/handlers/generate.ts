@@ -17,8 +17,7 @@ import {
 } from '@workout-agent/shared';
 import {
   attachRequestId,
-  createLogger,
-  getOrCreateRequestId,
+  createRequestContext,
   redactSensitiveStrings,
 } from '../utils/logging';
 
@@ -97,30 +96,19 @@ function sanitizeErrorMessage(message: string): string {
  */
 export function createGenerateHandler(deps: GenerateHandlerDeps) {
   return async function generateHandler(request: Request): Promise<Response> {
-    const requestId = getOrCreateRequestId(request);
-    const urlPath = (() => {
-      try {
-        return new URL(request.url).pathname;
-      } catch {
-        return 'unknown';
-      }
-    })();
-
-    const startedAt = Date.now();
-    const log = createLogger({ route: 'workouts.generate', requestId });
+    const { requestId, urlPath, startedAt, log } = createRequestContext(request, 'workouts.generate');
 
     // Authenticate request
     const auth = await deps.auth.authenticate(request);
     if (!auth) {
       log.info('request unauthorized', { method: request.method, path: urlPath });
-      return attachRequestId(
-        createErrorResponse(
+      const response = createErrorResponse(
         'UNAUTHORIZED',
         'Invalid or missing session',
         401
-        ),
-        requestId
       );
+      attachRequestId(response, requestId);
+      return response;
     }
 
     // Parse and validate request body
@@ -128,27 +116,25 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
     try {
       body = await request.json();
     } catch {
-      log.info('invalid json body', { method: request.method, path: urlPath });
-      return attachRequestId(
-        createErrorResponse('VALIDATION_ERROR', 'Invalid JSON in request body'),
-        requestId
-      );
+      log.warn('invalid json body', { method: request.method, path: urlPath });
+      const response = createErrorResponse('VALIDATION_ERROR', 'Invalid JSON in request body');
+      attachRequestId(response, requestId);
+      return response;
     }
 
     const parseResult = generationRequestWithContextSchema.safeParse(body);
     if (!parseResult.success) {
-      log.info('request validation failed', {
+      log.warn('request validation failed', {
         method: request.method,
         path: urlPath,
         issues: parseResult.error.issues.length,
       });
-      return attachRequestId(
-        createErrorResponse(
-          'VALIDATION_ERROR',
-          `Invalid request: ${parseResult.error.message}`
-        ),
-        requestId
+      const response = createErrorResponse(
+        'VALIDATION_ERROR',
+        `Invalid request: ${parseResult.error.message}`
       );
+      attachRequestId(response, requestId);
+      return response;
     }
 
     const generationRequest: GenerationRequestWithContext = parseResult.data;

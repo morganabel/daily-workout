@@ -129,7 +129,11 @@ const LOG_LEVEL_ORDER: Record<LogLevel, number> = {
 
 const RESERVED_FIELDS = new Set(['ts', 'level', 'msg', 'context', 'data', 'error']);
 
+let cachedLogLevel: LogLevel | null = null;
+let cachedAllowPii: boolean | null = null;
+
 function resolveLogLevel(): LogLevel {
+  if (cachedLogLevel !== null) return cachedLogLevel;
   const raw = (process.env.LOG_LEVEL ?? '').trim().toLowerCase();
   if (
     raw === 'debug' ||
@@ -138,9 +142,11 @@ function resolveLogLevel(): LogLevel {
     raw === 'error' ||
     raw === 'silent'
   ) {
-    return raw;
+    cachedLogLevel = raw;
+  } else {
+    cachedLogLevel = 'info';
   }
-  return 'info';
+  return cachedLogLevel;
 }
 
 function shouldLog(level: LogLevel): boolean {
@@ -149,8 +155,10 @@ function shouldLog(level: LogLevel): boolean {
 }
 
 function shouldIncludePii(): boolean {
+  if (cachedAllowPii !== null) return cachedAllowPii;
   const raw = (process.env.LOG_PII ?? '').trim().toLowerCase();
-  return raw === '1' || raw === 'true' || raw === 'yes';
+  cachedAllowPii = raw === '1' || raw === 'true' || raw === 'yes';
+  return cachedAllowPii;
 }
 
 function normalizeError(error: unknown): { name: string; message: string; stack?: string } {
@@ -283,4 +291,37 @@ export function attachRequestId(response: Response, requestId: string): Response
     // Ignore if headers are immutable in a given runtime.
   }
   return response;
+}
+
+/**
+ * Reset cached config and the root logger singleton.
+ * Only intended for tests — never call in production.
+ */
+export function resetLoggerForTest(): void {
+  rootLogger = null;
+  cachedLogLevel = null;
+  cachedAllowPii = null;
+}
+
+export function getUrlPath(request: Request): string {
+  try {
+    return new URL(request.url).pathname;
+  } catch {
+    return 'unknown';
+  }
+}
+
+export interface RequestContext {
+  requestId: string;
+  urlPath: string;
+  startedAt: number;
+  log: Logger;
+}
+
+export function createRequestContext(request: Request, route: string): RequestContext {
+  const requestId = getOrCreateRequestId(request);
+  const urlPath = getUrlPath(request);
+  const startedAt = Date.now();
+  const log = createLogger({ route, requestId });
+  return { requestId, urlPath, startedAt, log };
 }

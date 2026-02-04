@@ -29,12 +29,14 @@ const getVertexEnvConfig = () => ({
 });
 
 export class GeminiProvider implements AiProvider {
+  private readonly log = createLogger({ route: 'ai.gemini' });
+
   async generate(
     request: GenerationRequest,
     context: GenerationContext,
     options: AiProviderOptions,
   ): Promise<GenerationResult> {
-    const log = createLogger({ route: 'ai.gemini' });
+    const { log } = this;
     const vertexEnv = getVertexEnvConfig();
     const useVertex =
       options.useVertexAi ??

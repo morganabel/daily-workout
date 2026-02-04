@@ -19,10 +19,12 @@ import type { Auth } from './auth.js';
  * - Ignores x-user-id and similar headers (identity from session only)
  */
 export class BetterAuthProvider implements AuthProvider {
+  private readonly log = createLogger({ route: 'auth.better' });
+
   constructor(private readonly auth: Auth) {}
 
   async authenticate(request: Request): Promise<AuthResult | null> {
-    const log = createLogger({ route: 'auth.better' });
+    const { log } = this;
     const authHeader = request.headers.get('authorization');
     const cookieHeader = request.headers.get('cookie');
 
@@ -58,7 +60,7 @@ export class BetterAuthProvider implements AuthProvider {
       };
     } catch (error) {
       // Session validation failed - don't log the token (security)
-      log.debug('session validation failed', {
+      log.warn('session validation failed', {
         message:
           error instanceof Error
             ? redactSensitiveStrings(error.message)
