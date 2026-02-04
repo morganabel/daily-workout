@@ -8,6 +8,7 @@
  */
 
 import { StubAuthProvider, type AuthProvider } from '@workout-agent-ce/server-core';
+import { createLogger } from '@workout-agent-ce/server-core';
 import { createDb, type Database } from '@workout-agent-ce/server-db';
 import {
   createAuth,
@@ -95,6 +96,7 @@ export function getAuthContext(): AuthContext {
     return cachedContext;
   }
 
+  const log = createLogger({ route: 'auth.context' });
   const mode = resolveAuthMode();
   validateAuthConfig(mode);
 
@@ -135,7 +137,7 @@ export function getAuthContext(): AuthContext {
     };
   }
 
-  console.log(`[auth-context] Initialized auth mode: ${mode}`);
+  log.info('initialized auth mode', { mode });
   return cachedContext;
 }
 

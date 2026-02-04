@@ -14,13 +14,21 @@
 
 import { PROTOCOL_VERSION } from '@workout-agent-ce/server-core';
 import {
+  attachRequestId,
+  createLogger,
+  getOrCreateRequestId,
+} from '@workout-agent-ce/server-core';
+import {
   createStubMetaResponse,
   createBetterAuthMetaResponse,
   metaResponseSchema,
 } from '@workout-agent/shared';
 import { getAuthContext } from '@/lib/auth-context';
 
-export async function GET(): Promise<Response> {
+export async function GET(request: Request): Promise<Response> {
+  const requestId = getOrCreateRequestId(request);
+  const startedAt = Date.now();
+  const log = createLogger({ route: 'api.meta', requestId });
   const ctx = getAuthContext();
 
   // Determine edition from environment
@@ -37,5 +45,15 @@ export async function GET(): Promise<Response> {
   // Validate response (ensures type safety)
   const validated = metaResponseSchema.parse(response);
 
-  return Response.json(validated);
+  const res = Response.json(validated);
+  attachRequestId(res, requestId);
+  log.info('request completed', {
+    method: request.method,
+    path: '/api/meta',
+    status: 200,
+    durationMs: Date.now() - startedAt,
+    authMode: ctx.mode,
+    edition,
+  });
+  return res;
 }

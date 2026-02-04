@@ -2,6 +2,8 @@
  * Structured error responses for API endpoints
  */
 
+import { redactSensitiveStrings } from './logging';
+
 export type ApiErrorCode =
   | 'BYOK_REQUIRED'
   | 'QUOTA_EXCEEDED'
@@ -20,9 +22,7 @@ export interface ApiError {
  * Redact any secrets in error messages before returning to clients.
  */
 function sanitizeErrorMessage(message: string): string {
-  return message
-    .replace(/Bearer\s+[A-Za-z0-9._-]+/gi, '[REDACTED]')
-    .replace(/sk-[A-Za-z0-9_-]+/gi, '[REDACTED]');
+  return redactSensitiveStrings(message);
 }
 
 export function createErrorResponse(

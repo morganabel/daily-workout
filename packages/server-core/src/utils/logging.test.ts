@@ -37,7 +37,7 @@ describe('logging redaction', () => {
       'Invalid Authorization: Bearer secret-token',
       401
     );
-    const json = await response.json();
+    const json = (await response.json()) as { message: string };
     expect(json.message).toContain('[REDACTED]');
     expect(json.message).not.toContain('secret-token');
   });

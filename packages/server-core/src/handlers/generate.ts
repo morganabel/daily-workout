@@ -15,7 +15,12 @@ import {
   createTodayPlanMock,
   type TodayPlan,
 } from '@workout-agent/shared';
-import { safeLog } from '../utils/logging';
+import {
+  attachRequestId,
+  createLogger,
+  getOrCreateRequestId,
+  redactSensitiveStrings,
+} from '../utils/logging';
 
 // Extended schema that accepts optional client-provided context
 const generationRequestWithContextSchema = generationRequestSchema.extend({
@@ -79,11 +84,7 @@ export interface GenerateHandlerDeps {
  * Sanitize error messages to remove any potential API key leaks
  */
 function sanitizeErrorMessage(message: string): string {
-  // Remove anything that looks like an API key (sk-..., AIza..., etc.)
-  return message
-    .replace(/sk-[a-zA-Z0-9_-]+/g, '[REDACTED]')
-    .replace(/AIza[a-zA-Z0-9_-]+/g, '[REDACTED]')
-    .replace(/\b[a-f0-9]{32,}\b/gi, '[REDACTED]');
+  return redactSensitiveStrings(message);
 }
 
 /**
@@ -96,15 +97,29 @@ function sanitizeErrorMessage(message: string): string {
  */
 export function createGenerateHandler(deps: GenerateHandlerDeps) {
   return async function generateHandler(request: Request): Promise<Response> {
+    const requestId = getOrCreateRequestId(request);
+    const urlPath = (() => {
+      try {
+        return new URL(request.url).pathname;
+      } catch {
+        return 'unknown';
+      }
+    })();
+
     const startedAt = Date.now();
+    const log = createLogger({ route: 'workouts.generate', requestId });
 
     // Authenticate request
     const auth = await deps.auth.authenticate(request);
     if (!auth) {
-      return createErrorResponse(
+      log.info('request unauthorized', { method: request.method, path: urlPath });
+      return attachRequestId(
+        createErrorResponse(
         'UNAUTHORIZED',
         'Invalid or missing session',
         401
+        ),
+        requestId
       );
     }
 
@@ -112,18 +127,27 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
     let body: unknown;
     try {
       body = await request.json();
-    } catch (error) {
-      return createErrorResponse(
-        'VALIDATION_ERROR',
-        'Invalid JSON in request body'
+    } catch {
+      log.info('invalid json body', { method: request.method, path: urlPath });
+      return attachRequestId(
+        createErrorResponse('VALIDATION_ERROR', 'Invalid JSON in request body'),
+        requestId
       );
     }
 
     const parseResult = generationRequestWithContextSchema.safeParse(body);
     if (!parseResult.success) {
-      return createErrorResponse(
-        'VALIDATION_ERROR',
-        `Invalid request: ${parseResult.error.message}`
+      log.info('request validation failed', {
+        method: request.method,
+        path: urlPath,
+        issues: parseResult.error.issues.length,
+      });
+      return attachRequestId(
+        createErrorResponse(
+          'VALIDATION_ERROR',
+          `Invalid request: ${parseResult.error.message}`
+        ),
+        requestId
       );
     }
 
@@ -217,14 +241,14 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
     const context = await loadGenerationContext(auth.userId, generationRequest);
     const isRegeneration = Boolean(generationRequest.previousResponseId);
 
-    // Log generation start (NEVER log API keys)
-    safeLog('[workouts.generate] generation started', {
-      userId: auth.userId,
+    // Log generation start (NEVER log API keys, prompts, or free-form feedback)
+    log.info('generation started', {
       provider,
       hasApiKey: Boolean(apiKey),
       isByok,
       isRegeneration,
-      feedback: generationRequest.feedback,
+      hasFeedback: (generationRequest.feedback?.length ?? 0) > 0,
+      feedbackCount: generationRequest.feedback?.length ?? 0,
     });
 
     // Use principalId for device-scoped state (GenerationStore)
@@ -248,9 +272,10 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
       } catch (error) {
         encounteredProviderError = true;
         const sanitizedMessage = sanitizeErrorMessage((error as Error).message);
-        safeLog('[workouts.generate] AI generation failed, falling back to mock', {
+        log.warn('ai generation failed; falling back to mock', {
           provider,
-          message: sanitizedMessage, // Use sanitized message
+          message: sanitizedMessage,
+          error,
         });
         await deps.store.setError(
           auth.principalId,
@@ -268,8 +293,7 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
       await deps.store.persistPlan(auth.principalId, validated, {
         schemaVersion,
       });
-      safeLog('[workouts.generate] generation completed', {
-        userId: auth.userId,
+      log.info('generation completed', {
         durationMs: Date.now() - startedAt,
         source: apiKey ? 'ai' : 'mock',
         isRegeneration,
@@ -277,10 +301,7 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
         schemaVersion,
       });
     } else {
-      safeLog('[workouts.generate] generation returned fallback plan', {
-        userId: auth.userId,
-        durationMs: Date.now() - startedAt,
-      });
+      log.info('generation returned fallback plan', { durationMs: Date.now() - startedAt });
     }
 
     // Record metering event
@@ -299,6 +320,14 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
       });
     }
 
-    return Response.json(validated);
+    const response = Response.json(validated);
+    attachRequestId(response, requestId);
+    log.info('request completed', {
+      method: request.method,
+      path: urlPath,
+      status: 200,
+      durationMs: Date.now() - startedAt,
+    });
+    return response;
   };
 }

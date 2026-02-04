@@ -4,6 +4,7 @@ import {
   type GenerationContext,
   type GenerationRequest,
 } from '@workout-agent/shared';
+import { createLogger } from './logging';
 
 /**
  * Extended request payload that includes client-provided context.
@@ -25,6 +26,8 @@ export async function loadGenerationContext(
   _userId: string,
   request: GenerationRequestWithContext
 ): Promise<GenerationContext> {
+  const log = createLogger({ route: 'generation.context' });
+
   // If client provided context, validate and use it
   if (request.context) {
     const result = generationContextSchema.safeParse(request.context);
@@ -50,10 +53,10 @@ export async function loadGenerationContext(
         },
       };
     }
-    console.warn(
-      '[context] Invalid client context, building from request:',
-      result.error.message
-    );
+    log.warn('invalid client context; building from request', {
+      message: result.error.message,
+      issues: result.error.issues.length,
+    });
   }
 
   // Fallback: build minimal context from request parameters only

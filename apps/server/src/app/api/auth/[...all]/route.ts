@@ -14,28 +14,66 @@
  */
 
 import { getAuthContext } from '@/lib/auth-context';
+import {
+  attachRequestId,
+  createLogger,
+  getOrCreateRequestId,
+} from '@workout-agent-ce/server-core';
 import { createAuthHandler } from '@workout-agent-ce/server-auth';
 
 /**
  * Handler that delegates to Better Auth or returns 404 for stub mode
  */
 async function handler(request: Request): Promise<Response> {
+  const requestId = getOrCreateRequestId(request);
+  const startedAt = Date.now();
+  const log = createLogger({ route: 'api.auth', requestId });
   const ctx = getAuthContext();
 
   if (ctx.mode !== 'better-auth' || !ctx.auth) {
     // In stub mode, auth endpoints are not available
-    return Response.json(
+    const res = Response.json(
       {
         error: 'AUTH_NOT_CONFIGURED',
         message: 'Authentication endpoints are not available in stub mode',
       },
       { status: 404 }
     );
+    attachRequestId(res, requestId);
+    log.info('request completed', {
+      method: request.method,
+      path: '/api/auth/*',
+      status: 404,
+      durationMs: Date.now() - startedAt,
+      authMode: ctx.mode,
+    });
+    return res;
   }
 
   // Delegate to Better Auth
-  const authHandler = createAuthHandler(ctx.auth);
-  return authHandler(request);
+  try {
+    const authHandler = createAuthHandler(ctx.auth);
+    const res = await authHandler(request);
+    attachRequestId(res, requestId);
+    log.info('request completed', {
+      method: request.method,
+      path: '/api/auth/*',
+      status: res.status,
+      durationMs: Date.now() - startedAt,
+    });
+    return res;
+  } catch (error) {
+    log.error('unhandled auth error', { error });
+    const res = Response.json(
+      {
+        error: 'INTERNAL_SERVER_ERROR',
+        message: 'Unexpected server error',
+      },
+      { status: 500 }
+    );
+    attachRequestId(res, requestId);
+    return res;
+  }
 }
 
 export const GET = handler;
