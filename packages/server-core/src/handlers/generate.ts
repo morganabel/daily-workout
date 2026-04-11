@@ -1,12 +1,17 @@
 import type {
   AuthProvider,
+  GenerationState,
   GenerationStore,
   ModelRouter,
   UsagePolicy,
   MeteringSink,
 } from '../types';
 import { createErrorResponse } from '../utils/errors';
-import { loadGenerationContext, type GenerationRequestWithContext } from '../utils/context';
+import {
+  loadGenerationContext,
+  type GenerationRequestWithContext,
+} from '../utils/context';
+import { buildExerciseCandidatePool } from '../utils/exercise-library';
 import {
   generationRequestSchema,
   generationContextSchema,
@@ -15,6 +20,7 @@ import {
   createTodayPlanMock,
   type TodayPlan,
 } from '@workout-agent/shared';
+import type { ExerciseLibrary } from '@workout-agent-ce/server-exercise-library';
 import {
   attachRequestId,
   createRequestContext,
@@ -74,6 +80,7 @@ export interface GenerateHandlerDeps {
   auth: AuthProvider;
   store: GenerationStore;
   router: ModelRouter;
+  exerciseLibrary?: ExerciseLibrary;
   policy?: UsagePolicy;
   metering?: MeteringSink;
   config: GenerateHandlerConfig;
@@ -96,7 +103,10 @@ function sanitizeErrorMessage(message: string): string {
  */
 export function createGenerateHandler(deps: GenerateHandlerDeps) {
   return async function generateHandler(request: Request): Promise<Response> {
-    const { requestId, urlPath, startedAt, log } = createRequestContext(request, 'workouts.generate');
+    const { requestId, urlPath, startedAt, log } = createRequestContext(
+      request,
+      'workouts.generate',
+    );
 
     const errorResponse = (
       code: Parameters<typeof createErrorResponse>[0],
@@ -118,7 +128,10 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
     // Authenticate request
     const auth = await deps.auth.authenticate(request);
     if (!auth) {
-      log.info('request unauthorized', { method: request.method, path: urlPath });
+      log.info('request unauthorized', {
+        method: request.method,
+        path: urlPath,
+      });
       return errorResponse('UNAUTHORIZED', 'Invalid or missing session', 401);
     }
 
@@ -128,7 +141,11 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
       body = await request.json();
     } catch {
       log.warn('invalid json body', { method: request.method, path: urlPath });
-      return errorResponse('VALIDATION_ERROR', 'Invalid JSON in request body', 400);
+      return errorResponse(
+        'VALIDATION_ERROR',
+        'Invalid JSON in request body',
+        400,
+      );
     }
 
     const parseResult = generationRequestWithContextSchema.safeParse(body);
@@ -148,7 +165,10 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
     const generationRequest: GenerationRequestWithContext = parseResult.data;
 
     // Extract provider from header (defaults based on legacy header or config)
-    const providerHeader = request.headers.get('x-ai-provider')?.trim().toLowerCase();
+    const providerHeader = request.headers
+      .get('x-ai-provider')
+      ?.trim()
+      .toLowerCase();
     const openaiKeyHeader = request.headers.get('x-openai-key')?.trim();
     const geminiKeyHeader = request.headers.get('x-gemini-key')?.trim();
     const genericKeyHeader = request.headers.get('x-ai-key')?.trim();
@@ -169,16 +189,17 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
       provider = 'openai';
     } else {
       // Default from config or router
-      const defaultProvider = deps.config.defaultProvider ?? deps.router.getDefaultProvider();
+      const defaultProvider =
+        deps.config.defaultProvider ?? deps.router.getDefaultProvider();
       provider = defaultProvider as 'openai' | 'gemini';
     }
 
     // Determine if Vertex AI should be used
     const useVertexAi = Boolean(
       provider === 'gemini' &&
-        deps.config.useVertexAi &&
-        deps.config.googleCloudProject &&
-        deps.config.googleCloudLocation
+      deps.config.useVertexAi &&
+      deps.config.googleCloudProject &&
+      deps.config.googleCloudLocation,
     );
 
     // Extract API key based on provider
@@ -198,7 +219,9 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
         (useVertexAi ? 'vertex-env' : null);
     }
 
-    const isByok = Boolean(openaiKeyHeader || geminiKeyHeader || genericKeyHeader);
+    const isByok = Boolean(
+      openaiKeyHeader || geminiKeyHeader || genericKeyHeader,
+    );
 
     // Check BYOK requirement for hosted edition
     if (!apiKey && !useVertexAi && deps.config.edition === 'HOSTED') {
@@ -211,7 +234,10 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
 
     // Check policy (quota/rate limits)
     if (deps.policy) {
-      const policyResult = await deps.policy.canGenerate(auth.userId, generationRequest);
+      const policyResult = await deps.policy.canGenerate(
+        auth.userId,
+        generationRequest,
+      );
       if (!policyResult.allowed) {
         return errorResponse(
           'QUOTA_EXCEEDED',
@@ -234,6 +260,32 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
 
     const context = await loadGenerationContext(auth.userId, generationRequest);
     const isRegeneration = Boolean(generationRequest.previousResponseId);
+    const previousState: GenerationState | null = isRegeneration
+      ? await deps.store.getState(auth.principalId)
+      : null;
+
+    if (deps.exerciseLibrary) {
+      try {
+        const candidatePool = buildExerciseCandidatePool({
+          exerciseLibrary: deps.exerciseLibrary,
+          request: generationRequest,
+          context,
+          previousPlan: previousState?.plan,
+        });
+        log.info('exercise candidate pool prepared', {
+          libraryVersion: candidatePool.libraryVersion,
+          totalEligibleCount: candidatePool.totalEligibleCount,
+          candidateCount: candidatePool.candidateExercises.length,
+          baselineExerciseCount: candidatePool.baselineExerciseIds.length,
+          isRegeneration,
+        });
+      } catch (error) {
+        log.warn('exercise candidate pool unavailable', {
+          message: sanitizeErrorMessage((error as Error).message),
+          isRegeneration,
+        });
+      }
+    }
 
     // Log generation start (NEVER log API keys, prompts, or free-form feedback)
     log.info('generation started', {
@@ -246,7 +298,10 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
     });
 
     // Use principalId for device-scoped state (GenerationStore)
-    await deps.store.markPending(auth.principalId, DEFAULT_GENERATION_ETA_SECONDS);
+    await deps.store.markPending(
+      auth.principalId,
+      DEFAULT_GENERATION_ETA_SECONDS,
+    );
 
     let plan: TodayPlan;
     let responseId: string | undefined;
@@ -256,7 +311,7 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
     if (apiKey) {
       try {
         const result = await deps.router.generate(generationRequest, context, {
-          apiKey: useVertexAi ? undefined : apiKey ?? undefined,
+          apiKey: useVertexAi ? undefined : (apiKey ?? undefined),
           provider,
           useVertexAi,
         });
@@ -273,7 +328,7 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
         });
         await deps.store.setError(
           auth.principalId,
-          'We could not generate a workout plan. Showing a fallback plan.'
+          'We could not generate a workout plan. Showing a fallback plan.',
         );
         plan = mockPlan();
       }
@@ -295,7 +350,9 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
         schemaVersion,
       });
     } else {
-      log.info('generation returned fallback plan', { durationMs: Date.now() - startedAt });
+      log.info('generation returned fallback plan', {
+        durationMs: Date.now() - startedAt,
+      });
     }
 
     // Record metering event

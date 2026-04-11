@@ -1,6 +1,18 @@
-export { createErrorResponse, type ApiError, type ApiErrorCode } from './errors';
+export {
+  createErrorResponse,
+  type ApiError,
+  type ApiErrorCode,
+} from './errors';
 export { buildQuickActions } from './quick-actions';
-export { loadGenerationContext, type GenerationRequestWithContext } from './context';
+export {
+  loadGenerationContext,
+  type GenerationRequestWithContext,
+} from './context';
+export {
+  buildExerciseCandidatePool,
+  type BuildExerciseCandidatePoolParams,
+  type ExerciseCandidatePoolSummary,
+} from './exercise-library';
 export {
   safeLog,
   redactSecrets,

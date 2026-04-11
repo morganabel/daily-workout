@@ -40,9 +40,12 @@ export {
 export {
   createErrorResponse,
   buildQuickActions,
+  buildExerciseCandidatePool,
   loadGenerationContext,
   type ApiError,
   type ApiErrorCode,
+  type BuildExerciseCandidatePoolParams,
+  type ExerciseCandidatePoolSummary,
   type GenerationRequestWithContext,
   safeLog,
   redactSecrets,
