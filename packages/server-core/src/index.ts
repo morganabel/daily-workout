@@ -76,3 +76,8 @@ export {
   type LogLevel,
   type RequestContext,
 } from './utils';
+
+export {
+  runHardChecksForScenario,
+  summarizeHardFailures,
+} from './evaluation/hard-checks';

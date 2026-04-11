@@ -66,6 +66,7 @@ ios/DerivedData/
 
 
 test-output
+reports/generation-evaluation/
 
 # Next.js
 .next
