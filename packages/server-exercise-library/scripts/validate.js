@@ -131,9 +131,9 @@ for (const exercise of canonical) {
   }
 }
 
-if (manifest.plannerReadyCount < 10) {
+if (manifest.plannerReadyCount < 25) {
   throw new Error(
-    `Expected at least 10 planner-ready exercises, found ${manifest.plannerReadyCount}`,
+    `Expected at least 25 planner-ready exercises, found ${manifest.plannerReadyCount}`,
   );
 }
 
@@ -208,6 +208,55 @@ const smokeQueries = [
       WHERE e.metadata_completeness = 'planner-ready'
         AND EXISTS (SELECT 1 FROM exercise_equipment ee WHERE ee.exercise_id = e.id AND ee.equipment_id = 'treadmill')
         AND EXISTS (SELECT 1 FROM exercise_tags et WHERE et.exercise_id = e.id AND et.tag_type = 'style' AND et.tag IN ('conditioning', 'cardio'))
+    `,
+  },
+  {
+    name: 'travel-friendly quiet bodyweight or bands',
+    sql: `SELECT COUNT(*) as count
+      FROM exercises e
+      WHERE e.metadata_completeness = 'planner-ready'
+        AND e.travel_friendly = 1
+        AND e.noise_level = 'quiet'
+        AND EXISTS (SELECT 1 FROM exercise_equipment ee WHERE ee.exercise_id = e.id AND ee.equipment_id IN ('bodyweight', 'resistance_bands'))
+    `,
+  },
+  {
+    name: 'knee-sensitive low-impact lower body',
+    sql: `SELECT COUNT(*) as count
+      FROM exercises e
+      WHERE e.metadata_completeness = 'planner-ready'
+        AND e.impact_level IN ('none', 'low')
+        AND EXISTS (SELECT 1 FROM exercise_tags et WHERE et.exercise_id = e.id AND et.tag_type = 'focus' AND et.tag = 'lower_body')
+        AND NOT EXISTS (SELECT 1 FROM exercise_tags et WHERE et.exercise_id = e.id AND et.tag_type = 'contraindication' AND et.tag = 'knee_sensitivity')
+        AND EXISTS (SELECT 1 FROM exercise_equipment ee WHERE ee.exercise_id = e.id AND ee.equipment_id IN ('bodyweight', 'resistance_bands'))
+    `,
+  },
+  {
+    name: 'lower-back-sensitive upper body options',
+    sql: `SELECT COUNT(*) as count
+      FROM exercises e
+      WHERE e.metadata_completeness = 'planner-ready'
+        AND EXISTS (SELECT 1 FROM exercise_tags et WHERE et.exercise_id = e.id AND et.tag_type = 'focus' AND et.tag = 'upper_body')
+        AND NOT EXISTS (SELECT 1 FROM exercise_tags et WHERE et.exercise_id = e.id AND et.tag_type = 'contraindication' AND et.tag = 'lower_back_sensitivity')
+        AND EXISTS (SELECT 1 FROM exercise_equipment ee WHERE ee.exercise_id = e.id AND ee.equipment_id IN ('bodyweight', 'dumbbell', 'resistance_bands', 'bench', 'cable_machine'))
+    `,
+  },
+  {
+    name: 'rowing machine conditioning',
+    sql: `SELECT COUNT(*) as count
+      FROM exercises e
+      WHERE e.metadata_completeness = 'planner-ready'
+        AND EXISTS (SELECT 1 FROM exercise_equipment ee WHERE ee.exercise_id = e.id AND ee.equipment_id = 'rowing_machine')
+        AND EXISTS (SELECT 1 FROM exercise_tags et WHERE et.exercise_id = e.id AND et.tag_type = 'style' AND et.tag IN ('conditioning', 'cardio'))
+    `,
+  },
+  {
+    name: 'strongman-style sandbag coverage',
+    sql: `SELECT COUNT(*) as count
+      FROM exercises e
+      WHERE e.metadata_completeness = 'planner-ready'
+        AND EXISTS (SELECT 1 FROM exercise_equipment ee WHERE ee.exercise_id = e.id AND ee.equipment_id = 'sandbag')
+        AND EXISTS (SELECT 1 FROM exercise_tags et WHERE et.exercise_id = e.id AND et.tag_type = 'style' AND et.tag = 'strongman')
     `,
   },
 ];

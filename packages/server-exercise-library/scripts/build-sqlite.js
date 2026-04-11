@@ -1,13 +1,13 @@
-import { rm } from 'node:fs/promises';
+import { rename, rm } from 'node:fs/promises';
 import Database from 'better-sqlite3';
 import { paths, readJson } from './_common.js';
 
 const canonical = await readJson(paths.generatedCanonical);
 const manifest = await readJson(paths.generatedManifest);
 
-await rm(paths.generatedSqlite, { force: true });
+await rm(paths.generatedSqliteTemp, { force: true });
 
-const database = new Database(paths.generatedSqlite);
+const database = new Database(paths.generatedSqliteTemp);
 
 database.exec(`
 PRAGMA journal_mode = DELETE;
@@ -274,5 +274,8 @@ for (const exercise of canonical) {
 }
 
 database.close();
+
+await rm(paths.generatedSqlite, { force: true });
+await rename(paths.generatedSqliteTemp, paths.generatedSqlite);
 
 console.log(`Built SQLite exercise library at ${paths.generatedSqlite}`);

@@ -43,6 +43,12 @@ export const paths = {
     'generated',
     'exercise-library.sqlite',
   ),
+  generatedSqliteTemp: path.join(
+    packageRoot,
+    'data',
+    'generated',
+    'exercise-library.sqlite.next',
+  ),
 };
 
 export async function ensureDirectories() {
