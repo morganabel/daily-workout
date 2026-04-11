@@ -1,0 +1,9 @@
+{
+  "metadataCompleteness": ["raw", "derived", "curated", "planner-ready"],
+  "experienceLevels": ["beginner", "intermediate", "advanced"],
+  "impactLevels": ["none", "low", "moderate", "high"],
+  "noiseLevels": ["quiet", "moderate", "loud"],
+  "spaceFootprints": ["small", "medium", "large"],
+  "loadLevels": ["light", "moderate", "heavy"],
+  "exerciseRoles": ["warmup", "main", "accessory", "finisher", "recovery"]
+}

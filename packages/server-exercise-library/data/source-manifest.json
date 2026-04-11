@@ -1,0 +1,23 @@
+{
+  "source": "free-exercise-db",
+  "repository": "https://github.com/yuhonas/free-exercise-db",
+  "license": "Unlicense",
+  "upstreamCommit": "acd61f751fe15d618862ee3084f27e839222a28f",
+  "upstreamFetchedAt": "2026-04-11T19:25:11.235Z",
+  "recordCount": 873,
+  "retainedFields": [
+    "id",
+    "name",
+    "force",
+    "level",
+    "mechanic",
+    "equipment",
+    "primaryMuscles",
+    "secondaryMuscles",
+    "instructions",
+    "category"
+  ],
+  "excludedFields": [
+    "images"
+  ]
+}

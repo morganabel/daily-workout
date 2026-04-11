@@ -6,6 +6,8 @@ The workout generation flow MUST be able to derive server-side candidate pools f
 
 Candidate-pool selection metadata and diagnostics SHALL remain internal to the server-side planning flow and MUST NOT be required in the public generation response.
 
+By default, generation-facing candidate-pool queries SHALL use only exercises whose `metadataCompleteness` is `planner-ready`.
+
 #### Scenario: Generation derives a bounded candidate pool from context
 
 - **WHEN** the server prepares a generation request with equipment, injury or avoid constraints, and environment limits such as quiet or low-impact
@@ -20,3 +22,8 @@ Candidate-pool selection metadata and diagnostics SHALL remain internal to the s
 
 - **WHEN** the server prepares a regeneration request for a provider without prior-response memory
 - **THEN** it can derive a fresh bounded candidate pool from the exercise library using the current constraints and baseline workout context
+
+#### Scenario: Generation ignores non-ready records by default
+
+- **WHEN** the built exercise library contains imported records that are only `raw`, `derived`, or `curated`
+- **THEN** the default generation candidate-pool path excludes those records unless an internal non-production workflow explicitly requests them

@@ -1,0 +1,71 @@
+{
+  "focusTags": [
+    "upper_body",
+    "lower_body",
+    "core",
+    "conditioning",
+    "mobility",
+    "recovery",
+    "abdominals",
+    "abductors",
+    "adductors",
+    "biceps",
+    "calves",
+    "chest",
+    "forearms",
+    "glutes",
+    "hamstrings",
+    "lats",
+    "lower_back",
+    "middle_back",
+    "neck",
+    "quadriceps",
+    "shoulders",
+    "traps",
+    "triceps"
+  ],
+  "movementTags": [
+    "push",
+    "pull",
+    "static",
+    "compound",
+    "isolation",
+    "squat",
+    "hinge",
+    "lunge",
+    "carry",
+    "press",
+    "row",
+    "curl",
+    "vertical_pull",
+    "gait"
+  ],
+  "styleTags": [
+    "strength",
+    "powerlifting",
+    "stretching",
+    "cardio",
+    "conditioning",
+    "mobility",
+    "recovery",
+    "olympic_weightlifting",
+    "strongman",
+    "plyometrics"
+  ],
+  "stressorTags": [
+    "lower_body_fatigue",
+    "upper_body_push_fatigue",
+    "upper_body_pull_fatigue",
+    "axial_loading",
+    "high_bracing",
+    "shoulder_loading",
+    "plyometric",
+    "grip_heavy"
+  ],
+  "contraindicationTags": [
+    "shoulder_irritation",
+    "lower_back_sensitivity",
+    "knee_sensitivity"
+  ],
+  "avoidTags": ["overhead_pressing", "burpee", "jumping"]
+}

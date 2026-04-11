@@ -6,10 +6,10 @@ We need a local, server-available exercise library now so future generation work
 
 ## What Changes
 
-- Add a new embedded SQLite-backed exercise library that is available to the server runtime through a read-only query layer
-- Define a normalized exercise metadata model that supports deterministic filtering by equipment, impact, noise, space, travel friendliness, contraindications, style tags, and coarse load/soreness heuristics
+- Add a new embedded SQLite-backed exercise library package at `packages/server-exercise-library` that is available to the server runtime through a read-only query layer
+- Define a normalized exercise metadata model that supports deterministic filtering by equipment, impact, noise, space, travel friendliness, contraindications, style tags, coarse load/soreness heuristics, and a `metadataCompleteness` maturity gate
 - Add query capabilities for building eligible exercise pools and looking up exercises by stable ID so generation and evaluation flows can reuse the same source of truth
-- Seed the exercise library with enough coverage for the current workout-generation needs, especially quiet/apartment, travel, injury-sensitive, and style-specific scenarios
+- Seed the exercise library from a pinned snapshot of `free-exercise-db`, then enrich it through deterministic transforms and committed local curation data so the packaged library can contain all imported exercises while production planning defaults to the `planner-ready` subset
 - Update generation-facing requirements so server-side workout planning can derive bounded candidate pools from the exercise library without exposing diagnostics or internal selection metadata in the user-facing workout response
 - Keep the exercise library fully local-first and compatible with CE self-hosting while making hosted behavior identical aside from normal deployment packaging
 
@@ -25,6 +25,6 @@ We need a local, server-available exercise library now so future generation work
 
 ## Impact
 
-- Affected code: likely a new shared or server-side exercise-library package/module, plus updates to `packages/shared`, `packages/server-core`, `packages/server-ai`, and generation/evaluation wiring that will later consume the query layer
+- Affected code: a new `packages/server-exercise-library` package/module, plus updates to `packages/server-core`, `packages/server-ai`, and generation/evaluation wiring that will later consume the query layer
 - Affected APIs: no required public API expansion for end users in this change, but future generation requests and internal planning may depend on exercise-library-backed candidate selection
-- Affected systems: server runtime packaging for the embedded SQLite asset, local dev/test workflows, CE and hosted deployment bundles, and generation evaluation/reporting that needs a deterministic exercise source of truth
+- Affected systems: server runtime packaging for the embedded SQLite asset, local dev/test workflows, Nx build targets for import/validation/SQLite generation, and generation evaluation/reporting that needs a deterministic exercise source of truth
