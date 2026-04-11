@@ -1,37 +1,74 @@
 ## ADDED Requirements
 
-### Requirement: Server-Side Generation Planning Brief
+### Requirement: Server-Side Planning Brief
 
-The system MUST derive an internal server-side planning brief before invoking a workout-generation provider. The planning brief MUST normalize generation inputs, merged user context, and exercise-library query results into a structured session plan that the provider can follow while the public `TodayPlan` response contract remains unchanged.
+Before invoking workout generation, the system MUST derive a deterministic planning brief from the generation request, merged user context, optional planning date, and optional regeneration baseline workout. The planning brief MUST be the authoritative internal representation of generation intent for provider prompting.
 
-#### Scenario: Initial generation derives a planning brief before provider invocation
+The planning brief MUST distinguish hard constraints, soft bias, unknown values, regeneration mode, and provider-aware execution mode.
 
-- **WHEN** the server receives a workout generation request
-- **THEN** it derives an internal planning brief that captures normalized session intent, constraints, and planner-facing exercise candidates before calling the selected provider
+#### Scenario: Planning brief is derived before generation
+
+- **WHEN** a valid generation request is accepted
+- **THEN** the server derives a planning brief before invoking the provider generation flow
+
+#### Scenario: Missing values remain unknown instead of being invented
+
+- **WHEN** request or context fields such as injuries, preferences, or recent history are absent
+- **THEN** the planning brief records them as unknown or absent rather than inferring new facts
 
 #### Scenario: Provider receives structured planning inputs
 
 - **WHEN** a provider request is built from the generation flow
 - **THEN** the prompt inputs include the planning brief's block intents and bounded exercise candidates rather than relying only on unconstrained workout prose
 
-#### Scenario: Public response contract stays unchanged
+### Requirement: Deterministic Smart Focus Resolution
 
-- **WHEN** generation succeeds using the internal planning brief
-- **THEN** the user-facing response still returns the canonical `TodayPlan` payload without exposing planning metadata or planner diagnostics
+When the user requests `Smart` or auto focus, the planning layer MUST resolve a recommended session intent before model generation. That resolution MUST account for recent training summaries, upcoming event protection, energy, style or goal bias, and environment constraints.
 
-### Requirement: Regeneration Reuses Planning Intent
+The Smart-resolution step MUST produce at least a recommended focus or session identity, disallowed or de-prioritized stressors, and a coarse load ceiling suitable for downstream candidate-pool selection and prompting.
 
-The system MUST use the same generation-planning path for regeneration flows, including stateless provider flows that require a fresh prompt. Regeneration planning MUST preserve the baseline workout intent while excluding previously used exercises when variation is requested and eligible alternatives exist.
+#### Scenario: Smart focus protects a near-term event
+
+- **WHEN** a user requests Smart focus and a demanding run or sport event is scheduled soon
+- **THEN** the planning brief de-prioritizes stressors that would meaningfully reduce freshness for that event
+
+#### Scenario: Smart focus shifts away from repeated recent overload
+
+- **WHEN** recent session summaries indicate repeated emphasis on a movement pattern or body region
+- **THEN** the planning brief biases away from repeating that same stress pattern unless the request explicitly overrides it
+
+### Requirement: Exercise-Library-Backed Candidate Pools
+
+The planning layer MUST query the exercise library to derive bounded candidate pools that respect hard filters and may apply soft bias for style, goal, or load intent. The candidate-pool path MUST use the deterministic hard-filter semantics defined by the exercise-library capability.
+
+#### Scenario: Candidate pool honors hard environment and safety constraints
+
+- **WHEN** a planning brief requires quiet, low-impact, bodyweight-only, or contraindication-aware selection
+- **THEN** the derived candidate pool contains only exercises that satisfy those hard constraints
+
+#### Scenario: Candidate pool can bias toward session identity
+
+- **WHEN** a planning brief expresses a style identity such as bodybuilding, powerlifting, strongman, or climbing
+- **THEN** the candidate-pool query can prefer matching exercises without violating hard constraints
+
+### Requirement: Provider-Aware Regeneration Planning
+
+The planning layer MUST support both stateful and stateless regeneration. Stateful regeneration MAY use provider-side continuity only when the prior response provenance matches a provider path that supports it. Stateless regeneration MUST use explicit baseline workout context, current merged context, and a fresh candidate pool.
+
+#### Scenario: OpenAI regeneration can continue from valid prior provenance
+
+- **WHEN** the current provider supports prior-response continuity and the baseline workout provenance matches that provider
+- **THEN** the planning flow may use stateful regeneration while still applying the current planning brief and constraints
+
+#### Scenario: Stateless regeneration uses baseline workout context
+
+- **WHEN** the provider does not support prior-response continuity or the prior provenance does not match the active provider
+- **THEN** regeneration is planned from the explicit baseline workout, current constraints, and a new candidate pool instead of assuming provider memory
 
 #### Scenario: Regeneration excludes baseline exercises when alternatives exist
 
 - **WHEN** the user regenerates a workout or part of a workout and the planner can find eligible alternatives
 - **THEN** the planning brief excludes the relevant baseline exercise IDs from the candidate set while preserving the original session intent and constraints
-
-#### Scenario: Stateless providers receive a fresh planning brief for regeneration
-
-- **WHEN** regeneration runs against a provider that does not retain prior response memory
-- **THEN** the server derives a fresh planning brief from the current request, baseline workout context, and variation rules before invoking the provider again
 
 ### Requirement: Planning Fallback Is Explicit
 
@@ -46,3 +83,12 @@ The system MUST treat planning degradation as an explicit server-side decision. 
 
 - **WHEN** generation proceeds using a degraded fallback mode
 - **THEN** the fallback metadata remains internal to the server/runtime path and does not alter the public `TodayPlan` schema
+
+### Requirement: Internal Planning Diagnostics
+
+The system MUST record planning diagnostics internally for evaluation and debugging, including at least the resolved planning mode, Smart-resolution outputs, and whether regeneration used a stateful or stateless path. These diagnostics MUST NOT be required in the public workout response.
+
+#### Scenario: Planning diagnostics stay internal
+
+- **WHEN** generation completes using the planning layer
+- **THEN** planning diagnostics are available to internal storage or evaluation flows without changing the canonical public workout response shape
