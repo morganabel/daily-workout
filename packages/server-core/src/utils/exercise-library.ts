@@ -1,23 +1,19 @@
 import type {
   CandidateQuery,
   ExerciseLibrary,
-  ExerciseRecord,
 } from '@workout-agent-ce/server-exercise-library';
 import {
   isAutoFocus,
   type GenerationContext,
   type TodayPlan,
 } from '@workout-agent/shared';
+import type { ExerciseCandidatePool } from '../types/model-router';
 import type { GenerationRequestWithContext } from './context';
 
 const DEFAULT_CANDIDATE_LIMIT = 24;
 const DEFAULT_EQUIPMENT = ['Bodyweight'];
 
-export interface ExerciseCandidatePoolSummary {
-  libraryVersion: string;
-  totalEligibleCount: number;
-  candidateExercises: Array<Pick<ExerciseRecord, 'id' | 'name'>>;
-  baselineExerciseIds: string[];
+export interface ExerciseCandidatePoolSummary extends ExerciseCandidatePool {
   query: CandidateQuery;
 }
 
@@ -50,6 +46,7 @@ export function buildExerciseCandidatePool({
     totalEligibleCount: result.totalEligibleCount,
     candidateExercises: result.exercises.map(({ id, name }) => ({ id, name })),
     baselineExerciseIds,
+    searchText: query.searchText,
     query,
   };
 }
@@ -61,6 +58,7 @@ function buildCandidateQuery(
 ): CandidateQuery {
   const noteText = collectEnvironmentText(request, context);
   const focusTags = deriveFocusTags(request.focus, context);
+  const searchText = deriveSearchText(request, context, noteText, focusTags);
   const avoidTags = new Set(
     normalizeAvoidTags(context.preferences.avoid ?? []),
   );
@@ -77,6 +75,7 @@ function buildCandidateQuery(
       context.preferences.injuries ?? [],
     ),
     avoidTags: [...avoidTags],
+    searchText,
     environment,
     focusTags,
     styleBias: normalizeStyleBias(context.userProfile.preferredStyle),
@@ -84,6 +83,69 @@ function buildCandidateQuery(
     minimumMetadataCompleteness: 'planner-ready',
     limit: DEFAULT_CANDIDATE_LIMIT,
   };
+}
+
+function deriveSearchText(
+  request: GenerationRequestWithContext,
+  context: GenerationContext,
+  noteText: string,
+  focusTags: string[] | undefined,
+): string | undefined {
+  const tokens = new Set<string>();
+
+  for (const equipment of selectAvailableEquipment(request, context)) {
+    tokens.add(normalizeEquipmentSearchToken(equipment));
+  }
+
+  for (const tag of focusTags ?? []) {
+    tokens.add(tag.replace(/_/g, ' '));
+  }
+
+  for (const style of normalizeStyleBias(context.userProfile.preferredStyle) ??
+    []) {
+    tokens.add(style.replace(/_/g, ' '));
+  }
+
+  if (request.focus && !isAutoFocus(request.focus)) {
+    tokens.add(request.focus);
+  }
+
+  if (noteText.includes('quiet')) {
+    tokens.add('quiet');
+  }
+  if (noteText.includes('apartment')) {
+    tokens.add('apartment');
+  }
+  if (noteText.includes('travel') || noteText.includes('hotel')) {
+    tokens.add('travel');
+    tokens.add('hotel');
+  }
+  if (noteText.includes('low impact') || noteText.includes('low-impact')) {
+    tokens.add('low impact');
+  }
+  if (noteText.includes('conditioning') || noteText.includes('cardio')) {
+    tokens.add('conditioning');
+  }
+
+  for (const injury of context.preferences.injuries ?? []) {
+    tokens.add(injury);
+  }
+
+  for (const avoid of context.preferences.avoid ?? []) {
+    tokens.add(avoid);
+  }
+
+  const searchText = [...tokens]
+    .map((value) => value.trim())
+    .filter(Boolean)
+    .join(' ')
+    .trim();
+
+  return searchText || undefined;
+}
+
+function normalizeEquipmentSearchToken(value: string): string {
+  return value.toLowerCase().replace(/pull-up/g, 'pull up');
 }
 
 function selectAvailableEquipment(

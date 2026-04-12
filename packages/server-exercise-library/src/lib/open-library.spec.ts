@@ -58,6 +58,19 @@ describe('openExerciseLibrary', () => {
     library.close();
   });
 
+  it('uses BM25 search text to rank relevant candidates higher inside filtered results', () => {
+    const library = openExerciseLibrary();
+    const result = library.listEligibleExercises({
+      availableEquipment: ['Rowing Machine'],
+      searchText: 'rowing machine cardio',
+      limit: 3,
+    });
+
+    expect(result.exercises[0]?.id).toBe('fedb:rowing-stationary');
+
+    library.close();
+  });
+
   it('supports variation queries by excluding baseline exercises', () => {
     const library = openExerciseLibrary();
     const result = library.listVariationCandidates({

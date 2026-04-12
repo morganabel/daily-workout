@@ -61,6 +61,8 @@ The query surface MUST support, at minimum, exercise lookup by ID and eligible-p
 
 Eligible-pool queries MUST default to returning only exercises whose `metadataCompleteness` is `planner-ready`, unless a caller is explicitly using an internal/debug path that requests lower-completeness records.
 
+When a caller provides optional search text, the query surface MUST apply full-text ranking only within the already eligible set, using deterministic ordering rules after hard filtering.
+
 #### Scenario: Hard constraints exclude ineligible exercises
 
 - **WHEN** a caller requests eligible exercises with hard filters for available equipment, injury-related exclusions, and low-impact quiet conditions
@@ -80,6 +82,11 @@ Eligible-pool queries MUST default to returning only exercises whose `metadataCo
 
 - **WHEN** a production candidate-pool query runs against a library that contains `raw`, `derived`, `curated`, and `planner-ready` records
 - **THEN** only `planner-ready` exercises are eligible unless the caller explicitly opts into a lower completeness threshold for internal use
+
+#### Scenario: BM25 ranks text-relevant exercises within a hard-filtered pool
+
+- **WHEN** a candidate query includes search text alongside hard filters such as equipment and environment constraints
+- **THEN** the library returns only exercises that satisfy the hard filters, with BM25/FTS ranking used only to order the eligible set by text relevance
 
 ### Requirement: Library Validation And Versioning
 

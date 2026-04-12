@@ -1,12 +1,16 @@
 import { GeminiProvider } from './gemini';
 import { GoogleGenAI } from '@google/genai';
+import type { ExerciseCandidatePool } from '@workout-agent-ce/server-core';
 import type {
   GenerationRequest,
   GenerationContext,
   LlmTodayPlan,
 } from '@workout-agent/shared';
 import { AiGenerationError } from './types';
-import { transformLlmResponse, getDefaultSchemaVersion } from '../llm-transformer';
+import {
+  transformLlmResponse,
+  getDefaultSchemaVersion,
+} from '../llm-transformer';
 
 jest.mock('uuid', () => ({
   v7: jest.fn(() => 'mock-uuid'),
@@ -19,7 +23,9 @@ jest.mock('../llm-transformer', () => {
     transformLlmResponse: jest.fn(),
     getDefaultSchemaVersion: jest.fn(() => 'v1-current'),
     getSchemaForVersion: jest.fn((version: string) => {
-      const { llmTodayPlanSchema } = jest.requireActual('@workout-agent/shared');
+      const { llmTodayPlanSchema } = jest.requireActual(
+        '@workout-agent/shared',
+      );
       return llmTodayPlanSchema;
     }),
   };
@@ -73,11 +79,24 @@ describe('GeminiProvider', () => {
     ],
   };
 
+  const candidatePool: ExerciseCandidatePool = {
+    libraryVersion: 'test-library',
+    totalEligibleCount: 2,
+    searchText: 'upper body strength',
+    baselineExerciseIds: ['fedb:pushups'],
+    candidateExercises: [
+      { id: 'fedb:pushups', name: 'Pushups' },
+      { id: 'fedb:chin-up', name: 'Chin-Up' },
+    ],
+  };
+
   beforeEach(() => {
     jest.clearAllMocks();
     provider = new GeminiProvider();
 
-    (getDefaultSchemaVersion as unknown as jest.Mock).mockReturnValue('v1-current');
+    (getDefaultSchemaVersion as unknown as jest.Mock).mockReturnValue(
+      'v1-current',
+    );
 
     const transformedPlan = {
       id: 'mock-plan-id',
@@ -220,6 +239,22 @@ describe('GeminiProvider', () => {
       );
     });
 
+    it('includes candidate pool data in the initial generation prompt', async () => {
+      mockGenerateContent.mockResolvedValue({
+        text: JSON.stringify(mockLlmPlan),
+      });
+
+      await provider.generate(mockRequest, mockContext, {
+        apiKey: 'test-api-key',
+        candidatePool,
+      });
+
+      const prompt = mockGenerateContent.mock.calls[0][0].contents;
+      expect(prompt).toContain('candidatePool');
+      expect(prompt).toContain('Pushups');
+      expect(prompt).toContain('Chin-Up');
+    });
+
     it('should throw NO_API_KEY error when API key is missing and not using Vertex AI', async () => {
       await expect(
         provider.generate(mockRequest, mockContext, {}),
@@ -234,9 +269,7 @@ describe('GeminiProvider', () => {
     });
 
     it('should throw REQUEST_FAILED error when API call fails', async () => {
-      mockGenerateContent.mockRejectedValue(
-        new Error('Network error'),
-      );
+      mockGenerateContent.mockRejectedValue(new Error('Network error'));
 
       await expect(
         provider.generate(mockRequest, mockContext, {

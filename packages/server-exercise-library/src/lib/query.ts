@@ -18,8 +18,10 @@ import type {
 } from './types.js';
 
 interface SqlBuildResult {
+  fromSql: string;
   sql: string;
   params: Array<string | number>;
+  orderBySql?: string;
 }
 
 interface ExerciseRow {
@@ -57,7 +59,7 @@ export class ExerciseLibraryQueryEngine implements ExerciseLibrary {
 
   getExerciseById(id: string): ExerciseRecord | null {
     const row = this.database
-      .prepare(`${BASE_SELECT_SQL} WHERE e.id = ? LIMIT 1`)
+      .prepare(`${BASE_SELECT_SQL} FROM exercises e WHERE e.id = ? LIMIT 1`)
       .get(id) as ExerciseRow | undefined;
 
     return row ? mapExerciseRow(row) : null;
@@ -67,7 +69,7 @@ export class ExerciseLibraryQueryEngine implements ExerciseLibrary {
     const normalized = nameOrAlias.trim().toLowerCase();
     const row = this.database
       .prepare(
-        `${BASE_SELECT_SQL} WHERE lower(e.name) = ? OR EXISTS (SELECT 1 FROM exercise_aliases ea WHERE ea.exercise_id = e.id AND lower(ea.alias) = ?) LIMIT 1`,
+        `${BASE_SELECT_SQL} FROM exercises e WHERE lower(e.name) = ? OR EXISTS (SELECT 1 FROM exercise_aliases ea WHERE ea.exercise_id = e.id AND lower(ea.alias) = ?) LIMIT 1`,
       )
       .get(normalized, normalized) as ExerciseRow | undefined;
 
@@ -156,7 +158,6 @@ SELECT
   e.metadata_completeness,
   e.sort_key,
   e.source_refs_json
-FROM exercises e
 `;
 
 function buildEligibleExerciseSql(
@@ -165,11 +166,21 @@ function buildEligibleExerciseSql(
 ): SqlBuildResult {
   const conditions: string[] = [];
   const params: Array<string | number> = [];
+  let fromSql = 'FROM exercises e';
 
   const minimumCompleteness =
     query.minimumMetadataCompleteness ?? DEFAULT_MINIMUM_COMPLETENESS;
   conditions.push('e.metadata_completeness_rank >= ?');
   params.push(getMetadataCompletenessRank(minimumCompleteness));
+
+  const searchText = buildFtsQuery(query.searchText);
+  let orderBySql = '';
+  if (searchText) {
+    fromSql = `${fromSql} JOIN exercise_search ON exercise_search.exercise_id = e.id`;
+    conditions.push('exercise_search MATCH ?');
+    params.push(searchText);
+    orderBySql = `bm25(exercise_search, 4.0, 2.5, 1.4, 0.7, 1.0, 1.0, 0.9, 0.8) ASC`;
+  }
 
   if (query.availableEquipment?.length) {
     const equipmentIds = [
@@ -269,7 +280,8 @@ function buildEligibleExerciseSql(
 
   if (countOnly) {
     return {
-      sql: `SELECT COUNT(*) as count FROM exercises e ${whereClause}`,
+      fromSql,
+      sql: `SELECT COUNT(*) as count ${fromSql} ${whereClause}`,
       params,
     };
   }
@@ -281,12 +293,31 @@ function buildEligibleExerciseSql(
   }
 
   return {
+    fromSql,
     sql: `${BASE_SELECT_SQL}
+      ${fromSql}
       ${whereClause}
-      ORDER BY ${styleScore} DESC, e.sort_key ASC, e.id ASC
+      ORDER BY ${orderBySql ? `${orderBySql}, ` : ''}${styleScore} DESC, e.sort_key ASC, e.id ASC
       ${limitClause}`,
     params,
+    orderBySql,
   };
+}
+
+function buildFtsQuery(value: string | undefined): string | null {
+  if (!value) {
+    return null;
+  }
+
+  const tokens = [
+    ...new Set(value.toLowerCase().match(/[a-z0-9]+/g) ?? []),
+  ].filter((token) => token.length >= 2);
+
+  if (!tokens.length) {
+    return null;
+  }
+
+  return tokens.map((token) => `${token}*`).join(' OR ');
 }
 
 function buildStyleBiasScore(

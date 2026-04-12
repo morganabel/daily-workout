@@ -1,4 +1,21 @@
-import type { GenerationRequest, GenerationContext, TodayPlan } from '@workout-agent/shared';
+import type {
+  GenerationRequest,
+  GenerationContext,
+  TodayPlan,
+} from '@workout-agent/shared';
+
+export interface ExerciseCandidateReference {
+  id: string;
+  name: string;
+}
+
+export interface ExerciseCandidatePool {
+  libraryVersion: string;
+  totalEligibleCount: number;
+  candidateExercises: ExerciseCandidateReference[];
+  baselineExerciseIds: string[];
+  searchText?: string;
+}
 
 /**
  * Result from a model generation call
@@ -33,6 +50,12 @@ export interface ModelGenerationOptions {
    * Provider to use
    */
   provider?: 'openai' | 'gemini';
+
+  /**
+   * Internal candidate-pool summary derived from the exercise library.
+   * This is available for prompt construction but must not be exposed directly in the user-facing plan.
+   */
+  candidatePool?: ExerciseCandidatePool;
 }
 
 /**
@@ -48,7 +71,7 @@ export interface ModelRouter {
   generate(
     request: GenerationRequest,
     context: GenerationContext,
-    options: ModelGenerationOptions
+    options: ModelGenerationOptions,
   ): Promise<GenerationResult>;
 
   /**

@@ -12,6 +12,7 @@ import { AiGenerationError } from './types';
 import {
   SYSTEM_PROMPT,
   INITIAL_GENERATION_INSTRUCTIONS,
+  buildCandidatePoolPromptData,
   buildRegenerationMessage,
 } from './prompts';
 import {
@@ -42,9 +43,9 @@ export class GeminiProvider implements AiProvider {
       options.useVertexAi ??
       Boolean(
         !options.apiKey &&
-          vertexEnv.enabled &&
-          vertexEnv.projectId &&
-          vertexEnv.location,
+        vertexEnv.enabled &&
+        vertexEnv.projectId &&
+        vertexEnv.location,
       );
 
     const clientConfig: GoogleGenAIOptions = {};
@@ -85,7 +86,11 @@ export class GeminiProvider implements AiProvider {
     // Build prompt based on whether this is initial generation or regeneration
     let prompt: string;
     if (isRegeneration) {
-      prompt = buildRegenerationMessage(request, request.feedback);
+      prompt = buildRegenerationMessage(
+        request,
+        request.feedback,
+        options.candidatePool,
+      );
     } else {
       prompt = `${SYSTEM_PROMPT}\n\n${JSON.stringify({
         request: {
@@ -93,6 +98,7 @@ export class GeminiProvider implements AiProvider {
           // Filter out auto focus so it doesn't anchor the LLM
           focus: isAutoFocus(request.focus) ? undefined : request.focus,
         },
+        candidatePool: buildCandidatePoolPromptData(options.candidatePool),
         context,
         instructions: INITIAL_GENERATION_INSTRUCTIONS,
       })}`;

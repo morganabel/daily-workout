@@ -91,6 +91,18 @@ CREATE TABLE exercise_source_refs (
   FOREIGN KEY (exercise_id) REFERENCES exercises(id) ON DELETE CASCADE
 );
 
+CREATE VIRTUAL TABLE exercise_search USING fts5(
+  exercise_id UNINDEXED,
+  name,
+  aliases,
+  description,
+  instruction_steps,
+  focus_tags,
+  movement_tags,
+  style_tags,
+  equipment_tags
+);
+
 CREATE INDEX idx_exercises_sort_key ON exercises(sort_key, id);
 CREATE INDEX idx_exercises_metadata_rank ON exercises(metadata_completeness_rank, sort_key, id);
 CREATE INDEX idx_exercises_load_rank ON exercises(load_level_rank);
@@ -154,6 +166,9 @@ const insertRole = database.prepare(
 );
 const insertSourceRef = database.prepare(
   'INSERT INTO exercise_source_refs(exercise_id, source, source_id, source_version) VALUES(?, ?, ?, ?)',
+);
+const insertSearch = database.prepare(
+  'INSERT INTO exercise_search(exercise_id, name, aliases, description, instruction_steps, focus_tags, movement_tags, style_tags, equipment_tags) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)',
 );
 
 const metadataRank = {
@@ -271,6 +286,18 @@ for (const exercise of canonical) {
       sourceRef.sourceVersion,
     );
   }
+
+  insertSearch.run(
+    exercise.id,
+    exercise.name,
+    exercise.aliases.join(' '),
+    exercise.description,
+    exercise.instructionSteps.join(' '),
+    exercise.focusTags.join(' '),
+    exercise.movementTags.join(' '),
+    exercise.styleTags.join(' '),
+    [...exercise.requiredEquipment, ...exercise.optionalEquipment].join(' '),
+  );
 }
 
 database.close();

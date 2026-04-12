@@ -87,6 +87,7 @@ export interface CandidateQuery {
   experienceLevel?: ExperienceLevel;
   contraindicationTags?: string[];
   avoidTags?: string[];
+  searchText?: string;
   environment?: EnvironmentConstraints;
   focusTags?: string[];
   blockRole?: ExerciseRole;

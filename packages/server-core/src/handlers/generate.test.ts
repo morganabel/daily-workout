@@ -218,6 +218,16 @@ describe('createGenerateHandler exercise library integration', () => {
     expect(response.status).toBe(200);
     expect(exerciseLibrary.listEligibleExercises).toHaveBeenCalledTimes(1);
     expect(exerciseLibrary.listVariationCandidates).not.toHaveBeenCalled();
+    expect(router.generate).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      expect.objectContaining({
+        candidatePool: expect.objectContaining({
+          candidateExercises: [{ id: 'fedb:pushups', name: 'Pushups' }],
+          searchText: expect.any(String),
+        }),
+      }),
+    );
     expect(payload.focus).toBeDefined();
     expect(payload.candidateExercises).toBeUndefined();
   });

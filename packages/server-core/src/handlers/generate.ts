@@ -263,10 +263,13 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
     const previousState: GenerationState | null = isRegeneration
       ? await deps.store.getState(auth.principalId)
       : null;
+    let candidatePool:
+      | ReturnType<typeof buildExerciseCandidatePool>
+      | undefined;
 
     if (deps.exerciseLibrary) {
       try {
-        const candidatePool = buildExerciseCandidatePool({
+        candidatePool = buildExerciseCandidatePool({
           exerciseLibrary: deps.exerciseLibrary,
           request: generationRequest,
           context,
@@ -312,6 +315,7 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
       try {
         const result = await deps.router.generate(generationRequest, context, {
           apiKey: useVertexAi ? undefined : (apiKey ?? undefined),
+          candidatePool,
           provider,
           useVertexAi,
         });

@@ -1,5 +1,6 @@
 import { OpenAIProvider } from './openai';
 import OpenAI from 'openai';
+import type { ExerciseCandidatePool } from '@workout-agent-ce/server-core';
 import {
   type GenerationRequest,
   type GenerationContext,
@@ -28,7 +29,9 @@ jest.mock('../llm-transformer', () => {
     ...actual,
     getDefaultSchemaVersion: jest.fn(() => 'v1-current'),
     getSchemaForVersion: jest.fn((version: string) => {
-      const { llmTodayPlanSchema } = jest.requireActual('@workout-agent/shared');
+      const { llmTodayPlanSchema } = jest.requireActual(
+        '@workout-agent/shared',
+      );
       return llmTodayPlanSchema;
     }),
   };
@@ -96,6 +99,17 @@ describe('OpenAIProvider', () => {
           },
         ],
       },
+    ],
+  };
+
+  const candidatePool: ExerciseCandidatePool = {
+    libraryVersion: 'test-library',
+    totalEligibleCount: 2,
+    searchText: 'upper body strength',
+    baselineExerciseIds: ['fedb:pushups'],
+    candidateExercises: [
+      { id: 'fedb:pushups', name: 'Pushups' },
+      { id: 'fedb:chin-up', name: 'Chin-Up' },
     ],
   };
 
@@ -209,6 +223,26 @@ describe('OpenAIProvider', () => {
       );
     });
 
+    it('includes candidate pool data in initial generation input', async () => {
+      mockResponsesParse.mockResolvedValue({
+        id: 'resp-abc123',
+        output_parsed: mockLlmPlan,
+      });
+
+      await provider.generate(mockRequest, mockContext, {
+        apiKey: 'sk-test-key',
+        candidatePool,
+      });
+
+      const userInput = mockResponsesParse.mock.calls[0][0].input.find(
+        (item: { role: string }) => item.role === 'user',
+      );
+
+      expect(userInput.content).toContain('candidatePool');
+      expect(userInput.content).toContain('Pushups');
+      expect(userInput.content).toContain('Chin-Up');
+    });
+
     it('should use default API base when not provided', async () => {
       mockResponsesParse.mockResolvedValue({
         id: 'resp-abc123',
@@ -242,9 +276,7 @@ describe('OpenAIProvider', () => {
     });
 
     it('should throw REQUEST_FAILED error when API call fails', async () => {
-      mockResponsesParse.mockRejectedValue(
-        new Error('Invalid authentication'),
-      );
+      mockResponsesParse.mockRejectedValue(new Error('Invalid authentication'));
 
       await expect(
         provider.generate(mockRequest, mockContext, {

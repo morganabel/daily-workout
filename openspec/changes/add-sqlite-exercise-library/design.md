@@ -111,11 +111,14 @@ Alternatives considered:
 
 The query layer will distinguish mandatory constraints from preference/bias criteria. Hard filters MUST never be violated silently. Soft criteria may influence ordering or scoring, but an exact-match query that yields no candidates should return an explicit empty result rather than broadening into disallowed exercises.
 
+The first implementation will use hybrid retrieval: deterministic hard filtering over normalized columns and join tables, with optional BM25 ranking over an FTS5 search index built from exercise names, aliases, descriptions, instructions, and normalized tags. Full-text ranking MUST only operate within the already-eligible set; it must not override hard constraints.
+
 Why this approach:
 
 - Future generation work needs candidate pools it can trust, especially for injury, equipment, quiet, and event-protection cases
 - Explicit empty results are easier to debug than hidden relaxation logic
 - This keeps future repair and fallback behavior in application code instead of burying it in SQL heuristics
+- BM25 ranking gives the planner and prompt layer a better way to prefer semantically relevant exercises without giving up deterministic constraint handling
 
 Alternatives considered:
 

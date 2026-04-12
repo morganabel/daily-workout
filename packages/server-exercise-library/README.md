@@ -37,6 +37,13 @@ Every exercise record gets a `metadataCompleteness` value:
 
 Production candidate-pool queries default to `planner-ready` records only.
 
+The query engine supports hybrid retrieval:
+
+- hard filters over normalized SQLite columns/join tables
+- optional BM25 ranking through an FTS5 search index
+
+BM25 only ranks exercises that already satisfy the hard filters.
+
 ## Commands
 
 Refresh the pinned upstream snapshot:

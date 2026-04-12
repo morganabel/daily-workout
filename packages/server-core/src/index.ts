@@ -4,6 +4,8 @@ export const PROTOCOL_VERSION = '1.0.0';
 export type {
   AuthProvider,
   AuthResult,
+  ExerciseCandidatePool,
+  ExerciseCandidateReference,
   GenerationStore,
   GenerationState,
   TransformationMetadata,
