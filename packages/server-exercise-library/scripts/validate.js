@@ -133,9 +133,9 @@ for (const exercise of canonical) {
   }
 }
 
-if (manifest.plannerReadyCount < 250) {
+if (manifest.plannerReadyCount < 350) {
   throw new Error(
-    `Expected at least 250 planner-ready exercises, found ${manifest.plannerReadyCount}`,
+    `Expected at least 350 planner-ready exercises, found ${manifest.plannerReadyCount}`,
   );
 }
 
@@ -145,9 +145,9 @@ if (readinessReport.plannerReadyCount !== manifest.plannerReadyCount) {
   );
 }
 
-if (readinessReport.autoPromotedCount < 200) {
+if (readinessReport.autoPromotedCount < 300) {
   throw new Error(
-    `Expected at least 200 auto-promoted exercises, found ${readinessReport.autoPromotedCount}`,
+    `Expected at least 300 auto-promoted exercises, found ${readinessReport.autoPromotedCount}`,
   );
 }
 

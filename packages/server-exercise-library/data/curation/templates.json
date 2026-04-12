@@ -2,6 +2,7 @@
   "bodyweight_mobility_floor": {
     "riskTier": "low",
     "autoPromote": true,
+    "requiredEquipment": ["bodyweight"],
     "focusTags": ["mobility", "recovery"],
     "movementTags": ["static"],
     "styleTags": ["mobility", "recovery", "stretching"],
@@ -16,6 +17,7 @@
   "bodyweight_mobility_standing": {
     "riskTier": "low",
     "autoPromote": true,
+    "requiredEquipment": ["bodyweight"],
     "focusTags": ["mobility", "recovery"],
     "movementTags": ["static"],
     "styleTags": ["mobility", "recovery", "stretching"],
@@ -30,6 +32,7 @@
   "bodyweight_push": {
     "riskTier": "low",
     "autoPromote": true,
+    "requiredEquipment": ["bodyweight"],
     "focusTags": ["upper_body"],
     "movementTags": ["compound", "push"],
     "styleTags": ["strength"],
@@ -46,6 +49,7 @@
   "bodyweight_core_floor": {
     "riskTier": "low",
     "autoPromote": true,
+    "requiredEquipment": ["bodyweight"],
     "focusTags": ["core", "abdominals"],
     "movementTags": ["static"],
     "styleTags": ["recovery", "strength"],
@@ -60,6 +64,7 @@
   "bodyweight_lower_body_low_impact": {
     "riskTier": "low",
     "autoPromote": true,
+    "requiredEquipment": ["bodyweight"],
     "focusTags": ["lower_body"],
     "movementTags": ["compound"],
     "styleTags": ["strength"],
@@ -75,6 +80,7 @@
   "band_upper_pull": {
     "riskTier": "low",
     "autoPromote": true,
+    "requiredEquipment": ["resistance_bands"],
     "focusTags": ["upper_body"],
     "movementTags": ["pull"],
     "styleTags": ["strength"],
@@ -90,6 +96,7 @@
   "band_upper_accessory": {
     "riskTier": "low",
     "autoPromote": true,
+    "requiredEquipment": ["resistance_bands"],
     "focusTags": ["upper_body"],
     "movementTags": ["isolation"],
     "styleTags": ["strength"],
@@ -104,6 +111,7 @@
   "band_lower_accessory": {
     "riskTier": "low",
     "autoPromote": true,
+    "requiredEquipment": ["resistance_bands"],
     "focusTags": ["lower_body"],
     "movementTags": ["isolation"],
     "styleTags": ["strength", "recovery"],
@@ -118,6 +126,7 @@
   "band_core": {
     "riskTier": "low",
     "autoPromote": true,
+    "requiredEquipment": ["resistance_bands"],
     "focusTags": ["core", "abdominals"],
     "movementTags": ["static"],
     "styleTags": ["strength", "recovery"],
@@ -132,6 +141,7 @@
   "dumbbell_upper_isolation": {
     "riskTier": "low",
     "autoPromote": true,
+    "requiredEquipment": ["dumbbell"],
     "focusTags": ["upper_body"],
     "movementTags": ["isolation"],
     "styleTags": ["strength"],
@@ -146,6 +156,7 @@
   "dumbbell_upper_press_supported": {
     "riskTier": "low",
     "autoPromote": true,
+    "requiredEquipment": ["dumbbell", "bench"],
     "focusTags": ["upper_body"],
     "movementTags": ["compound", "press", "push"],
     "styleTags": ["strength"],
@@ -162,6 +173,7 @@
   "cable_upper_pull": {
     "riskTier": "low",
     "autoPromote": true,
+    "requiredEquipment": ["cable_machine"],
     "focusTags": ["upper_body"],
     "movementTags": ["compound", "pull"],
     "styleTags": ["strength"],
@@ -177,6 +189,7 @@
   "cable_upper_accessory": {
     "riskTier": "low",
     "autoPromote": true,
+    "requiredEquipment": ["cable_machine"],
     "focusTags": ["upper_body"],
     "movementTags": ["isolation"],
     "styleTags": ["strength"],
@@ -191,6 +204,7 @@
   "cable_core": {
     "riskTier": "low",
     "autoPromote": true,
+    "requiredEquipment": ["cable_machine"],
     "focusTags": ["core", "abdominals"],
     "movementTags": ["static"],
     "styleTags": ["strength", "recovery"],
@@ -205,6 +219,7 @@
   "machine_isolation": {
     "riskTier": "low",
     "autoPromote": true,
+    "requiredEquipment": ["machine"],
     "movementTags": ["isolation"],
     "styleTags": ["strength"],
     "allowedRoles": ["accessory", "main"],
@@ -218,6 +233,7 @@
   "treadmill_conditioning": {
     "riskTier": "low",
     "autoPromote": true,
+    "requiredEquipment": ["treadmill"],
     "focusTags": ["conditioning", "lower_body"],
     "movementTags": ["gait"],
     "styleTags": ["cardio", "conditioning"],
@@ -232,6 +248,7 @@
   "rower_conditioning": {
     "riskTier": "low",
     "autoPromote": true,
+    "requiredEquipment": ["rowing_machine"],
     "focusTags": ["conditioning", "upper_body", "lower_body"],
     "movementTags": ["row"],
     "styleTags": ["cardio", "conditioning"],

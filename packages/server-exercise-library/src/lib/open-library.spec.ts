@@ -19,7 +19,7 @@ describe('openExerciseLibrary', () => {
     const metadata = library.getLibraryMetadata();
 
     expect(metadata.exerciseCount).toBe(873);
-    expect(metadata.plannerReadyCount).toBeGreaterThanOrEqual(250);
+    expect(metadata.plannerReadyCount).toBeGreaterThanOrEqual(350);
 
     library.close();
   });
