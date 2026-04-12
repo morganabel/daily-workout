@@ -27,7 +27,7 @@ The generated SQLite artifact is not committed. It is rebuilt locally and in CI 
 8. `scripts/build-sqlite.js` generates `data/generated/exercise-library.sqlite`
 9. `src/lib/open-library.ts` opens the generated SQLite file through `better-sqlite3`
 
-Only the inputs in steps 1-4 are source-of-truth files.
+Only the inputs in steps 1-5 are source-of-truth files.
 
 ## Metadata Completeness
 
@@ -75,6 +75,12 @@ Build the SQLite database:
 
 ```bash
 node packages/server-exercise-library/scripts/build-sqlite.js
+```
+
+Print the readiness report:
+
+```bash
+NX_DAEMON=false ./node_modules/.bin/nx run server-exercise-library:report-readiness
 ```
 
 Validate the generated library:

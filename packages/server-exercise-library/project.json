@@ -23,6 +23,13 @@
         "command": "node packages/server-exercise-library/scripts/build-sqlite.js"
       }
     },
+    "report-readiness": {
+      "executor": "nx:run-commands",
+      "dependsOn": ["build-canonical"],
+      "options": {
+        "command": "node packages/server-exercise-library/scripts/report-readiness.js"
+      }
+    },
     "test": {
       "executor": "nx:run-commands",
       "dependsOn": ["build-db"],
