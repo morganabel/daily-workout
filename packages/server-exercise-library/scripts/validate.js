@@ -133,9 +133,9 @@ for (const exercise of canonical) {
   }
 }
 
-if (manifest.plannerReadyCount < 350) {
+if (manifest.plannerReadyCount < 400) {
   throw new Error(
-    `Expected at least 350 planner-ready exercises, found ${manifest.plannerReadyCount}`,
+    `Expected at least 400 planner-ready exercises, found ${manifest.plannerReadyCount}`,
   );
 }
 
@@ -145,15 +145,15 @@ if (readinessReport.plannerReadyCount !== manifest.plannerReadyCount) {
   );
 }
 
-if (readinessReport.autoPromotedCount < 300) {
+if (readinessReport.autoPromotedCount < 350) {
   throw new Error(
-    `Expected at least 300 auto-promoted exercises, found ${readinessReport.autoPromotedCount}`,
+    `Expected at least 350 auto-promoted exercises, found ${readinessReport.autoPromotedCount}`,
   );
 }
 
-if ((readinessReport.countsByRiskTier?.low ?? 0) < 300) {
+if ((readinessReport.countsByRiskTier?.low ?? 0) < 400) {
   throw new Error(
-    'Expected at least 300 low-risk classified exercises in readiness report',
+    'Expected at least 400 low-risk classified exercises in readiness report',
   );
 }
 

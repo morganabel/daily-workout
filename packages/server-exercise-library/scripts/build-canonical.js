@@ -68,9 +68,12 @@ function maybeContainsText(text, probes) {
 function deriveRequiredEquipment(source, resolveEquipment) {
   const text = `${source.name} ${source.instructions.join(' ')}`.toLowerCase();
   const required = new Set();
+  const sourceEquipment = source.equipment
+    ? resolveEquipment(source.equipment)
+    : null;
 
-  if (source.equipment) {
-    required.add(resolveEquipment(source.equipment));
+  if (sourceEquipment && sourceEquipment !== 'other') {
+    required.add(sourceEquipment);
   }
 
   if (text.includes('incline bench')) {
@@ -101,6 +104,65 @@ function deriveRequiredEquipment(source, resolveEquipment) {
 
   if (maybeContainsText(text, ['sandbag'])) {
     required.add('sandbag');
+  }
+
+  if (
+    maybeContainsText(text, [
+      'resistance band',
+      'resistance bands',
+      ' band ',
+      ' bands ',
+      'banded',
+    ])
+  ) {
+    required.add('resistance_bands');
+  }
+
+  if (
+    maybeContainsText(text, [
+      'chin-up',
+      'chin up',
+      'pull-up',
+      'pull up',
+      'chins',
+    ])
+  ) {
+    required.add('pull_up_bar');
+    required.add('bodyweight');
+  }
+
+  if (maybeContainsText(text, ['kettlebell', 'kettlebells'])) {
+    required.add('kettlebell');
+  }
+
+  if (maybeContainsText(text, ['dumbbell', 'dumbbells'])) {
+    required.add('dumbbell');
+  }
+
+  if (maybeContainsText(text, ['barbell'])) {
+    required.add('barbell');
+  }
+
+  if (maybeContainsText(text, ['ez-bar', 'ez bar', 'e-z bar', 'ez curl'])) {
+    required.add('ez_curl_bar');
+  }
+
+  if (
+    maybeContainsText(text, ['exercise ball', 'stability ball', 'swiss ball'])
+  ) {
+    required.add('exercise_ball');
+  }
+
+  if (maybeContainsText(text, ['medicine ball'])) {
+    required.add('medicine_ball');
+  }
+
+  if (maybeContainsText(text, ['foam roll', 'foam roller'])) {
+    required.add('foam_roller');
+  }
+
+  if (sourceEquipment === 'other' && required.size === 0) {
+    required.add('other');
   }
 
   return [...required].sort();
@@ -472,6 +534,14 @@ function deriveFamilyKey(source, record) {
 
   if (has('bodyweight')) {
     if (
+      has('pull_up_bar') &&
+      hasTag(record, 'focusTags', 'upper_body') &&
+      (hasTag(record, 'movementTags', 'pull') ||
+        hasTag(record, 'movementTags', 'vertical_pull'))
+    ) {
+      return 'bodyweight_vertical_pull';
+    }
+    if (
       hasTag(record, 'focusTags', 'upper_body') &&
       hasTag(record, 'movementTags', 'push')
     ) {
@@ -525,6 +595,102 @@ function deriveFamilyKey(source, record) {
       (has('bench') || has('incline_bench'))
     ) {
       return 'dumbbell_upper_press_supported';
+    }
+  }
+
+  if (has('barbell')) {
+    if (
+      hasTag(record, 'focusTags', 'lower_body') ||
+      hasTag(record, 'movementTags', 'squat') ||
+      hasTag(record, 'movementTags', 'lunge') ||
+      hasTag(record, 'movementTags', 'hinge')
+    ) {
+      return 'barbell_lower_body';
+    }
+    if (
+      hasTag(record, 'focusTags', 'core') ||
+      hasTag(record, 'focusTags', 'abdominals')
+    ) {
+      return 'barbell_core';
+    }
+    if (
+      hasTag(record, 'focusTags', 'upper_body') &&
+      hasTag(record, 'movementTags', 'press')
+    ) {
+      return 'barbell_upper_press';
+    }
+    if (
+      hasTag(record, 'focusTags', 'upper_body') &&
+      hasTag(record, 'movementTags', 'isolation')
+    ) {
+      return 'barbell_upper_isolation';
+    }
+    if (
+      hasTag(record, 'focusTags', 'upper_body') &&
+      (hasTag(record, 'movementTags', 'pull') ||
+        hasTag(record, 'movementTags', 'row') ||
+        hasTag(record, 'movementTags', 'curl'))
+    ) {
+      return 'barbell_upper_pull';
+    }
+  }
+
+  if (has('kettlebell')) {
+    if (
+      hasTag(record, 'focusTags', 'lower_body') ||
+      hasTag(record, 'movementTags', 'squat') ||
+      hasTag(record, 'movementTags', 'lunge') ||
+      hasTag(record, 'movementTags', 'hinge')
+    ) {
+      return 'kettlebell_lower_body';
+    }
+    if (
+      hasTag(record, 'focusTags', 'core') ||
+      hasTag(record, 'focusTags', 'abdominals')
+    ) {
+      return 'kettlebell_core';
+    }
+    if (
+      hasTag(record, 'focusTags', 'upper_body') &&
+      hasTag(record, 'movementTags', 'press')
+    ) {
+      return 'kettlebell_upper_press';
+    }
+    if (
+      hasTag(record, 'focusTags', 'upper_body') &&
+      (hasTag(record, 'movementTags', 'pull') ||
+        hasTag(record, 'movementTags', 'row') ||
+        hasTag(record, 'movementTags', 'curl'))
+    ) {
+      return 'kettlebell_upper_pull';
+    }
+  }
+
+  if (has('ez_curl_bar') && hasTag(record, 'focusTags', 'upper_body')) {
+    if (
+      hasTag(record, 'movementTags', 'pull') ||
+      hasTag(record, 'movementTags', 'curl') ||
+      hasTag(record, 'movementTags', 'row')
+    ) {
+      return 'ez_bar_upper_pull';
+    }
+    if (
+      hasTag(record, 'movementTags', 'push') ||
+      hasTag(record, 'movementTags', 'press')
+    ) {
+      return 'ez_bar_upper_push';
+    }
+  }
+
+  if (has('exercise_ball')) {
+    if (
+      hasTag(record, 'focusTags', 'core') ||
+      hasTag(record, 'focusTags', 'abdominals')
+    ) {
+      return 'exercise_ball_core';
+    }
+    if (hasTag(record, 'focusTags', 'lower_body')) {
+      return 'exercise_ball_lower_body';
     }
   }
 
