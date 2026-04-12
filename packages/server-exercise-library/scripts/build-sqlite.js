@@ -4,10 +4,11 @@ import { paths, readJson } from './_common.js';
 
 const canonical = await readJson(paths.generatedCanonical);
 const manifest = await readJson(paths.generatedManifest);
+const tempSqlitePath = `${paths.generatedSqliteTemp}.${process.pid}.${Date.now()}`;
 
-await rm(paths.generatedSqliteTemp, { force: true });
+await rm(tempSqlitePath, { force: true });
 
-const database = new Database(paths.generatedSqliteTemp);
+const database = new Database(tempSqlitePath);
 
 database.exec(`
 PRAGMA journal_mode = DELETE;
@@ -303,6 +304,6 @@ for (const exercise of canonical) {
 database.close();
 
 await rm(paths.generatedSqlite, { force: true });
-await rename(paths.generatedSqliteTemp, paths.generatedSqlite);
+await rename(tempSqlitePath, paths.generatedSqlite);
 
 console.log(`Built SQLite exercise library at ${paths.generatedSqlite}`);

@@ -8,6 +8,38 @@ import {
   writeJson,
 } from './_common.js';
 
+const HIGH_RISK_CATEGORIES = new Set([
+  'plyometrics',
+  'powerlifting',
+  'olympic weightlifting',
+  'strongman',
+]);
+
+const MEDIUM_RISK_EQUIPMENT = new Set([
+  'barbell',
+  'kettlebell',
+  'medicine_ball',
+  'exercise_ball',
+  'ez_curl_bar',
+  'sandbag',
+]);
+
+const HIGH_RISK_TEXT_PROBES = [
+  'behind the neck',
+  'burpee',
+  'clean',
+  'clap',
+  'depth jump',
+  'dip',
+  'handstand',
+  'jerk',
+  'jump',
+  'muscle up',
+  'pistol squat',
+  'snatch',
+  'sprint',
+];
+
 function buildEquipmentResolver(equipmentVocab) {
   const aliasMap = new Map();
   for (const entry of equipmentVocab.items) {
@@ -151,10 +183,12 @@ function deriveMovementTags(source) {
     name.includes('pull-up') ||
     name.includes('pullup') ||
     name.includes('chin-up')
-  )
+  ) {
     tags.add('vertical_pull');
-  if (name.includes('run') || name.includes('walk') || name.includes('jog'))
+  }
+  if (name.includes('run') || name.includes('walk') || name.includes('jog')) {
     tags.add('gait');
+  }
 
   return buildTagSet([...tags]);
 }
@@ -251,14 +285,16 @@ function deriveImpactLevel(source) {
     source.category === 'plyometrics' ||
     name.includes('jump') ||
     name.includes('bound')
-  )
+  ) {
     return 'high';
+  }
   if (
     source.category === 'cardio' ||
     name.includes('run') ||
     name.includes('jog')
-  )
+  ) {
     return 'moderate';
+  }
   return 'low';
 }
 
@@ -269,8 +305,9 @@ function deriveNoiseLevel(source) {
     name.includes('jump') ||
     source.category === 'plyometrics' ||
     source.category === 'strongman'
-  )
+  ) {
     return 'loud';
+  }
   if (source.category === 'cardio') return 'moderate';
   return 'quiet';
 }
@@ -282,10 +319,12 @@ function deriveSpaceFootprint(source) {
     name.includes('run') ||
     name.includes('drag') ||
     name.includes('carry')
-  )
+  ) {
     return 'large';
-  if (source.category === 'plyometrics' || source.category === 'strongman')
+  }
+  if (source.category === 'plyometrics' || source.category === 'strongman') {
     return 'medium';
+  }
   return 'small';
 }
 
@@ -309,6 +348,10 @@ function deriveFloorRequired(source) {
     'lay on the floor',
     'kneel on the floor',
     'on all your hands and knees',
+    'lie flat on the floor',
+    'lay flat on the floor',
+    'lying on your back',
+    'lying face down',
   ]);
 }
 
@@ -322,8 +365,9 @@ function mapExperienceLevel(level) {
 function deriveLoadLevel(source) {
   if (source.category === 'stretching') return 'light';
   if (source.category === 'cardio') return 'moderate';
-  if (source.category === 'strongman' || source.category === 'powerlifting')
+  if (source.category === 'strongman' || source.category === 'powerlifting') {
     return 'heavy';
+  }
   return source.mechanic === 'isolation' ? 'light' : 'moderate';
 }
 
@@ -351,43 +395,399 @@ function deriveDescription(source) {
   return `${source.name} exercise.`;
 }
 
-function mergeRecord(base, override) {
-  if (!override) {
+function mergeRecord(base, patch) {
+  if (!patch) {
     return base;
   }
 
   return {
     ...base,
-    ...override,
-    aliases: buildTagSet([
-      ...(base.aliases ?? []),
-      ...(override.aliases ?? []),
-    ]),
+    ...patch,
+    aliases: buildTagSet([...(base.aliases ?? []), ...(patch.aliases ?? [])]),
     requiredEquipment: buildTagSet(
-      override.requiredEquipment ?? base.requiredEquipment,
+      patch.requiredEquipment ?? base.requiredEquipment,
     ),
     optionalEquipment: buildTagSet(
-      override.optionalEquipment ?? base.optionalEquipment,
+      patch.optionalEquipment ?? base.optionalEquipment,
     ),
-    focusTags: buildTagSet(override.focusTags ?? base.focusTags),
-    movementTags: buildTagSet(override.movementTags ?? base.movementTags),
-    styleTags: buildTagSet(override.styleTags ?? base.styleTags),
-    stressorTags: buildTagSet(override.stressorTags ?? base.stressorTags),
-    contraindicationTags: buildTagSet(
-      override.contraindicationTags ?? base.contraindicationTags,
-    ),
-    avoidTags: buildTagSet(override.avoidTags ?? base.avoidTags),
-    allowedRoles: buildTagSet(override.allowedRoles ?? base.allowedRoles),
+    focusTags: buildTagSet([
+      ...(base.focusTags ?? []),
+      ...(patch.focusTags ?? []),
+    ]),
+    movementTags: buildTagSet([
+      ...(base.movementTags ?? []),
+      ...(patch.movementTags ?? []),
+    ]),
+    styleTags: buildTagSet([
+      ...(base.styleTags ?? []),
+      ...(patch.styleTags ?? []),
+    ]),
+    stressorTags: buildTagSet([
+      ...(base.stressorTags ?? []),
+      ...(patch.stressorTags ?? []),
+    ]),
+    contraindicationTags: buildTagSet([
+      ...(base.contraindicationTags ?? []),
+      ...(patch.contraindicationTags ?? []),
+    ]),
+    avoidTags: buildTagSet([
+      ...(base.avoidTags ?? []),
+      ...(patch.avoidTags ?? []),
+    ]),
+    allowedRoles: buildTagSet([
+      ...(base.allowedRoles ?? []),
+      ...(patch.allowedRoles ?? []),
+    ]),
   };
 }
 
-const [sourceSnapshot, sourceManifest, equipmentVocab, overridesText] =
-  await Promise.all([
-    readJson(paths.sourceSnapshot),
-    readJson(paths.sourceManifest),
-    readJson(paths.equipmentVocab),
-    readFile(paths.overrides, 'utf8'),
-  ]);
+function hasTag(record, field, value) {
+  return record[field].includes(value);
+}
+
+function textFor(source) {
+  return `${source.name} ${source.instructions.join(' ')}`.toLowerCase();
+}
+
+function deriveFamilyKey(source, record) {
+  const text = textFor(source);
+  const isStretching = source.category === 'stretching';
+  const isCardio = source.category === 'cardio';
+  const has = (equipmentId) => record.requiredEquipment.includes(equipmentId);
+
+  if (isStretching) {
+    return record.floorRequired ||
+      maybeContainsText(text, ['lying', 'lie', 'kneel'])
+      ? 'bodyweight_mobility_floor'
+      : 'bodyweight_mobility_standing';
+  }
+
+  if (isCardio && has('rowing_machine')) {
+    return 'rower_conditioning';
+  }
+
+  if (isCardio && has('treadmill')) {
+    return 'treadmill_conditioning';
+  }
+
+  if (has('bodyweight')) {
+    if (
+      hasTag(record, 'focusTags', 'upper_body') &&
+      hasTag(record, 'movementTags', 'push')
+    ) {
+      return 'bodyweight_push';
+    }
+    if (
+      (hasTag(record, 'focusTags', 'core') ||
+        hasTag(record, 'focusTags', 'abdominals')) &&
+      (record.floorRequired ||
+        maybeContainsText(text, ['lying', 'floor', 'knees']))
+    ) {
+      return 'bodyweight_core_floor';
+    }
+    if (
+      hasTag(record, 'focusTags', 'lower_body') &&
+      record.impactLevel !== 'high' &&
+      !maybeContainsText(text, ['jump', 'bound', 'sprint'])
+    ) {
+      return 'bodyweight_lower_body_low_impact';
+    }
+  }
+
+  if (has('resistance_bands')) {
+    if (
+      hasTag(record, 'focusTags', 'upper_body') &&
+      hasTag(record, 'movementTags', 'pull')
+    ) {
+      return 'band_upper_pull';
+    }
+    if (hasTag(record, 'focusTags', 'core') || text.includes('pallof')) {
+      return 'band_core';
+    }
+    if (hasTag(record, 'focusTags', 'lower_body')) {
+      return 'band_lower_accessory';
+    }
+    if (hasTag(record, 'focusTags', 'upper_body')) {
+      return 'band_upper_accessory';
+    }
+  }
+
+  if (has('dumbbell')) {
+    if (
+      hasTag(record, 'focusTags', 'upper_body') &&
+      hasTag(record, 'movementTags', 'isolation')
+    ) {
+      return 'dumbbell_upper_isolation';
+    }
+    if (
+      hasTag(record, 'focusTags', 'upper_body') &&
+      hasTag(record, 'movementTags', 'press') &&
+      (has('bench') || has('incline_bench'))
+    ) {
+      return 'dumbbell_upper_press_supported';
+    }
+  }
+
+  if (has('cable_machine')) {
+    if (hasTag(record, 'focusTags', 'core') || text.includes('pallof')) {
+      return 'cable_core';
+    }
+    if (
+      hasTag(record, 'focusTags', 'upper_body') &&
+      hasTag(record, 'movementTags', 'pull')
+    ) {
+      return 'cable_upper_pull';
+    }
+    if (hasTag(record, 'focusTags', 'upper_body')) {
+      return 'cable_upper_accessory';
+    }
+  }
+
+  if (source.equipment === 'machine' && source.mechanic === 'isolation') {
+    return 'machine_isolation';
+  }
+
+  return null;
+}
+
+function deriveRiskTier(source, record, familyKey, template) {
+  if (template?.riskTier) {
+    return template.riskTier;
+  }
+
+  if (
+    HIGH_RISK_CATEGORIES.has(source.category) ||
+    record.requiredEquipment.includes('other')
+  ) {
+    return 'high';
+  }
+
+  if (
+    record.requiredEquipment.some((equipmentId) =>
+      MEDIUM_RISK_EQUIPMENT.has(equipmentId),
+    )
+  ) {
+    return 'medium';
+  }
+
+  if (familyKey) {
+    return 'medium';
+  }
+
+  return 'high';
+}
+
+function deriveAmbiguityFlags(source, record, familyKey) {
+  const flags = new Set();
+
+  if (record.requiredEquipment.includes('other')) {
+    flags.add('unresolved_equipment');
+  }
+
+  if (source.equipment == null && record.requiredEquipment.length === 0) {
+    flags.add('source_equipment_missing');
+  }
+
+  if (
+    source.equipment === 'other' &&
+    record.requiredEquipment.every((equipmentId) => equipmentId === 'other')
+  ) {
+    flags.add('source_equipment_other');
+  }
+
+  if (source.equipment === 'machine' && !familyKey) {
+    flags.add('generic_machine_setup');
+  }
+
+  if (source.category === 'strength' && source.mechanic == null && !familyKey) {
+    flags.add('missing_mechanic');
+  }
+
+  if (source.category === 'strength' && source.force == null && !familyKey) {
+    flags.add('missing_force');
+  }
+
+  return [...flags].sort();
+}
+
+function hasHighRiskText(source) {
+  const text = textFor(source);
+  return maybeContainsText(text, HIGH_RISK_TEXT_PROBES);
+}
+
+function derivePromotionBlockers(
+  source,
+  record,
+  familyKey,
+  template,
+  riskTier,
+  ambiguityFlags,
+) {
+  const blockers = new Set(ambiguityFlags);
+
+  if (!familyKey) {
+    blockers.add('no_family_template');
+  }
+
+  if (riskTier !== 'low') {
+    blockers.add('risk_tier_not_low');
+  }
+
+  if (hasHighRiskText(source)) {
+    blockers.add('high_risk_text');
+  }
+
+  if (!record.description || !record.instructionSteps.length) {
+    blockers.add('missing_text');
+  }
+
+  if (
+    !record.focusTags.length ||
+    !record.movementTags.length ||
+    !record.styleTags.length
+  ) {
+    blockers.add('missing_core_tags');
+  }
+
+  if (!record.allowedRoles.length) {
+    blockers.add('missing_roles');
+  }
+
+  if (template?.autoPromote && record.requiredEquipment.length === 0) {
+    blockers.add('missing_required_equipment');
+  }
+
+  return [...blockers].sort();
+}
+
+function deriveMetadataCompleteness(
+  baseCompleteness,
+  override,
+  template,
+  blockers,
+) {
+  if (
+    Object.prototype.hasOwnProperty.call(override ?? {}, 'metadataCompleteness')
+  ) {
+    return override.metadataCompleteness;
+  }
+
+  if (template?.autoPromote && blockers.length === 0) {
+    return 'planner-ready';
+  }
+
+  if (override) {
+    return 'curated';
+  }
+
+  return baseCompleteness;
+}
+
+function derivePromotionSource(override, template, blockers) {
+  if (
+    Object.prototype.hasOwnProperty.call(override ?? {}, 'metadataCompleteness')
+  ) {
+    return 'override';
+  }
+
+  if (template?.autoPromote && blockers.length === 0) {
+    return 'template-auto';
+  }
+
+  if (override) {
+    return 'override-curated';
+  }
+
+  if (template) {
+    return 'template-derived';
+  }
+
+  return 'derived';
+}
+
+function countBy(records, keySelector) {
+  const counts = new Map();
+  for (const record of records) {
+    const key = keySelector(record) ?? 'unknown';
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+  return Object.fromEntries([...counts.entries()].sort((a, b) => b[1] - a[1]));
+}
+
+function buildReadinessReport(canonical, sourceSnapshot) {
+  const sourceById = new Map(
+    sourceSnapshot.map((record) => [record.id, record]),
+  );
+  const plannerReady = canonical.filter(
+    (exercise) => exercise.metadataCompleteness === 'planner-ready',
+  );
+  const blockerCounts = new Map();
+
+  for (const exercise of canonical) {
+    for (const blocker of exercise.promotionBlockers ?? []) {
+      blockerCounts.set(blocker, (blockerCounts.get(blocker) ?? 0) + 1);
+    }
+  }
+
+  return {
+    totalExercises: canonical.length,
+    plannerReadyCount: plannerReady.length,
+    autoPromotedCount: canonical.filter(
+      (exercise) => exercise.promotionSource === 'template-auto',
+    ).length,
+    countsByCompleteness: countBy(
+      canonical,
+      (exercise) => exercise.metadataCompleteness,
+    ),
+    countsByRiskTier: countBy(canonical, (exercise) => exercise.riskTier),
+    countsByFamily: countBy(canonical, (exercise) => exercise.familyKey),
+    countsByCategory: countBy(
+      canonical,
+      (exercise) => sourceById.get(exercise.sourceId)?.category,
+    ),
+    countsByEquipment: countBy(
+      canonical,
+      (exercise) => sourceById.get(exercise.sourceId)?.equipment ?? 'null',
+    ),
+    blockerCounts: Object.fromEntries(
+      [...blockerCounts.entries()].sort((a, b) => b[1] - a[1]),
+    ),
+    plannerReadySample: plannerReady.slice(0, 50).map((exercise) => ({
+      id: exercise.id,
+      sourceId: exercise.sourceId,
+      familyKey: exercise.familyKey,
+      promotionSource: exercise.promotionSource,
+    })),
+    promotionCandidates: canonical
+      .filter(
+        (exercise) =>
+          exercise.riskTier === 'low' &&
+          exercise.metadataCompleteness !== 'planner-ready' &&
+          (exercise.promotionBlockers?.length ?? 0) <= 2,
+      )
+      .slice(0, 100)
+      .map((exercise) => ({
+        id: exercise.id,
+        sourceId: exercise.sourceId,
+        familyKey: exercise.familyKey,
+        promotionBlockers: exercise.promotionBlockers,
+      })),
+  };
+}
+
+const [
+  sourceSnapshot,
+  sourceManifest,
+  equipmentVocab,
+  templates,
+  overridesText,
+] = await Promise.all([
+  readJson(paths.sourceSnapshot),
+  readJson(paths.sourceManifest),
+  readJson(paths.equipmentVocab),
+  readJson(paths.templates),
+  readFile(paths.overrides, 'utf8'),
+]);
 
 const overrides = JSON.parse(overridesText);
 const resolveEquipment = buildEquipmentResolver(equipmentVocab);
@@ -397,6 +797,7 @@ await ensureDirectories();
 const canonical = sourceSnapshot.map((source, index) => {
   const requiredEquipment = deriveRequiredEquipment(source, resolveEquipment);
   const slug = slugify(source.id);
+  const override = overrides[source.id];
   const base = {
     id: `fedb:${slug}`,
     sourceId: source.id,
@@ -432,12 +833,48 @@ const canonical = sourceSnapshot.map((source, index) => {
     ],
   };
 
-  return mergeRecord(base, overrides[source.id]);
+  const familyKey = deriveFamilyKey(source, base);
+  const template = familyKey ? templates[familyKey] : undefined;
+  const templated = mergeRecord(base, template);
+  const merged = mergeRecord(templated, override);
+  const riskTier = deriveRiskTier(source, merged, familyKey, template);
+  const ambiguityFlags = deriveAmbiguityFlags(source, merged, familyKey);
+  const promotionBlockers = derivePromotionBlockers(
+    source,
+    merged,
+    familyKey,
+    template,
+    riskTier,
+    ambiguityFlags,
+  );
+  const metadataCompleteness = deriveMetadataCompleteness(
+    base.metadataCompleteness,
+    override,
+    template,
+    promotionBlockers,
+  );
+  const promotionSource = derivePromotionSource(
+    override,
+    template,
+    promotionBlockers,
+  );
+
+  return {
+    ...merged,
+    metadataCompleteness,
+    familyKey,
+    appliedTemplateKey: familyKey,
+    riskTier,
+    ambiguityFlags,
+    promotionBlockers,
+    promotionSource,
+  };
 });
 
 const plannerReadyCount = canonical.filter(
   (exercise) => exercise.metadataCompleteness === 'planner-ready',
 ).length;
+const readinessReport = buildReadinessReport(canonical, sourceSnapshot);
 
 await writeJson(paths.generatedCanonical, canonical);
 await writeJson(paths.generatedManifest, {
@@ -447,6 +884,7 @@ await writeJson(paths.generatedManifest, {
   exerciseCount: canonical.length,
   plannerReadyCount,
 });
+await writeJson(paths.generatedReadinessReport, readinessReport);
 
 console.log(
   `Built canonical exercise dataset with ${canonical.length} records (${plannerReadyCount} planner-ready)`,

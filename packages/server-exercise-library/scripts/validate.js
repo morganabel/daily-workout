@@ -1,13 +1,15 @@
 import Database from 'better-sqlite3';
 import { paths, readJson } from './_common.js';
 
-const [canonical, manifest, enums, tags, equipment] = await Promise.all([
-  readJson(paths.generatedCanonical),
-  readJson(paths.generatedManifest),
-  readJson(paths.enumsVocab),
-  readJson(paths.tagsVocab),
-  readJson(paths.equipmentVocab),
-]);
+const [canonical, manifest, readinessReport, enums, tags, equipment] =
+  await Promise.all([
+    readJson(paths.generatedCanonical),
+    readJson(paths.generatedManifest),
+    readJson(paths.generatedReadinessReport),
+    readJson(paths.enumsVocab),
+    readJson(paths.tagsVocab),
+    readJson(paths.equipmentVocab),
+  ]);
 
 const equipmentIds = new Set(equipment.items.map((entry) => entry.id));
 const completenessValues = new Set(enums.metadataCompleteness);
@@ -131,9 +133,27 @@ for (const exercise of canonical) {
   }
 }
 
-if (manifest.plannerReadyCount < 25) {
+if (manifest.plannerReadyCount < 250) {
   throw new Error(
-    `Expected at least 25 planner-ready exercises, found ${manifest.plannerReadyCount}`,
+    `Expected at least 250 planner-ready exercises, found ${manifest.plannerReadyCount}`,
+  );
+}
+
+if (readinessReport.plannerReadyCount !== manifest.plannerReadyCount) {
+  throw new Error(
+    'Planner-ready count mismatch between manifest and readiness report',
+  );
+}
+
+if (readinessReport.autoPromotedCount < 200) {
+  throw new Error(
+    `Expected at least 200 auto-promoted exercises, found ${readinessReport.autoPromotedCount}`,
+  );
+}
+
+if ((readinessReport.countsByRiskTier?.low ?? 0) < 300) {
+  throw new Error(
+    'Expected at least 300 low-risk classified exercises in readiness report',
   );
 }
 

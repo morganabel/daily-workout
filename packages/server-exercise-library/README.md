@@ -10,6 +10,7 @@ It builds a local SQLite database from committed source inputs:
 
 - a reduced pinned snapshot of `free-exercise-db`
 - local vocabularies
+- family templates
 - local curation overrides
 
 The generated SQLite artifact is not committed. It is rebuilt locally and in CI from the committed inputs.
@@ -19,10 +20,12 @@ The generated SQLite artifact is not committed. It is rebuilt locally and in CI 
 1. `data/source/free-exercise-db.snapshot.json`
 2. `data/source-manifest.json`
 3. `data/vocab/*.json`
-4. `data/curation/overrides.json`
-5. `scripts/build-canonical.js` generates `data/generated/canonical-exercises.json`
-6. `scripts/build-sqlite.js` generates `data/generated/exercise-library.sqlite`
-7. `src/lib/open-library.ts` opens the generated SQLite file through `better-sqlite3`
+4. `data/curation/templates.json`
+5. `data/curation/overrides.json`
+6. `scripts/build-canonical.js` generates `data/generated/canonical-exercises.json`
+7. `scripts/build-canonical.js` also generates `data/generated/readiness-report.json`
+8. `scripts/build-sqlite.js` generates `data/generated/exercise-library.sqlite`
+9. `src/lib/open-library.ts` opens the generated SQLite file through `better-sqlite3`
 
 Only the inputs in steps 1-4 are source-of-truth files.
 
@@ -36,6 +39,16 @@ Every exercise record gets a `metadataCompleteness` value:
 - `planner-ready`
 
 Production candidate-pool queries default to `planner-ready` records only.
+
+The canonical build uses template-driven promotion:
+
+- classify each exercise into a family when possible
+- apply family defaults
+- apply exercise-specific overrides
+- compute ambiguity flags and promotion blockers
+- auto-promote low-risk exercises with no blockers to `planner-ready`
+
+`data/generated/readiness-report.json` summarizes the current readiness distribution and top blockers.
 
 The query engine supports hybrid retrieval:
 

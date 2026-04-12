@@ -19,7 +19,7 @@ describe('openExerciseLibrary', () => {
     const metadata = library.getLibraryMetadata();
 
     expect(metadata.exerciseCount).toBe(873);
-    expect(metadata.plannerReadyCount).toBeGreaterThanOrEqual(25);
+    expect(metadata.plannerReadyCount).toBeGreaterThanOrEqual(250);
 
     library.close();
   });
@@ -38,9 +38,11 @@ describe('openExerciseLibrary', () => {
           exercise.metadataCompleteness === 'planner-ready',
       ),
     ).toBe(true);
-    expect(
-      result.exercises.map((exercise: ExerciseRecord) => exercise.name),
-    ).toEqual(['Arm Circles', 'Pushups']);
+    const exerciseNames = result.exercises.map(
+      (exercise: ExerciseRecord) => exercise.name,
+    );
+    expect(exerciseNames).toContain('Arm Circles');
+    expect(exerciseNames).toContain('Pushups');
 
     library.close();
   });
