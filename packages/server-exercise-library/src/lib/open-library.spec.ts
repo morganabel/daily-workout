@@ -73,6 +73,24 @@ describe('openExerciseLibrary', () => {
     library.close();
   });
 
+  it('returns stable ordering for repeated planner candidate queries', () => {
+    const library = openExerciseLibrary();
+    const query = {
+      availableEquipment: ['Bodyweight'],
+      focusTags: ['upper_body'],
+      limit: 5,
+    };
+
+    const first = library.listEligibleExercises(query);
+    const second = library.listEligibleExercises(query);
+
+    expect(first.exercises.map((exercise) => exercise.id)).toEqual(
+      second.exercises.map((exercise) => exercise.id),
+    );
+
+    library.close();
+  });
+
   it('supports variation queries by excluding baseline exercises', () => {
     const library = openExerciseLibrary();
     const result = library.listVariationCandidates({
@@ -91,6 +109,21 @@ describe('openExerciseLibrary', () => {
         (exercise: ExerciseRecord) => exercise.id === 'fedb:chin-up',
       ),
     ).toBe(true);
+
+    library.close();
+  });
+
+  it('returns planner-facing diagnostics for empty planner-ready results', () => {
+    const library = openExerciseLibrary();
+    const result = library.listEligibleExercises({
+      availableEquipment: ['Parachute'],
+      focusTags: ['upper_body'],
+      limit: 5,
+    });
+
+    expect(result.exercises).toHaveLength(0);
+    expect(result.diagnostics?.blockerCodes).toContain('unsupported_equipment');
+    expect(result.diagnostics?.counts.relaxedEquipment).toBeGreaterThan(0);
 
     library.close();
   });

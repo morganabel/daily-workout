@@ -1,7 +1,7 @@
 import {
   createTodayPlanMock,
   type GenerationContext,
-  type GenerationRequest,
+  type GenerationRequestPayload,
   type TodayPlan,
 } from '@workout-agent/shared';
 import type { ExerciseLibrary } from '@workout-agent-ce/server-exercise-library';
@@ -179,7 +179,8 @@ const createExerciseLibrary = (): ExerciseLibrary => ({
 });
 
 const createRequest = (
-  body: Partial<GenerationRequest & { context: GenerationContext }> = {},
+  body: Partial<GenerationRequestPayload> = {},
+  headers?: Record<string, string>,
 ) =>
   new Request('http://localhost/api/workouts/generate', {
     method: 'POST',
@@ -187,6 +188,7 @@ const createRequest = (
       'content-type': 'application/json',
       authorization: 'Bearer test-token',
       'x-openai-key': 'test-key',
+      ...headers,
     },
     body: JSON.stringify({
       timeMinutes: 30,
@@ -276,5 +278,115 @@ describe('createGenerateHandler exercise library integration', () => {
       expect.objectContaining({ baselineExerciseIds: ['fedb:pushups'] }),
     );
     expect(payload.baselineExerciseIds).toBeUndefined();
+  });
+
+  it('accepts planning-date and baseline workout inputs and records provider provenance', async () => {
+    const auth = createAuth();
+    const store = createStore();
+    const router = createRouter();
+    const handler = createGenerateHandler({
+      auth,
+      store,
+      router,
+      config: { edition: 'CE', defaultProvider: 'openai' },
+    });
+    const baselineWorkout = createTodayPlanMock({
+      responseId: 'resp-baseline',
+      generationProvenance: {
+        provider: 'openai',
+        responseId: 'resp-baseline',
+      },
+    });
+
+    const response = await handler(
+      createRequest({
+        planningDateLocal: '2026-04-15',
+        previousResponseId: 'resp-baseline',
+        baselineWorkout,
+      }),
+    );
+    const payload = (await response.json()) as TodayPlan;
+
+    expect(response.status).toBe(200);
+    expect(router.generate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        planningDateLocal: '2026-04-15',
+        previousResponseId: 'resp-baseline',
+        baselineWorkout,
+      }),
+      expect.anything(),
+      expect.objectContaining({
+        provider: 'openai',
+        planningBrief: expect.objectContaining({
+          planningDateLocal: '2026-04-15',
+          resolvedFocus: expect.any(String),
+          regeneration: expect.objectContaining({
+            baselineWorkoutId: 'plan-mock',
+          }),
+        }),
+      }),
+    );
+    expect(payload.generationProvenance).toEqual({
+      provider: 'openai',
+      responseId: 'resp-1',
+    });
+    expect(store.persistPlan).toHaveBeenCalledWith(
+      'device-1',
+      expect.objectContaining({
+        generationProvenance: {
+          provider: 'openai',
+          responseId: 'resp-1',
+        },
+      }),
+      expect.anything(),
+    );
+  });
+
+  it('uses stateless regeneration when provider continuity does not match the active provider', async () => {
+    const auth = createAuth();
+    const store = createStore();
+    const router = createRouter();
+    const handler = createGenerateHandler({
+      auth,
+      store,
+      router,
+      config: { edition: 'CE', defaultProvider: 'gemini' },
+    });
+    const baselineWorkout = createTodayPlanMock({
+      responseId: 'resp-openai',
+      generationProvenance: {
+        provider: 'openai',
+        responseId: 'resp-openai',
+      },
+    });
+
+    await handler(
+      createRequest(
+        {
+          previousResponseId: 'resp-openai',
+          baselineWorkout,
+          feedback: ['different-exercises'],
+        },
+        {
+          'x-ai-provider': 'gemini',
+          'x-gemini-key': 'gemini-key',
+          'x-openai-key': '',
+        },
+      ),
+    );
+
+    expect(router.generate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        previousResponseId: undefined,
+        baselineWorkout,
+      }),
+      expect.anything(),
+      expect.objectContaining({
+        provider: 'gemini',
+        planningBrief: expect.objectContaining({
+          regeneration: expect.objectContaining({ mode: 'stateless' }),
+        }),
+      }),
+    );
   });
 });

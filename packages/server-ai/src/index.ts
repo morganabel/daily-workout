@@ -72,6 +72,7 @@ export class DefaultModelRouter implements ModelRouter {
     const providerOptions: AiProviderOptions = {
       apiKey: options.apiKey,
       candidatePool: options.candidatePool,
+      planningBrief: options.planningBrief,
       model: options.model,
       useVertexAi: options.useVertexAi,
     };

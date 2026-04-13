@@ -3,7 +3,10 @@ import {
   type GenerationRequest,
   type RegenerationFeedback,
 } from '@workout-agent/shared';
-import type { ExerciseCandidatePool } from '@workout-agent-ce/server-core';
+import type {
+  ExerciseCandidatePool,
+  PlanningBrief,
+} from '@workout-agent-ce/server-core';
 
 export const SYSTEM_PROMPT =
   'You are a concise workout planner. Only reply with valid JSON that matches the schema and never include code fences, explanations, or markdown.';
@@ -40,6 +43,61 @@ export function buildCandidatePoolPromptData(
   };
 }
 
+export function buildPlanningBriefPromptData(planningBrief?: PlanningBrief):
+  | {
+      resolvedFocus: string;
+      focusMode: PlanningBrief['focusMode'];
+      durationMinutes: number;
+      loadCeiling: PlanningBrief['loadCeiling'];
+      availableEquipment: string[];
+      disallowedStressors: string[];
+      recentStressorsToAvoid: string[];
+      eventProtection?: PlanningBrief['eventProtection'];
+      blockIntents: PlanningBrief['blockIntents'];
+      regeneration: PlanningBrief['regeneration'];
+      variationMode: PlanningBrief['variationMode'];
+      priorityNotes?: string;
+    }
+  | undefined {
+  if (!planningBrief) {
+    return undefined;
+  }
+
+  return {
+    resolvedFocus: planningBrief.resolvedFocus,
+    focusMode: planningBrief.focusMode,
+    durationMinutes: planningBrief.durationMinutes,
+    loadCeiling: planningBrief.loadCeiling,
+    availableEquipment: planningBrief.availableEquipment,
+    disallowedStressors: planningBrief.disallowedStressors,
+    recentStressorsToAvoid: planningBrief.recentStressorsToAvoid,
+    eventProtection: planningBrief.eventProtection,
+    blockIntents: planningBrief.blockIntents,
+    regeneration: planningBrief.regeneration,
+    variationMode: planningBrief.variationMode,
+    priorityNotes: planningBrief.priorityNotes,
+  };
+}
+
+function buildBaselineWorkoutSummary(
+  request: GenerationRequest,
+): string | null {
+  const baselineWorkout = request.baselineWorkout;
+  if (!baselineWorkout) {
+    return null;
+  }
+
+  const exerciseNames = baselineWorkout.blocks
+    .flatMap((block) => block.exercises.map((exercise) => exercise.name))
+    .slice(0, 12);
+
+  return [
+    `Baseline workout focus: ${baselineWorkout.focus}.`,
+    `Baseline duration: ${baselineWorkout.durationMinutes} minutes.`,
+    `Baseline exercises: ${exerciseNames.join(', ')}.`,
+  ].join(' ');
+}
+
 /**
  * Build a conversational follow-up message for regeneration.
  * This is used when we have conversation history (previousResponseId).
@@ -50,6 +108,7 @@ export function buildRegenerationMessage(
   request: GenerationRequest,
   feedback?: RegenerationFeedback[],
   candidatePool?: ExerciseCandidatePool,
+  planningBrief?: PlanningBrief,
 ): string {
   const parts: string[] = [];
 
@@ -61,6 +120,22 @@ export function buildRegenerationMessage(
     Boolean(feedback && feedback.length > 0);
 
   parts.push("The user wasn't satisfied with the previous workout.");
+
+  if (planningBrief) {
+    parts.push(
+      `Resolved session intent: ${planningBrief.resolvedFocus}. Load ceiling: ${planningBrief.loadCeiling}.`,
+    );
+    if (planningBrief.disallowedStressors.length > 0) {
+      parts.push(
+        `Avoid these stressors: ${planningBrief.disallowedStressors.join(', ')}.`,
+      );
+    }
+    if (planningBrief.eventProtection) {
+      parts.push(
+        `Protect freshness for ${planningBrief.eventProtection.title} on ${planningBrief.eventProtection.localDate}.`,
+      );
+    }
+  }
 
   // Add feedback if provided
   if (feedback && feedback.length > 0) {
@@ -140,6 +215,11 @@ export function buildRegenerationMessage(
       );
     }
     parts.push(`User explicit instructions: ${request.notes}`);
+  }
+
+  const baselineSummary = buildBaselineWorkoutSummary(request);
+  if (baselineSummary) {
+    parts.push(baselineSummary);
   }
 
   const promptData = buildCandidatePoolPromptData(candidatePool);
