@@ -1,6 +1,10 @@
-import type { WorkoutSessionSummary } from '@workout-agent/shared';
+import {
+  createTodayPlanMock,
+  type WorkoutSessionSummary,
+} from '@workout-agent/shared';
 import {
   buildGenerationContext,
+  generateWorkout,
   archiveWorkoutSession,
   deleteWorkoutSession,
   unarchiveWorkoutSession,
@@ -8,17 +12,29 @@ import {
 } from './api';
 import { workoutRepository } from '../db/repositories/WorkoutRepository';
 import { userRepository } from '../db/repositories/UserRepository';
+import { plannedEventRepository } from '../db/repositories/PlannedEventRepository';
 
 // Mock auth-client to avoid ESM import issues (jest.mock is hoisted)
 jest.mock('./auth-client', () => ({
+  getSessionCookie: jest.fn(() => null),
   getSessionToken: jest.fn().mockResolvedValue(null),
   isAuthEnabled: jest.fn().mockResolvedValue(false),
+}));
+
+jest.mock('../storage/deviceToken', () => ({
+  getDeviceToken: jest.fn().mockResolvedValue(null),
+}));
+
+jest.mock('../storage/byokKey', () => ({
+  getByokApiKey: jest.fn().mockResolvedValue(null),
+  getByokConfig: jest.fn().mockResolvedValue(null),
 }));
 
 jest.mock('../db/repositories/WorkoutRepository', () => ({
   workoutRepository: {
     listRecentSessions: jest.fn(),
     toSessionSummary: jest.fn(),
+    saveGeneratedPlan: jest.fn(),
     archiveWorkoutById: jest.fn(),
     unarchiveWorkoutById: jest.fn(),
     deleteWorkoutById: jest.fn(),
@@ -32,14 +48,24 @@ jest.mock('../db/repositories/UserRepository', () => ({
   },
 }));
 
+jest.mock('../db/repositories/PlannedEventRepository', () => ({
+  plannedEventRepository: {
+    listUpcomingEventContext: jest.fn(),
+  },
+}));
+
 const mockWorkoutRepository = workoutRepository as jest.Mocked<
   typeof workoutRepository
 >;
 const mockUserRepository = userRepository as jest.Mocked<typeof userRepository>;
+const mockPlannedEventRepository = plannedEventRepository as jest.Mocked<
+  typeof plannedEventRepository
+>;
 
 describe('buildGenerationContext', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    global.fetch = jest.fn();
     mockUserRepository.getPreferences.mockResolvedValue({
       equipment: ['Dumbbells'],
       experienceLevel: 'intermediate',
@@ -49,6 +75,7 @@ describe('buildGenerationContext', () => {
       avoid: [],
       preferredStyle: 'Hybrid',
     });
+    mockPlannedEventRepository.listUpcomingEventContext.mockResolvedValue([]);
   });
 
   it('fetches recent sessions excluding archived at the query level', async () => {
@@ -92,6 +119,86 @@ describe('buildGenerationContext', () => {
   });
 });
 
+describe('generateWorkout', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    global.fetch = jest.fn();
+    mockUserRepository.getPreferences.mockResolvedValue({
+      equipment: ['Dumbbells'],
+      experienceLevel: 'intermediate',
+      primaryGoal: 'Get stronger',
+      injuries: [],
+      focusBias: [],
+      avoid: [],
+      preferredStyle: 'Hybrid',
+    });
+    mockWorkoutRepository.listRecentSessions.mockResolvedValue([] as any);
+    mockPlannedEventRepository.listUpcomingEventContext.mockResolvedValue([
+      {
+        kind: 'run',
+        title: 'Tempo Run',
+        localDate: '2026-04-16',
+      },
+    ]);
+  });
+
+  it('sends full context, planning date, and baseline workout during regeneration', async () => {
+    const baselineWorkout = createTodayPlanMock({
+      id: 'plan-existing',
+      responseId: 'resp-baseline',
+      generationProvenance: {
+        provider: 'openai',
+        responseId: 'resp-baseline',
+      },
+    });
+    const generatedPlan = createTodayPlanMock({
+      id: 'plan-new',
+      generationProvenance: {
+        provider: 'openai',
+        responseId: 'resp-next',
+      },
+    });
+
+    (global.fetch as jest.Mock).mockResolvedValue({
+      ok: true,
+      json: jest.fn().mockResolvedValue(generatedPlan),
+    });
+
+    await generateWorkout(
+      {
+        timeMinutes: 45,
+        focus: 'Smart',
+        energy: 'moderate',
+        previousResponseId: 'resp-baseline',
+        baselineWorkout,
+        feedback: ['different-exercises'],
+      },
+      { scheduledDate: new Date('2026-04-15T12:00:00Z').getTime() },
+    );
+
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+    const [, requestInit] = (global.fetch as jest.Mock).mock.calls[0];
+    const payload = JSON.parse(requestInit.body as string);
+
+    expect(payload.previousResponseId).toBe('resp-baseline');
+    expect(payload.planningDateLocal).toBe('2026-04-15');
+    expect(payload.baselineWorkout.id).toBe('plan-existing');
+    expect(payload.context).toEqual(
+      expect.objectContaining({
+        recentSessions: [],
+        environment: expect.objectContaining({
+          timeAvailableMinutes: 45,
+        }),
+      }),
+    );
+    expect(payload.upcomingEvents).toHaveLength(1);
+    expect(mockWorkoutRepository.saveGeneratedPlan).toHaveBeenCalledWith(
+      generatedPlan,
+      { scheduledDate: new Date('2026-04-15T12:00:00Z').getTime() },
+    );
+  });
+});
+
 describe('workout archive/delete mutations', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -104,7 +211,7 @@ describe('workout archive/delete mutations', () => {
 
     expect(mockWorkoutRepository.archiveWorkoutById).toHaveBeenCalledWith('w1');
     expect(mockWorkoutRepository.unarchiveWorkoutById).toHaveBeenCalledWith(
-      'w2'
+      'w2',
     );
     expect(mockWorkoutRepository.deleteWorkoutById).toHaveBeenCalledWith('w3');
   });
@@ -127,7 +234,7 @@ describe('quickLogWorkout', () => {
     };
 
     mockWorkoutRepository.quickLogManualSession.mockResolvedValue(
-      mockWorkout as any
+      mockWorkout as any,
     );
     mockWorkoutRepository.toSessionSummary.mockReturnValue(mockSummary);
 
@@ -143,7 +250,7 @@ describe('quickLogWorkout', () => {
       durationMinutes: 30,
     });
     expect(mockWorkoutRepository.toSessionSummary).toHaveBeenCalledWith(
-      mockWorkout
+      mockWorkout,
     );
     expect(result).toEqual(mockSummary);
   });
@@ -161,7 +268,7 @@ describe('quickLogWorkout', () => {
     const completedAt = Date.now() - 2 * 60 * 60 * 1000;
 
     mockWorkoutRepository.quickLogManualSession.mockResolvedValue(
-      mockWorkout as any
+      mockWorkout as any,
     );
     mockWorkoutRepository.toSessionSummary.mockReturnValue(mockSummary);
 

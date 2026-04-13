@@ -28,7 +28,7 @@ export const schema = appSchema({
         { name: 'duration_seconds', type: 'number', isOptional: true },
         { name: 'archived_at', type: 'number', isOptional: true },
         { name: 'is_favorite', type: 'boolean', isOptional: true },
-        // OpenAI response ID for conversation context when regenerating
+        // Provider response ID for continuity-aware regeneration.
         { name: 'response_id', type: 'string', isOptional: true },
         { name: 'created_at', type: 'number' },
         { name: 'updated_at', type: 'number' },

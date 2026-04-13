@@ -56,21 +56,23 @@ const FEEDBACK_OPTIONS: { value: RegenerationFeedback; label: string }[] = [
 // ... (Helpers remain the same)
 const getQuickActionValue = (
   quickActions: QuickActionPreset[] | undefined,
-  key: QuickActionPreset['key']
+  key: QuickActionPreset['key'],
 ): string | undefined => {
   const action = quickActions?.find((item) => item.key === key);
   return action?.stagedValue ?? action?.value ?? action?.description;
 };
 
 const normalizeFocusSelection = (
-  value: string | undefined
+  value: string | undefined,
 ): string | undefined => {
   if (!value) return undefined;
   const trimmed = value.trim();
   if (!trimmed) return undefined;
   const normalized = trimmed.toLowerCase();
   const exactMatch = FOCUS_OPTIONS.find(
-    (option) => option.id.toLowerCase() === normalized || option.label.toLowerCase() === normalized
+    (option) =>
+      option.id.toLowerCase() === normalized ||
+      option.label.toLowerCase() === normalized,
   );
   if (exactMatch) {
     return exactMatch.id;
@@ -119,7 +121,7 @@ export type CustomizeSheetProps = {
   onSubmit: (request: GenerationRequest) => void;
   onUpdateStagedValue?: (
     key: QuickActionPreset['key'],
-    value: string | null
+    value: string | null,
   ) => void;
   onClose: () => void;
 };
@@ -137,8 +139,10 @@ export const CustomizeSheet = ({
   onUpdateStagedValue,
   onClose,
 }: CustomizeSheetProps) => {
-  const isRegeneration = Boolean(currentPlan?.responseId);
-  const showFeedback = Boolean(currentPlan?.responseId);
+  const currentResponseId =
+    currentPlan?.generationProvenance?.responseId ?? currentPlan?.responseId;
+  const isRegeneration = Boolean(currentResponseId);
+  const showFeedback = Boolean(currentResponseId);
   const primaryLabel = isRegeneration
     ? 'Regenerate workout'
     : 'Generate workout';
@@ -170,11 +174,9 @@ export const CustomizeSheet = ({
       normalizeFocusSelection(focusValue) ??
       initialFocus ??
       FOCUS_OPTIONS[0].id;
-    const nextEquipment =
-      currentPlan?.equipment ??
+    const nextEquipment = currentPlan?.equipment ??
       (equipmentValue ? parseEquipmentSelection(equipmentValue) : null) ??
-      initialEquipment ??
-      ['Bodyweight'];
+      initialEquipment ?? ['Bodyweight'];
     const nextEnergy =
       currentPlan?.energy ??
       (energyValue ? normalizeEnergySelection(energyValue) : null) ??
@@ -188,11 +190,19 @@ export const CustomizeSheet = ({
     setEnergy(nextEnergy);
     setNotes('');
     setFreeFormMode(false);
-  }, [visible, currentPlan, quickActions, initialDuration, initialEquipment, initialEnergy, initialFocus]);
+  }, [
+    visible,
+    currentPlan,
+    quickActions,
+    initialDuration,
+    initialEquipment,
+    initialEnergy,
+    initialFocus,
+  ]);
 
   const toggleFeedback = (value: RegenerationFeedback) => {
     setFeedback((prev) =>
-      prev.includes(value) ? prev.filter((f) => f !== value) : [...prev, value]
+      prev.includes(value) ? prev.filter((f) => f !== value) : [...prev, value],
     );
   };
 
@@ -234,7 +244,8 @@ export const CustomizeSheet = ({
     if (freeFormMode) {
       onSubmit({
         notes: normalizedNotes,
-        previousResponseId: currentPlan?.responseId,
+        previousResponseId: currentResponseId,
+        ...(currentPlan ? { baselineWorkout: currentPlan } : {}),
       });
       return;
     }
@@ -251,8 +262,11 @@ export const CustomizeSheet = ({
       request.notes = normalizedNotes;
     }
 
-    if (isRegeneration && currentPlan?.responseId) {
-      request.previousResponseId = currentPlan.responseId;
+    if (isRegeneration) {
+      request.previousResponseId = currentResponseId;
+      if (currentPlan) {
+        request.baselineWorkout = currentPlan;
+      }
     }
 
     if (showFeedback && feedback.length > 0) {
@@ -263,7 +277,7 @@ export const CustomizeSheet = ({
   };
 
   const closestDuration = DURATION_OPTIONS.reduce((prev, curr) =>
-    Math.abs(curr - duration) < Math.abs(prev - duration) ? curr : prev
+    Math.abs(curr - duration) < Math.abs(prev - duration) ? curr : prev,
   );
 
   return (
