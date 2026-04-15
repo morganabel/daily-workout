@@ -284,11 +284,42 @@ export const generationEvaluationProviderPromptSchema = z
     model: z.string().min(1).optional(),
     schemaVersion: z.string().min(1).optional(),
     isRegeneration: z.boolean(),
+    phase: z.enum(['stage-one-planner', 'stage-two-generation']).optional(),
     content: z.string().min(1),
   })
   .strict();
 export type GenerationEvaluationProviderPrompt = z.infer<
   typeof generationEvaluationProviderPromptSchema
+>;
+
+export const generationEvaluationPlannerArtifactSchema = z
+  .object({
+    mode: z.literal('llm-assisted'),
+    confidence: z.enum(['low', 'medium', 'high']),
+    planningIntent: z.string().min(1),
+    resolvedFocus: z.string().min(1).optional(),
+    protectStressors: z.array(z.string()),
+    avoidStressors: z.array(z.string()),
+    styleBiases: z.array(z.string()),
+    loadBias: z.enum(['low', 'moderate', 'high', 'unknown']).optional(),
+    noveltyTarget: z.enum(['low', 'medium', 'high']).optional(),
+    rerankHints: z.array(z.string()),
+    candidateInstructions: z.array(z.string()),
+  })
+  .strict();
+export type GenerationEvaluationPlannerArtifact = z.infer<
+  typeof generationEvaluationPlannerArtifactSchema
+>;
+
+export const generationEvaluationPlannerSummarySchema = z
+  .object({
+    usedStageOne: z.boolean(),
+    artifact: generationEvaluationPlannerArtifactSchema.optional(),
+    stageOnePrompt: generationEvaluationProviderPromptSchema.optional(),
+  })
+  .strict();
+export type GenerationEvaluationPlannerSummary = z.infer<
+  typeof generationEvaluationPlannerSummarySchema
 >;
 
 export const generationEvaluationReportEntrySchema = z
@@ -307,6 +338,7 @@ export const generationEvaluationReportEntrySchema = z
     baselinePlan: todayPlanSchema.optional(),
     hardChecks: z.array(generationEvaluationHardCheckResultSchema),
     softReview: generationEvaluationSoftReviewResultSchema.optional(),
+    plannerSummary: generationEvaluationPlannerSummarySchema,
     providerPrompt: generationEvaluationProviderPromptSchema.optional(),
     plan: todayPlanSchema.optional(),
     errorCode: z.string().optional(),

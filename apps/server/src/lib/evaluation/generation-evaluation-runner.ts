@@ -10,6 +10,9 @@ import {
   type ModelGenerationOptions,
   type ModelPromptCapture,
   type ModelRouter,
+  type StageOnePlanner,
+  type StageOnePlanningOptions,
+  type StageOnePlannerArtifact,
 } from '@workout-agent-ce/server-core';
 import {
   DefaultModelRouter,
@@ -19,6 +22,7 @@ import {
   generationEvaluationReportSchema,
   type GenerationEvaluationExecutionSource,
   type GenerationEvaluationProvider,
+  type GenerationEvaluationPlannerSummary,
   type GenerationEvaluationProviderPrompt,
   type GenerationEvaluationReport,
   type GenerationEvaluationReportEntry,
@@ -58,6 +62,7 @@ type HandlerBundle = {
   store: InMemoryGenerationStore;
   hasConfiguredAccess: boolean;
   router: PromptCapturingRouter;
+  planner: PromptCapturingStageOnePlanner;
 };
 
 type ExecutedScenarioResult = {
@@ -65,6 +70,7 @@ type ExecutedScenarioResult = {
   payload: unknown;
   executionSource: GenerationEvaluationExecutionSource;
   stateHasPlan: boolean;
+  plannerSummary: GenerationEvaluationPlannerSummary;
   providerPrompt?: GenerationEvaluationProviderPrompt;
 };
 
@@ -103,6 +109,42 @@ class PromptCapturingRouter implements ModelRouter {
   }
 }
 
+class PromptCapturingStageOnePlanner implements StageOnePlanner {
+  private readonly inner = new DefaultStageOnePlanner();
+  private lastPrompt?: GenerationEvaluationProviderPrompt;
+  private lastArtifact?: StageOnePlannerArtifact;
+
+  async plan(
+    request: GenerationRequest,
+    context: GenerationContext,
+    options: StageOnePlanningOptions,
+  ) {
+    this.lastPrompt = undefined;
+    this.lastArtifact = undefined;
+
+    const artifact = await this.inner.plan(request, context, {
+      ...options,
+      promptRecorder: (capture: ModelPromptCapture) => {
+        this.lastPrompt = capture;
+        options.promptRecorder?.(capture);
+      },
+    });
+    this.lastArtifact = artifact;
+    return artifact;
+  }
+
+  consumeLastSummary(): GenerationEvaluationPlannerSummary {
+    const summary: GenerationEvaluationPlannerSummary = {
+      usedStageOne: Boolean(this.lastArtifact),
+      artifact: this.lastArtifact,
+      stageOnePrompt: this.lastPrompt,
+    };
+    this.lastPrompt = undefined;
+    this.lastArtifact = undefined;
+    return summary;
+  }
+}
+
 function selectScenarios(options: GenerationEvaluationRunOptions) {
   let scenarios = workoutGenerationEvaluationScenarios;
 
@@ -135,7 +177,7 @@ function createHandlerBundle(
 ): HandlerBundle {
   const store = new InMemoryGenerationStore();
   const router = new PromptCapturingRouter();
-  const planner = new DefaultStageOnePlanner();
+  const planner = new PromptCapturingStageOnePlanner();
   const useVertexAi = process.env.GOOGLE_GENAI_USE_VERTEXAI === 'true';
   const enableStageOnePlanner = process.env.ENABLE_STAGE_ONE_PLANNER === 'true';
   const hasGeminiAccess = Boolean(process.env.GEMINI_API_KEY) || useVertexAi;
@@ -170,6 +212,7 @@ function createHandlerBundle(
     }),
     store,
     hasConfiguredAccess,
+    planner,
     router,
   };
 }
@@ -249,6 +292,7 @@ async function executeScenarioRequest(params: {
   body: unknown;
 }): Promise<ExecutedScenarioResult> {
   params.bundle.router.consumeLastPrompt();
+  params.bundle.planner.consumeLastSummary();
   const request = new Request('http://localhost/api/workouts/generate', {
     method: 'POST',
     headers: buildHeaders(params.provider, params.token),
@@ -270,6 +314,7 @@ async function executeScenarioRequest(params: {
       stateHasPlan: Boolean(state.plan),
     }),
     stateHasPlan: Boolean(state.plan),
+    plannerSummary: params.bundle.planner.consumeLastSummary(),
     providerPrompt: params.bundle.router.consumeLastPrompt(),
   };
 }
@@ -580,6 +625,9 @@ function renderHtmlReport(
             )
             .join('')}</ul>`
         : '<p class="muted">No plan available for this run.</p>';
+      const plannerDetails = entry.plannerSummary.usedStageOne
+        ? `<p><strong>Stage one:</strong> used</p>${entry.plannerSummary.artifact ? `<pre>${escapeHtml(JSON.stringify(entry.plannerSummary.artifact, null, 2))}</pre>` : '<p class="muted">No stage-one artifact captured.</p>'}${entry.plannerSummary.stageOnePrompt ? `<p><strong>Planner Prompt:</strong> ${escapeHtml(entry.plannerSummary.stageOnePrompt.provider)}${entry.plannerSummary.stageOnePrompt.model ? ` · <strong>Model:</strong> ${escapeHtml(entry.plannerSummary.stageOnePrompt.model)}` : ''}</p><pre>${escapeHtml(entry.plannerSummary.stageOnePrompt.content)}</pre>` : '<p class="muted">Stage-one prompt was not captured.</p>'}`
+        : '<p class="muted">Stage one was not used for this run.</p>';
       const promptDetails = entry.providerPrompt
         ? `<p><strong>Provider:</strong> ${escapeHtml(entry.providerPrompt.provider)}${entry.providerPrompt.model ? ` · <strong>Model:</strong> ${escapeHtml(entry.providerPrompt.model)}` : ''}${entry.providerPrompt.schemaVersion ? ` · <strong>Schema:</strong> ${escapeHtml(entry.providerPrompt.schemaVersion)}` : ''}${entry.providerPrompt.isRegeneration ? ' · <strong>Regeneration</strong>' : ''}</p><pre>${escapeHtml(entry.providerPrompt.content)}</pre>`
         : '<p class="muted">Prompt was not captured for this run.</p>';
@@ -640,6 +688,10 @@ function renderHtmlReport(
                   )
                   .join('')}
               </ul>
+            </section>
+            <section>
+              <h4>Planner Summary</h4>
+              ${plannerDetails}
             </section>
             <section>
               <h4>Provider Prompt</h4>
@@ -958,9 +1010,34 @@ function renderMarkdownReport(
     lines.push(
       `- Hard failures: ${failedChecks.length > 0 ? failedChecks.map((item) => item.name).join(', ') : 'none'}`,
     );
+    lines.push(
+      `- Stage one used: ${entry.plannerSummary.usedStageOne ? 'yes' : 'no'}`,
+    );
     lines.push(`- Prompt captured: ${entry.providerPrompt ? 'yes' : 'no'}`);
     if (entry.errorMessage) {
       lines.push(`- Error: ${entry.errorMessage}`);
+    }
+    if (entry.plannerSummary.artifact) {
+      lines.push(
+        '',
+        '#### Planner Artifact',
+        '',
+        '```json',
+        JSON.stringify(entry.plannerSummary.artifact, null, 2),
+        '```',
+        '',
+      );
+    }
+    if (entry.plannerSummary.stageOnePrompt) {
+      lines.push(
+        '',
+        '#### Stage-One Prompt',
+        '',
+        '```text',
+        entry.plannerSummary.stageOnePrompt.content,
+        '```',
+        '',
+      );
     }
     if (entry.providerPrompt) {
       lines.push(
@@ -1130,6 +1207,7 @@ export async function runGenerationEvaluation(
             request: scenario.request,
             context: scenario.context,
             baselinePlan: effectiveBaselinePlan,
+            plannerSummary: executed.plannerSummary,
             providerPrompt: executed.providerPrompt,
             hardChecks: runHardChecksForScenario(
               {
@@ -1155,6 +1233,7 @@ export async function runGenerationEvaluation(
             request: scenario.request,
             context: scenario.context,
             baselinePlan: effectiveBaselinePlan,
+            plannerSummary: executed.plannerSummary,
             providerPrompt: executed.providerPrompt,
             hardChecks: runHardChecksForScenario({
               ...scenario,
