@@ -12,7 +12,7 @@ import type { ExerciseCandidatePool } from '../types/model-router';
 import type { PlanningBrief } from '../types/planning';
 import type { GenerationRequestWithContext } from './context';
 
-const DEFAULT_CANDIDATE_LIMIT = 24;
+const DEFAULT_CANDIDATE_LIMIT = 128;
 const DEFAULT_EQUIPMENT = ['Bodyweight'];
 
 export interface ExerciseCandidatePoolSummary extends ExerciseCandidatePool {
