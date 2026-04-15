@@ -14,7 +14,10 @@ import {
   type GenerationRequestWithContext,
 } from '../utils/context';
 import { derivePlanningBrief } from '../utils/planning';
-import { buildExerciseCandidatePool } from '../utils/exercise-library';
+import {
+  buildExerciseCandidatePool,
+  rerankExerciseCandidatePool,
+} from '../utils/exercise-library';
 import {
   generationRequestPayloadSchema,
   isAutoFocus,
@@ -381,6 +384,12 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
           rerankHintCount: stageOneArtifact.rerankHints.length,
           reasons: effectivePlanningBrief.stagedPlanning.reasons,
         });
+        if (candidatePool) {
+          candidatePool = rerankExerciseCandidatePool(
+            candidatePool,
+            stageOneArtifact,
+          );
+        }
       } catch (error) {
         log.warn('stage-one planner unavailable', {
           provider,

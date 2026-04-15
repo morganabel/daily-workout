@@ -8,6 +8,11 @@ import type { PlanningBrief, StageOnePlannerArtifact } from './planning';
 export interface ExerciseCandidateReference {
   id: string;
   name: string;
+  focusTags?: string[];
+  movementTags?: string[];
+  styleTags?: string[];
+  stressorTags?: string[];
+  loadLevel?: 'light' | 'moderate' | 'heavy';
 }
 
 export interface ExerciseCandidateDiagnostics {

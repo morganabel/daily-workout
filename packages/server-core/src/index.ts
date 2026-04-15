@@ -62,6 +62,7 @@ export {
   createErrorResponse,
   buildQuickActions,
   buildExerciseCandidatePool,
+  rerankExerciseCandidatePool,
   determineStageOnePlanningActivation,
   derivePlanningBrief,
   loadGenerationContext,

@@ -585,7 +585,9 @@ describe('createGenerateHandler', () => {
       expect.anything(),
       expect.objectContaining({
         candidatePool: expect.objectContaining({
-          candidateExercises: [{ id: 'fedb:pushups', name: 'Pushups' }],
+          candidateExercises: [
+            expect.objectContaining({ id: 'fedb:pushups', name: 'Pushups' }),
+          ],
           searchText: expect.any(String),
         }),
       }),
@@ -801,6 +803,103 @@ describe('createGenerateHandler', () => {
         stageOneArtifact: expect.objectContaining({
           mode: 'llm-assisted',
           resolvedFocus: 'Upper Body',
+        }),
+      }),
+    );
+  });
+
+  it('reranks the candidate pool using the stage-one planner artifact before final generation', async () => {
+    const router = createRouterMock();
+    const planner = createStageOnePlannerMock();
+    const exerciseLibrary = createExerciseLibrary();
+    exerciseLibrary.listEligibleExercises = jest.fn(() => ({
+      libraryVersion: 'test-library',
+      totalEligibleCount: 2,
+      exercises: [
+        {
+          id: 'fedb:squat',
+          slug: 'bodyweight-squat',
+          name: 'Bodyweight Squat',
+          aliases: ['squat'],
+          description: 'desc',
+          instructionSteps: ['step'],
+          requiredEquipment: ['bodyweight'],
+          optionalEquipment: [],
+          focusTags: ['lower_body'],
+          movementTags: ['squat'],
+          styleTags: ['strength'],
+          stressorTags: ['lower_body_fatigue'],
+          contraindicationTags: [],
+          avoidTags: [],
+          impactLevel: 'low',
+          noiseLevel: 'quiet',
+          spaceFootprint: 'small',
+          travelFriendly: true,
+          floorRequired: false,
+          experienceLevelMin: 'beginner',
+          loadLevel: 'moderate',
+          allowedRoles: ['main'],
+          metadataCompleteness: 'planner-ready',
+          sortKey: 10,
+          sourceRefs: [],
+        },
+        {
+          id: 'fedb:pushups',
+          slug: 'pushups',
+          name: 'Pushups',
+          aliases: ['push-up'],
+          description: 'desc',
+          instructionSteps: ['step'],
+          requiredEquipment: ['bodyweight'],
+          optionalEquipment: [],
+          focusTags: ['upper_body'],
+          movementTags: ['push'],
+          styleTags: ['strength'],
+          stressorTags: [],
+          contraindicationTags: [],
+          avoidTags: [],
+          impactLevel: 'low',
+          noiseLevel: 'quiet',
+          spaceFootprint: 'small',
+          travelFriendly: true,
+          floorRequired: true,
+          experienceLevelMin: 'beginner',
+          loadLevel: 'moderate',
+          allowedRoles: ['main'],
+          metadataCompleteness: 'planner-ready',
+          sortKey: 11,
+          sourceRefs: [],
+        },
+      ],
+    }));
+    const { handler } = createHandler({
+      router,
+      planner,
+      exerciseLibrary,
+      config: {
+        edition: 'CE',
+        defaultProvider: 'openai',
+        enableStageOnePlanner: true,
+      },
+    });
+
+    const response = await handler(
+      createPlanningRequest({
+        focus: 'Smart',
+        notes: 'Keep it upper-body focused and athletic.',
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(router.generate).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      expect.objectContaining({
+        candidatePool: expect.objectContaining({
+          candidateExercises: [
+            expect.objectContaining({ id: 'fedb:pushups' }),
+            expect.objectContaining({ id: 'fedb:squat' }),
+          ],
         }),
       }),
     );

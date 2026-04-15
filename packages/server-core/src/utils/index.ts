@@ -10,6 +10,7 @@ export {
 } from './context';
 export {
   buildExerciseCandidatePool,
+  rerankExerciseCandidatePool,
   type BuildExerciseCandidatePoolParams,
   type ExerciseCandidatePoolSummary,
 } from './exercise-library';
