@@ -24,6 +24,14 @@ export interface ExerciseCandidatePool {
   diagnostics?: ExerciseCandidateDiagnostics;
 }
 
+export interface ModelPromptCapture {
+  provider: 'openai' | 'gemini';
+  model?: string;
+  schemaVersion?: string;
+  isRegeneration: boolean;
+  content: string;
+}
+
 /**
  * Result from a model generation call
  */
@@ -68,6 +76,11 @@ export interface ModelGenerationOptions {
    * Internal planning artifact derived before provider prompting.
    */
   planningBrief?: PlanningBrief;
+
+  /**
+   * Optional sink for capturing the provider prompt for debugging/evaluation.
+   */
+  promptRecorder?: (capture: ModelPromptCapture) => void;
 }
 
 /**

@@ -7,15 +7,21 @@ import {
   createGenerateHandler,
   runHardChecksForScenario,
   summarizeHardFailures,
+  type ModelGenerationOptions,
+  type ModelPromptCapture,
+  type ModelRouter,
 } from '@workout-agent-ce/server-core';
 import { DefaultModelRouter } from '@workout-agent-ce/server-ai';
 import {
   generationEvaluationReportSchema,
   type GenerationEvaluationExecutionSource,
   type GenerationEvaluationProvider,
+  type GenerationEvaluationProviderPrompt,
   type GenerationEvaluationReport,
   type GenerationEvaluationReportEntry,
   type GenerationEvaluationScenario,
+  type GenerationContext,
+  type GenerationRequest,
   workoutGenerationEvaluationCorpus,
   workoutGenerationEvaluationScenarios,
 } from '@workout-agent/shared';
@@ -48,6 +54,7 @@ type HandlerBundle = {
   handler: ReturnType<typeof createGenerateHandler>;
   store: InMemoryGenerationStore;
   hasConfiguredAccess: boolean;
+  router: PromptCapturingRouter;
 };
 
 type ExecutedScenarioResult = {
@@ -55,7 +62,43 @@ type ExecutedScenarioResult = {
   payload: unknown;
   executionSource: GenerationEvaluationExecutionSource;
   stateHasPlan: boolean;
+  providerPrompt?: GenerationEvaluationProviderPrompt;
 };
+
+class PromptCapturingRouter implements ModelRouter {
+  private readonly inner = new DefaultModelRouter();
+  private lastPrompt?: GenerationEvaluationProviderPrompt;
+
+  async generate(
+    request: GenerationRequest,
+    context: GenerationContext,
+    options: ModelGenerationOptions,
+  ) {
+    this.lastPrompt = undefined;
+
+    return this.inner.generate(request, context, {
+      ...options,
+      promptRecorder: (capture: ModelPromptCapture) => {
+        this.lastPrompt = capture;
+        options.promptRecorder?.(capture);
+      },
+    });
+  }
+
+  isSupportedProvider(provider: string): boolean {
+    return this.inner.isSupportedProvider(provider);
+  }
+
+  getDefaultProvider(): string {
+    return this.inner.getDefaultProvider();
+  }
+
+  consumeLastPrompt(): GenerationEvaluationProviderPrompt | undefined {
+    const prompt = this.lastPrompt;
+    this.lastPrompt = undefined;
+    return prompt;
+  }
+}
 
 function selectScenarios(options: GenerationEvaluationRunOptions) {
   let scenarios = workoutGenerationEvaluationScenarios;
@@ -68,7 +111,7 @@ function selectScenarios(options: GenerationEvaluationRunOptions) {
   if (options.tags && options.tags.length > 0) {
     const requiredTags = new Set(options.tags);
     scenarios = scenarios.filter((scenario) =>
-      Array.from(requiredTags).every((tag) => scenario.tags.includes(tag))
+      Array.from(requiredTags).every((tag) => scenario.tags.includes(tag)),
     );
   }
 
@@ -85,10 +128,10 @@ function selectScenarios(options: GenerationEvaluationRunOptions) {
 
 function createHandlerBundle(
   provider: GenerationEvaluationProvider,
-  edition: 'CE' | 'HOSTED'
+  edition: 'CE' | 'HOSTED',
 ): HandlerBundle {
   const store = new InMemoryGenerationStore();
-  const router = new DefaultModelRouter();
+  const router = new PromptCapturingRouter();
   const useVertexAi = process.env.GOOGLE_GENAI_USE_VERTEXAI === 'true';
   const hasGeminiAccess = Boolean(process.env.GEMINI_API_KEY) || useVertexAi;
   const hasConfiguredAccess =
@@ -120,6 +163,7 @@ function createHandlerBundle(
     }),
     store,
     hasConfiguredAccess,
+    router,
   };
 }
 
@@ -136,7 +180,10 @@ function buildHeaders(provider: GenerationEvaluationProvider, runId: string) {
   return headers;
 }
 
-function parseErrorPayload(payload: unknown): { code?: string; message?: string } {
+function parseErrorPayload(payload: unknown): {
+  code?: string;
+  message?: string;
+} {
   if (!payload || typeof payload !== 'object') {
     return {};
   }
@@ -194,6 +241,7 @@ async function executeScenarioRequest(params: {
   token: string;
   body: unknown;
 }): Promise<ExecutedScenarioResult> {
+  params.bundle.router.consumeLastPrompt();
   const request = new Request('http://localhost/api/workouts/generate', {
     method: 'POST',
     headers: buildHeaders(params.provider, params.token),
@@ -215,6 +263,7 @@ async function executeScenarioRequest(params: {
       stateHasPlan: Boolean(state.plan),
     }),
     stateHasPlan: Boolean(state.plan),
+    providerPrompt: params.bundle.router.consumeLastPrompt(),
   };
 }
 
@@ -246,26 +295,28 @@ function summarizeEntryHardChecks(entry: GenerationEvaluationReportEntry) {
   const pass = entry.hardChecks.filter((item) => item.status === 'pass').length;
   const fail = entry.hardChecks.filter((item) => item.status === 'fail').length;
   const skipped = entry.hardChecks.filter(
-    (item) => item.status === 'not-applicable'
+    (item) => item.status === 'not-applicable',
   ).length;
 
   return { pass, fail, skipped };
 }
 
 function buildDerivedStats(report: GenerationEvaluationReport) {
-  const uniqueScenarios = new Set(report.entries.map((entry) => entry.scenarioId)).size;
+  const uniqueScenarios = new Set(
+    report.entries.map((entry) => entry.scenarioId),
+  ).size;
   const entriesWithHardFailures = report.entries.filter((entry) =>
-    entry.hardChecks.some((check) => check.status === 'fail')
+    entry.hardChecks.some((check) => check.status === 'fail'),
   );
   const cleanEntries = report.entries.filter(
     (entry) =>
       entry.status === 'success' &&
-      !entry.hardChecks.some((check) => check.status === 'fail')
+      !entry.hardChecks.some((check) => check.status === 'fail'),
   );
 
   const providerStats = Array.from(
-    report.entries.reduce(
-      (acc, entry) => {
+    report.entries
+      .reduce((acc, entry) => {
         const current = acc.get(entry.provider) ?? {
           provider: entry.provider,
           total: 0,
@@ -281,17 +332,13 @@ function buildDerivedStats(report: GenerationEvaluationReport) {
         }
         acc.set(entry.provider, current);
         return acc;
-      },
-      new Map<
-        string,
-        { provider: string; total: number; success: number; hardFailEntries: number }
-      >()
-    ).values()
+      }, new Map<string, { provider: string; total: number; success: number; hardFailEntries: number }>())
+      .values(),
   );
 
   const modeStats = Array.from(
-    report.entries.reduce(
-      (acc, entry) => {
+    report.entries
+      .reduce((acc, entry) => {
         const current = acc.get(entry.scenarioMode) ?? {
           mode: entry.scenarioMode,
           total: 0,
@@ -303,15 +350,16 @@ function buildDerivedStats(report: GenerationEvaluationReport) {
         }
         acc.set(entry.scenarioMode, current);
         return acc;
-      },
-      new Map<string, { mode: string; total: number; hardFailEntries: number }>()
-    ).values()
+      }, new Map<string, { mode: string; total: number; hardFailEntries: number }>())
+      .values(),
   );
 
   const tagStats = Array.from(
-    report.entries.reduce(
-      (acc, entry) => {
-        const hasHardFailure = entry.hardChecks.some((check) => check.status === 'fail');
+    report.entries
+      .reduce((acc, entry) => {
+        const hasHardFailure = entry.hardChecks.some(
+          (check) => check.status === 'fail',
+        );
         entry.scenarioTags.forEach((tag) => {
           const current = acc.get(tag) ?? { tag, total: 0, hardFailEntries: 0 };
           current.total += 1;
@@ -321,47 +369,48 @@ function buildDerivedStats(report: GenerationEvaluationReport) {
           acc.set(tag, current);
         });
         return acc;
-      },
-      new Map<string, { tag: string; total: number; hardFailEntries: number }>()
-    ).values()
+      }, new Map<string, { tag: string; total: number; hardFailEntries: number }>())
+      .values(),
   )
     .sort((a, b) => b.total - a.total)
     .slice(0, 12);
 
   const scenarioStats = Array.from(
-    report.entries.reduce(
-      (acc, entry) => {
-        const current = acc.get(entry.scenarioId) ?? {
-          scenarioId: entry.scenarioId,
-          title: entry.scenarioTitle,
-          providerSet: new Set<string>(),
-          total: 0,
-          hardFailEntries: 0,
-          generationErrors: 0,
-        };
-        current.total += 1;
-        current.providerSet.add(entry.provider);
-        if (entry.hardChecks.some((check) => check.status === 'fail')) {
-          current.hardFailEntries += 1;
-        }
-        if (entry.status !== 'success') {
-          current.generationErrors += 1;
-        }
-        acc.set(entry.scenarioId, current);
-        return acc;
-      },
-      new Map<
-        string,
-        {
-          scenarioId: string;
-          title: string;
-          providerSet: Set<string>;
-          total: number;
-          hardFailEntries: number;
-          generationErrors: number;
-        }
-      >()
-    ).values()
+    report.entries
+      .reduce(
+        (acc, entry) => {
+          const current = acc.get(entry.scenarioId) ?? {
+            scenarioId: entry.scenarioId,
+            title: entry.scenarioTitle,
+            providerSet: new Set<string>(),
+            total: 0,
+            hardFailEntries: 0,
+            generationErrors: 0,
+          };
+          current.total += 1;
+          current.providerSet.add(entry.provider);
+          if (entry.hardChecks.some((check) => check.status === 'fail')) {
+            current.hardFailEntries += 1;
+          }
+          if (entry.status !== 'success') {
+            current.generationErrors += 1;
+          }
+          acc.set(entry.scenarioId, current);
+          return acc;
+        },
+        new Map<
+          string,
+          {
+            scenarioId: string;
+            title: string;
+            providerSet: Set<string>;
+            total: number;
+            hardFailEntries: number;
+            generationErrors: number;
+          }
+        >(),
+      )
+      .values(),
   )
     .map((item) => ({
       ...item,
@@ -369,7 +418,8 @@ function buildDerivedStats(report: GenerationEvaluationReport) {
     }))
     .sort(
       (a, b) =>
-        b.hardFailEntries - a.hardFailEntries || b.generationErrors - a.generationErrors
+        b.hardFailEntries - a.hardFailEntries ||
+        b.generationErrors - a.generationErrors,
     )
     .slice(0, 10);
 
@@ -388,7 +438,12 @@ function buildDerivedStats(report: GenerationEvaluationReport) {
   };
 }
 
-function renderBar(label: string, value: number, total: number, tone = 'accent') {
+function renderBar(
+  label: string,
+  value: number,
+  total: number,
+  tone = 'accent',
+) {
   return `
     <div class="metric-row">
       <div class="metric-label"><span>${escapeHtml(label)}</span><strong>${value}</strong></div>
@@ -401,40 +456,49 @@ function renderBar(label: string, value: number, total: number, tone = 'accent')
 function renderHtmlReport(
   report: GenerationEvaluationReport,
   options: GenerationEvaluationRunOptions,
-  warnings: string[]
+  warnings: string[],
 ): string {
   const derived = buildDerivedStats(report);
   const failureCounts = Object.entries(report.summary.hardFailureCounts)
     .sort((a, b) => b[1] - a[1])
     .map(
       ([name, count]) =>
-        `<li><strong>${escapeHtml(name)}</strong><span>${count}</span></li>`
+        `<li><strong>${escapeHtml(name)}</strong><span>${count}</span></li>`,
     )
     .join('');
 
   const providerBars = derived.providerStats
-    .map((item) =>
-      renderBar(
-        `${item.provider} success`,
-        item.success,
-        item.total,
-        'success'
-      ) +
-      renderBar(
-        `${item.provider} hard-fail entries`,
-        item.hardFailEntries,
-        item.total,
-        'danger'
-      )
+    .map(
+      (item) =>
+        renderBar(
+          `${item.provider} success`,
+          item.success,
+          item.total,
+          'success',
+        ) +
+        renderBar(
+          `${item.provider} hard-fail entries`,
+          item.hardFailEntries,
+          item.total,
+          'danger',
+        ),
     )
     .join('');
 
   const modeBars = derived.modeStats
-    .map((item) => renderBar(`${item.mode} entries`, item.total, report.summary.totalEntries))
+    .map((item) =>
+      renderBar(
+        `${item.mode} entries`,
+        item.total,
+        report.summary.totalEntries,
+      ),
+    )
     .join('');
 
   const tagBars = derived.tagStats
-    .map((item) => renderBar(item.tag, item.hardFailEntries, item.total, 'warn'))
+    .map((item) =>
+      renderBar(item.tag, item.hardFailEntries, item.total, 'warn'),
+    )
     .join('');
 
   const scenarioRows = derived.scenarioStats
@@ -447,36 +511,48 @@ function renderHtmlReport(
           <td>${item.hardFailEntries}</td>
           <td>${item.generationErrors}</td>
         </tr>
-      `
+      `,
     )
     .join('');
 
   const filterProviderOptions = Array.from(
-    new Set(report.entries.map((entry) => entry.provider))
+    new Set(report.entries.map((entry) => entry.provider)),
   )
     .sort()
-    .map((provider) => `<option value="${escapeHtml(provider)}">${escapeHtml(provider)}</option>`)
+    .map(
+      (provider) =>
+        `<option value="${escapeHtml(provider)}">${escapeHtml(provider)}</option>`,
+    )
     .join('');
 
   const filterModeOptions = Array.from(
-    new Set(report.entries.map((entry) => entry.scenarioMode))
+    new Set(report.entries.map((entry) => entry.scenarioMode)),
   )
     .sort()
-    .map((mode) => `<option value="${escapeHtml(mode)}">${escapeHtml(mode)}</option>`)
+    .map(
+      (mode) =>
+        `<option value="${escapeHtml(mode)}">${escapeHtml(mode)}</option>`,
+    )
     .join('');
 
   const filterSourceOptions = Array.from(
-    new Set(report.entries.map((entry) => entry.executionSource))
+    new Set(report.entries.map((entry) => entry.executionSource)),
   )
     .sort()
-    .map((source) => `<option value="${escapeHtml(source)}">${escapeHtml(source)}</option>`)
+    .map(
+      (source) =>
+        `<option value="${escapeHtml(source)}">${escapeHtml(source)}</option>`,
+    )
     .join('');
 
   const filterStatusOptions = Array.from(
-    new Set(report.entries.map((entry) => entry.status))
+    new Set(report.entries.map((entry) => entry.status)),
   )
     .sort()
-    .map((status) => `<option value="${escapeHtml(status)}">${escapeHtml(status)}</option>`)
+    .map(
+      (status) =>
+        `<option value="${escapeHtml(status)}">${escapeHtml(status)}</option>`,
+    )
     .join('');
 
   const reportDataScript = escapeHtml(JSON.stringify(report));
@@ -484,7 +560,7 @@ function renderHtmlReport(
   const cards = report.entries
     .map((entry) => {
       const failedChecks = entry.hardChecks.filter(
-        (item) => item.status === 'fail'
+        (item) => item.status === 'fail',
       );
       const checkSummary = summarizeEntryHardChecks(entry);
       const planDetails = entry.plan
@@ -493,10 +569,13 @@ function renderHtmlReport(
               (block) =>
                 `<li><strong>${escapeHtml(block.title)}</strong> (${block.durationMinutes} min, ${escapeHtml(block.focus)})<br>${block.exercises
                   .map((exercise) => escapeHtml(exercise.name))
-                  .join(', ')}</li>`
+                  .join(', ')}</li>`,
             )
             .join('')}</ul>`
         : '<p class="muted">No plan available for this run.</p>';
+      const promptDetails = entry.providerPrompt
+        ? `<p><strong>Provider:</strong> ${escapeHtml(entry.providerPrompt.provider)}${entry.providerPrompt.model ? ` · <strong>Model:</strong> ${escapeHtml(entry.providerPrompt.model)}` : ''}${entry.providerPrompt.schemaVersion ? ` · <strong>Schema:</strong> ${escapeHtml(entry.providerPrompt.schemaVersion)}` : ''}${entry.providerPrompt.isRegeneration ? ' · <strong>Regeneration</strong>' : ''}</p><pre>${escapeHtml(entry.providerPrompt.content)}</pre>`
+        : '<p class="muted">Prompt was not captured for this run.</p>';
       const filterText = [
         entry.scenarioTitle,
         entry.scenarioDescription,
@@ -550,16 +629,25 @@ function renderHtmlReport(
                 ${entry.hardChecks
                   .map(
                     (check) =>
-                      `<li class="${escapeHtml(check.status)}"><strong>${escapeHtml(check.name)}</strong>: ${escapeHtml(check.status)}${check.message ? ` - ${escapeHtml(check.message)}` : ''}</li>`
+                      `<li class="${escapeHtml(check.status)}"><strong>${escapeHtml(check.name)}</strong>: ${escapeHtml(check.status)}${check.message ? ` - ${escapeHtml(check.message)}` : ''}</li>`,
                   )
                   .join('')}
               </ul>
             </section>
             <section>
+              <h4>Provider Prompt</h4>
+              ${promptDetails}
+            </section>
+            <section>
               <h4>Baseline / Errors</h4>
               ${entry.baselinePlan ? `<p><strong>Baseline:</strong> ${escapeHtml(entry.baselinePlan.focus)} - ${entry.baselinePlan.durationMinutes} min</p>` : '<p class="muted">No baseline plan.</p>'}
               ${entry.errorMessage ? `<p class="error-text"><strong>Error:</strong> ${escapeHtml(entry.errorMessage)}</p>` : '<p class="muted">No error message.</p>'}
-              <p><strong>Passed:</strong> ${entry.hardChecks.filter((item) => item.status === 'pass').map((item) => escapeHtml(item.name)).join(', ') || 'none'}</p>
+              <p><strong>Passed:</strong> ${
+                entry.hardChecks
+                  .filter((item) => item.status === 'pass')
+                  .map((item) => escapeHtml(item.name))
+                  .join(', ') || 'none'
+              }</p>
             </section>
           </div>
         </details>
@@ -810,7 +898,7 @@ function renderHtmlReport(
 function renderMarkdownReport(
   report: GenerationEvaluationReport,
   options: GenerationEvaluationRunOptions,
-  warnings: string[]
+  warnings: string[],
 ): string {
   const lines: string[] = [
     '# Workout Generation Evaluation Report',
@@ -833,7 +921,10 @@ function renderMarkdownReport(
   ];
 
   if (report.summary.liveEntries === 0 && report.summary.mockEntries > 0) {
-    lines.push('> This report is mock-only. Use it for plumbing and rubric checks, not model-quality judgments.', '');
+    lines.push(
+      '> This report is mock-only. Use it for plumbing and rubric checks, not model-quality judgments.',
+      '',
+    );
   }
 
   if (warnings.length > 0) {
@@ -849,15 +940,31 @@ function renderMarkdownReport(
   lines.push('', '## Entries', '');
 
   report.entries.forEach((entry) => {
-    const failedChecks = entry.hardChecks.filter((item) => item.status === 'fail');
+    const failedChecks = entry.hardChecks.filter(
+      (item) => item.status === 'fail',
+    );
     lines.push(`### ${entry.scenarioTitle} (${entry.runId})`, '');
     lines.push(`- Provider: ${entry.provider} (${entry.executionSource})`);
     lines.push(`- Status: ${entry.status}`);
     lines.push(`- Tags: ${entry.scenarioTags.join(', ')}`);
     lines.push(`- Plan: ${buildPlanOverview(entry)}`);
-    lines.push(`- Hard failures: ${failedChecks.length > 0 ? failedChecks.map((item) => item.name).join(', ') : 'none'}`);
+    lines.push(
+      `- Hard failures: ${failedChecks.length > 0 ? failedChecks.map((item) => item.name).join(', ') : 'none'}`,
+    );
+    lines.push(`- Prompt captured: ${entry.providerPrompt ? 'yes' : 'no'}`);
     if (entry.errorMessage) {
       lines.push(`- Error: ${entry.errorMessage}`);
+    }
+    if (entry.providerPrompt) {
+      lines.push(
+        '',
+        '#### Provider Prompt',
+        '',
+        '```text',
+        entry.providerPrompt.content,
+        '```',
+        '',
+      );
     }
     lines.push('', '```json', JSON.stringify(entry, null, 2), '```', '');
   });
@@ -868,7 +975,7 @@ function renderMarkdownReport(
 async function writeArtifacts(
   report: GenerationEvaluationReport,
   options: GenerationEvaluationRunOptions,
-  warnings: string[]
+  warnings: string[],
 ): Promise<GenerationEvaluationArtifacts> {
   await mkdir(options.outputDir, { recursive: true });
 
@@ -878,21 +985,31 @@ async function writeArtifacts(
   const markdown = path.join(options.outputDir, 'report.md');
   const summary = path.join(options.outputDir, 'summary.json');
 
-  const jsonlBody = report.entries.map((entry) => JSON.stringify(entry)).join('\n');
+  const jsonlBody = report.entries
+    .map((entry) => JSON.stringify(entry))
+    .join('\n');
 
   await Promise.all([
     writeFile(html, renderHtmlReport(report, options, warnings), 'utf8'),
     writeFile(json, `${JSON.stringify(report, null, 2)}\n`, 'utf8'),
     writeFile(jsonl, `${jsonlBody}\n`, 'utf8'),
-    writeFile(markdown, renderMarkdownReport(report, options, warnings), 'utf8'),
-    writeFile(summary, `${JSON.stringify({ warnings, artifacts: { html, json, jsonl, markdown }, summary: report.summary }, null, 2)}\n`, 'utf8'),
+    writeFile(
+      markdown,
+      renderMarkdownReport(report, options, warnings),
+      'utf8',
+    ),
+    writeFile(
+      summary,
+      `${JSON.stringify({ warnings, artifacts: { html, json, jsonl, markdown }, summary: report.summary }, null, 2)}\n`,
+      'utf8',
+    ),
   ]);
 
   return { html, json, jsonl, markdown, summary };
 }
 
 export async function runGenerationEvaluation(
-  options: GenerationEvaluationRunOptions
+  options: GenerationEvaluationRunOptions,
 ): Promise<GenerationEvaluationRunResult> {
   const scenarios = selectScenarios(options);
   const warnings: string[] = [];
@@ -903,17 +1020,34 @@ export async function runGenerationEvaluation(
     const bundle = createHandlerBundle(provider, options.edition);
     handlerBundles.set(provider, bundle);
 
-    if (provider !== 'mock' && !bundle.hasConfiguredAccess && options.edition === 'CE') {
-      warnings.push(`${provider} has no configured key or Vertex access in CE. These runs will use mock fallback behavior.`);
+    if (
+      provider !== 'mock' &&
+      !bundle.hasConfiguredAccess &&
+      options.edition === 'CE'
+    ) {
+      warnings.push(
+        `${provider} has no configured key or Vertex access in CE. These runs will use mock fallback behavior.`,
+      );
     }
-    if (provider !== 'mock' && !bundle.hasConfiguredAccess && options.edition === 'HOSTED') {
-      warnings.push(`${provider} has no configured key or Vertex access in HOSTED mode. These runs are expected to fail with BYOK requirements.`);
+    if (
+      provider !== 'mock' &&
+      !bundle.hasConfiguredAccess &&
+      options.edition === 'HOSTED'
+    ) {
+      warnings.push(
+        `${provider} has no configured key or Vertex access in HOSTED mode. These runs are expected to fail with BYOK requirements.`,
+      );
     }
   });
 
-  const liveEntryCount = scenarios.length * options.runs * options.providers.filter((provider) => provider !== 'mock').length;
+  const liveEntryCount =
+    scenarios.length *
+    options.runs *
+    options.providers.filter((provider) => provider !== 'mock').length;
   if (liveEntryCount >= 100) {
-    warnings.push(`This run is configured for ${liveEntryCount} live-provider attempts. Review provider cost and quota implications before sharing results.`);
+    warnings.push(
+      `This run is configured for ${liveEntryCount} live-provider attempts. Review provider cost and quota implications before sharing results.`,
+    );
   }
 
   for (const scenario of scenarios) {
@@ -941,7 +1075,8 @@ export async function runGenerationEvaluation(
             primingResult.responseStatus === 200 &&
             primingResult.executionSource === 'live'
           ) {
-            const primedPlan = primingResult.payload as GenerationEvaluationReportEntry['plan'];
+            const primedPlan =
+              primingResult.payload as GenerationEvaluationReportEntry['plan'];
             const primedResponseId = primedPlan?.responseId;
 
             if (primedResponseId) {
@@ -954,12 +1089,12 @@ export async function runGenerationEvaluation(
               };
             } else {
               warnings.push(
-                `Could not prime live regeneration for ${scenario.id}; the baseline response had no responseId.`
+                `Could not prime live regeneration for ${scenario.id}; the baseline response had no responseId.`,
               );
             }
           } else {
             warnings.push(
-              `Could not prime live regeneration for ${scenario.id}; baseline generation was not live.`
+              `Could not prime live regeneration for ${scenario.id}; baseline generation was not live.`,
             );
           }
         }
@@ -973,7 +1108,8 @@ export async function runGenerationEvaluation(
         });
 
         if (executed.responseStatus === 200) {
-          const plan = executed.payload as GenerationEvaluationReportEntry['plan'];
+          const plan =
+            executed.payload as GenerationEvaluationReportEntry['plan'];
           entries.push({
             scenarioId: scenario.id,
             scenarioTitle: scenario.title,
@@ -987,12 +1123,13 @@ export async function runGenerationEvaluation(
             request: scenario.request,
             context: scenario.context,
             baselinePlan: effectiveBaselinePlan,
+            providerPrompt: executed.providerPrompt,
             hardChecks: runHardChecksForScenario(
               {
                 ...scenario,
                 baselinePlan: effectiveBaselinePlan,
               },
-              plan
+              plan,
             ),
             plan,
           });
@@ -1011,6 +1148,7 @@ export async function runGenerationEvaluation(
             request: scenario.request,
             context: scenario.context,
             baselinePlan: effectiveBaselinePlan,
+            providerPrompt: executed.providerPrompt,
             hardChecks: runHardChecksForScenario({
               ...scenario,
               baselinePlan: effectiveBaselinePlan,
@@ -1024,22 +1162,30 @@ export async function runGenerationEvaluation(
     }
   }
 
-  const successfulEntries = entries.filter((entry) => entry.status === 'success').length;
+  const successfulEntries = entries.filter(
+    (entry) => entry.status === 'success',
+  ).length;
   const liveEntries = entries.filter(
-    (entry) => entry.executionSource === 'live'
+    (entry) => entry.executionSource === 'live',
   ).length;
   const mockEntries = entries.length - liveEntries;
-  const executionSourceCounts = entries.reduce<Record<string, number>>((acc, entry) => {
-    acc[entry.executionSource] = (acc[entry.executionSource] ?? 0) + 1;
-    return acc;
-  }, {});
-  const hardFailureCounts = entries.reduce<Record<string, number>>((acc, entry) => {
-    const entryFailures = summarizeHardFailures(entry.hardChecks);
-    for (const [name, count] of Object.entries(entryFailures)) {
-      acc[name] = (acc[name] ?? 0) + count;
-    }
-    return acc;
-  }, {});
+  const executionSourceCounts = entries.reduce<Record<string, number>>(
+    (acc, entry) => {
+      acc[entry.executionSource] = (acc[entry.executionSource] ?? 0) + 1;
+      return acc;
+    },
+    {},
+  );
+  const hardFailureCounts = entries.reduce<Record<string, number>>(
+    (acc, entry) => {
+      const entryFailures = summarizeHardFailures(entry.hardChecks);
+      for (const [name, count] of Object.entries(entryFailures)) {
+        acc[name] = (acc[name] ?? 0) + count;
+      }
+      return acc;
+    },
+    {},
+  );
 
   const report = generationEvaluationReportSchema.parse({
     corpusVersion: workoutGenerationEvaluationCorpus.version,

@@ -7,6 +7,7 @@ export type {
   ExerciseCandidatePool,
   ExerciseCandidateDiagnostics,
   ExerciseCandidateReference,
+  ModelPromptCapture,
   GenerationStore,
   GenerationState,
   TransformationMetadata,

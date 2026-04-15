@@ -148,7 +148,6 @@ export const generationEvaluationScenarioSchema = z
         path: ['request', 'upcomingEvents'],
       });
     }
-
   });
 export type GenerationEvaluationScenario = z.infer<
   typeof generationEvaluationScenarioSchema
@@ -279,6 +278,19 @@ export type GenerationEvaluationSoftReviewResult = z.infer<
   typeof generationEvaluationSoftReviewResultSchema
 >;
 
+export const generationEvaluationProviderPromptSchema = z
+  .object({
+    provider: generationEvaluationProviderSchema,
+    model: z.string().min(1).optional(),
+    schemaVersion: z.string().min(1).optional(),
+    isRegeneration: z.boolean(),
+    content: z.string().min(1),
+  })
+  .strict();
+export type GenerationEvaluationProviderPrompt = z.infer<
+  typeof generationEvaluationProviderPromptSchema
+>;
+
 export const generationEvaluationReportEntrySchema = z
   .object({
     scenarioId: evaluationScenarioIdSchema,
@@ -295,6 +307,7 @@ export const generationEvaluationReportEntrySchema = z
     baselinePlan: todayPlanSchema.optional(),
     hardChecks: z.array(generationEvaluationHardCheckResultSchema),
     softReview: generationEvaluationSoftReviewResultSchema.optional(),
+    providerPrompt: generationEvaluationProviderPromptSchema.optional(),
     plan: todayPlanSchema.optional(),
     errorCode: z.string().optional(),
     errorMessage: z.string().optional(),
@@ -316,7 +329,10 @@ export const generationEvaluationReportSchema = z
         failedEntries: z.number().int().nonnegative(),
         liveEntries: z.number().int().nonnegative(),
         mockEntries: z.number().int().nonnegative(),
-        executionSourceCounts: z.record(z.string(), z.number().int().nonnegative()),
+        executionSourceCounts: z.record(
+          z.string(),
+          z.number().int().nonnegative(),
+        ),
         hardFailureCounts: z.record(z.string(), z.number().int().nonnegative()),
       })
       .strict(),
@@ -328,7 +344,7 @@ export type GenerationEvaluationReport = z.infer<
 >;
 
 export function validateGenerationEvaluationCorpus(
-  corpus: unknown
+  corpus: unknown,
 ): GenerationEvaluationCorpus {
   return generationEvaluationCorpusSchema.parse(corpus);
 }

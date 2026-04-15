@@ -74,6 +74,7 @@ export class DefaultModelRouter implements ModelRouter {
       candidatePool: options.candidatePool,
       planningBrief: options.planningBrief,
       model: options.model,
+      promptRecorder: options.promptRecorder,
       useVertexAi: options.useVertexAi,
     };
 

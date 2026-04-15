@@ -102,6 +102,14 @@ export class GeminiProvider implements AiProvider {
       })}`;
     }
 
+    options.promptRecorder?.({
+      provider: 'gemini',
+      model,
+      schemaVersion,
+      isRegeneration,
+      content: prompt,
+    });
+
     let planPayload: unknown = null;
     let responseId = '';
     const started = Date.now();
