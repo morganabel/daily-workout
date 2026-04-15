@@ -16,6 +16,32 @@ import {
 export const WORKOUT_GENERATION_EVALUATION_CORPUS_VERSION = '2026-04-v1';
 export const WORKOUT_GENERATION_EVALUATION_RUBRIC_VERSION = '2026-04-v1';
 
+const scenarioReferenceDate = new Date();
+
+function formatLocalDate(date: Date): string {
+  const year = date.getFullYear();
+  const month = `${date.getMonth() + 1}`.padStart(2, '0');
+  const day = `${date.getDate()}`.padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function relativeCompletedAt(params: {
+  daysAgo: number;
+  hour?: number;
+  minute?: number;
+}): string {
+  const date = new Date(scenarioReferenceDate);
+  date.setDate(date.getDate() - params.daysAgo);
+  date.setHours(params.hour ?? 9, params.minute ?? 0, 0, 0);
+  return date.toISOString();
+}
+
+function relativeLocalDate(daysFromToday: number): string {
+  const date = new Date(scenarioReferenceDate);
+  date.setDate(date.getDate() + daysFromToday);
+  return formatLocalDate(date);
+}
+
 function buildContext(params: {
   experienceLevel: ExperienceLevel;
   equipment?: string[];
@@ -100,7 +126,7 @@ function buildEvent(params: {
 }
 
 function buildExpectations(
-  overrides: Partial<GenerationEvaluationScenario['hardExpectations']> = {}
+  overrides: Partial<GenerationEvaluationScenario['hardExpectations']> = {},
 ): GenerationEvaluationScenario['hardExpectations'] {
   return {
     requireSchemaValidity: true,
@@ -116,14 +142,18 @@ function buildExpectations(
   };
 }
 
-function createBaselinePlan(overrides: Partial<GenerationEvaluationScenario['baselinePlan']>) {
+function createBaselinePlan(
+  overrides: Partial<GenerationEvaluationScenario['baselinePlan']>,
+) {
   return createTodayPlanMock(overrides ?? {});
 }
 
 function createScenario(
   scenario: Omit<GenerationEvaluationScenario, 'hardExpectations'> & {
-    hardExpectations?: Partial<GenerationEvaluationScenario['hardExpectations']>;
-  }
+    hardExpectations?: Partial<
+      GenerationEvaluationScenario['hardExpectations']
+    >;
+  },
 ): GenerationEvaluationScenario {
   return {
     ...scenario,
@@ -135,7 +165,7 @@ function createRegenerationRequest(
   request: Omit<GenerationRequest, 'provider'> & {
     previousResponseId: string;
     feedback: RegenerationFeedback[];
-  }
+  },
 ): GenerationRequest {
   return request;
 }
@@ -163,7 +193,10 @@ const scenarios: GenerationEvaluationScenario[] = [
       timeOfDay: 'morning',
     }),
     hardExpectations: { requiredFocus: 'Full Body' },
-    softReviewHints: ['Keep confidence-building', 'Avoid advanced progressions'],
+    softReviewHints: [
+      'Keep confidence-building',
+      'Avoid advanced progressions',
+    ],
   }),
   createScenario({
     id: 'beginner-bodyweight-moderate-30',
@@ -182,7 +215,7 @@ const scenarios: GenerationEvaluationScenario[] = [
       equipment: ['Bodyweight'],
       timeAvailableMinutes: 30,
       energyToday: 'moderate',
-      primaryGoal: 'consistency',
+      primaryGoal: 'general fitness',
       recentSessions: [],
     }),
     hardExpectations: { requiredFocus: 'Full Body' },
@@ -204,7 +237,7 @@ const scenarios: GenerationEvaluationScenario[] = [
       equipment: ['Bodyweight'],
       timeAvailableMinutes: 20,
       energyToday: 'intense',
-      primaryGoal: 'conditioning',
+      primaryGoal: 'improve endurance',
       recentSessions: [],
     }),
     hardExpectations: {
@@ -261,8 +294,7 @@ const scenarios: GenerationEvaluationScenario[] = [
   createScenario({
     id: 'beginner-dumbbells-upper-30',
     title: 'Beginner dumbbells upper-body 30-minute session',
-    description:
-      'A beginner wants an explicit upper-body dumbbell workout.',
+    description: 'A beginner wants an explicit upper-body dumbbell workout.',
     tags: ['beginner', 'dumbbells', 'upper-body', 'initial'],
     mode: 'initial',
     request: {
@@ -298,7 +330,7 @@ const scenarios: GenerationEvaluationScenario[] = [
       equipment: ['Bodyweight'],
       timeAvailableMinutes: 20,
       energyToday: 'intense',
-      primaryGoal: 'conditioning',
+      primaryGoal: 'improve endurance',
       preferredStyle: 'Intervals',
       recentSessions: [
         buildSession({
@@ -306,7 +338,7 @@ const scenarios: GenerationEvaluationScenario[] = [
           name: 'Easy Mobility',
           focus: 'Recovery',
           durationMinutes: 25,
-          completedAt: '2026-04-01T07:00:00.000Z',
+          completedAt: relativeCompletedAt({ daysAgo: 3, hour: 7 }),
           perceivedEffort: 'easy',
         }),
       ],
@@ -331,7 +363,7 @@ const scenarios: GenerationEvaluationScenario[] = [
       equipment: ['Dumbbells', 'Bench'],
       timeAvailableMinutes: 45,
       energyToday: 'moderate',
-      primaryGoal: 'hypertrophy',
+      primaryGoal: 'build muscle',
       recentSessions: [],
     }),
     hardExpectations: { requiredFocus: 'Upper Body' },
@@ -401,7 +433,7 @@ const scenarios: GenerationEvaluationScenario[] = [
       equipment: ['Barbell', 'Bench', 'Squat Rack', 'Pull-up Bar'],
       timeAvailableMinutes: 60,
       energyToday: 'intense',
-      primaryGoal: 'strength',
+      primaryGoal: 'build strength',
       preferredStyle: 'Strength',
       recentSessions: [],
     }),
@@ -425,7 +457,7 @@ const scenarios: GenerationEvaluationScenario[] = [
       equipment: ['Barbell', 'Rowing Machine', 'Jump Rope'],
       timeAvailableMinutes: 45,
       energyToday: 'intense',
-      primaryGoal: 'conditioning',
+      primaryGoal: 'improve endurance',
       preferredStyle: 'Intervals',
       recentSessions: [],
     }),
@@ -434,8 +466,7 @@ const scenarios: GenerationEvaluationScenario[] = [
   createScenario({
     id: 'advanced-barbell-lower-75',
     title: 'Advanced barbell lower-body 75-minute session',
-    description:
-      'An advanced lifter wants a long lower-body barbell session.',
+    description: 'An advanced lifter wants a long lower-body barbell session.',
     tags: ['advanced', 'barbell', 'lower-body', 'long', 'initial'],
     mode: 'initial',
     request: {
@@ -449,7 +480,7 @@ const scenarios: GenerationEvaluationScenario[] = [
       equipment: ['Barbell', 'Squat Rack', 'Bench'],
       timeAvailableMinutes: 75,
       energyToday: 'intense',
-      primaryGoal: 'strength',
+      primaryGoal: 'build strength',
       recentSessions: [],
     }),
     hardExpectations: { requiredFocus: 'Lower Body' },
@@ -457,8 +488,7 @@ const scenarios: GenerationEvaluationScenario[] = [
   createScenario({
     id: 'advanced-pull-focused-45',
     title: 'Advanced pull-focused 45-minute session',
-    description:
-      'An advanced user wants an explicitly pull-dominant workout.',
+    description: 'An advanced user wants an explicitly pull-dominant workout.',
     tags: ['advanced', 'pull', 'initial'],
     mode: 'initial',
     request: {
@@ -472,7 +502,7 @@ const scenarios: GenerationEvaluationScenario[] = [
       equipment: ['Pull-up Bar', 'Cable Machine', 'Dumbbells'],
       timeAvailableMinutes: 45,
       energyToday: 'moderate',
-      primaryGoal: 'hypertrophy',
+      primaryGoal: 'build muscle',
       focusBias: ['Pull'],
       recentSessions: [],
     }),
@@ -495,14 +525,14 @@ const scenarios: GenerationEvaluationScenario[] = [
       equipment: ['Dumbbells', 'Bench'],
       timeAvailableMinutes: 35,
       energyToday: 'moderate',
-      primaryGoal: 'balanced training',
+      primaryGoal: 'general fitness',
       recentSessions: [
         buildSession({
           id: 'ctx-2',
           name: 'Push Day A',
           focus: 'Push',
           durationMinutes: 42,
-          completedAt: '2026-04-02T07:00:00.000Z',
+          completedAt: relativeCompletedAt({ daysAgo: 5, hour: 7 }),
           perceivedEffort: 'moderate',
         }),
         buildSession({
@@ -510,7 +540,7 @@ const scenarios: GenerationEvaluationScenario[] = [
           name: 'Push Day B',
           focus: 'Push',
           durationMinutes: 38,
-          completedAt: '2026-04-04T07:00:00.000Z',
+          completedAt: relativeCompletedAt({ daysAgo: 2, hour: 7 }),
           perceivedEffort: 'intense',
         }),
       ],
@@ -521,7 +551,7 @@ const scenarios: GenerationEvaluationScenario[] = [
     id: 'smart-focus-after-leg-day',
     title: 'Smart focus after hard leg day',
     description:
-      'Smart focus should avoid a brutal second lower-body day after a hard leg workout.',
+      'A split-style lifter should not get another leg-focused session immediately after a hard leg day.',
     tags: ['smart-focus', 'legs', 'recency', 'initial'],
     mode: 'initial',
     request: {
@@ -534,20 +564,72 @@ const scenarios: GenerationEvaluationScenario[] = [
       equipment: ['Dumbbells', 'Bench'],
       timeAvailableMinutes: 30,
       energyToday: 'moderate',
-      primaryGoal: 'consistency',
+      primaryGoal: 'general fitness',
+      preferredStyle: 'Bodybuilding',
+      focusBias: ['Upper Body', 'Lower Body'],
       recentSessions: [
         buildSession({
           id: 'ctx-4',
           name: 'Heavy Leg Day',
           focus: 'Lower Body',
           durationMinutes: 60,
-          completedAt: '2026-04-05T18:00:00.000Z',
+          completedAt: relativeCompletedAt({ daysAgo: 1, hour: 18 }),
           perceivedEffort: 'intense',
           notes: 'Felt smoked after lunges and squats',
         }),
       ],
+      notes:
+        'I usually run an upper/lower split and do not want back-to-back leg days.',
     }),
-    softReviewHints: ['Show recovery awareness'],
+    hardExpectations: { requiredFocus: 'Upper Body' },
+    softReviewHints: [
+      'Show recovery awareness and clearly move away from legs',
+    ],
+  }),
+  createScenario({
+    id: 'smart-focus-after-push-pull-sequence',
+    title: 'Smart focus after recent push then pull sequence',
+    description:
+      'A push-pull-legs lifter with recent push and pull sessions should be nudged toward legs next.',
+    tags: ['smart-focus', 'ppl', 'recency', 'initial'],
+    mode: 'initial',
+    request: {
+      timeMinutes: 40,
+      energy: 'moderate',
+      focus: 'Smart',
+    },
+    context: buildContext({
+      experienceLevel: 'intermediate',
+      equipment: ['Dumbbells', 'Bench'],
+      timeAvailableMinutes: 40,
+      energyToday: 'moderate',
+      primaryGoal: 'build muscle',
+      preferredStyle: 'Strength',
+      recentSessions: [
+        buildSession({
+          id: 'ctx-ppl-1',
+          name: 'Push Day',
+          focus: 'Push',
+          durationMinutes: 45,
+          completedAt: relativeCompletedAt({ daysAgo: 3, hour: 18 }),
+          perceivedEffort: 'moderate',
+        }),
+        buildSession({
+          id: 'ctx-ppl-2',
+          name: 'Pull Day',
+          focus: 'Pull',
+          durationMinutes: 45,
+          completedAt: relativeCompletedAt({ daysAgo: 1, hour: 18 }),
+          perceivedEffort: 'moderate',
+        }),
+      ],
+      notes:
+        'I usually run push, pull, legs and want Smart mode to pick the next logical day.',
+    }),
+    hardExpectations: { requiredFocus: 'Lower Body' },
+    softReviewHints: [
+      'Should clearly feel like the legs day in a push-pull-legs rhythm',
+    ],
   }),
   createScenario({
     id: 'no-equipment-travel-hotel-room',
@@ -567,7 +649,7 @@ const scenarios: GenerationEvaluationScenario[] = [
       equipment: ['Bodyweight'],
       timeAvailableMinutes: 20,
       energyToday: 'moderate',
-      primaryGoal: 'stay consistent while traveling',
+      primaryGoal: 'general fitness',
       recentSessions: [],
       location: 'hotel room',
       notes: 'Needs low-noise movements.',
@@ -619,7 +701,7 @@ const scenarios: GenerationEvaluationScenario[] = [
       equipment: ['Kettlebells'],
       timeAvailableMinutes: 25,
       energyToday: 'intense',
-      primaryGoal: 'conditioning',
+      primaryGoal: 'improve endurance',
       recentSessions: [],
     }),
     hardExpectations: { requiredFocus: 'Conditioning' },
@@ -627,8 +709,7 @@ const scenarios: GenerationEvaluationScenario[] = [
   createScenario({
     id: 'treadmill-recovery-cardio-30',
     title: 'Treadmill recovery cardio 30-minute session',
-    description:
-      'A user wants an easy cardio-focused workout on a treadmill.',
+    description: 'A user wants an easy cardio-focused workout on a treadmill.',
     tags: ['treadmill', 'recovery', 'cardio', 'initial'],
     mode: 'initial',
     request: {
@@ -664,7 +745,7 @@ const scenarios: GenerationEvaluationScenario[] = [
       equipment: ['Bodyweight'],
       timeAvailableMinutes: 25,
       energyToday: 'moderate',
-      primaryGoal: 'stay active safely',
+      primaryGoal: 'general fitness',
       injuries: ['right shoulder irritation'],
       recentSessions: [],
     }),
@@ -691,7 +772,7 @@ const scenarios: GenerationEvaluationScenario[] = [
       equipment: ['Dumbbells', 'Bench', 'Cable Machine'],
       timeAvailableMinutes: 40,
       energyToday: 'moderate',
-      primaryGoal: 'stay strong without flare-ups',
+      primaryGoal: 'build strength',
       injuries: ['lower back sensitivity'],
       recentSessions: [],
     }),
@@ -703,8 +784,7 @@ const scenarios: GenerationEvaluationScenario[] = [
   createScenario({
     id: 'knee-sensitive-low-impact',
     title: 'Knee-sensitive low-impact session',
-    description:
-      'A user with knee sensitivity wants a low-impact session.',
+    description: 'A user with knee sensitivity wants a low-impact session.',
     tags: ['injury', 'knee', 'low-impact', 'initial'],
     mode: 'initial',
     request: {
@@ -718,7 +798,7 @@ const scenarios: GenerationEvaluationScenario[] = [
       equipment: ['Bodyweight', 'Resistance Bands'],
       timeAvailableMinutes: 30,
       energyToday: 'easy',
-      primaryGoal: 'move without pain',
+      primaryGoal: 'general fitness',
       injuries: ['knee sensitivity'],
       recentSessions: [],
     }),
@@ -729,8 +809,7 @@ const scenarios: GenerationEvaluationScenario[] = [
   createScenario({
     id: 'avoid-burpees-conditioning',
     title: 'Conditioning session with burpees on avoid list',
-    description:
-      'The user wants conditioning but specifically avoids burpees.',
+    description: 'The user wants conditioning but specifically avoids burpees.',
     tags: ['avoid-list', 'conditioning', 'initial'],
     mode: 'initial',
     request: {
@@ -744,7 +823,7 @@ const scenarios: GenerationEvaluationScenario[] = [
       equipment: ['Bodyweight'],
       timeAvailableMinutes: 20,
       energyToday: 'intense',
-      primaryGoal: 'conditioning',
+      primaryGoal: 'improve endurance',
       avoid: ['burpees'],
       recentSessions: [],
     }),
@@ -797,14 +876,14 @@ const scenarios: GenerationEvaluationScenario[] = [
       equipment: ['Bodyweight', 'Resistance Bands'],
       timeAvailableMinutes: 25,
       energyToday: 'easy',
-      primaryGoal: 'recovery',
+      primaryGoal: 'general fitness',
       recentSessions: [
         buildSession({
           id: 'ctx-5',
           name: 'Mountain Hike',
           focus: 'Conditioning',
           durationMinutes: 180,
-          completedAt: '2026-04-05T12:00:00.000Z',
+          completedAt: relativeCompletedAt({ daysAgo: 2, hour: 12 }),
           perceivedEffort: 'intense',
           notes: 'Legs fatigued afterward',
         }),
@@ -828,7 +907,7 @@ const scenarios: GenerationEvaluationScenario[] = [
         buildEvent({
           kind: 'hike',
           title: 'Saturday trail hike',
-          localDate: '2026-04-11',
+          localDate: relativeLocalDate(2),
           durationMinutes: 180,
           intensity: 'moderate',
         }),
@@ -839,7 +918,7 @@ const scenarios: GenerationEvaluationScenario[] = [
       equipment: ['Bodyweight', 'Dumbbells'],
       timeAvailableMinutes: 30,
       energyToday: 'moderate',
-      primaryGoal: 'stay fresh for hiking',
+      primaryGoal: 'improve endurance',
       recentSessions: [],
     }),
     hardExpectations: {
@@ -862,7 +941,7 @@ const scenarios: GenerationEvaluationScenario[] = [
         buildEvent({
           kind: 'run',
           title: '10K race',
-          localDate: '2026-04-09',
+          localDate: relativeLocalDate(2),
           durationMinutes: 55,
           intensity: 'high',
         }),
@@ -896,7 +975,7 @@ const scenarios: GenerationEvaluationScenario[] = [
         buildEvent({
           kind: 'travel',
           title: 'Cross-country flight',
-          localDate: '2026-04-08',
+          localDate: relativeLocalDate(1),
           allDay: true,
           tags: ['travel'],
         }),
@@ -907,7 +986,7 @@ const scenarios: GenerationEvaluationScenario[] = [
       equipment: ['Bodyweight'],
       timeAvailableMinutes: 20,
       energyToday: 'easy',
-      primaryGoal: 'move before travel',
+      primaryGoal: 'general fitness',
       recentSessions: [],
     }),
     hardExpectations: {
@@ -931,20 +1010,20 @@ const scenarios: GenerationEvaluationScenario[] = [
         buildEvent({
           kind: 'run',
           title: 'Tempo run',
-          localDate: '2026-04-08',
+          localDate: relativeLocalDate(1),
           durationMinutes: 45,
           intensity: 'high',
         }),
         buildEvent({
           kind: 'travel',
           title: 'Work trip',
-          localDate: '2026-04-09',
+          localDate: relativeLocalDate(2),
           allDay: true,
         }),
         buildEvent({
           kind: 'sport',
           title: 'Weekend soccer',
-          localDate: '2026-04-11',
+          localDate: relativeLocalDate(4),
           durationMinutes: 90,
           intensity: 'high',
         }),
@@ -955,7 +1034,7 @@ const scenarios: GenerationEvaluationScenario[] = [
       equipment: ['Bodyweight', 'Dumbbells'],
       timeAvailableMinutes: 30,
       energyToday: 'moderate',
-      primaryGoal: 'maintain training load smartly',
+      primaryGoal: 'improve fitness',
       recentSessions: [],
     }),
     hardExpectations: {
@@ -981,7 +1060,7 @@ const scenarios: GenerationEvaluationScenario[] = [
       equipment: ['Bodyweight'],
       timeAvailableMinutes: 20,
       energyToday: 'moderate',
-      primaryGoal: 'cardio at home',
+      primaryGoal: 'improve endurance',
       recentSessions: [],
       location: 'apartment',
     }),
@@ -1015,8 +1094,7 @@ const scenarios: GenerationEvaluationScenario[] = [
   createScenario({
     id: 'preferred-style-circuit',
     title: 'Preferred-style circuit session',
-    description:
-      'The user prefers circuit-style workouts.',
+    description: 'The user prefers circuit-style workouts.',
     tags: ['preferred-style', 'circuit', 'initial'],
     mode: 'initial',
     request: {
@@ -1055,7 +1133,7 @@ const scenarios: GenerationEvaluationScenario[] = [
       equipment: ['Barbell', 'Bench', 'Squat Rack'],
       timeAvailableMinutes: 50,
       energyToday: 'moderate',
-      primaryGoal: 'strength',
+      primaryGoal: 'build strength',
       preferredStyle: 'Strength',
       recentSessions: [],
     }),
@@ -1064,8 +1142,7 @@ const scenarios: GenerationEvaluationScenario[] = [
   createScenario({
     id: 'primary-goal-fat-loss',
     title: 'Primary goal fat-loss session',
-    description:
-      'The user primarily wants fat-loss-oriented training.',
+    description: 'The user primarily wants fat-loss-oriented training.',
     tags: ['goal', 'fat-loss', 'initial'],
     mode: 'initial',
     request: {
@@ -1087,8 +1164,7 @@ const scenarios: GenerationEvaluationScenario[] = [
   createScenario({
     id: 'primary-goal-muscle-gain',
     title: 'Primary goal muscle-gain session',
-    description:
-      'The user wants a workout that aligns with muscle-gain goals.',
+    description: 'The user wants a workout that aligns with muscle-gain goals.',
     tags: ['goal', 'muscle-gain', 'initial'],
     mode: 'initial',
     request: {
@@ -1146,14 +1222,14 @@ const scenarios: GenerationEvaluationScenario[] = [
       equipment: ['Rowing Machine', 'Bodyweight'],
       timeAvailableMinutes: 30,
       energyToday: 'moderate',
-      primaryGoal: 'maintain conditioning',
+      primaryGoal: 'improve endurance',
       recentSessions: [
         buildSession({
           id: 'ctx-6',
           name: 'Intervals A',
           focus: 'Conditioning',
           durationMinutes: 28,
-          completedAt: '2026-04-02T06:30:00.000Z',
+          completedAt: relativeCompletedAt({ daysAgo: 4, hour: 6, minute: 30 }),
           perceivedEffort: 'intense',
         }),
         buildSession({
@@ -1161,7 +1237,7 @@ const scenarios: GenerationEvaluationScenario[] = [
           name: 'Intervals B',
           focus: 'Conditioning',
           durationMinutes: 30,
-          completedAt: '2026-04-04T06:30:00.000Z',
+          completedAt: relativeCompletedAt({ daysAgo: 2, hour: 6, minute: 30 }),
           perceivedEffort: 'intense',
         }),
       ],
@@ -1172,8 +1248,7 @@ const scenarios: GenerationEvaluationScenario[] = [
   createScenario({
     id: 'recent-push-overload',
     title: 'Recent push overload context',
-    description:
-      'The user has repeated push sessions in recent history.',
+    description: 'The user has repeated push sessions in recent history.',
     tags: ['recency', 'push-overload', 'initial'],
     mode: 'initial',
     request: {
@@ -1186,14 +1261,18 @@ const scenarios: GenerationEvaluationScenario[] = [
       equipment: ['Dumbbells', 'Bench'],
       timeAvailableMinutes: 40,
       energyToday: 'moderate',
-      primaryGoal: 'balanced development',
+      primaryGoal: 'general fitness',
       recentSessions: [
         buildSession({
           id: 'ctx-8',
           name: 'Push Strength',
           focus: 'Push',
           durationMinutes: 50,
-          completedAt: '2026-04-01T17:30:00.000Z',
+          completedAt: relativeCompletedAt({
+            daysAgo: 5,
+            hour: 17,
+            minute: 30,
+          }),
           perceivedEffort: 'intense',
         }),
         buildSession({
@@ -1201,7 +1280,11 @@ const scenarios: GenerationEvaluationScenario[] = [
           name: 'Push Volume',
           focus: 'Push',
           durationMinutes: 42,
-          completedAt: '2026-04-04T17:30:00.000Z',
+          completedAt: relativeCompletedAt({
+            daysAgo: 2,
+            hour: 17,
+            minute: 30,
+          }),
           perceivedEffort: 'moderate',
         }),
       ],
@@ -1210,8 +1293,7 @@ const scenarios: GenerationEvaluationScenario[] = [
   createScenario({
     id: 'recent-pull-overload',
     title: 'Recent pull overload context',
-    description:
-      'The user has repeated pull sessions in recent history.',
+    description: 'The user has repeated pull sessions in recent history.',
     tags: ['recency', 'pull-overload', 'initial'],
     mode: 'initial',
     request: {
@@ -1224,14 +1306,18 @@ const scenarios: GenerationEvaluationScenario[] = [
       equipment: ['Pull-up Bar', 'Dumbbells'],
       timeAvailableMinutes: 40,
       energyToday: 'moderate',
-      primaryGoal: 'balanced development',
+      primaryGoal: 'general fitness',
       recentSessions: [
         buildSession({
           id: 'ctx-10',
           name: 'Pull Strength',
           focus: 'Pull',
           durationMinutes: 46,
-          completedAt: '2026-04-02T17:30:00.000Z',
+          completedAt: relativeCompletedAt({
+            daysAgo: 4,
+            hour: 17,
+            minute: 30,
+          }),
           perceivedEffort: 'intense',
         }),
         buildSession({
@@ -1239,7 +1325,11 @@ const scenarios: GenerationEvaluationScenario[] = [
           name: 'Pull Volume',
           focus: 'Pull',
           durationMinutes: 40,
-          completedAt: '2026-04-05T17:30:00.000Z',
+          completedAt: relativeCompletedAt({
+            daysAgo: 2,
+            hour: 17,
+            minute: 30,
+          }),
           perceivedEffort: 'moderate',
         }),
       ],
@@ -1262,14 +1352,14 @@ const scenarios: GenerationEvaluationScenario[] = [
       equipment: ['Bodyweight', 'Dumbbells'],
       timeAvailableMinutes: 35,
       energyToday: 'moderate',
-      primaryGoal: 'consistency',
+      primaryGoal: 'general fitness',
       recentSessions: [
         buildSession({
           id: 'ctx-12',
           name: 'Full Body A',
           focus: 'Full Body',
           durationMinutes: 32,
-          completedAt: '2026-04-01T08:00:00.000Z',
+          completedAt: relativeCompletedAt({ daysAgo: 5, hour: 8 }),
           perceivedEffort: 'moderate',
         }),
         buildSession({
@@ -1277,7 +1367,7 @@ const scenarios: GenerationEvaluationScenario[] = [
           name: 'Full Body B',
           focus: 'Full Body',
           durationMinutes: 35,
-          completedAt: '2026-04-03T08:00:00.000Z',
+          completedAt: relativeCompletedAt({ daysAgo: 3, hour: 8 }),
           perceivedEffort: 'moderate',
         }),
       ],
@@ -1301,7 +1391,7 @@ const scenarios: GenerationEvaluationScenario[] = [
       equipment: ['Bodyweight'],
       timeAvailableMinutes: 15,
       energyToday: 'easy',
-      primaryGoal: 'build momentum',
+      primaryGoal: 'general fitness',
       recentSessions: [],
       timeOfDay: 'morning',
       notes: 'Needs to feel achievable before work.',
@@ -1349,7 +1439,7 @@ const scenarios: GenerationEvaluationScenario[] = [
       equipment: ['Dumbbells', 'Resistance Bands'],
       timeAvailableMinutes: 20,
       energyToday: 'moderate',
-      primaryGoal: 'quick muscle stimulus',
+      primaryGoal: 'build muscle',
       recentSessions: [],
       timeOfDay: 'midday',
     }),
@@ -1381,8 +1471,7 @@ const scenarios: GenerationEvaluationScenario[] = [
   createScenario({
     id: 'bands-only-recovery-session',
     title: 'Bands-only recovery session',
-    description:
-      'The user only has bands and wants a recovery-minded workout.',
+    description: 'The user only has bands and wants a recovery-minded workout.',
     tags: ['bands', 'recovery', 'initial'],
     mode: 'initial',
     request: {
@@ -1396,7 +1485,7 @@ const scenarios: GenerationEvaluationScenario[] = [
       equipment: ['Resistance Bands'],
       timeAvailableMinutes: 25,
       energyToday: 'easy',
-      primaryGoal: 'recovery',
+      primaryGoal: 'general fitness',
       recentSessions: [],
     }),
     hardExpectations: { requiredFocus: 'Full Body' },
@@ -1419,7 +1508,7 @@ const scenarios: GenerationEvaluationScenario[] = [
       equipment: ['Rowing Machine', 'Resistance Bands'],
       timeAvailableMinutes: 35,
       energyToday: 'moderate',
-      primaryGoal: 'conditioning',
+      primaryGoal: 'improve endurance',
       recentSessions: [],
     }),
     hardExpectations: { requiredFocus: 'Conditioning' },
@@ -1441,7 +1530,7 @@ const scenarios: GenerationEvaluationScenario[] = [
       equipment: ['Barbell', 'Bench', 'Squat Rack'],
       timeAvailableMinutes: 45,
       energyToday: 'moderate',
-      primaryGoal: 'strength',
+      primaryGoal: 'build strength',
       preferredStyle: 'Strength',
       focusBias: ['Pull', 'Lower Body'],
       recentSessions: [],
@@ -1458,17 +1547,20 @@ const scenarios: GenerationEvaluationScenario[] = [
       timeMinutes: 20,
       energy: 'easy',
       focus: 'Smart',
-      notes: 'Would love some mobility work without it becoming only stretching.',
+      notes:
+        'Would love some mobility work without it becoming only stretching.',
     },
     context: buildContext({
       experienceLevel: 'beginner',
       equipment: ['Bodyweight'],
       timeAvailableMinutes: 20,
       energyToday: 'easy',
-      primaryGoal: 'feel better',
+      primaryGoal: 'general fitness',
       recentSessions: [],
     }),
-    softReviewHints: ['Should still feel like a workout, not only a stretch routine'],
+    softReviewHints: [
+      'Should still feel like a workout, not only a stretch routine',
+    ],
   }),
   createScenario({
     id: 'hotel-gym-dumbbells-and-treadmill',
@@ -1488,7 +1580,7 @@ const scenarios: GenerationEvaluationScenario[] = [
       equipment: ['Dumbbells', 'Treadmill'],
       timeAvailableMinutes: 30,
       energyToday: 'moderate',
-      primaryGoal: 'stay consistent while traveling',
+      primaryGoal: 'general fitness',
       recentSessions: [],
       location: 'hotel gym',
     }),
@@ -1506,14 +1598,15 @@ const scenarios: GenerationEvaluationScenario[] = [
       equipment: ['Resistance Bands', 'Bodyweight'],
       energy: 'easy',
       focus: 'Upper Body',
-      notes: 'Lots of desk time lately. Would love to open up shoulders and upper back.',
+      notes:
+        'Lots of desk time lately. Would love to open up shoulders and upper back.',
     },
     context: buildContext({
       experienceLevel: 'beginner',
       equipment: ['Resistance Bands', 'Bodyweight'],
       timeAvailableMinutes: 25,
       energyToday: 'easy',
-      primaryGoal: 'feel better at desk job',
+      primaryGoal: 'general fitness',
       recentSessions: [],
     }),
     hardExpectations: { requiredFocus: 'Upper Body' },
@@ -1534,7 +1627,7 @@ const scenarios: GenerationEvaluationScenario[] = [
         buildEvent({
           kind: 'sport',
           title: 'Weekend soccer match',
-          localDate: '2026-04-12',
+          localDate: relativeLocalDate(2),
           durationMinutes: 90,
           intensity: 'high',
         }),
@@ -1545,7 +1638,7 @@ const scenarios: GenerationEvaluationScenario[] = [
       equipment: ['Bodyweight', 'Resistance Bands'],
       timeAvailableMinutes: 30,
       energyToday: 'moderate',
-      primaryGoal: 'support field performance',
+      primaryGoal: 'improve athletic performance',
       recentSessions: [],
     }),
     hardExpectations: {
@@ -1571,7 +1664,7 @@ const scenarios: GenerationEvaluationScenario[] = [
       equipment: ['Bench', 'Cable Machine', 'Dumbbells'],
       timeAvailableMinutes: 50,
       energyToday: 'moderate',
-      primaryGoal: 'hypertrophy',
+      primaryGoal: 'build muscle',
       recentSessions: [],
     }),
     hardExpectations: { requiredFocus: 'Push' },
@@ -1579,8 +1672,7 @@ const scenarios: GenerationEvaluationScenario[] = [
   createScenario({
     id: 'rower-only-cardio-intervals',
     title: 'Rower-only cardio intervals',
-    description:
-      'The user only has a rower and wants intervals.',
+    description: 'The user only has a rower and wants intervals.',
     tags: ['rower', 'intervals', 'initial'],
     mode: 'initial',
     request: {
@@ -1594,7 +1686,7 @@ const scenarios: GenerationEvaluationScenario[] = [
       equipment: ['Rowing Machine'],
       timeAvailableMinutes: 25,
       energyToday: 'intense',
-      primaryGoal: 'conditioning',
+      primaryGoal: 'improve endurance',
       preferredStyle: 'Intervals',
       recentSessions: [],
     }),
@@ -1619,13 +1711,16 @@ const scenarios: GenerationEvaluationScenario[] = [
       equipment: ['Sandbag', 'Dumbbells', 'Pull-up Bar', 'Bodyweight'],
       timeAvailableMinutes: 75,
       energyToday: 'intense',
-      primaryGoal: 'strongman-style work capacity',
+      primaryGoal: 'strongman performance',
       preferredStyle: 'Strongman',
       recentSessions: [],
       location: 'garage gym',
     }),
     hardExpectations: { requiredFocus: 'Full Body' },
-    softReviewHints: ['Should include carries or odd-object work', 'Should not read like a generic circuit'],
+    softReviewHints: [
+      'Should include carries or odd-object work',
+      'Should not read like a generic circuit',
+    ],
   }),
   createScenario({
     id: 'ultra-runner-upper-body-taper-45',
@@ -1643,7 +1738,7 @@ const scenarios: GenerationEvaluationScenario[] = [
         buildEvent({
           kind: 'run',
           title: '50K trail ultra',
-          localDate: '2026-04-10',
+          localDate: relativeLocalDate(2),
           durationMinutes: 360,
           intensity: 'high',
           tags: ['race', 'trail'],
@@ -1664,7 +1759,9 @@ const scenarios: GenerationEvaluationScenario[] = [
       requireUpcomingEventSensitivity: true,
       disallowedFocuses: ['Lower Body', 'Conditioning'],
     },
-    softReviewHints: ['Should still feel worthwhile while clearly protecting the legs'],
+    softReviewHints: [
+      'Should still feel worthwhile while clearly protecting the legs',
+    ],
   }),
   createScenario({
     id: 'climber-pull-endurance-and-core-60',
@@ -1678,7 +1775,8 @@ const scenarios: GenerationEvaluationScenario[] = [
       equipment: ['Pull-up Bar', 'Resistance Bands', 'Dumbbells'],
       energy: 'moderate',
       focus: 'Pull',
-      notes: 'Bias toward climbing support: grip, scapular control, trunk tension.',
+      notes:
+        'Bias toward climbing support: grip, scapular control, trunk tension.',
     },
     context: buildContext({
       experienceLevel: 'intermediate',
@@ -1708,7 +1806,7 @@ const scenarios: GenerationEvaluationScenario[] = [
         buildEvent({
           kind: 'sport',
           title: 'BJJ tournament',
-          localDate: '2026-04-08',
+          localDate: relativeLocalDate(1),
           durationMinutes: 180,
           intensity: 'high',
           tags: ['grappling'],
@@ -1721,7 +1819,7 @@ const scenarios: GenerationEvaluationScenario[] = [
       equipment: ['Bodyweight', 'Resistance Bands'],
       timeAvailableMinutes: 35,
       energyToday: 'easy',
-      primaryGoal: 'competition readiness',
+      primaryGoal: 'improve athletic performance',
       preferredStyle: 'Athletic prep',
       recentSessions: [],
     }),
@@ -1742,14 +1840,15 @@ const scenarios: GenerationEvaluationScenario[] = [
       equipment: ['Bodyweight', 'Resistance Bands', 'Dumbbells'],
       energy: 'moderate',
       focus: 'Full Body',
-      notes: 'Tiny apartment. No jumping, no dropping weights, very little floor space.',
+      notes:
+        'Tiny apartment. No jumping, no dropping weights, very little floor space.',
     },
     context: buildContext({
       experienceLevel: 'intermediate',
       equipment: ['Bodyweight', 'Resistance Bands', 'Dumbbells'],
       timeAvailableMinutes: 40,
       energyToday: 'moderate',
-      primaryGoal: 'consistency in a small space',
+      primaryGoal: 'general fitness',
       recentSessions: [],
       location: 'small apartment',
       timeOfDay: 'late night',
@@ -1771,20 +1870,23 @@ const scenarios: GenerationEvaluationScenario[] = [
       equipment: ['Bodyweight', 'Resistance Bands'],
       energy: 'easy',
       focus: 'Full Body',
-      notes: 'I am camping at a festival. Dusty ground, low motivation, but I still want to move.',
+      notes:
+        'I am camping at a festival. Dusty ground, low motivation, but I still want to move.',
     },
     context: buildContext({
       experienceLevel: 'beginner',
       equipment: ['Bodyweight', 'Resistance Bands'],
       timeAvailableMinutes: 25,
       energyToday: 'easy',
-      primaryGoal: 'maintain momentum while traveling',
+      primaryGoal: 'general fitness',
       preferredStyle: 'Low-friction',
       recentSessions: [],
       location: 'campsite',
     }),
     hardExpectations: { requiredFocus: 'Full Body' },
-    softReviewHints: ['Should feel practical for a campsite, not gym-dependent'],
+    softReviewHints: [
+      'Should feel practical for a campsite, not gym-dependent',
+    ],
   }),
   createScenario({
     id: 'kettlebell-sport-density-60',
@@ -1805,7 +1907,7 @@ const scenarios: GenerationEvaluationScenario[] = [
       equipment: ['Kettlebells'],
       timeAvailableMinutes: 60,
       energyToday: 'intense',
-      primaryGoal: 'kettlebell conditioning',
+      primaryGoal: 'improve endurance',
       preferredStyle: 'Density',
       recentSessions: [],
     }),
@@ -1828,7 +1930,7 @@ const scenarios: GenerationEvaluationScenario[] = [
         buildEvent({
           kind: 'sport',
           title: 'Ski weekend',
-          localDate: '2026-04-12',
+          localDate: relativeLocalDate(5),
           durationMinutes: 480,
           intensity: 'high',
           tags: ['ski'],
@@ -1845,7 +1947,9 @@ const scenarios: GenerationEvaluationScenario[] = [
       recentSessions: [],
     }),
     hardExpectations: { requiredFocus: 'Lower Body' },
-    softReviewHints: ['Should feel ski-specific rather than generic leg hypertrophy'],
+    softReviewHints: [
+      'Should feel ski-specific rather than generic leg hypertrophy',
+    ],
   }),
   createScenario({
     id: 'night-shift-wake-up-primer-30',
@@ -1859,18 +1963,21 @@ const scenarios: GenerationEvaluationScenario[] = [
       equipment: ['Bodyweight', 'Dumbbells'],
       energy: 'moderate',
       focus: 'Smart',
-      notes: 'I just woke up for a night shift and need to feel switched on, not exhausted.',
+      notes:
+        'I just woke up for a night shift and need to feel switched on, not exhausted.',
     },
     context: buildContext({
       experienceLevel: 'intermediate',
       equipment: ['Bodyweight', 'Dumbbells'],
       timeAvailableMinutes: 30,
       energyToday: 'moderate',
-      primaryGoal: 'energy and consistency',
+      primaryGoal: 'general fitness',
       recentSessions: [],
       timeOfDay: 'late evening',
     }),
-    softReviewHints: ['Should feel energizing, not like a grindy max-effort workout'],
+    softReviewHints: [
+      'Should feel energizing, not like a grindy max-effort workout',
+    ],
   }),
   createScenario({
     id: 'obstacle-course-race-pull-carry-70',
@@ -1916,7 +2023,7 @@ const scenarios: GenerationEvaluationScenario[] = [
       equipment: ['Bodyweight', 'Resistance Bands'],
       timeAvailableMinutes: 35,
       energyToday: 'moderate',
-      primaryGoal: 'stay active on vacation',
+      primaryGoal: 'general fitness',
       preferredStyle: 'Circuit',
       recentSessions: [],
       location: 'beach',
@@ -1947,7 +2054,9 @@ const scenarios: GenerationEvaluationScenario[] = [
       recentSessions: [],
     }),
     hardExpectations: { requiredFocus: 'Upper Body' },
-    softReviewHints: ['Should feel like a bodybuilding split, not generic full-body work'],
+    softReviewHints: [
+      'Should feel like a bodybuilding split, not generic full-body work',
+    ],
   }),
   createScenario({
     id: 'advanced-bodybuilding-leg-day-90',
@@ -1958,13 +2067,25 @@ const scenarios: GenerationEvaluationScenario[] = [
     mode: 'initial',
     request: {
       timeMinutes: 90,
-      equipment: ['Barbell', 'Bench', 'Cable Machine', 'Dumbbells', 'Squat Rack'],
+      equipment: [
+        'Barbell',
+        'Bench',
+        'Cable Machine',
+        'Dumbbells',
+        'Squat Rack',
+      ],
       energy: 'intense',
       focus: 'Lower Body',
     },
     context: buildContext({
       experienceLevel: 'advanced',
-      equipment: ['Barbell', 'Bench', 'Cable Machine', 'Dumbbells', 'Squat Rack'],
+      equipment: [
+        'Barbell',
+        'Bench',
+        'Cable Machine',
+        'Dumbbells',
+        'Squat Rack',
+      ],
       timeAvailableMinutes: 90,
       energyToday: 'intense',
       primaryGoal: 'muscle gain',
@@ -1972,7 +2093,9 @@ const scenarios: GenerationEvaluationScenario[] = [
       recentSessions: [],
     }),
     hardExpectations: { requiredFocus: 'Lower Body' },
-    softReviewHints: ['Should include meaningful leg volume and isolation work'],
+    softReviewHints: [
+      'Should include meaningful leg volume and isolation work',
+    ],
   }),
   createScenario({
     id: 'advanced-bodybuilding-back-volume-80',
@@ -1997,7 +2120,9 @@ const scenarios: GenerationEvaluationScenario[] = [
       recentSessions: [],
     }),
     hardExpectations: { requiredFocus: 'Pull' },
-    softReviewHints: ['Should feel like a back day, not just a mixed upper session'],
+    softReviewHints: [
+      'Should feel like a back day, not just a mixed upper session',
+    ],
   }),
   createScenario({
     id: 'intermediate-powerbuilding-upper-70',
@@ -2047,7 +2172,9 @@ const scenarios: GenerationEvaluationScenario[] = [
       recentSessions: [],
     }),
     hardExpectations: { requiredFocus: 'Lower Body' },
-    softReviewHints: ['Should center on squat work and not drift into conditioning'],
+    softReviewHints: [
+      'Should center on squat work and not drift into conditioning',
+    ],
   }),
   createScenario({
     id: 'advanced-powerlifting-bench-day-75',
@@ -2098,7 +2225,9 @@ const scenarios: GenerationEvaluationScenario[] = [
       recentSessions: [],
     }),
     hardExpectations: { requiredFocus: 'Pull' },
-    softReviewHints: ['Should feel posterior-chain heavy and specific to deadlift progress'],
+    softReviewHints: [
+      'Should feel posterior-chain heavy and specific to deadlift progress',
+    ],
   }),
   createScenario({
     id: 'intermediate-bodybuilding-glute-focus-70',
@@ -2149,7 +2278,9 @@ const scenarios: GenerationEvaluationScenario[] = [
       recentSessions: [],
     }),
     hardExpectations: { requiredFocus: 'Upper Body' },
-    softReviewHints: ['Should include direct arm work and feel specialization-oriented'],
+    softReviewHints: [
+      'Should include direct arm work and feel specialization-oriented',
+    ],
   }),
   createScenario({
     id: 'regen-too-hard-bodyweight',
@@ -2171,7 +2302,7 @@ const scenarios: GenerationEvaluationScenario[] = [
       equipment: ['Bodyweight'],
       timeAvailableMinutes: 20,
       energyToday: 'easy',
-      primaryGoal: 'consistency',
+      primaryGoal: 'general fitness',
       recentSessions: [],
     }),
     baselinePlan: createBaselinePlan({
@@ -2205,7 +2336,7 @@ const scenarios: GenerationEvaluationScenario[] = [
       equipment: ['Dumbbells', 'Bench'],
       timeAvailableMinutes: 35,
       energyToday: 'intense',
-      primaryGoal: 'hypertrophy',
+      primaryGoal: 'build muscle',
       recentSessions: [],
     }),
     baselinePlan: createBaselinePlan({
@@ -2304,7 +2435,7 @@ const scenarios: GenerationEvaluationScenario[] = [
         buildEvent({
           kind: 'run',
           title: '5K race',
-          localDate: '2026-04-09',
+          localDate: relativeLocalDate(1),
           durationMinutes: 30,
           intensity: 'high',
         }),
@@ -2315,7 +2446,7 @@ const scenarios: GenerationEvaluationScenario[] = [
       equipment: ['Bodyweight', 'Resistance Bands'],
       timeAvailableMinutes: 25,
       energyToday: 'easy',
-      primaryGoal: 'support running',
+      primaryGoal: 'run performance',
       recentSessions: [],
     }),
     baselinePlan: createBaselinePlan({
@@ -2350,7 +2481,7 @@ const scenarios: GenerationEvaluationScenario[] = [
       equipment: ['Resistance Bands', 'Bodyweight'],
       timeAvailableMinutes: 30,
       energyToday: 'moderate',
-      primaryGoal: 'stay active safely',
+      primaryGoal: 'general fitness',
       injuries: ['right shoulder irritation'],
       recentSessions: [],
     }),
@@ -2405,8 +2536,7 @@ const scenarios: GenerationEvaluationScenario[] = [
   createScenario({
     id: 'regen-notes-lower-impact',
     title: 'Regenerate with notes asking for lower impact',
-    description:
-      'The user wants the next version to be gentler on joints.',
+    description: 'The user wants the next version to be gentler on joints.',
     tags: ['regeneration', 'notes', 'lower-impact'],
     mode: 'regeneration',
     request: createRegenerationRequest({
@@ -2423,7 +2553,7 @@ const scenarios: GenerationEvaluationScenario[] = [
       equipment: ['Bodyweight'],
       timeAvailableMinutes: 25,
       energyToday: 'easy',
-      primaryGoal: 'conditioning',
+      primaryGoal: 'improve endurance',
       recentSessions: [],
     }),
     baselinePlan: createBaselinePlan({
@@ -2492,7 +2622,7 @@ const scenarios: GenerationEvaluationScenario[] = [
       equipment: ['Bodyweight'],
       timeAvailableMinutes: 30,
       energyToday: 'moderate',
-      primaryGoal: 'consistency',
+      primaryGoal: 'general fitness',
       recentSessions: [],
       location: 'hotel room',
     }),
@@ -2500,7 +2630,8 @@ const scenarios: GenerationEvaluationScenario[] = [
       focus: 'Full Body',
       durationMinutes: 30,
       equipment: ['Dumbbells', 'Bench'],
-      summary: 'A gym-dependent workout that now needs a bodyweight substitute.',
+      summary:
+        'A gym-dependent workout that now needs a bodyweight substitute.',
     }),
     hardExpectations: {
       requiredFocus: 'Full Body',
@@ -2534,7 +2665,8 @@ const scenarios: GenerationEvaluationScenario[] = [
       focus: 'Full Body',
       durationMinutes: 40,
       equipment: ['Dumbbells', 'Bench'],
-      summary: 'A smart full-body workout that now needs to target lower body more directly.',
+      summary:
+        'A smart full-body workout that now needs to target lower body more directly.',
     }),
     hardExpectations: {
       requiredFocus: 'Lower Body',
@@ -2559,7 +2691,7 @@ const scenarios: GenerationEvaluationScenario[] = [
         buildEvent({
           kind: 'travel',
           title: 'Early flight tomorrow',
-          localDate: '2026-04-07',
+          localDate: relativeLocalDate(1),
           allDay: true,
         }),
       ],
@@ -2570,7 +2702,7 @@ const scenarios: GenerationEvaluationScenario[] = [
       equipment: ['Bodyweight'],
       timeAvailableMinutes: 20,
       energyToday: 'easy',
-      primaryGoal: 'consistency',
+      primaryGoal: 'general fitness',
       recentSessions: [],
     }),
     baselinePlan: createBaselinePlan({
@@ -2606,14 +2738,14 @@ const scenarios: GenerationEvaluationScenario[] = [
       equipment: ['Bodyweight', 'Resistance Bands'],
       timeAvailableMinutes: 25,
       energyToday: 'moderate',
-      primaryGoal: 'recover while staying active',
+      primaryGoal: 'general fitness',
       recentSessions: [
         buildSession({
           id: 'ctx-14',
           name: 'Long Run',
           focus: 'Conditioning',
           durationMinutes: 70,
-          completedAt: '2026-04-05T09:00:00.000Z',
+          completedAt: relativeCompletedAt({ daysAgo: 1, hour: 9 }),
           perceivedEffort: 'intense',
         }),
       ],
@@ -2622,7 +2754,8 @@ const scenarios: GenerationEvaluationScenario[] = [
       focus: 'Recovery',
       durationMinutes: 25,
       equipment: ['Bodyweight', 'Resistance Bands'],
-      summary: 'A very gentle recovery plan that now needs a bit more challenge.',
+      summary:
+        'A very gentle recovery plan that now needs a bit more challenge.',
     }),
     hardExpectations: { requireRegenerationDifference: true },
   }),
@@ -2646,7 +2779,7 @@ const scenarios: GenerationEvaluationScenario[] = [
       equipment: ['Cable Machine', 'Pull-up Bar', 'Barbell', 'Bench'],
       timeAvailableMinutes: 50,
       energyToday: 'moderate',
-      primaryGoal: 'hypertrophy',
+      primaryGoal: 'build muscle',
       recentSessions: [],
     }),
     baselinePlan: createBaselinePlan({

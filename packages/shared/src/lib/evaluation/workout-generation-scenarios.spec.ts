@@ -5,37 +5,76 @@ import {
 } from '../contracts/generation-evaluation';
 import { workoutGenerationEvaluationCorpus } from './workout-generation-scenarios';
 
+function startOfToday(): Date {
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+}
+
+function parseLocalDate(value: string): Date {
+  const [year, month, day] = value.split('-').map(Number);
+  return new Date(year ?? 1970, (month ?? 1) - 1, day ?? 1);
+}
+
 describe('workout generation evaluation corpus', () => {
   it('exports a valid corpus with at least 50 scenarios', () => {
     const parsed = generationEvaluationCorpusSchema.parse(
-      workoutGenerationEvaluationCorpus
+      workoutGenerationEvaluationCorpus,
     );
 
     expect(parsed.scenarios.length).toBeGreaterThanOrEqual(
-      MIN_GENERATION_EVALUATION_SCENARIOS
+      MIN_GENERATION_EVALUATION_SCENARIOS,
     );
     expect(parsed.rubricVersion).toBeTruthy();
   });
 
   it('contains unique scenario ids', () => {
     const ids = workoutGenerationEvaluationCorpus.scenarios.map(
-      (scenario) => scenario.id
+      (scenario) => scenario.id,
     );
 
     expect(new Set(ids).size).toBe(ids.length);
   });
 
   it('contains a meaningful set of regeneration scenarios', () => {
-    const regenerationScenarios = workoutGenerationEvaluationCorpus.scenarios.filter(
-      (scenario) => scenario.mode === 'regeneration'
-    );
+    const regenerationScenarios =
+      workoutGenerationEvaluationCorpus.scenarios.filter(
+        (scenario) => scenario.mode === 'regeneration',
+      );
 
     expect(regenerationScenarios.length).toBeGreaterThanOrEqual(8);
   });
 
+  it('keeps recent session context within the last week', () => {
+    const now = new Date();
+    const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
+
+    for (const scenario of workoutGenerationEvaluationCorpus.scenarios) {
+      for (const session of scenario.context?.recentSessions ?? []) {
+        const completedAt = new Date(session.completedAt);
+        const ageMs = now.getTime() - completedAt.getTime();
+
+        expect(ageMs).toBeGreaterThanOrEqual(0);
+        expect(ageMs).toBeLessThanOrEqual(sevenDaysMs);
+      }
+    }
+  });
+
+  it('keeps upcoming event dates in the future relative to the run date', () => {
+    const today = startOfToday();
+
+    for (const scenario of workoutGenerationEvaluationCorpus.scenarios) {
+      for (const event of scenario.request.upcomingEvents ?? []) {
+        const eventDate = parseLocalDate(event.localDate);
+        expect(eventDate.getTime()).toBeGreaterThanOrEqual(today.getTime());
+      }
+    }
+  });
+
   it('covers long bodybuilding and powerlifting style scenarios', () => {
     const scenarioIds = new Set(
-      workoutGenerationEvaluationCorpus.scenarios.map((scenario) => scenario.id)
+      workoutGenerationEvaluationCorpus.scenarios.map(
+        (scenario) => scenario.id,
+      ),
     );
 
     expect(scenarioIds.has('advanced-bodybuilding-upper-75')).toBe(true);
@@ -116,7 +155,7 @@ describe('workout generation evaluation corpus', () => {
             ...duplicateScenario.hardExpectations,
             requireRegenerationDifference: false,
           },
-        })
+        }),
       ),
     });
 
