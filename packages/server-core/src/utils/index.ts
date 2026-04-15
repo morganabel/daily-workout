@@ -14,7 +14,9 @@ export {
   type ExerciseCandidatePoolSummary,
 } from './exercise-library';
 export {
+  determineStageOnePlanningActivation,
   derivePlanningBrief,
+  type DetermineStageOnePlanningActivationParams,
   type DerivePlanningBriefParams,
 } from './planning';
 export {

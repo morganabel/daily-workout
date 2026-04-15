@@ -4,6 +4,8 @@ import type {
   PlanningBrief,
   PlanningEventProtection,
   PlanningLoadCeiling,
+  PlanningStageOneActivation,
+  PlanningStageOneReason,
 } from '../types/planning';
 
 const DEFAULT_DURATION_MINUTES = 30;
@@ -19,6 +21,17 @@ export interface DerivePlanningBriefParams {
   context: GenerationContext;
   provider: PlanningBrief['provider'];
   previousPlan?: GenerationRequestWithContext['baselineWorkout'] | null;
+}
+
+export interface DetermineStageOnePlanningActivationParams {
+  request: GenerationRequestWithContext;
+  context: GenerationContext;
+  planningBrief: Pick<
+    PlanningBrief,
+    'focusMode' | 'eventProtection' | 'recentStressorsToAvoid' | 'regeneration'
+  > & {
+    priorityNotes?: string;
+  };
 }
 
 export function derivePlanningBrief({
@@ -81,7 +94,7 @@ export function derivePlanningBrief({
       ? 'preserve-intent'
       : 'none';
 
-  return {
+  const brief: PlanningBrief = {
     provider,
     planningDateLocal,
     requestedFocus,
@@ -126,6 +139,60 @@ export function derivePlanningBrief({
       baselineWorkoutId: baselineWorkout?.id,
       baselineExerciseCount: countExercises(baselineWorkout),
     },
+    stagedPlanning: {
+      mode: 'single-pass',
+      shouldRun: false,
+      reasons: [],
+    },
+  };
+
+  return {
+    ...brief,
+    stagedPlanning: determineStageOnePlanningActivation({
+      request,
+      context,
+      planningBrief: brief,
+    }),
+  };
+}
+
+export function determineStageOnePlanningActivation({
+  request,
+  context,
+  planningBrief,
+}: DetermineStageOnePlanningActivationParams): PlanningStageOneActivation {
+  const reasons = new Set<PlanningStageOneReason>();
+  const notes = [request.notes, planningBrief.priorityNotes, context.notes]
+    .filter((value): value is string => Boolean(value?.trim()))
+    .join(' ')
+    .trim();
+
+  if (planningBrief.focusMode === 'smart') {
+    reasons.add('smart-focus');
+  }
+
+  if (
+    planningBrief.eventProtection &&
+    planningBrief.recentStressorsToAvoid.length > 0
+  ) {
+    reasons.add('recent-event-conflict');
+  }
+
+  if (isDenseFreeformNotes(notes)) {
+    reasons.add('dense-notes');
+  }
+
+  if (
+    planningBrief.regeneration.isRegeneration &&
+    planningBrief.regeneration.feedback.length > 0
+  ) {
+    reasons.add('regeneration-feedback');
+  }
+
+  return {
+    mode: reasons.size > 0 ? 'llm-assisted' : 'single-pass',
+    shouldRun: reasons.size > 0,
+    reasons: Array.from(reasons),
   };
 }
 
@@ -256,6 +323,19 @@ function collectUnknowns(
   }
 
   return [...unknowns];
+}
+
+function isDenseFreeformNotes(notes?: string): boolean {
+  if (!notes) {
+    return false;
+  }
+
+  const trimmed = notes.trim();
+  if (trimmed.length >= 120) {
+    return true;
+  }
+
+  return trimmed.split(/\s+/).filter(Boolean).length >= 20;
 }
 
 function deriveRecentStressorsToAvoid(

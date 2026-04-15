@@ -24,9 +24,15 @@ export type {
   PlanningFallbackMode,
   PlanningFocusMode,
   PlanningLoadCeiling,
+  PlanningNoveltyTarget,
   PlanningRegenerationMode,
   PlanningRegenerationSummary,
+  PlanningStageOneActivation,
+  PlanningStageOneConfidence,
+  PlanningStageOneMode,
+  PlanningStageOneReason,
   PlanningVariationMode,
+  StageOnePlannerArtifact,
 } from './planning';
 export type { UsagePolicy, PolicyResult, Entitlements } from './policy';
 export type { MeteringSink, UsageEvent } from './metering';

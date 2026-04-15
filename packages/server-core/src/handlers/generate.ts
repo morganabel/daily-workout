@@ -359,6 +359,8 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
       focusMode: effectivePlanningBrief.focusMode,
       resolvedFocus: effectivePlanningBrief.resolvedFocus,
       regenerationMode: effectivePlanningBrief.regeneration.mode,
+      stagedPlanningMode: effectivePlanningBrief.stagedPlanning.mode,
+      stagedPlanningReasons: effectivePlanningBrief.stagedPlanning.reasons,
       fallbackReasons: effectivePlanningBrief.fallbackReasons,
       hasFeedback: (generationRequest.feedback?.length ?? 0) > 0,
       feedbackCount: generationRequest.feedback?.length ?? 0,

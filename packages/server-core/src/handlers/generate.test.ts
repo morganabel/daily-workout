@@ -694,6 +694,43 @@ describe('createGenerateHandler', () => {
     );
   });
 
+  it('passes staged-planning activation metadata for ambiguous smart requests', async () => {
+    const router = createRouterMock();
+    const { handler } = createHandler({ router });
+
+    const response = await handler(
+      createPlanningRequest({
+        focus: 'Smart',
+        planningDateLocal: '2026-04-15',
+        notes:
+          'Keep it athletic, avoid grindy overhead work, and make the session fit around a hard climbing session tomorrow morning.',
+        upcomingEvents: [
+          {
+            kind: 'sport',
+            title: 'Climbing Session',
+            localDate: '2026-04-16',
+            intensity: 'high',
+          },
+        ],
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(router.generate).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      expect.objectContaining({
+        planningBrief: expect.objectContaining({
+          stagedPlanning: expect.objectContaining({
+            mode: 'llm-assisted',
+            shouldRun: true,
+            reasons: expect.arrayContaining(['smart-focus', 'dense-notes']),
+          }),
+        }),
+      }),
+    );
+  });
+
   it('uses stateless regeneration when provider continuity does not match the active provider', async () => {
     const router = createRouterMock();
     const baselineWorkout = createTodayPlanMock({
