@@ -164,6 +164,20 @@ describe('GeminiProvider', () => {
       );
     });
 
+    it('normalizes stage-one planner output when Gemini omits the mode field', async () => {
+      const { mode: _mode, ...artifactWithoutMode } = mockStageOneArtifact;
+      mockGenerateContent.mockResolvedValue({
+        text: JSON.stringify(artifactWithoutMode),
+      });
+
+      const result = await provider.planStageOne(mockRequest, mockContext, {
+        apiKey: 'test-api-key',
+      });
+
+      expect(result.mode).toBe('llm-assisted');
+      expect(result.resolvedFocus).toBe('Upper Body');
+    });
+
     it('should successfully generate a workout plan', async () => {
       mockGenerateContent.mockResolvedValue({
         text: JSON.stringify(mockLlmPlan),

@@ -26,7 +26,10 @@ import {
   getDefaultSchemaVersion,
   getSchemaForVersion,
 } from '../llm-transformer';
-import { stageOnePlannerArtifactSchema } from './stage-one-schema';
+import {
+  parseStageOnePlannerArtifact,
+  stageOnePlannerArtifactSchema,
+} from './stage-one-schema';
 
 const DEFAULT_MODEL = process.env.OPENAI_MODEL ?? 'gpt-5-mini';
 const DEFAULT_PLANNER_MODEL = process.env.OPENAI_PLANNER_MODEL ?? DEFAULT_MODEL;
@@ -98,7 +101,7 @@ export class OpenAIProvider implements AiProvider {
         durationMs: Date.now() - started,
       });
 
-      return stageOnePlannerArtifactSchema.parse(response.output_parsed);
+      return parseStageOnePlannerArtifact(response.output_parsed);
     } catch (error) {
       const originalMessage =
         error instanceof Error ? error.message : String(error);

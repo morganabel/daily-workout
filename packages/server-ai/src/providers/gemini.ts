@@ -26,7 +26,10 @@ import {
   getDefaultSchemaVersion,
   getSchemaForVersion,
 } from '../llm-transformer';
-import { stageOnePlannerArtifactSchema } from './stage-one-schema';
+import {
+  parseStageOnePlannerArtifact,
+  stageOnePlannerArtifactSchema,
+} from './stage-one-schema';
 
 const DEFAULT_MODEL = process.env.GEMINI_MODEL ?? 'gemini-3-flash-preview';
 const DEFAULT_PLANNER_MODEL = process.env.GEMINI_PLANNER_MODEL ?? DEFAULT_MODEL;
@@ -111,7 +114,7 @@ export class GeminiProvider implements AiProvider {
       }
 
       const parsed = JSON.parse(text);
-      const artifact = stageOnePlannerArtifactSchema.parse(parsed);
+      const artifact = parseStageOnePlannerArtifact(parsed);
 
       log.info('stage-one planner completed', {
         provider: 'gemini',
