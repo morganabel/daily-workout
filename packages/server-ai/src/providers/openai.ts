@@ -32,7 +32,8 @@ import {
 } from './stage-one-schema';
 
 const DEFAULT_MODEL = process.env.OPENAI_MODEL ?? 'gpt-5-mini';
-const DEFAULT_PLANNER_MODEL = process.env.OPENAI_PLANNER_MODEL ?? DEFAULT_MODEL;
+const DEFAULT_PLANNER_MODEL =
+  process.env.OPENAI_PLANNER_MODEL ?? 'gpt-5.4-nano';
 const DEFAULT_API_BASE =
   process.env.OPENAI_API_BASE ?? 'https://api.openai.com/v1';
 

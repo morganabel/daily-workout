@@ -158,7 +158,7 @@ describe('GeminiProvider', () => {
       expect(result).toEqual(mockStageOneArtifact);
       expect(mockGenerateContent).toHaveBeenCalledWith(
         expect.objectContaining({
-          model: 'gemini-3-flash-preview',
+          model: 'gemini-3.1-flash-lite-preview',
           contents: expect.any(String),
         }),
       );

@@ -32,7 +32,8 @@ import {
 } from './stage-one-schema';
 
 const DEFAULT_MODEL = process.env.GEMINI_MODEL ?? 'gemini-3-flash-preview';
-const DEFAULT_PLANNER_MODEL = process.env.GEMINI_PLANNER_MODEL ?? DEFAULT_MODEL;
+const DEFAULT_PLANNER_MODEL =
+  process.env.GEMINI_PLANNER_MODEL ?? 'gemini-3.1-flash-lite-preview';
 const DEFAULT_API_BASE = process.env.GEMINI_API_BASE;
 const getVertexEnvConfig = () => ({
   enabled: process.env.GOOGLE_GENAI_USE_VERTEXAI === 'true',

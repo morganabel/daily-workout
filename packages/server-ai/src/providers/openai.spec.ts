@@ -158,7 +158,7 @@ describe('OpenAIProvider', () => {
       expect(result).toEqual(mockStageOneArtifact);
       expect(mockResponsesParse).toHaveBeenCalledWith(
         expect.objectContaining({
-          model: 'gpt-5-mini',
+          model: 'gpt-5.4-nano',
           input: expect.arrayContaining([
             expect.objectContaining({ role: 'system' }),
             expect.objectContaining({ role: 'user' }),
