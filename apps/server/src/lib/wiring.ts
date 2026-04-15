@@ -19,13 +19,17 @@ import {
   type GenerateHandlerConfig,
 } from '@workout-agent-ce/server-core';
 import { openExerciseLibrary } from '@workout-agent-ce/server-exercise-library';
-import { DefaultModelRouter } from '@workout-agent-ce/server-ai';
+import {
+  DefaultModelRouter,
+  DefaultStageOnePlanner,
+} from '@workout-agent-ce/server-ai';
 import { getAuthContext } from './auth-context';
 
 // Get auth provider from auth context (supports both stub and Better Auth)
 const { provider: auth } = getAuthContext();
 const store = new InMemoryGenerationStore();
 const router = new DefaultModelRouter();
+const planner = new DefaultStageOnePlanner();
 const policy = new NoOpUsagePolicy();
 const metering = new NoOpMeteringSink();
 const exerciseLibrary = (() => {
@@ -80,6 +84,7 @@ const buildConfig = (): GenerateHandlerConfig => {
       gemini: process.env.GEMINI_API_KEY,
     },
     defaultProvider: (rawProvider as 'openai' | 'gemini') ?? 'openai',
+    enableStageOnePlanner: process.env.ENABLE_STAGE_ONE_PLANNER === 'true',
   };
 };
 
@@ -92,6 +97,7 @@ export const generateHandler = createGenerateHandler({
   auth,
   store,
   router,
+  planner,
   exerciseLibrary,
   policy,
   metering,

@@ -1,11 +1,14 @@
 import {
   buildCandidatePoolPromptData,
   buildPlanningBriefPromptData,
+  buildStageOnePlannerArtifactPromptData,
+  buildStageOnePlannerRequestPayload,
   buildRegenerationMessage,
 } from './prompts';
 import type {
   ExerciseCandidatePool,
   PlanningBrief,
+  StageOnePlannerArtifact,
 } from '@workout-agent-ce/server-core';
 import type {
   GenerationRequest,
@@ -60,6 +63,7 @@ describe('buildRegenerationMessage', () => {
     ],
     variationMode: 'different-exercises',
     fallbackMode: 'strict-library',
+    fallbackReasons: [],
     regeneration: {
       isRegeneration: true,
       mode: 'stateless',
@@ -67,6 +71,26 @@ describe('buildRegenerationMessage', () => {
       baselineWorkoutId: 'plan-1',
       baselineExerciseCount: 4,
     },
+    stagedPlanning: {
+      mode: 'llm-assisted',
+      shouldRun: true,
+      reasons: ['smart-focus'],
+    },
+  };
+
+  const stageOneArtifact: StageOnePlannerArtifact = {
+    mode: 'llm-assisted',
+    confidence: 'high',
+    planningIntent:
+      'Protect lower-body freshness and bias toward upper-body work.',
+    resolvedFocus: 'Upper Body & Core',
+    protectStressors: ['lower_body_overload'],
+    avoidStressors: ['lower_body_fatigue'],
+    styleBiases: ['athletic'],
+    loadBias: 'low',
+    noveltyTarget: 'high',
+    rerankHints: ['prefer upper-body compound lifts'],
+    candidateInstructions: ['keep lower-body fatigue minimal'],
   };
 
   describe('auto-focus handling', () => {
@@ -203,11 +227,14 @@ describe('buildRegenerationMessage', () => {
         ['different-exercises'],
         candidatePool,
         planningBrief,
+        stageOneArtifact,
       );
 
       expect(message).toContain('Resolved session intent: Upper Body & Core');
       expect(message).toContain('Avoid these stressors: lower_body_overload');
       expect(message).toContain('Baseline exercises: Goblet Squat');
+      expect(message).toContain('Planner intent: Protect lower-body freshness');
+      expect(message).toContain('Novelty target: high');
     });
   });
 
@@ -270,9 +297,41 @@ describe('buildRegenerationMessage', () => {
         expect.objectContaining({
           resolvedFocus: 'Upper Body & Core',
           loadCeiling: 'low',
+          stagedPlanning: expect.objectContaining({
+            mode: 'llm-assisted',
+          }),
           blockIntents: [
             expect.objectContaining({ focus: 'Upper Body & Core' }),
           ],
+        }),
+      );
+    });
+
+    it('formats stage-one planner request payload', () => {
+      expect(
+        buildStageOnePlannerRequestPayload(
+          baseRequest,
+          planningBrief,
+          candidatePool,
+        ),
+      ).toEqual(
+        expect.objectContaining({
+          planningBrief: expect.objectContaining({
+            resolvedFocus: 'Upper Body & Core',
+          }),
+          candidatePool: expect.objectContaining({
+            libraryVersion: 'test-library',
+          }),
+        }),
+      );
+    });
+
+    it('formats stage-one planner artifact prompt data', () => {
+      expect(buildStageOnePlannerArtifactPromptData(stageOneArtifact)).toEqual(
+        expect.objectContaining({
+          confidence: 'high',
+          noveltyTarget: 'high',
+          resolvedFocus: 'Upper Body & Core',
         }),
       );
     });

@@ -3,6 +3,8 @@ import type {
   GenerationState,
   GenerationStore,
   ModelRouter,
+  StageOnePlanner,
+  StageOnePlannerArtifact,
   UsagePolicy,
   MeteringSink,
 } from '../types';
@@ -66,6 +68,11 @@ export interface GenerateHandlerConfig {
    * Default provider when not specified
    */
   defaultProvider?: 'openai' | 'gemini';
+
+  /**
+   * Enables the optional stage-one planner path.
+   */
+  enableStageOnePlanner?: boolean;
 }
 
 /**
@@ -75,6 +82,7 @@ export interface GenerateHandlerDeps {
   auth: AuthProvider;
   store: GenerationStore;
   router: ModelRouter;
+  planner?: StageOnePlanner;
   exerciseLibrary?: ExerciseLibrary;
   policy?: UsagePolicy;
   metering?: MeteringSink;
@@ -311,6 +319,7 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
       previousPlan: previousState?.plan,
     });
     let effectivePlanningBrief = planningBrief;
+    let stageOneArtifact: StageOnePlannerArtifact | undefined;
     let candidatePool:
       | ReturnType<typeof buildExerciseCandidatePool>
       | undefined;
@@ -350,6 +359,37 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
       }
     }
 
+    if (
+      deps.config.enableStageOnePlanner &&
+      deps.planner &&
+      effectivePlanningBrief.stagedPlanning.shouldRun &&
+      (apiKey || useVertexAi)
+    ) {
+      try {
+        stageOneArtifact = await deps.planner.plan(providerRequest, context, {
+          apiKey: useVertexAi ? undefined : (apiKey ?? undefined),
+          candidatePool,
+          planningBrief: effectivePlanningBrief,
+          provider,
+          useVertexAi,
+        });
+        log.info('stage-one planner completed', {
+          provider,
+          confidence: stageOneArtifact.confidence,
+          resolvedFocus: stageOneArtifact.resolvedFocus,
+          noveltyTarget: stageOneArtifact.noveltyTarget,
+          rerankHintCount: stageOneArtifact.rerankHints.length,
+          reasons: effectivePlanningBrief.stagedPlanning.reasons,
+        });
+      } catch (error) {
+        log.warn('stage-one planner unavailable', {
+          provider,
+          message: sanitizeErrorMessage((error as Error).message),
+          reasons: effectivePlanningBrief.stagedPlanning.reasons,
+        });
+      }
+    }
+
     // Log generation start (NEVER log API keys, prompts, or free-form feedback)
     log.info('generation started', {
       provider,
@@ -383,6 +423,7 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
           apiKey: useVertexAi ? undefined : (apiKey ?? undefined),
           candidatePool,
           planningBrief: effectivePlanningBrief,
+          stageOneArtifact,
           provider,
           useVertexAi,
         });

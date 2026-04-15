@@ -16,6 +16,7 @@ import type {
   GenerationState,
   MeteringSink,
   ModelRouter,
+  StageOnePlanner,
   UsagePolicy,
 } from '../types';
 
@@ -93,6 +94,24 @@ function createAuthMock(
   };
 }
 
+function createStageOnePlannerMock(): jest.Mocked<StageOnePlanner> {
+  return {
+    plan: jest.fn().mockResolvedValue({
+      mode: 'llm-assisted',
+      confidence: 'high',
+      planningIntent: 'Bias toward upper-body work while protecting recovery.',
+      resolvedFocus: 'Upper Body',
+      protectStressors: ['lower_body_overload'],
+      avoidStressors: ['lower_body_fatigue'],
+      styleBiases: ['athletic'],
+      loadBias: 'moderate',
+      noveltyTarget: 'medium',
+      rerankHints: ['prefer pulling and core accessories'],
+      candidateInstructions: ['keep lower-body fatigue minimal'],
+    }),
+  };
+}
+
 function createPolicyMock(allowed = true): jest.Mocked<UsagePolicy> {
   return {
     canGenerate: jest
@@ -116,6 +135,7 @@ function createHandler(
     auth?: jest.Mocked<AuthProvider>;
     store?: jest.Mocked<GenerationStore>;
     router?: jest.Mocked<ModelRouter>;
+    planner?: jest.Mocked<StageOnePlanner>;
     policy?: jest.Mocked<UsagePolicy>;
     metering?: jest.Mocked<MeteringSink>;
     exerciseLibrary?: ExerciseLibrary;
@@ -125,6 +145,7 @@ function createHandler(
   const auth = overrides.auth ?? createAuthMock();
   const store = overrides.store ?? createStoreMock();
   const router = overrides.router ?? createRouterMock();
+  const planner = overrides.planner;
   const policy = overrides.policy;
   const metering = overrides.metering;
 
@@ -132,6 +153,7 @@ function createHandler(
     auth,
     store,
     router,
+    planner,
     policy,
     metering,
     exerciseLibrary: overrides.exerciseLibrary,
@@ -147,6 +169,7 @@ function createHandler(
     auth,
     store,
     router,
+    planner,
     policy,
     metering,
   };
@@ -726,6 +749,58 @@ describe('createGenerateHandler', () => {
             shouldRun: true,
             reasons: expect.arrayContaining(['smart-focus', 'dense-notes']),
           }),
+        }),
+      }),
+    );
+  });
+
+  it('runs the stage-one planner when enabled for ambiguous requests and passes the artifact to generation', async () => {
+    const router = createRouterMock();
+    const planner = createStageOnePlannerMock();
+    const { handler } = createHandler({
+      router,
+      planner,
+      config: {
+        edition: 'CE',
+        defaultProvider: 'openai',
+        enableStageOnePlanner: true,
+      },
+    });
+
+    const response = await handler(
+      createPlanningRequest({
+        focus: 'Smart',
+        notes:
+          'Keep it shoulder-friendly and make it fit around a lower-body race effort tomorrow.',
+        upcomingEvents: [
+          {
+            kind: 'run',
+            title: 'Tune-Up Race',
+            localDate: '2026-04-16',
+            intensity: 'high',
+          },
+        ],
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(planner.plan).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      expect.objectContaining({
+        provider: 'openai',
+        planningBrief: expect.objectContaining({
+          stagedPlanning: expect.objectContaining({ shouldRun: true }),
+        }),
+      }),
+    );
+    expect(router.generate).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      expect.objectContaining({
+        stageOneArtifact: expect.objectContaining({
+          mode: 'llm-assisted',
+          resolvedFocus: 'Upper Body',
         }),
       }),
     );

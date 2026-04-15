@@ -6,6 +6,7 @@ import {
 import type {
   ExerciseCandidatePool,
   PlanningBrief,
+  StageOnePlannerArtifact,
 } from '@workout-agent-ce/server-core';
 
 export const SYSTEM_PROMPT =
@@ -13,6 +14,12 @@ export const SYSTEM_PROMPT =
 
 export const INITIAL_GENERATION_INSTRUCTIONS =
   'Generate a single workout session with at least one block and one exercise per block. Use realistic exercise names and prescriptions. Prioritize user context (history, preferences, environment) when deciding focus, volume, and equipment. If no focus is specified, choose the most appropriate one based on the user context.';
+
+export const STAGE_ONE_PLANNER_SYSTEM_PROMPT =
+  'You are an internal workout planning assistant. Return only valid JSON matching the schema. Resolve ambiguity, preserve hard constraints, and give advisory guidance for a final workout-generation model. Do not assemble the full workout.';
+
+export const STAGE_ONE_PLANNER_INSTRUCTIONS =
+  'Interpret the request and context, resolve the most likely session intent, note stressors to protect or avoid, and produce concise rerank/prompt guidance for the final workout model. Keep hard constraints server-owned and treat your output as advisory.';
 
 const MAX_PROMPT_CANDIDATE_EXERCISES = 64;
 
@@ -61,6 +68,7 @@ export function buildPlanningBriefPromptData(planningBrief?: PlanningBrief):
       blockIntents: PlanningBrief['blockIntents'];
       regeneration: PlanningBrief['regeneration'];
       variationMode: PlanningBrief['variationMode'];
+      stagedPlanning: PlanningBrief['stagedPlanning'];
       priorityNotes?: string;
     }
   | undefined {
@@ -80,7 +88,72 @@ export function buildPlanningBriefPromptData(planningBrief?: PlanningBrief):
     blockIntents: planningBrief.blockIntents,
     regeneration: planningBrief.regeneration,
     variationMode: planningBrief.variationMode,
+    stagedPlanning: planningBrief.stagedPlanning,
     priorityNotes: planningBrief.priorityNotes,
+  };
+}
+
+export function buildStageOnePlannerArtifactPromptData(
+  artifact?: StageOnePlannerArtifact,
+):
+  | {
+      planningIntent: string;
+      confidence: StageOnePlannerArtifact['confidence'];
+      resolvedFocus?: string;
+      protectStressors: string[];
+      avoidStressors: string[];
+      styleBiases: string[];
+      loadBias?: StageOnePlannerArtifact['loadBias'];
+      noveltyTarget?: StageOnePlannerArtifact['noveltyTarget'];
+      rerankHints: string[];
+      candidateInstructions: string[];
+    }
+  | undefined {
+  if (!artifact) {
+    return undefined;
+  }
+
+  return {
+    planningIntent: artifact.planningIntent,
+    confidence: artifact.confidence,
+    resolvedFocus: artifact.resolvedFocus,
+    protectStressors: artifact.protectStressors,
+    avoidStressors: artifact.avoidStressors,
+    styleBiases: artifact.styleBiases,
+    loadBias: artifact.loadBias,
+    noveltyTarget: artifact.noveltyTarget,
+    rerankHints: artifact.rerankHints,
+    candidateInstructions: artifact.candidateInstructions,
+  };
+}
+
+export function buildStageOnePlannerRequestPayload(
+  request: GenerationRequest,
+  planningBrief?: PlanningBrief,
+  candidatePool?: ExerciseCandidatePool,
+) {
+  return {
+    request: {
+      focus: request.focus,
+      timeMinutes: request.timeMinutes,
+      equipment: request.equipment,
+      energy: request.energy,
+      feedback: request.feedback,
+      notes: request.notes,
+      planningDateLocal: request.planningDateLocal,
+      upcomingEvents: request.upcomingEvents,
+      baselineWorkout: request.baselineWorkout
+        ? {
+            focus: request.baselineWorkout.focus,
+            durationMinutes: request.baselineWorkout.durationMinutes,
+            equipment: request.baselineWorkout.equipment,
+            summary: request.baselineWorkout.summary,
+          }
+        : undefined,
+    },
+    planningBrief: buildPlanningBriefPromptData(planningBrief),
+    candidatePool: buildCandidatePoolPromptData(candidatePool),
+    instructions: STAGE_ONE_PLANNER_INSTRUCTIONS,
   };
 }
 
@@ -114,6 +187,7 @@ export function buildRegenerationMessage(
   feedback?: RegenerationFeedback[],
   candidatePool?: ExerciseCandidatePool,
   planningBrief?: PlanningBrief,
+  stageOneArtifact?: StageOnePlannerArtifact,
 ): string {
   const parts: string[] = [];
 
@@ -139,6 +213,23 @@ export function buildRegenerationMessage(
       parts.push(
         `Protect freshness for ${planningBrief.eventProtection.title} on ${planningBrief.eventProtection.localDate}.`,
       );
+    }
+  }
+
+  if (stageOneArtifact) {
+    parts.push(
+      `Planner intent: ${stageOneArtifact.planningIntent}. Confidence: ${stageOneArtifact.confidence}.`,
+    );
+    if (stageOneArtifact.resolvedFocus) {
+      parts.push(`Planner-resolved focus: ${stageOneArtifact.resolvedFocus}.`);
+    }
+    if (stageOneArtifact.avoidStressors.length > 0) {
+      parts.push(
+        `Planner avoid stressors: ${stageOneArtifact.avoidStressors.join(', ')}.`,
+      );
+    }
+    if (stageOneArtifact.noveltyTarget) {
+      parts.push(`Novelty target: ${stageOneArtifact.noveltyTarget}.`);
     }
   }
 

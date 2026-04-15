@@ -12,6 +12,8 @@ export type {
   GenerationState,
   TransformationMetadata,
   ModelRouter,
+  StageOnePlanner,
+  StageOnePlanningOptions,
   GenerationResult,
   ModelGenerationOptions,
   PlanningBrief,

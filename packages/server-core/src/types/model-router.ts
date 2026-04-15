@@ -3,7 +3,7 @@ import type {
   GenerationContext,
   TodayPlan,
 } from '@workout-agent/shared';
-import type { PlanningBrief } from './planning';
+import type { PlanningBrief, StageOnePlannerArtifact } from './planning';
 
 export interface ExerciseCandidateReference {
   id: string;
@@ -30,6 +30,7 @@ export interface ModelPromptCapture {
   schemaVersion?: string;
   isRegeneration: boolean;
   content: string;
+  phase?: 'stage-one-planner' | 'stage-two-generation';
 }
 
 /**
@@ -76,6 +77,11 @@ export interface ModelGenerationOptions {
    * Internal planning artifact derived before provider prompting.
    */
   planningBrief?: PlanningBrief;
+
+  /**
+   * Optional advisory artifact from the stage-one planner.
+   */
+  stageOneArtifact?: StageOnePlannerArtifact;
 
   /**
    * Optional sink for capturing the provider prompt for debugging/evaluation.

@@ -11,7 +11,10 @@ import {
   type ModelPromptCapture,
   type ModelRouter,
 } from '@workout-agent-ce/server-core';
-import { DefaultModelRouter } from '@workout-agent-ce/server-ai';
+import {
+  DefaultModelRouter,
+  DefaultStageOnePlanner,
+} from '@workout-agent-ce/server-ai';
 import {
   generationEvaluationReportSchema,
   type GenerationEvaluationExecutionSource,
@@ -132,7 +135,9 @@ function createHandlerBundle(
 ): HandlerBundle {
   const store = new InMemoryGenerationStore();
   const router = new PromptCapturingRouter();
+  const planner = new DefaultStageOnePlanner();
   const useVertexAi = process.env.GOOGLE_GENAI_USE_VERTEXAI === 'true';
+  const enableStageOnePlanner = process.env.ENABLE_STAGE_ONE_PLANNER === 'true';
   const hasGeminiAccess = Boolean(process.env.GEMINI_API_KEY) || useVertexAi;
   const hasConfiguredAccess =
     provider === 'mock'
@@ -146,6 +151,7 @@ function createHandlerBundle(
       auth: new StubAuthProvider(),
       store,
       router,
+      planner,
       config: {
         edition,
         defaultProvider: provider === 'mock' ? 'openai' : provider,
@@ -156,6 +162,7 @@ function createHandlerBundle(
                 openai: process.env.OPENAI_API_KEY,
                 gemini: process.env.GEMINI_API_KEY,
               },
+        enableStageOnePlanner,
         useVertexAi,
         googleCloudProject: process.env.GOOGLE_CLOUD_PROJECT,
         googleCloudLocation: process.env.GOOGLE_CLOUD_LOCATION,
