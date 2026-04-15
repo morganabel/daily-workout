@@ -101,7 +101,10 @@ function canUseProviderContinuity(
     request.baselineWorkout?.generationProvenance ??
     previousPlan?.generationProvenance;
 
-  return !provenance || provenance.provider === provider;
+  return (
+    provenance?.provider === provider &&
+    provenance.responseId === request.previousResponseId
+  );
 }
 
 function createProviderRequest(
@@ -307,6 +310,7 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
       provider,
       previousPlan: previousState?.plan,
     });
+    let effectivePlanningBrief = planningBrief;
     let candidatePool:
       | ReturnType<typeof buildExerciseCandidatePool>
       | undefined;
@@ -317,15 +321,25 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
           exerciseLibrary: deps.exerciseLibrary,
           request: providerRequest,
           context,
-          planningBrief,
+          planningBrief: effectivePlanningBrief,
           previousPlan: previousState?.plan,
         });
+        if (
+          candidatePool.candidateExercises.length === 0 &&
+          candidatePool.diagnostics?.blockerCodes?.length
+        ) {
+          effectivePlanningBrief = {
+            ...effectivePlanningBrief,
+            fallbackReasons: candidatePool.diagnostics.blockerCodes,
+          };
+        }
         log.info('exercise candidate pool prepared', {
           libraryVersion: candidatePool.libraryVersion,
           totalEligibleCount: candidatePool.totalEligibleCount,
           candidateCount: candidatePool.candidateExercises.length,
           baselineExerciseCount: candidatePool.baselineExerciseIds.length,
           blockerCodes: candidatePool.diagnostics?.blockerCodes,
+          fallbackReasons: effectivePlanningBrief.fallbackReasons,
           isRegeneration,
         });
       } catch (error) {
@@ -341,10 +355,11 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
       provider,
       hasApiKey: Boolean(apiKey),
       isByok,
-      isRegeneration: planningBrief.regeneration.isRegeneration,
-      focusMode: planningBrief.focusMode,
-      resolvedFocus: planningBrief.resolvedFocus,
-      regenerationMode: planningBrief.regeneration.mode,
+      isRegeneration: effectivePlanningBrief.regeneration.isRegeneration,
+      focusMode: effectivePlanningBrief.focusMode,
+      resolvedFocus: effectivePlanningBrief.resolvedFocus,
+      regenerationMode: effectivePlanningBrief.regeneration.mode,
+      fallbackReasons: effectivePlanningBrief.fallbackReasons,
       hasFeedback: (generationRequest.feedback?.length ?? 0) > 0,
       feedbackCount: generationRequest.feedback?.length ?? 0,
     });
@@ -365,7 +380,7 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
         const result = await deps.router.generate(providerRequest, context, {
           apiKey: useVertexAi ? undefined : (apiKey ?? undefined),
           candidatePool,
-          planningBrief,
+          planningBrief: effectivePlanningBrief,
           provider,
           useVertexAi,
         });

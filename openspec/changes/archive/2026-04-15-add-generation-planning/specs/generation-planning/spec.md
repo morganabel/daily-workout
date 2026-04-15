@@ -72,11 +72,11 @@ The planning layer MUST support both stateful and stateless regeneration. Statef
 
 ### Requirement: Planning Fallback Is Explicit
 
-The system MUST treat planning degradation as an explicit server-side decision. If the exercise library cannot satisfy one or more requested block intents using planner-safe candidates, the planner MUST record a fallback reason and fallback mode instead of silently relaxing hard constraints inside the query layer.
+The system MUST treat planning degradation as an explicit server-side decision. If the exercise library cannot satisfy the requested hard constraints using planner-safe candidates, the planner MUST record a fallback reason and fallback mode instead of silently relaxing hard constraints inside the query layer.
 
 #### Scenario: Empty candidate pool records explicit planner fallback
 
-- **WHEN** a block-level planning query returns no eligible `planner-ready` candidates for the requested hard constraints
+- **WHEN** a planner-backed candidate query returns no eligible `planner-ready` candidates for the requested hard constraints
 - **THEN** the planner records a structured fallback reason for that block before deciding whether to proceed in a degraded mode or fail the generation request
 
 #### Scenario: Planner fallback remains internal

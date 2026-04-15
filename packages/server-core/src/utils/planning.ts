@@ -113,6 +113,7 @@ export function derivePlanningBrief({
     ],
     variationMode,
     fallbackMode: 'strict-library',
+    fallbackReasons: [],
     regeneration: {
       isRegeneration: Boolean(request.previousResponseId || baselineWorkout),
       mode:

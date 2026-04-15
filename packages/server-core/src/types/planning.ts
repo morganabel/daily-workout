@@ -54,5 +54,6 @@ export interface PlanningBrief {
   blockIntents: PlanningBlockIntent[];
   variationMode: PlanningVariationMode;
   fallbackMode: PlanningFallbackMode;
+  fallbackReasons: string[];
   regeneration: PlanningRegenerationSummary;
 }

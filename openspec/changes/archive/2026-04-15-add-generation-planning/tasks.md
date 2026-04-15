@@ -14,7 +14,7 @@
 ## 3. Exercise-Library Planner Queries And Candidate Pools
 
 - [x] 3.1 Integrate the SQLite exercise-library query layer as a prerequisite dependency for candidate-pool derivation
-- [x] 3.2 Extend planner-facing exercise-library queries for block-scoped candidate selection and baseline exercise exclusions
+- [x] 3.2 Extend planner-facing exercise-library queries for planner-backed candidate selection and baseline exercise exclusions
 - [x] 3.3 Add structured no-match diagnostics that explain planner-visible blocker categories without silently relaxing hard filters
 - [x] 3.4 Implement bounded candidate-pool construction from planning-brief constraints and style/load bias
 - [x] 3.5 Add tests that candidate-pool derivation honors hard filters, stable ordering, and explicit fallback scenarios for representative constraint-heavy cases
@@ -29,5 +29,5 @@
 
 - [x] 5.1 Record internal planning diagnostics needed for debugging and evaluation without exposing them in the public response
 - [x] 5.2 Capture library-version context and planner fallback metadata in logging or evaluation hooks
-- [ ] 5.3 Extend targeted generation-evaluation coverage for Smart mode, event protection, constraint-heavy candidate pools, explicit fallback behavior, and provider-aware regeneration behavior
+- [x] 5.3 Extend targeted generation-evaluation coverage for Smart mode, event protection, constraint-heavy candidate pools, explicit fallback behavior, and provider-aware regeneration behavior
 - [x] 5.4 Validate the OpenSpec change and confirm readiness for implementation after the SQLite exercise-library prerequisite is available

@@ -94,6 +94,34 @@ When a caller provides optional search text, the query surface MUST apply full-t
 - **WHEN** a candidate query includes search text alongside hard filters such as equipment and environment constraints
 - **THEN** the library returns only exercises that satisfy the hard filters, with BM25/FTS ranking used only to order the eligible set by text relevance
 
+### Requirement: Planner-Facing Candidate Queries
+
+The exercise library query surface MUST support planner-facing candidate selection for workout planning. Planner-facing queries MUST be able to apply planning constraints, bounded result limits, and baseline exercise exclusions while preserving the default `planner-ready` safety gate.
+
+#### Scenario: Planning query applies planner constraints
+
+- **WHEN** the generation planner requests candidate exercises for a workout session
+- **THEN** the library can return a bounded candidate pool that reflects that session's constraints, preferences, and search text while still enforcing hard filters
+
+#### Scenario: Variation query excludes baseline exercise IDs
+
+- **WHEN** the planner prepares a regeneration query with baseline exercise IDs that should be avoided
+- **THEN** the library excludes those IDs from the candidate result while still applying the remaining hard filters and completeness gate
+
+### Requirement: Planner Query Diagnostics
+
+The exercise library MUST provide structured planner-facing diagnostics when the eligible `planner-ready` set cannot satisfy a planner query. Those diagnostics MUST identify the primary blocker categories needed for fallback and later coverage expansion.
+
+#### Scenario: No-match result includes explicit blocker diagnostics
+
+- **WHEN** a planner query returns no eligible `planner-ready` exercises
+- **THEN** the library returns structured blocker diagnostics that let the server distinguish issues such as unsupported equipment, unresolved family coverage, or other planner-visible readiness gaps
+
+#### Scenario: Diagnostics do not lower the completeness gate
+
+- **WHEN** planner-facing diagnostics are returned for an empty result
+- **THEN** the library still excludes lower-completeness exercises from the eligible set unless an internal non-production path explicitly requests them
+
 ### Requirement: Library Validation And Versioning
 
 The exercise library build and validation workflow MUST verify schema integrity, required metadata presence, and representative query behavior before the library is treated as ready for server-side planning.

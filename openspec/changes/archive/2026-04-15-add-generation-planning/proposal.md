@@ -8,8 +8,8 @@ We need a dedicated generation-planning layer now so the server can convert raw 
 
 - Add a server-side generation-planning flow that derives a deterministic planning brief from request inputs, merged user context, planned date, and optional regeneration baseline workout data
 - Make `Smart` or auto focus operational by resolving session intent, protection rules, focus bias, and coarse load ceilings before model generation instead of relying on the model to infer everything from raw labels
-- Use the SQLite exercise library as a prerequisite dependency and query it to build bounded candidate pools for generation and regeneration, including block-level planning inputs, variation rules, and explicit fallback semantics
-- Extend exercise-library requirements for planner-facing queries that support per-block candidate pools, baseline exclusions, and explicit no-match diagnostics instead of silent relaxation
+- Use the SQLite exercise library as a prerequisite dependency and query it to build bounded candidate pools for generation and regeneration, including planning intent inputs, variation rules, and explicit fallback semantics
+- Extend exercise-library requirements for planner-facing queries that support planner-backed candidate pools, baseline exclusions, and explicit no-match diagnostics instead of silent relaxation
 - Make regeneration provider-aware so OpenAI can reuse provider-side continuity when available, while Gemini and any stateless path can regenerate from explicit baseline workout context plus fresh candidate pools
 - Extend generation contracts only where operationally necessary, such as passing planning-date context, regeneration baseline data, and minimal provenance needed for safe regeneration behavior, while keeping diagnostics internal to the server or evaluation flow
 - Preserve CE and hosted parity for planning behavior; hosted quota and BYOK behavior remain unchanged because this is a server-side planning refinement, not a new billing surface
@@ -23,7 +23,7 @@ We need a dedicated generation-planning layer now so the server can convert raw 
 ### Modified Capabilities
 
 - `home-data`: Update workout-generation request and persistence requirements so the system can accept planning-date and regeneration-baseline inputs, preserve the minimal provenance needed for regeneration, and run library-backed planning before returning a `TodayPlan`
-- `exercise-library`: Extend planner-facing query requirements to support block-scoped candidate selection, baseline exclusions for regeneration, and explicit diagnostics when the `planner-ready` subset cannot satisfy a request
+- `exercise-library`: Extend planner-facing query requirements to support planner-backed candidate selection, baseline exclusions for regeneration, and explicit diagnostics when the `planner-ready` subset cannot satisfy a request
 
 ## Impact
 

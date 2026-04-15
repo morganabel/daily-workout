@@ -145,6 +145,7 @@ describe('derivePlanningBrief', () => {
 
     expect(brief.recentStressorsToAvoid).toContain('lower_body');
     expect(brief.resolvedFocus).toBe('Upper Body');
+    expect(brief.fallbackReasons).toEqual([]);
   });
 
   it('biases away from a single recent leg day for split-style users', () => {

@@ -2,7 +2,7 @@
 
 The repository now has solid generation contracts, provider routing, structured outputs, scenario-based evaluation, and a packaged SQLite exercise library with `planner-ready` gating, BM25-assisted candidate ranking, and provider prompt integration for bounded candidate pools. That work solved the local exercise-source problem, but generation still lacks an explicit server-side artifact that says what kind of session should be built, how Smart focus should resolve, how block intent should be distributed, when prior exercise IDs must be excluded during regeneration, or how to behave when the bounded library cannot fully satisfy a request.
 
-This change is where the server starts converting raw inputs into planning decisions before prompting. It is cross-cutting because it introduces a new internal planning stage between request or context normalization and provider prompting. It also raises the bar for the exercise-library query surface: the planner needs block-scoped candidate queries, explainable no-match diagnostics, and better readiness coverage for unresolved equipment or family gaps. The public `TodayPlan` contract should stay stable, and CE or hosted behavior should remain aligned apart from existing hosted billing and BYOK policies.
+This change is where the server starts converting raw inputs into planning decisions before prompting. It is cross-cutting because it introduces a new internal planning stage between request or context normalization and provider prompting. It also raises the bar for the exercise-library query surface: the planner needs bounded candidate queries, explainable no-match diagnostics, and better readiness coverage for unresolved equipment or family gaps. The public `TodayPlan` contract should stay stable, and CE or hosted behavior should remain aligned apart from existing hosted billing and BYOK policies.
 
 The design should improve generation quality without turning the system into a fully deterministic workout engine. The right scope is deterministic intent resolution plus bounded candidate selection, followed by model composition of the final workout.
 
@@ -12,7 +12,7 @@ The design should improve generation quality without turning the system into a f
 
 - Add a deterministic server-side planning brief that compresses request/context into decision-ready inputs for generation
 - Resolve `Smart` focus into explicit session intent, disallowed stressors, and coarse load ceilings before model generation
-- Use the SQLite exercise library to build bounded candidate pools that respect hard constraints, support style-aware biasing, and allow block-scoped planning
+- Use the SQLite exercise library to build bounded candidate pools that respect hard constraints, support style-aware biasing, and stay session-level in v1
 - Support dependable regeneration for both stateful and stateless providers by making baseline workout context explicit
 - Add explicit planner-owned fallback semantics and planner-facing query diagnostics instead of relying on hidden relaxation
 - Keep diagnostics internal while preserving a stable user-facing workout response as much as possible
@@ -59,14 +59,13 @@ Alternatives considered:
 - Full rules-based workout generation: rejected because it is too large a jump and would fight the existing LLM-first architecture
 - Second LLM planning call for Smart mode: rejected for the first pass because it adds cost/latency before deterministic resolution has been proven insufficient
 
-### Decision: Plan with bounded, block-scoped exercise-library candidate pools
+### Decision: Plan with bounded exercise-library candidate pools
 
-The planning layer will query the exercise library to produce bounded eligible pools that reflect hard constraints and style/load biases. Where the session has distinct block intents, the planner will query per block instead of relying on a single flat candidate pool for the whole workout.
+The planning layer will query the exercise library to produce bounded eligible pools that reflect hard constraints and style/load biases. In v1, the planner will derive a single session-level candidate pool and pass block intents only as prompt guidance instead of doing deterministic per-block retrieval.
 
 Why this approach:
 
 - It captures most of the reliability gain without requiring a complete deterministic assembly engine
-- Workout blocks often have different roles and constraints, so a single pool is too coarse
 - It improves constraint-heavy cases such as quiet, travel, injury-sensitive, and style-specific sessions
 - It makes stateless regeneration much more dependable, especially for Gemini
 
@@ -74,7 +73,7 @@ Alternatives considered:
 
 - Keep open-world exercise generation with prompt-only guardrails: rejected because that is the current weakness
 - Hard closed-world selection immediately: rejected because library coverage and prompt adaptation should be proven incrementally
-- Keep a session-wide candidate pool only: rejected because it weakens block-level intent and makes prompt selection noisier when the candidate set grows
+- Query per block immediately: rejected for v1 because it adds deterministic structure in an area where we still want the model to compose the workout
 
 ### Decision: Make regeneration explicitly provider-aware
 
@@ -93,7 +92,7 @@ Alternatives considered:
 
 ### Decision: Keep fallback behavior explicit and planner-owned
 
-When a block cannot be satisfied by the `planner-ready` subset, the planner will emit an explicit fallback reason and mode rather than silently relaxing hard constraints inside the query layer. The exercise-library query surface will grow planner-facing operations that support block-scoped candidate selection, baseline exercise exclusion, and structured blocker diagnostics for unresolved equipment, family, or completeness gaps.
+When the planner-safe candidate path cannot satisfy the requested hard constraints using the `planner-ready` subset, the planner will emit an explicit fallback reason and mode rather than silently relaxing hard constraints inside the query layer. The exercise-library query surface will grow planner-facing operations that support bounded candidate selection, baseline exercise exclusion, and structured blocker diagnostics for unresolved equipment, family, or completeness gaps.
 
 Why this approach:
 
@@ -137,7 +136,7 @@ Alternatives considered:
 1. Validate the SQLite exercise-library prerequisite and its planner-facing query contract.
 2. Add shared request/plan contract fields needed for planning date, baseline workout context, and minimal regeneration provenance.
 3. Add the server-side PlanningBrief derivation and deterministic Smart resolver without changing the final workout response shape.
-4. Extend exercise-library planner queries for block-scoped candidate selection, exclusions, and structured no-match diagnostics.
+4. Extend exercise-library planner queries for bounded candidate selection, exclusions, and structured no-match diagnostics.
 5. Integrate exercise-library candidate-pool queries into initial generation and regeneration flows.
 6. Update provider prompting to consume the planning brief and provider-aware regeneration inputs.
 7. Update mobile regeneration submissions to always send full context and baseline workout data.
