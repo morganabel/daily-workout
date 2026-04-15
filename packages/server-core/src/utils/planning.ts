@@ -9,6 +9,10 @@ import type {
 const DEFAULT_DURATION_MINUTES = 30;
 const DEFAULT_EQUIPMENT = ['Bodyweight'];
 const EVENT_PROTECTION_WINDOW_DAYS = 2;
+const RECENT_SESSION_WINDOW_DAYS = 7;
+const SINGLE_SESSION_BIAS_WINDOW_DAYS = 3;
+
+type TrainingRhythm = 'split' | 'full_body' | 'unknown';
 
 export interface DerivePlanningBriefParams {
   request: GenerationRequestWithContext;
@@ -41,9 +45,17 @@ export function derivePlanningBrief({
     request.upcomingEvents ?? [],
     planningDateLocal,
   );
-  const recentStressorsToAvoid = deriveRecentStressorsToAvoid(context);
+  const trainingRhythm = detectTrainingRhythm(context);
+  const recentStressorsToAvoid = deriveRecentStressorsToAvoid(
+    context,
+    planningDateLocal,
+    trainingRhythm,
+  );
+  const recentSessionDisallowedStressors =
+    deriveRecentSessionDisallowedStressors(recentStressorsToAvoid);
   const disallowedStressors = [
     ...new Set([
+      ...recentSessionDisallowedStressors,
       ...deriveInjuryStressors(context),
       ...deriveAvoidStressors(context),
       ...deriveEventStressors(eventProtection),
@@ -176,6 +188,13 @@ function resolveFocus(params: {
     return 'Upper Body & Core';
   }
 
+  if (
+    recentStressorsToAvoid.includes('push') &&
+    recentStressorsToAvoid.includes('pull')
+  ) {
+    return 'Lower Body';
+  }
+
   if (recentStressorsToAvoid.includes('lower_body')) {
     return 'Upper Body';
   }
@@ -238,18 +257,155 @@ function collectUnknowns(
   return [...unknowns];
 }
 
-function deriveRecentStressorsToAvoid(context: GenerationContext): string[] {
+function deriveRecentStressorsToAvoid(
+  context: GenerationContext,
+  planningDateLocal: string,
+  trainingRhythm: TrainingRhythm,
+): string[] {
   const counts = new Map<string, number>();
+  let latestSession: GenerationContext['recentSessions'][number] | undefined;
 
   for (const session of context.recentSessions) {
+    if (!isRecentSession(session.completedAt, planningDateLocal)) {
+      continue;
+    }
+
+    if (
+      !latestSession ||
+      new Date(session.completedAt).getTime() >
+        new Date(latestSession.completedAt).getTime()
+    ) {
+      latestSession = session;
+    }
+
     for (const stressor of inferStressors(session.focus)) {
       counts.set(stressor, (counts.get(stressor) ?? 0) + 1);
     }
   }
 
-  return [...counts.entries()]
+  const stressors = [...counts.entries()]
     .filter(([, count]) => count >= 2)
     .map(([stressor]) => stressor);
+
+  if ((counts.get('push') ?? 0) > 0 && (counts.get('pull') ?? 0) > 0) {
+    stressors.push('push', 'pull');
+  }
+
+  if (
+    latestSession &&
+    shouldBiasAwayFromLatestSession(
+      latestSession,
+      planningDateLocal,
+      trainingRhythm,
+    )
+  ) {
+    stressors.push(...inferStressors(latestSession.focus));
+  }
+
+  return [...new Set(stressors)];
+}
+
+function deriveRecentSessionDisallowedStressors(
+  recentStressorsToAvoid: string[],
+): string[] {
+  const stressors = new Set<string>();
+
+  if (recentStressorsToAvoid.includes('lower_body')) {
+    stressors.add('lower_body_fatigue');
+    stressors.add('axial_loading');
+    stressors.add('high_bracing');
+  }
+  if (recentStressorsToAvoid.includes('push')) {
+    stressors.add('upper_body_push_fatigue');
+    stressors.add('shoulder_loading');
+  }
+  if (recentStressorsToAvoid.includes('pull')) {
+    stressors.add('upper_body_pull_fatigue');
+    stressors.add('grip_heavy');
+  }
+
+  return [...stressors];
+}
+
+function detectTrainingRhythm(context: GenerationContext): TrainingRhythm {
+  const explicitClues = [
+    ...(context.preferences.focusBias ?? []),
+    context.userProfile.preferredStyle,
+    context.notes,
+  ]
+    .filter(Boolean)
+    .map((value) => normalizeText(value as string));
+  const recentFocuses = context.recentSessions.map((session) =>
+    normalizeText(session.focus),
+  );
+
+  if (
+    explicitClues.some(
+      (value) =>
+        value.includes('push pull legs') ||
+        value.includes('ppl') ||
+        value.includes('upper lower') ||
+        value.includes('split') ||
+        value.includes('bodybuilding') ||
+        value.includes('powerbuilding') ||
+        value.includes('powerlifting'),
+    )
+  ) {
+    return 'split';
+  }
+
+  if (explicitClues.some((value) => value.includes('full body'))) {
+    return 'full_body';
+  }
+
+  const recentSplitFocusCount = recentFocuses.filter(
+    (value) =>
+      value.includes('push') ||
+      value.includes('pull') ||
+      value.includes('upper body') ||
+      value.includes('lower body') ||
+      value.includes('legs'),
+  ).length;
+
+  if (recentSplitFocusCount >= 2) {
+    return 'split';
+  }
+
+  if (recentFocuses.some((value) => value.includes('full body'))) {
+    return 'full_body';
+  }
+
+  return 'unknown';
+}
+
+function shouldBiasAwayFromLatestSession(
+  session: GenerationContext['recentSessions'][number],
+  planningDateLocal: string,
+  trainingRhythm: TrainingRhythm,
+): boolean {
+  if (
+    !isRecentSession(
+      session.completedAt,
+      planningDateLocal,
+      SINGLE_SESSION_BIAS_WINDOW_DAYS,
+    )
+  ) {
+    return false;
+  }
+
+  if (session.perceivedEffort === 'easy') {
+    return false;
+  }
+
+  switch (trainingRhythm) {
+    case 'split':
+      return true;
+    case 'unknown':
+      return session.perceivedEffort === 'intense';
+    case 'full_body':
+    default:
+      return false;
+  }
 }
 
 function deriveInjuryStressors(context: GenerationContext): string[] {
@@ -373,6 +529,14 @@ function inferStressors(value: string): string[] {
   const normalized = normalizeText(value);
   const stressors = new Set<string>();
 
+  if (normalized.includes('push')) {
+    stressors.add('push');
+    stressors.add('upper_body');
+  }
+  if (normalized.includes('pull')) {
+    stressors.add('pull');
+    stressors.add('upper_body');
+  }
   if (normalized.includes('upper')) {
     stressors.add('upper_body');
   }
@@ -394,6 +558,25 @@ function inferStressors(value: string): string[] {
   }
 
   return [...stressors];
+}
+
+function isRecentSession(
+  completedAt: string,
+  planningDateLocal: string,
+  maxAgeDays = RECENT_SESSION_WINDOW_DAYS,
+): boolean {
+  const sessionDate = new Date(completedAt);
+  const planningDate = parseLocalDate(planningDateLocal);
+  const dayDistance = diffLocalDays(
+    new Date(
+      sessionDate.getFullYear(),
+      sessionDate.getMonth(),
+      sessionDate.getDate(),
+    ),
+    planningDate,
+  );
+
+  return dayDistance >= 0 && dayDistance <= maxAgeDays;
 }
 
 function countExercises(

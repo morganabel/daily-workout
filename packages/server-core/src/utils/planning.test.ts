@@ -146,4 +146,137 @@ describe('derivePlanningBrief', () => {
     expect(brief.recentStressorsToAvoid).toContain('lower_body');
     expect(brief.resolvedFocus).toBe('Upper Body');
   });
+
+  it('biases away from a single recent leg day for split-style users', () => {
+    const brief = derivePlanningBrief({
+      request: {
+        focus: 'Smart',
+        planningDateLocal: '2026-04-15',
+      },
+      context: createContext({
+        userProfile: {
+          preferredStyle: 'Bodybuilding',
+        },
+        preferences: {
+          focusBias: ['Upper Body', 'Lower Body'],
+        },
+        recentSessions: [
+          {
+            id: 's1',
+            name: 'Heavy Leg Day',
+            completedAt: '2026-04-14T12:00:00.000Z',
+            durationMinutes: 60,
+            focus: 'Lower Body',
+            perceivedEffort: 'moderate',
+          },
+        ],
+      }),
+      provider: 'openai',
+    });
+
+    expect(brief.recentStressorsToAvoid).toContain('lower_body');
+    expect(brief.disallowedStressors).toEqual(
+      expect.arrayContaining([
+        'lower_body_fatigue',
+        'axial_loading',
+        'high_bracing',
+      ]),
+    );
+    expect(brief.resolvedFocus).toBe('Upper Body');
+  });
+
+  it('suggests lower body after a recent push then pull sequence', () => {
+    const brief = derivePlanningBrief({
+      request: {
+        focus: 'Smart',
+        planningDateLocal: '2026-04-15',
+      },
+      context: createContext({
+        recentSessions: [
+          {
+            id: 's1',
+            name: 'Push Day',
+            completedAt: '2026-04-12T12:00:00.000Z',
+            durationMinutes: 45,
+            focus: 'Push',
+          },
+          {
+            id: 's2',
+            name: 'Pull Day',
+            completedAt: '2026-04-14T12:00:00.000Z',
+            durationMinutes: 45,
+            focus: 'Pull',
+          },
+        ],
+      }),
+      provider: 'openai',
+    });
+
+    expect(brief.recentStressorsToAvoid).toEqual(
+      expect.arrayContaining(['push', 'pull', 'upper_body']),
+    );
+    expect(brief.resolvedFocus).toBe('Lower Body');
+  });
+
+  it('ignores sessions older than a week when resolving smart focus', () => {
+    const brief = derivePlanningBrief({
+      request: {
+        focus: 'Smart',
+        planningDateLocal: '2026-04-15',
+      },
+      context: createContext({
+        recentSessions: [
+          {
+            id: 's1',
+            name: 'Old Push Day',
+            completedAt: '2026-04-05T12:00:00.000Z',
+            durationMinutes: 45,
+            focus: 'Push',
+          },
+          {
+            id: 's2',
+            name: 'Old Pull Day',
+            completedAt: '2026-04-06T12:00:00.000Z',
+            durationMinutes: 45,
+            focus: 'Pull',
+          },
+        ],
+      }),
+      provider: 'gemini',
+    });
+
+    expect(brief.recentStressorsToAvoid).not.toEqual(
+      expect.arrayContaining(['push', 'pull']),
+    );
+    expect(brief.resolvedFocus).toBe('Strength');
+  });
+
+  it('does not strongly bias away from a single recent session for full-body users', () => {
+    const brief = derivePlanningBrief({
+      request: {
+        focus: 'Smart',
+        planningDateLocal: '2026-04-15',
+      },
+      context: createContext({
+        userProfile: {
+          preferredStyle: 'Full Body',
+        },
+        recentSessions: [
+          {
+            id: 's1',
+            name: 'Legs Yesterday',
+            completedAt: '2026-04-14T12:00:00.000Z',
+            durationMinutes: 45,
+            focus: 'Lower Body',
+            perceivedEffort: 'moderate',
+          },
+        ],
+      }),
+      provider: 'gemini',
+    });
+
+    expect(brief.recentStressorsToAvoid).not.toContain('lower_body');
+    expect(brief.disallowedStressors).not.toContain('lower_body_fatigue');
+    expect(brief.resolvedFocus).toBe('Full Body');
+  });
 });
