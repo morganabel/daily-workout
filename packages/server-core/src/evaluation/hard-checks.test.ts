@@ -68,6 +68,44 @@ describe('runHardChecksForScenario', () => {
     );
   });
 
+  it('passes equipment-fit for wall in indoor settings', () => {
+    const scenario = workoutGenerationEvaluationScenarios.find(
+      (item) => item.id === 'notes-quiet-apartment',
+    );
+
+    const plan = createTodayPlanMock({
+      focus: 'Mobility & Recovery',
+      durationMinutes: 20,
+      equipment: ['Wall'],
+    });
+
+    const results = runHardChecksForScenario(scenario!, plan);
+
+    expect(results.find((item) => item.name === 'equipment-fit')?.status).toBe(
+      'pass',
+    );
+  });
+
+  it('fails equipment-fit for wall in outdoor settings', () => {
+    const outdoorScenario = workoutGenerationEvaluationScenarios.find(
+      (item) => item.id === 'beach-vacation-band-and-towel-35',
+    );
+
+    expect(outdoorScenario).toBeDefined();
+
+    const plan = createTodayPlanMock({
+      focus: 'Mobility & Recovery',
+      durationMinutes: 25,
+      equipment: ['Wall'],
+    });
+
+    const results = runHardChecksForScenario(outdoorScenario!, plan);
+
+    expect(results.find((item) => item.name === 'equipment-fit')?.status).toBe(
+      'fail',
+    );
+  });
+
   it('fails injury-safety when banned exercise terms are present', () => {
     const scenario = workoutGenerationEvaluationScenarios.find(
       (item) => item.id === 'shoulder-constraint-bodyweight',

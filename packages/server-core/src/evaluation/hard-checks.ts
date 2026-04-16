@@ -11,7 +11,22 @@ function normalize(value: string): string {
   return value.trim().toLowerCase();
 }
 
-const IMPLICIT_EQUIPMENT = new Set(['mat', 'yoga mat', 'exercise mat']);
+const IMPLICIT_EQUIPMENT = new Set(['mat', 'yoga mat', 'exercise mat', 'wall']);
+const OUTDOOR_LOCATION_KEYWORDS = [
+  'outdoor',
+  'outside',
+  'beach',
+  'park',
+  'trail',
+  'track',
+  'field',
+  'court',
+  'campsite',
+  'campground',
+  'playground',
+  'street',
+  'sidewalk',
+];
 
 function normalizeEquipment(value: string): string {
   const normalized = normalize(value);
@@ -25,8 +40,28 @@ function normalizeEquipment(value: string): string {
   }
 }
 
-function isImplicitEquipment(value: string): boolean {
-  return IMPLICIT_EQUIPMENT.has(normalizeEquipment(value));
+function isImplicitEquipment(
+  value: string,
+  scenario?: GenerationEvaluationScenario,
+): boolean {
+  const normalized = normalizeEquipment(value);
+  if (normalized === 'wall') {
+    return !isOutdoorScenario(scenario);
+  }
+
+  return IMPLICIT_EQUIPMENT.has(normalized);
+}
+
+function isOutdoorScenario(scenario?: GenerationEvaluationScenario): boolean {
+  const location = scenario?.context?.environment.location;
+  if (!location) {
+    return false;
+  }
+
+  const normalizedLocation = normalize(location);
+  return OUTDOOR_LOCATION_KEYWORDS.some((keyword) =>
+    normalizedLocation.includes(keyword),
+  );
 }
 
 function buildExerciseNameText(plan: TodayPlan): string {
@@ -136,7 +171,8 @@ function runEquipmentFitCheck(
 
   const unexpected = plan.equipment.filter(
     (item) =>
-      !isImplicitEquipment(item) && !allowed.has(normalizeEquipment(item)),
+      !isImplicitEquipment(item, scenario) &&
+      !allowed.has(normalizeEquipment(item)),
   );
   return unexpected.length === 0
     ? buildResult('equipment-fit', 'pass')
