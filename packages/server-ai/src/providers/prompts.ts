@@ -342,7 +342,7 @@ export function buildRegenerationMessage(
 
   if (shouldForceExerciseChanges) {
     parts.push(
-      'When viable alternatives exist, materially change the exercise selection from the baseline workout. Do not just reshuffle the same baseline exercises into new blocks or lightly rewrite their prescriptions/details.',
+      'When viable alternatives exist, make meaningful exercise changes that are proportional to the feedback. If only one or two baseline exercises are the problem, it is acceptable to replace only those exercises and keep the rest of the workout aligned to the original intent. Do not just reshuffle the exact same full exercise list into new blocks or lightly rewrite prescriptions/details when the user is asking for a real change.',
     );
     if (promptData?.baselineExerciseIds.length) {
       parts.push(

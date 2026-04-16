@@ -236,10 +236,13 @@ describe('buildRegenerationMessage', () => {
       expect(message).toContain('Planner intent: Protect lower-body freshness');
       expect(message).toContain('Novelty target: high');
       expect(message).toContain(
-        'When viable alternatives exist, materially change the exercise selection from the baseline workout.',
+        'When viable alternatives exist, make meaningful exercise changes that are proportional to the feedback.',
       );
       expect(message).toContain(
-        'Do not just reshuffle the same baseline exercises into new blocks or lightly rewrite their prescriptions/details.',
+        'If only one or two baseline exercises are the problem, it is acceptable to replace only those exercises and keep the rest of the workout aligned to the original intent.',
+      );
+      expect(message).toContain(
+        'Do not just reshuffle the exact same full exercise list into new blocks or lightly rewrite prescriptions/details when the user is asking for a real change.',
       );
       expect(message).toContain(
         'Prefer unused exercises from the candidate pool before falling back to any baseline exercise.',
