@@ -20,7 +20,9 @@ import {
 } from '@workout-agent-ce/server-ai';
 import {
   generationEvaluationReportSchema,
+  type GenerationEvaluationAverageLatency,
   type GenerationEvaluationExecutionSource,
+  type GenerationEvaluationLatency,
   type GenerationEvaluationProvider,
   type GenerationEvaluationPlannerSummary,
   type GenerationEvaluationProviderPrompt,
@@ -70,13 +72,25 @@ type ExecutedScenarioResult = {
   payload: unknown;
   executionSource: GenerationEvaluationExecutionSource;
   stateHasPlan: boolean;
+  latencyMs: GenerationEvaluationLatency;
   plannerSummary: GenerationEvaluationPlannerSummary;
   providerPrompt?: GenerationEvaluationProviderPrompt;
+};
+
+type PromptCaptureResult = {
+  prompt?: GenerationEvaluationProviderPrompt;
+  durationMs?: number;
+};
+
+type StageOneCaptureResult = {
+  summary: GenerationEvaluationPlannerSummary;
+  durationMs?: number;
 };
 
 class PromptCapturingRouter implements ModelRouter {
   private readonly inner = new DefaultModelRouter();
   private lastPrompt?: GenerationEvaluationProviderPrompt;
+  private lastDurationMs?: number;
 
   async generate(
     request: GenerationRequest,
@@ -84,14 +98,20 @@ class PromptCapturingRouter implements ModelRouter {
     options: ModelGenerationOptions,
   ) {
     this.lastPrompt = undefined;
+    this.lastDurationMs = undefined;
+    const startedAt = Date.now();
 
-    return this.inner.generate(request, context, {
-      ...options,
-      promptRecorder: (capture: ModelPromptCapture) => {
-        this.lastPrompt = capture;
-        options.promptRecorder?.(capture);
-      },
-    });
+    try {
+      return await this.inner.generate(request, context, {
+        ...options,
+        promptRecorder: (capture: ModelPromptCapture) => {
+          this.lastPrompt = capture;
+          options.promptRecorder?.(capture);
+        },
+      });
+    } finally {
+      this.lastDurationMs = Date.now() - startedAt;
+    }
   }
 
   isSupportedProvider(provider: string): boolean {
@@ -102,10 +122,12 @@ class PromptCapturingRouter implements ModelRouter {
     return this.inner.getDefaultProvider();
   }
 
-  consumeLastPrompt(): GenerationEvaluationProviderPrompt | undefined {
+  consumeLastCapture(): PromptCaptureResult {
     const prompt = this.lastPrompt;
+    const durationMs = this.lastDurationMs;
     this.lastPrompt = undefined;
-    return prompt;
+    this.lastDurationMs = undefined;
+    return { prompt, durationMs };
   }
 }
 
@@ -113,6 +135,7 @@ class PromptCapturingStageOnePlanner implements StageOnePlanner {
   private readonly inner = new DefaultStageOnePlanner();
   private lastPrompt?: GenerationEvaluationProviderPrompt;
   private lastArtifact?: StageOnePlannerArtifact;
+  private lastDurationMs?: number;
 
   async plan(
     request: GenerationRequest,
@@ -121,27 +144,35 @@ class PromptCapturingStageOnePlanner implements StageOnePlanner {
   ) {
     this.lastPrompt = undefined;
     this.lastArtifact = undefined;
+    this.lastDurationMs = undefined;
+    const startedAt = Date.now();
 
-    const artifact = await this.inner.plan(request, context, {
-      ...options,
-      promptRecorder: (capture: ModelPromptCapture) => {
-        this.lastPrompt = capture;
-        options.promptRecorder?.(capture);
-      },
-    });
-    this.lastArtifact = artifact;
-    return artifact;
+    try {
+      const artifact = await this.inner.plan(request, context, {
+        ...options,
+        promptRecorder: (capture: ModelPromptCapture) => {
+          this.lastPrompt = capture;
+          options.promptRecorder?.(capture);
+        },
+      });
+      this.lastArtifact = artifact;
+      return artifact;
+    } finally {
+      this.lastDurationMs = Date.now() - startedAt;
+    }
   }
 
-  consumeLastSummary(): GenerationEvaluationPlannerSummary {
+  consumeLastCapture(): StageOneCaptureResult {
     const summary: GenerationEvaluationPlannerSummary = {
       usedStageOne: Boolean(this.lastArtifact),
       artifact: this.lastArtifact,
       stageOnePrompt: this.lastPrompt,
     };
+    const durationMs = this.lastDurationMs;
     this.lastPrompt = undefined;
     this.lastArtifact = undefined;
-    return summary;
+    this.lastDurationMs = undefined;
+    return { summary, durationMs };
   }
 }
 
@@ -291,17 +322,21 @@ async function executeScenarioRequest(params: {
   token: string;
   body: unknown;
 }): Promise<ExecutedScenarioResult> {
-  params.bundle.router.consumeLastPrompt();
-  params.bundle.planner.consumeLastSummary();
+  params.bundle.router.consumeLastCapture();
+  params.bundle.planner.consumeLastCapture();
   const request = new Request('http://localhost/api/workouts/generate', {
     method: 'POST',
     headers: buildHeaders(params.provider, params.token),
     body: JSON.stringify(params.body),
   });
 
+  const requestStartedAt = Date.now();
   const response = await params.bundle.handler(request);
+  const totalRequestMs = Date.now() - requestStartedAt;
   const payload = await response.json();
   const state = await params.bundle.store.getState(params.token);
+  const plannerCapture = params.bundle.planner.consumeLastCapture();
+  const generationCapture = params.bundle.router.consumeLastCapture();
 
   return {
     responseStatus: response.status,
@@ -314,8 +349,13 @@ async function executeScenarioRequest(params: {
       stateHasPlan: Boolean(state.plan),
     }),
     stateHasPlan: Boolean(state.plan),
-    plannerSummary: params.bundle.planner.consumeLastSummary(),
-    providerPrompt: params.bundle.router.consumeLastPrompt(),
+    latencyMs: {
+      totalRequestMs,
+      stageOnePlannerMs: plannerCapture.durationMs,
+      stageTwoGenerationMs: generationCapture.durationMs,
+    },
+    plannerSummary: plannerCapture.summary,
+    providerPrompt: generationCapture.prompt,
   };
 }
 
@@ -341,6 +381,41 @@ function toPercent(value: number, total: number): string {
   }
 
   return `${Math.round((value / total) * 100)}%`;
+}
+
+function formatLatencyMs(value?: number): string {
+  if (value === undefined) {
+    return 'n/a';
+  }
+
+  return `${value.toFixed(0)} ms`;
+}
+
+function average(values: number[]): number | undefined {
+  if (values.length === 0) {
+    return undefined;
+  }
+
+  return values.reduce((sum, value) => sum + value, 0) / values.length;
+}
+
+function buildAverageLatency(
+  entries: Pick<GenerationEvaluationReportEntry, 'latencyMs'>[],
+): GenerationEvaluationAverageLatency {
+  return {
+    totalRequestMs:
+      average(entries.map((entry) => entry.latencyMs.totalRequestMs)) ?? 0,
+    stageOnePlannerMs: average(
+      entries
+        .map((entry) => entry.latencyMs.stageOnePlannerMs)
+        .filter((value): value is number => value !== undefined),
+    ),
+    stageTwoGenerationMs: average(
+      entries
+        .map((entry) => entry.latencyMs.stageTwoGenerationMs)
+        .filter((value): value is number => value !== undefined),
+    ),
+  };
 }
 
 function summarizeEntryHardChecks(entry: GenerationEvaluationReportEntry) {
@@ -533,7 +608,8 @@ function renderHtmlReport(
           item.hardFailEntries,
           item.total,
           'danger',
-        ),
+        ) +
+        `<p class="metric-meta">avg total ${escapeHtml(formatLatencyMs(report.summary.averageLatencyByProvider[item.provider]?.totalRequestMs))} · stage 1 ${escapeHtml(formatLatencyMs(report.summary.averageLatencyByProvider[item.provider]?.stageOnePlannerMs))} · stage 2 ${escapeHtml(formatLatencyMs(report.summary.averageLatencyByProvider[item.provider]?.stageTwoGenerationMs))}</p>`,
     )
     .join('');
 
@@ -631,6 +707,7 @@ function renderHtmlReport(
       const promptDetails = entry.providerPrompt
         ? `<p><strong>Provider:</strong> ${escapeHtml(entry.providerPrompt.provider)}${entry.providerPrompt.model ? ` · <strong>Model:</strong> ${escapeHtml(entry.providerPrompt.model)}` : ''}${entry.providerPrompt.schemaVersion ? ` · <strong>Schema:</strong> ${escapeHtml(entry.providerPrompt.schemaVersion)}` : ''}${entry.providerPrompt.isRegeneration ? ' · <strong>Regeneration</strong>' : ''}</p><pre>${escapeHtml(entry.providerPrompt.content)}</pre>`
         : '<p class="muted">Prompt was not captured for this run.</p>';
+      const latencyDetails = `<p><strong>Total:</strong> ${escapeHtml(formatLatencyMs(entry.latencyMs.totalRequestMs))}</p><p><strong>Stage 1:</strong> ${escapeHtml(formatLatencyMs(entry.latencyMs.stageOnePlannerMs))}</p><p><strong>Stage 2:</strong> ${escapeHtml(formatLatencyMs(entry.latencyMs.stageTwoGenerationMs))}</p>`;
       const filterText = [
         entry.scenarioTitle,
         entry.scenarioDescription,
@@ -688,6 +765,10 @@ function renderHtmlReport(
                   )
                   .join('')}
               </ul>
+            </section>
+            <section>
+              <h4>Latency</h4>
+              ${latencyDetails}
             </section>
             <section>
               <h4>Planner Summary</h4>
@@ -821,6 +902,9 @@ function renderHtmlReport(
           <div class="stat"><strong>${toPercent(derived.entriesWithHardFailures.length, report.summary.totalEntries)}</strong><span>Entries with hard failures</span></div>
           <div class="stat"><strong>${report.summary.liveEntries}</strong><span>Live entries</span></div>
           <div class="stat"><strong>${report.summary.mockEntries}</strong><span>Mock-backed entries</span></div>
+          <div class="stat"><strong>${formatLatencyMs(report.summary.averageLatencyMs.totalRequestMs)}</strong><span>Avg total latency</span></div>
+          <div class="stat"><strong>${formatLatencyMs(report.summary.averageLatencyMs.stageOnePlannerMs)}</strong><span>Avg stage 1 latency</span></div>
+          <div class="stat"><strong>${formatLatencyMs(report.summary.averageLatencyMs.stageTwoGenerationMs)}</strong><span>Avg stage 2 latency</span></div>
         </div>
         <h3 style="margin-top: 20px;">Top hard failures</h3>
         <ul class="failure-list">${failureCounts || '<li><strong>none</strong><span>0</span></li>'}</ul>
@@ -976,6 +1060,9 @@ function renderMarkdownReport(
     `- Failed entries: ${report.summary.failedEntries}`,
     `- Live entries: ${report.summary.liveEntries}`,
     `- Mock-backed entries: ${report.summary.mockEntries}`,
+    `- Avg total latency: ${formatLatencyMs(report.summary.averageLatencyMs.totalRequestMs)}`,
+    `- Avg stage 1 latency: ${formatLatencyMs(report.summary.averageLatencyMs.stageOnePlannerMs)}`,
+    `- Avg stage 2 latency: ${formatLatencyMs(report.summary.averageLatencyMs.stageTwoGenerationMs)}`,
     '',
   ];
 
@@ -1012,6 +1099,15 @@ function renderMarkdownReport(
     );
     lines.push(
       `- Stage one used: ${entry.plannerSummary.usedStageOne ? 'yes' : 'no'}`,
+    );
+    lines.push(
+      `- Total latency: ${formatLatencyMs(entry.latencyMs.totalRequestMs)}`,
+    );
+    lines.push(
+      `- Stage 1 latency: ${formatLatencyMs(entry.latencyMs.stageOnePlannerMs)}`,
+    );
+    lines.push(
+      `- Stage 2 latency: ${formatLatencyMs(entry.latencyMs.stageTwoGenerationMs)}`,
     );
     lines.push(`- Prompt captured: ${entry.providerPrompt ? 'yes' : 'no'}`);
     if (entry.errorMessage) {
@@ -1207,6 +1303,7 @@ export async function runGenerationEvaluation(
             request: scenario.request,
             context: scenario.context,
             baselinePlan: effectiveBaselinePlan,
+            latencyMs: executed.latencyMs,
             plannerSummary: executed.plannerSummary,
             providerPrompt: executed.providerPrompt,
             hardChecks: runHardChecksForScenario(
@@ -1233,6 +1330,7 @@ export async function runGenerationEvaluation(
             request: scenario.request,
             context: scenario.context,
             baselinePlan: effectiveBaselinePlan,
+            latencyMs: executed.latencyMs,
             plannerSummary: executed.plannerSummary,
             providerPrompt: executed.providerPrompt,
             hardChecks: runHardChecksForScenario({
@@ -1272,6 +1370,16 @@ export async function runGenerationEvaluation(
     },
     {},
   );
+  const averageLatencyMs = buildAverageLatency(entries);
+  const averageLatencyByProvider = entries.reduce<
+    Record<string, GenerationEvaluationAverageLatency>
+  >((acc, entry) => {
+    const providerEntries = entries.filter(
+      (item) => item.provider === entry.provider,
+    );
+    acc[entry.provider] = buildAverageLatency(providerEntries);
+    return acc;
+  }, {});
 
   const report = generationEvaluationReportSchema.parse({
     corpusVersion: workoutGenerationEvaluationCorpus.version,
@@ -1285,6 +1393,8 @@ export async function runGenerationEvaluation(
       mockEntries,
       executionSourceCounts,
       hardFailureCounts,
+      averageLatencyMs,
+      averageLatencyByProvider,
     },
     entries,
   });
