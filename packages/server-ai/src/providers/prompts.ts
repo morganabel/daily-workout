@@ -190,6 +190,16 @@ export function buildRegenerationMessage(
   stageOneArtifact?: StageOnePlannerArtifact,
 ): string {
   const parts: string[] = [];
+  const shouldForceExerciseChanges =
+    Boolean(request.baselineWorkout) &&
+    (Boolean(
+      feedback?.some((item) =>
+        ['different-exercises', 'just-try-again', 'too-hard'].includes(item),
+      ),
+    ) ||
+      planningBrief?.variationMode === 'different-exercises' ||
+      stageOneArtifact?.noveltyTarget === 'medium' ||
+      stageOneArtifact?.noveltyTarget === 'high');
 
   const hasStructured =
     Boolean(request.timeMinutes) ||
@@ -326,6 +336,17 @@ export function buildRegenerationMessage(
     if (promptData.baselineExerciseIds.length > 0) {
       parts.push(
         `Avoid repeating baseline exercises already used in the prior workout unless necessary.`,
+      );
+    }
+  }
+
+  if (shouldForceExerciseChanges) {
+    parts.push(
+      'When viable alternatives exist, materially change the exercise selection from the baseline workout. Do not just reshuffle the same baseline exercises into new blocks or lightly rewrite their prescriptions/details.',
+    );
+    if (promptData?.baselineExerciseIds.length) {
+      parts.push(
+        'Prefer unused exercises from the candidate pool before falling back to any baseline exercise.',
       );
     }
   }

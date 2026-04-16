@@ -235,6 +235,15 @@ describe('buildRegenerationMessage', () => {
       expect(message).toContain('Baseline exercises: Goblet Squat');
       expect(message).toContain('Planner intent: Protect lower-body freshness');
       expect(message).toContain('Novelty target: high');
+      expect(message).toContain(
+        'When viable alternatives exist, materially change the exercise selection from the baseline workout.',
+      );
+      expect(message).toContain(
+        'Do not just reshuffle the same baseline exercises into new blocks or lightly rewrite their prescriptions/details.',
+      );
+      expect(message).toContain(
+        'Prefer unused exercises from the candidate pool before falling back to any baseline exercise.',
+      );
     });
   });
 
