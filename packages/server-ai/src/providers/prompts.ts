@@ -13,13 +13,13 @@ export const SYSTEM_PROMPT =
   'You are a concise workout planner. Only reply with valid JSON that matches the schema and never include code fences, explanations, or markdown.';
 
 export const INITIAL_GENERATION_INSTRUCTIONS =
-  'Generate a single workout session with at least one block and one exercise per block. Use realistic exercise names and prescriptions. Prioritize user context (history, preferences, environment) when deciding focus, volume, and equipment. If no focus is specified, choose the most appropriate one based on the user context.';
+  "Generate a single workout session with at least one block and one exercise per block. Use realistic exercise names and prescriptions. Prioritize user context (history, preferences, environment) when deciding focus, volume, and equipment. Treat user-supplied injuries and avoid lists as hard constraints. Treat planner-generated avoidances as lower-confidence guidance that should not override the user's explicit constraints. If no focus is specified, choose the most appropriate one based on the user context.";
 
 export const STAGE_ONE_PLANNER_SYSTEM_PROMPT =
   'You are an internal workout planning assistant. Return only valid JSON matching the schema. Resolve ambiguity, preserve hard constraints, and give advisory guidance for a final workout-generation model. Do not assemble the full workout.';
 
 export const STAGE_ONE_PLANNER_INSTRUCTIONS =
-  'Interpret the request and context, resolve the most likely session intent, note stressors to protect or avoid, and produce concise rerank/prompt guidance for the final workout model. Keep hard constraints server-owned and treat your output as advisory.';
+  'Interpret the request and context, resolve the most likely session intent, note stressors to protect or avoid, and produce concise rerank/prompt guidance for the final workout model. Treat user-supplied injuries and avoid lists as hard constraints. Keep hard constraints server-owned and treat your output as advisory.';
 
 const MAX_PROMPT_CANDIDATE_EXERCISES = 64;
 
@@ -62,7 +62,8 @@ export function buildPlanningBriefPromptData(planningBrief?: PlanningBrief):
       durationMinutes: number;
       loadCeiling: PlanningBrief['loadCeiling'];
       availableEquipment: string[];
-      disallowedStressors: string[];
+      userConstraints: PlanningBrief['userConstraints'];
+      plannerAvoidances: string[];
       recentStressorsToAvoid: string[];
       eventProtection?: PlanningBrief['eventProtection'];
       blockIntents: PlanningBrief['blockIntents'];
@@ -82,7 +83,8 @@ export function buildPlanningBriefPromptData(planningBrief?: PlanningBrief):
     durationMinutes: planningBrief.durationMinutes,
     loadCeiling: planningBrief.loadCeiling,
     availableEquipment: planningBrief.availableEquipment,
-    disallowedStressors: planningBrief.disallowedStressors,
+    userConstraints: planningBrief.userConstraints,
+    plannerAvoidances: planningBrief.disallowedStressors,
     recentStressorsToAvoid: planningBrief.recentStressorsToAvoid,
     eventProtection: planningBrief.eventProtection,
     blockIntents: planningBrief.blockIntents,
@@ -214,9 +216,19 @@ export function buildRegenerationMessage(
     parts.push(
       `Resolved session intent: ${planningBrief.resolvedFocus}. Load ceiling: ${planningBrief.loadCeiling}.`,
     );
+    if (planningBrief.userConstraints.avoid.length > 0) {
+      parts.push(
+        `Hard user avoid list: ${planningBrief.userConstraints.avoid.join(', ')}. Treat these as hard constraints and do not include them.`,
+      );
+    }
+    if (planningBrief.userConstraints.injuries.length > 0) {
+      parts.push(
+        `Hard user injury context: ${planningBrief.userConstraints.injuries.join(', ')}. Treat these as hard constraints and keep the workout safely away from aggravating patterns.`,
+      );
+    }
     if (planningBrief.disallowedStressors.length > 0) {
       parts.push(
-        `Avoid these stressors: ${planningBrief.disallowedStressors.join(', ')}.`,
+        `Planner-generated avoidances: ${planningBrief.disallowedStressors.join(', ')}. Use these as lower-confidence guidance unless they conflict with the user's explicit constraints.`,
       );
     }
     if (planningBrief.eventProtection) {

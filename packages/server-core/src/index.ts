@@ -29,6 +29,7 @@ export type {
   PlanningStageOneConfidence,
   PlanningStageOneMode,
   PlanningStageOneReason,
+  PlanningUserConstraints,
   PlanningVariationMode,
   StageOnePlannerArtifact,
   UsagePolicy,

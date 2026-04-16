@@ -107,6 +107,10 @@ export function derivePlanningBrief({
     styleBias: context.userProfile.preferredStyle,
     primaryGoal: context.userProfile.primaryGoal,
     priorityNotes: request.notes ?? context.notes,
+    userConstraints: {
+      injuries: context.preferences.injuries ?? [],
+      avoid: context.preferences.avoid ?? [],
+    },
     unknowns: collectUnknowns(request, context),
     disallowedStressors,
     recentStressorsToAvoid,

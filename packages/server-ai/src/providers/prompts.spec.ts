@@ -42,6 +42,10 @@ describe('buildRegenerationMessage', () => {
     availableEquipment: ['Dumbbells'],
     energy: 'moderate',
     loadCeiling: 'low',
+    userConstraints: {
+      injuries: ['left shoulder irritation'],
+      avoid: ['overhead pressing'],
+    },
     unknowns: [],
     disallowedStressors: ['lower_body_overload'],
     recentStressorsToAvoid: ['lower_body'],
@@ -231,7 +235,15 @@ describe('buildRegenerationMessage', () => {
       );
 
       expect(message).toContain('Resolved session intent: Upper Body & Core');
-      expect(message).toContain('Avoid these stressors: lower_body_overload');
+      expect(message).toContain(
+        'Hard user avoid list: overhead pressing. Treat these as hard constraints and do not include them.',
+      );
+      expect(message).toContain(
+        'Hard user injury context: left shoulder irritation. Treat these as hard constraints and keep the workout safely away from aggravating patterns.',
+      );
+      expect(message).toContain(
+        "Planner-generated avoidances: lower_body_overload. Use these as lower-confidence guidance unless they conflict with the user's explicit constraints.",
+      );
       expect(message).toContain('Baseline exercises: Goblet Squat');
       expect(message).toContain('Planner intent: Protect lower-body freshness');
       expect(message).toContain('Novelty target: high');
@@ -309,6 +321,11 @@ describe('buildRegenerationMessage', () => {
         expect.objectContaining({
           resolvedFocus: 'Upper Body & Core',
           loadCeiling: 'low',
+          userConstraints: expect.objectContaining({
+            injuries: ['left shoulder irritation'],
+            avoid: ['overhead pressing'],
+          }),
+          plannerAvoidances: ['lower_body_overload'],
           stagedPlanning: expect.objectContaining({
             mode: 'llm-assisted',
           }),

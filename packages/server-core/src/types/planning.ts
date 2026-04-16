@@ -42,6 +42,11 @@ export interface PlanningRegenerationSummary {
   baselineExerciseCount: number;
 }
 
+export interface PlanningUserConstraints {
+  injuries: string[];
+  avoid: string[];
+}
+
 export interface PlanningStageOneActivation {
   mode: PlanningStageOneMode;
   shouldRun: boolean;
@@ -75,6 +80,7 @@ export interface PlanningBrief {
   styleBias?: string;
   primaryGoal?: string;
   priorityNotes?: string;
+  userConstraints: PlanningUserConstraints;
   unknowns: string[];
   disallowedStressors: string[];
   recentStressorsToAvoid: string[];

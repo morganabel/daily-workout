@@ -35,6 +35,7 @@ export type {
   PlanningStageOneConfidence,
   PlanningStageOneMode,
   PlanningStageOneReason,
+  PlanningUserConstraints,
   PlanningVariationMode,
   StageOnePlannerArtifact,
 } from './planning';
