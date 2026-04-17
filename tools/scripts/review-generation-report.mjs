@@ -20,18 +20,20 @@ const reviewBatchSchema = z.object({
       runId: z.string(),
       verdict: z.enum(['accept', 'revise', 'reject']),
       confidence: z.number().int().min(1).max(5),
-      scores: z.array(
-        z.object({
-          dimension: z.enum(reviewDimensionLabels),
-          score: z.number().int().min(1).max(5),
-          rationale: z.string().min(1).max(220),
-        })
-      ).length(reviewDimensionLabels.length),
+      scores: z
+        .array(
+          z.object({
+            dimension: z.enum(reviewDimensionLabels),
+            score: z.number().int().min(1).max(5),
+            rationale: z.string().min(1).max(220),
+          }),
+        )
+        .length(reviewDimensionLabels.length),
       strengths: z.array(z.string().min(1).max(140)).max(3),
       issues: z.array(z.string().min(1).max(140)).max(3),
       suggestedAdjustments: z.array(z.string().min(1).max(160)).max(3),
       notes: z.string().min(1).max(280),
-    })
+    }),
   ),
 });
 
@@ -59,7 +61,9 @@ function parseArgs(argv) {
     const arg = argv[i];
     const next = argv[i + 1];
     if (arg === '--report' && next) {
-      reportPath = path.isAbsolute(next) ? next : path.join(process.cwd(), next);
+      reportPath = path.isAbsolute(next)
+        ? next
+        : path.join(process.cwd(), next);
       i += 1;
       continue;
     }
@@ -78,14 +82,16 @@ function parseArgs(argv) {
 }
 
 function findLatestReportPath() {
-  const reportsDir = path.join(process.cwd(), 'reports', 'generation-evaluation');
+  const reportsDir = path.join(
+    process.cwd(),
+    'reports',
+    'generation-evaluation',
+  );
   const subdirs = readdirSync(reportsDir, { withFileTypes: true })
     .filter((entry) => entry.isDirectory())
     .map((entry) => path.join(reportsDir, entry.name, 'report.json'))
     .filter((filePath) => existsSync(filePath))
-    .sort(
-      (a, b) => statSync(b).mtimeMs - statSync(a).mtimeMs
-    );
+    .sort((a, b) => statSync(b).mtimeMs - statSync(a).mtimeMs);
 
   if (subdirs.length === 0) {
     throw new Error('No generation evaluation reports found.');
@@ -123,7 +129,7 @@ function compactEntry(entry) {
           durationMinutes: entry.baselinePlan.durationMinutes,
           summary: entry.baselinePlan.summary,
           exerciseNames: entry.baselinePlan.blocks.flatMap((block) =>
-            block.exercises.map((exercise) => exercise.name)
+            block.exercises.map((exercise) => exercise.name),
           ),
         }
       : undefined,
@@ -190,7 +196,10 @@ async function reviewChunk(client, chunkEntries, model) {
       },
     ],
     text: {
-      format: zodTextFormat(reviewBatchSchema, 'generation_report_review_batch'),
+      format: zodTextFormat(
+        reviewBatchSchema,
+        'generation_report_review_batch',
+      ),
     },
   });
 
@@ -203,7 +212,7 @@ function buildReviewSummary(reviews) {
       acc[review.verdict] = (acc[review.verdict] ?? 0) + 1;
       return acc;
     },
-    { accept: 0, revise: 0, reject: 0 }
+    { accept: 0, revise: 0, reject: 0 },
   );
 
   const dimensionAverages = Object.fromEntries(
@@ -213,17 +222,18 @@ function buildReviewSummary(reviews) {
         average(
           reviews.map(
             (review) =>
-              review.scores.find((score) => score.dimension === dimension)?.score ?? 0
-          )
-        ).toFixed(2)
+              review.scores.find((score) => score.dimension === dimension)
+                ?.score ?? 0,
+          ),
+        ).toFixed(2),
       ),
-    ])
+    ]),
   );
 
   const withOverall = reviews.map((review) => ({
     ...review,
     averageScore: Number(
-      average(review.scores.map((score) => score.score)).toFixed(2)
+      average(review.scores.map((score) => score.score)).toFixed(2),
     ),
   }));
 
@@ -277,7 +287,9 @@ function renderMarkdown(reviewReport) {
     '',
   ];
 
-  for (const [dimension, score] of Object.entries(reviewReport.summary.dimensionAverages)) {
+  for (const [dimension, score] of Object.entries(
+    reviewReport.summary.dimensionAverages,
+  )) {
     lines.push(`- ${dimension}: ${score}`);
   }
 
@@ -296,11 +308,161 @@ function renderMarkdown(reviewReport) {
   return lines.join('\n');
 }
 
+function escapeHtml(value) {
+  return String(value)
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+}
+
+function renderHtml(reviewReport) {
+  const dimensionRows = Object.entries(reviewReport.summary.dimensionAverages)
+    .map(
+      ([dimension, score]) =>
+        `<tr><td>${escapeHtml(dimension)}</td><td>${escapeHtml(score)}</td></tr>`,
+    )
+    .join('');
+
+  const lowestRows = reviewReport.summary.lowest
+    .map(
+      (item) => `
+        <article class="card">
+          <h3>${escapeHtml(item.runId)}</h3>
+          <p><strong>Score:</strong> ${escapeHtml(item.averageScore)} · <strong>Verdict:</strong> ${escapeHtml(item.verdict)}</p>
+          <p><strong>Issues</strong></p>
+          <ul>${item.issues.map((issue) => `<li>${escapeHtml(issue)}</li>`).join('')}</ul>
+          <p><strong>Suggested fixes</strong></p>
+          <ul>${item.suggestedAdjustments
+            .map((adjustment) => `<li>${escapeHtml(adjustment)}</li>`)
+            .join('')}</ul>
+        </article>`,
+    )
+    .join('');
+
+  const recurringRows = reviewReport.summary.recurringIssues
+    .map(
+      (item) =>
+        `<tr><td>${escapeHtml(item.issue)}</td><td>${escapeHtml(item.count)}</td></tr>`,
+    )
+    .join('');
+
+  return `<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AI Review Of Generation Report</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+      }
+      body {
+        margin: 0;
+        padding: 32px;
+        background: #0b1020;
+        color: #e8edf8;
+      }
+      main {
+        max-width: 1100px;
+        margin: 0 auto;
+      }
+      h1, h2, h3 {
+        margin: 0 0 12px;
+      }
+      p, li, td, th {
+        line-height: 1.45;
+      }
+      .meta, .grid {
+        display: grid;
+        gap: 12px;
+      }
+      .meta {
+        margin: 16px 0 24px;
+      }
+      .grid {
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        margin: 16px 0 28px;
+      }
+      .stat, .card {
+        background: rgba(20, 28, 50, 0.95);
+        border: 1px solid rgba(148, 163, 184, 0.2);
+        border-radius: 14px;
+        padding: 16px 18px;
+      }
+      .stat strong {
+        display: block;
+        font-size: 1.8rem;
+        margin-bottom: 4px;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 12px 0 28px;
+        background: rgba(20, 28, 50, 0.95);
+        border-radius: 14px;
+        overflow: hidden;
+      }
+      th, td {
+        text-align: left;
+        padding: 12px 14px;
+        border-bottom: 1px solid rgba(148, 163, 184, 0.14);
+      }
+      th {
+        background: rgba(30, 41, 59, 0.95);
+      }
+      .cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 16px;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>AI Review Of Generation Report</h1>
+      <div class="meta">
+        <div><strong>Source report:</strong> ${escapeHtml(reviewReport.sourceReport)}</div>
+        <div><strong>Reviewed at:</strong> ${escapeHtml(reviewReport.reviewedAt)}</div>
+        <div><strong>Reviewer model:</strong> ${escapeHtml(reviewReport.reviewer.model)}</div>
+        <div><strong>Entries reviewed:</strong> ${escapeHtml(reviewReport.summary.totalReviews)}</div>
+      </div>
+
+      <h2>Verdict Counts</h2>
+      <div class="grid">
+        <section class="stat"><strong>${escapeHtml(reviewReport.summary.verdictCounts.accept)}</strong><span>Accept</span></section>
+        <section class="stat"><strong>${escapeHtml(reviewReport.summary.verdictCounts.revise)}</strong><span>Revise</span></section>
+        <section class="stat"><strong>${escapeHtml(reviewReport.summary.verdictCounts.reject)}</strong><span>Reject</span></section>
+      </div>
+
+      <h2>Dimension Averages</h2>
+      <table>
+        <thead><tr><th>Dimension</th><th>Average score</th></tr></thead>
+        <tbody>${dimensionRows}</tbody>
+      </table>
+
+      <h2>Lowest Rated Runs</h2>
+      <div class="cards">${lowestRows}</div>
+
+      <h2>Recurring Issues</h2>
+      <table>
+        <thead><tr><th>Issue</th><th>Count</th></tr></thead>
+        <tbody>${recurringRows}</tbody>
+      </table>
+    </main>
+  </body>
+</html>`;
+}
+
 async function main() {
   loadRepoEnv();
-  const { reportPath: providedReportPath, chunkSize, limit } = parseArgs(
-    process.argv.slice(2)
-  );
+  const {
+    reportPath: providedReportPath,
+    chunkSize,
+    limit,
+  } = parseArgs(process.argv.slice(2));
 
   if (!process.env.OPENAI_API_KEY) {
     throw new Error('OPENAI_API_KEY is required to run AI review.');
@@ -310,7 +472,10 @@ async function main() {
   const report = JSON.parse(readFileSync(reportPath, 'utf8'));
   const entries = limit ? report.entries.slice(0, limit) : report.entries;
   const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-  const model = process.env.OPENAI_REVIEW_MODEL ?? process.env.OPENAI_MODEL ?? 'gpt-5.4-mini';
+  const model =
+    process.env.OPENAI_REVIEW_MODEL ??
+    process.env.OPENAI_MODEL ??
+    'gpt-5.4-mini';
 
   const entryChunks = chunk(entries.map(compactEntry), chunkSize);
   const reviews = [];
@@ -340,14 +505,17 @@ async function main() {
   await mkdir(outputDir, { recursive: true });
   const jsonPath = path.join(outputDir, 'ai-review.json');
   const markdownPath = path.join(outputDir, 'ai-review.md');
+  const htmlPath = path.join(outputDir, 'ai-review.html');
 
   await Promise.all([
     writeFile(jsonPath, `${JSON.stringify(reviewReport, null, 2)}\n`, 'utf8'),
     writeFile(markdownPath, `${renderMarkdown(reviewReport)}\n`, 'utf8'),
+    writeFile(htmlPath, `${renderHtml(reviewReport)}\n`, 'utf8'),
   ]);
 
   console.log(`AI review JSON: ${jsonPath}`);
   console.log(`AI review Markdown: ${markdownPath}`);
+  console.log(`AI review HTML: ${htmlPath}`);
 }
 
 main().catch((error) => {
