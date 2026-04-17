@@ -375,6 +375,89 @@ function buildPlanOverview(entry: GenerationEvaluationReportEntry): string {
   return `${entry.plan.focus} - ${entry.plan.durationMinutes} min - ${entry.plan.equipment.join(', ')}`;
 }
 
+function renderPlanDetailsHtml(entry: GenerationEvaluationReportEntry): string {
+  if (!entry.plan) {
+    return '<p class="muted">No plan available for this run.</p>';
+  }
+
+  const equipment =
+    entry.plan.equipment.length > 0 ? entry.plan.equipment : ['Bodyweight'];
+
+  const blockCards = entry.plan.blocks
+    .map(
+      (block) => `
+        <article class="plan-block">
+          <div class="plan-block-header">
+            <div>
+              <h5>${escapeHtml(block.title)}</h5>
+              <p>${escapeHtml(block.focus)}</p>
+            </div>
+            <span class="plan-block-time">${block.durationMinutes} min</span>
+          </div>
+          <ol class="plan-exercise-list">
+            ${block.exercises
+              .map(
+                (exercise) => `
+                  <li class="plan-exercise-item">
+                    <div class="plan-exercise-name">${escapeHtml(exercise.name)}</div>
+                    <div class="plan-exercise-prescription">${escapeHtml(exercise.prescription)}</div>
+                    ${exercise.detail ? `<div class="plan-exercise-detail">${escapeHtml(exercise.detail)}</div>` : ''}
+                  </li>`,
+              )
+              .join('')}
+          </ol>
+        </article>`,
+    )
+    .join('');
+
+  return `
+    <div class="plan-overview-card">
+      <div class="plan-summary-row">
+        <span class="plan-meta-pill"><strong>Focus:</strong> ${escapeHtml(entry.plan.focus)}</span>
+        <span class="plan-meta-pill"><strong>Duration:</strong> ${entry.plan.durationMinutes} min</span>
+        <span class="plan-meta-pill"><strong>Energy:</strong> ${escapeHtml(entry.plan.energy)}</span>
+      </div>
+      <div class="plan-summary-row">
+        <span class="plan-meta-pill"><strong>Equipment:</strong> ${equipment.map(escapeHtml).join(', ')}</span>
+      </div>
+      <p class="plan-summary-text">${escapeHtml(entry.plan.summary)}</p>
+      <div class="plan-block-grid">${blockCards}</div>
+    </div>`;
+}
+
+function renderPlanDetailsMarkdown(
+  entry: GenerationEvaluationReportEntry,
+): string[] {
+  if (!entry.plan) {
+    return ['No plan available for this run.'];
+  }
+
+  const lines = [
+    `Summary: ${entry.plan.summary}`,
+    `Focus: ${entry.plan.focus}`,
+    `Duration: ${entry.plan.durationMinutes} min`,
+    `Energy: ${entry.plan.energy}`,
+    `Equipment: ${(entry.plan.equipment.length > 0 ? entry.plan.equipment : ['Bodyweight']).join(', ')}`,
+    '',
+  ];
+
+  entry.plan.blocks.forEach((block, blockIndex) => {
+    lines.push(
+      `${blockIndex + 1}. ${block.title} (${block.durationMinutes} min, ${block.focus})`,
+    );
+    block.exercises.forEach((exercise) => {
+      lines.push(`- ${exercise.name}`);
+      lines.push(`Prescription: ${exercise.prescription}`);
+      if (exercise.detail) {
+        lines.push(`Detail: ${exercise.detail}`);
+      }
+    });
+    lines.push('');
+  });
+
+  return lines;
+}
+
 function toPercent(value: number, total: number): string {
   if (total === 0) {
     return '0%';
@@ -691,16 +774,7 @@ function renderHtmlReport(
         (item) => item.status === 'fail',
       );
       const checkSummary = summarizeEntryHardChecks(entry);
-      const planDetails = entry.plan
-        ? `<ul class="plan-list">${entry.plan.blocks
-            .map(
-              (block) =>
-                `<li><strong>${escapeHtml(block.title)}</strong> (${block.durationMinutes} min, ${escapeHtml(block.focus)})<br>${block.exercises
-                  .map((exercise) => escapeHtml(exercise.name))
-                  .join(', ')}</li>`,
-            )
-            .join('')}</ul>`
-        : '<p class="muted">No plan available for this run.</p>';
+      const planDetails = renderPlanDetailsHtml(entry);
       const plannerDetails = entry.plannerSummary.usedStageOne
         ? `<p><strong>Stage one:</strong> used</p>${entry.plannerSummary.artifact ? `<pre>${escapeHtml(JSON.stringify(entry.plannerSummary.artifact, null, 2))}</pre>` : '<p class="muted">No stage-one artifact captured.</p>'}${entry.plannerSummary.stageOnePrompt ? `<p><strong>Planner Prompt:</strong> ${escapeHtml(entry.plannerSummary.stageOnePrompt.provider)}${entry.plannerSummary.stageOnePrompt.model ? ` · <strong>Model:</strong> ${escapeHtml(entry.plannerSummary.stageOnePrompt.model)}` : ''}</p><pre>${escapeHtml(entry.plannerSummary.stageOnePrompt.content)}</pre>` : '<p class="muted">Stage-one prompt was not captured.</p>'}`
         : '<p class="muted">Stage one was not used for this run.</p>';
@@ -845,7 +919,22 @@ function renderHtmlReport(
       .entry-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; padding: 0 20px 20px; }
       .entry-grid section { border-top: 1px solid var(--border); padding-top: 16px; }
       pre { margin: 0; padding: 12px; overflow: auto; background: #0f172a; color: #d9e5ff; border-radius: 12px; font-size: 12px; }
-      .checks, .plan-list, .warnings ul, .failure-list { margin: 0; padding-left: 18px; }
+      .checks, .warnings ul, .failure-list { margin: 0; padding-left: 18px; }
+      .plan-overview-card { display: grid; gap: 12px; }
+      .plan-summary-row { display: flex; flex-wrap: wrap; gap: 8px; }
+      .plan-meta-pill { display: inline-flex; gap: 6px; align-items: center; padding: 6px 10px; border-radius: 999px; background: var(--panel-alt); border: 1px solid var(--border); font-size: 12px; color: var(--text); }
+      .plan-summary-text { margin: 0; color: var(--text); font-size: 14px; line-height: 1.5; }
+      .plan-block-grid { display: grid; gap: 12px; }
+      .plan-block { background: var(--panel-alt); border: 1px solid var(--border); border-radius: 14px; padding: 14px; }
+      .plan-block-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 10px; }
+      .plan-block-header h5 { margin: 0 0 4px; font-size: 15px; }
+      .plan-block-header p { margin: 0; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
+      .plan-block-time { white-space: nowrap; padding: 4px 8px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); font-weight: 700; font-size: 12px; }
+      .plan-exercise-list { margin: 0; padding-left: 20px; display: grid; gap: 10px; }
+      .plan-exercise-item { padding-left: 2px; }
+      .plan-exercise-name { font-weight: 700; color: var(--text); margin-bottom: 2px; }
+      .plan-exercise-prescription { color: var(--text); font-size: 13px; line-height: 1.45; }
+      .plan-exercise-detail { color: var(--muted); font-size: 12px; line-height: 1.45; margin-top: 3px; }
       .failure-list li { display: flex; justify-content: space-between; gap: 12px; padding: 6px 0; }
       .muted { color: var(--muted); }
       .controls-grid, .insights-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
@@ -1113,6 +1202,8 @@ function renderMarkdownReport(
     if (entry.errorMessage) {
       lines.push(`- Error: ${entry.errorMessage}`);
     }
+    lines.push('', '#### Plan Details', '');
+    lines.push(...renderPlanDetailsMarkdown(entry));
     if (entry.plannerSummary.artifact) {
       lines.push(
         '',
