@@ -5,6 +5,10 @@ import {
   generationRequestSchema,
   todayPlanSchema,
 } from './workouts';
+import {
+  stageOnePlannerArtifactSchema,
+  type StageOnePlannerArtifact,
+} from './staged-planning';
 
 export const MIN_GENERATION_EVALUATION_SCENARIOS = 50;
 
@@ -292,24 +296,9 @@ export type GenerationEvaluationProviderPrompt = z.infer<
   typeof generationEvaluationProviderPromptSchema
 >;
 
-export const generationEvaluationPlannerArtifactSchema = z
-  .object({
-    mode: z.literal('llm-assisted'),
-    confidence: z.enum(['low', 'medium', 'high']),
-    planningIntent: z.string().min(1),
-    resolvedFocus: z.string().min(1).optional(),
-    protectStressors: z.array(z.string()),
-    avoidStressors: z.array(z.string()),
-    styleBiases: z.array(z.string()),
-    loadBias: z.enum(['low', 'moderate', 'high', 'unknown']).optional(),
-    noveltyTarget: z.enum(['low', 'medium', 'high']).optional(),
-    rerankHints: z.array(z.string()),
-    candidateInstructions: z.array(z.string()),
-  })
-  .strict();
-export type GenerationEvaluationPlannerArtifact = z.infer<
-  typeof generationEvaluationPlannerArtifactSchema
->;
+export const generationEvaluationPlannerArtifactSchema =
+  stageOnePlannerArtifactSchema;
+export type GenerationEvaluationPlannerArtifact = StageOnePlannerArtifact;
 
 export const generationEvaluationPlannerSummarySchema = z
   .object({

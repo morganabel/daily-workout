@@ -1,27 +1,42 @@
 import { z } from 'zod';
+import {
+  planningLoadCeilingSchema,
+  planningNoveltyTargetSchema,
+  planningStageOneConfidenceSchema,
+  type StageOnePlannerArtifact,
+} from '@workout-agent/shared';
 
 export const stageOnePlannerArtifactSchema = z.object({
   mode: z.literal('llm-assisted'),
-  confidence: z.enum(['low', 'medium', 'high']),
+  confidence: planningStageOneConfidenceSchema,
   planningIntent: z.string().min(1),
-  resolvedFocus: z.string().min(1),
+  // OpenAI structured outputs require fields to be required rather than optional.
+  resolvedFocus: z.string().min(1).nullable(),
   protectStressors: z.array(z.string()),
   avoidStressors: z.array(z.string()),
   styleBiases: z.array(z.string()),
-  loadBias: z.enum(['low', 'moderate', 'high', 'unknown']),
-  noveltyTarget: z.enum(['low', 'medium', 'high']),
+  loadBias: planningLoadCeilingSchema.nullable(),
+  noveltyTarget: planningNoveltyTargetSchema.nullable(),
   rerankHints: z.array(z.string()),
   candidateInstructions: z.array(z.string()),
 });
 
-export function parseStageOnePlannerArtifact(input: unknown) {
+export function parseStageOnePlannerArtifact(
+  input: unknown,
+): StageOnePlannerArtifact {
   if (!input || typeof input !== 'object') {
-    return stageOnePlannerArtifactSchema.parse(input);
+    const parsed = stageOnePlannerArtifactSchema.parse(input);
+    return {
+      ...parsed,
+      resolvedFocus: parsed.resolvedFocus ?? undefined,
+      loadBias: parsed.loadBias ?? undefined,
+      noveltyTarget: parsed.noveltyTarget ?? undefined,
+    };
   }
 
   const record = input as Record<string, unknown>;
 
-  return stageOnePlannerArtifactSchema.parse({
+  const parsed = stageOnePlannerArtifactSchema.parse({
     mode: 'llm-assisted',
     confidence: normalizeEnum(
       record.confidence,
@@ -52,6 +67,13 @@ export function parseStageOnePlannerArtifact(input: unknown) {
     rerankHints: normalizeStringArray(record.rerankHints),
     candidateInstructions: normalizeStringArray(record.candidateInstructions),
   });
+
+  return {
+    ...parsed,
+    resolvedFocus: parsed.resolvedFocus ?? undefined,
+    loadBias: parsed.loadBias ?? undefined,
+    noveltyTarget: parsed.noveltyTarget ?? undefined,
+  };
 }
 
 function normalizeStringArray(value: unknown): string[] {

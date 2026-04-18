@@ -1,21 +1,26 @@
-import type { AiProviderName } from '@workout-agent/shared';
+import type {
+  AiProviderName,
+  PlanningLoadCeiling,
+  PlanningStageOneActivation,
+} from '@workout-agent/shared';
+
+export type {
+  PlanningLoadCeiling,
+  PlanningNoveltyTarget,
+  PlanningStageOneActivation,
+  PlanningStageOneConfidence,
+  PlanningStageOneMode,
+  PlanningStageOneReason,
+  StageOnePlannerArtifact,
+} from '@workout-agent/shared';
 
 export type PlanningFocusMode = 'explicit' | 'smart' | 'unset';
-export type PlanningLoadCeiling = 'low' | 'moderate' | 'high' | 'unknown';
 export type PlanningVariationMode =
   | 'none'
   | 'preserve-intent'
   | 'different-exercises';
 export type PlanningRegenerationMode = 'initial' | 'stateful' | 'stateless';
 export type PlanningFallbackMode = 'strict-library';
-export type PlanningStageOneMode = 'single-pass' | 'llm-assisted';
-export type PlanningStageOneReason =
-  | 'smart-focus'
-  | 'recent-event-conflict'
-  | 'dense-notes'
-  | 'regeneration-feedback';
-export type PlanningStageOneConfidence = 'low' | 'medium' | 'high';
-export type PlanningNoveltyTarget = 'low' | 'medium' | 'high';
 
 export interface PlanningBlockIntent {
   key: string;
@@ -45,26 +50,6 @@ export interface PlanningRegenerationSummary {
 export interface PlanningUserConstraints {
   injuries: string[];
   avoid: string[];
-}
-
-export interface PlanningStageOneActivation {
-  mode: PlanningStageOneMode;
-  shouldRun: boolean;
-  reasons: PlanningStageOneReason[];
-}
-
-export interface StageOnePlannerArtifact {
-  mode: 'llm-assisted';
-  confidence: PlanningStageOneConfidence;
-  planningIntent: string;
-  resolvedFocus?: string;
-  protectStressors: string[];
-  avoidStressors: string[];
-  styleBiases: string[];
-  loadBias?: PlanningLoadCeiling;
-  noveltyTarget?: PlanningNoveltyTarget;
-  rerankHints: string[];
-  candidateInstructions: string[];
 }
 
 export interface PlanningBrief {
