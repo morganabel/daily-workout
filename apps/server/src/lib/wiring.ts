@@ -94,7 +94,7 @@ const buildConfig = (): GenerateHandlerConfig => {
       gemini: process.env.GEMINI_API_KEY,
     },
     defaultProvider: (rawProvider as 'openai' | 'gemini') ?? 'openai',
-    enableStageOnePlanner: process.env.ENABLE_STAGE_ONE_PLANNER === 'true',
+    enableStageOnePlanner: process.env.ENABLE_STAGE_ONE_PLANNER !== 'false',
   };
 };
 

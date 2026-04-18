@@ -210,7 +210,8 @@ function createHandlerBundle(
   const router = new PromptCapturingRouter();
   const planner = new PromptCapturingStageOnePlanner();
   const useVertexAi = process.env.GOOGLE_GENAI_USE_VERTEXAI === 'true';
-  const enableStageOnePlanner = process.env.ENABLE_STAGE_ONE_PLANNER === 'true';
+  const enableStageOnePlanner =
+    process.env.ENABLE_STAGE_ONE_PLANNER !== 'false';
   const hasGeminiAccess = Boolean(process.env.GEMINI_API_KEY) || useVertexAi;
   const hasConfiguredAccess =
     provider === 'mock'
