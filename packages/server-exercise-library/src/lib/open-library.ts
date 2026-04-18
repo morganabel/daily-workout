@@ -1,8 +1,22 @@
 import { existsSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import path from 'node:path';
-import Database from 'better-sqlite3';
 import { ExerciseLibraryQueryEngine } from './query.js';
 import type { ExerciseLibrary } from './types.js';
+
+const require = createRequire(import.meta.url);
+type BetterSqlite3Database = import('better-sqlite3').Database;
+type DatabaseConstructor = new (
+  path: string,
+  options: { readonly: boolean; fileMustExist: boolean },
+) => BetterSqlite3Database;
+const betterSqlite3Module = require('better-sqlite3') as {
+  default?: DatabaseConstructor;
+} & DatabaseConstructor;
+
+const Database =
+  (betterSqlite3Module.default ??
+    (betterSqlite3Module as DatabaseConstructor)) as DatabaseConstructor;
 
 const defaultLibraryUrl = new URL(
   '../../data/generated/exercise-library.sqlite',
