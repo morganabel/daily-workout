@@ -1,19 +1,10 @@
 import { existsSync } from 'node:fs';
-import path from 'node:path';
-import { openExerciseLibrary } from './open-library.js';
+import { DEFAULT_LIBRARY_PATH, openExerciseLibrary } from './open-library.js';
 import type { ExerciseRecord } from './types.js';
-
-const packageRoot = process.cwd();
-const generatedDbPath = path.join(
-  packageRoot,
-  'data',
-  'generated',
-  'exercise-library.sqlite',
-);
 
 describe('openExerciseLibrary', () => {
   it('opens the generated library and reports metadata', () => {
-    expect(existsSync(generatedDbPath)).toBe(true);
+    expect(existsSync(DEFAULT_LIBRARY_PATH)).toBe(true);
 
     const library = openExerciseLibrary();
     const metadata = library.getLibraryMetadata();
