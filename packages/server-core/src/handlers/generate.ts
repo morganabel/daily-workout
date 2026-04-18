@@ -87,6 +87,7 @@ export interface GenerateHandlerDeps {
   router: ModelRouter;
   planner?: StageOnePlanner;
   exerciseLibrary?: ExerciseLibrary;
+  loadExerciseLibrary?: () => Promise<ExerciseLibrary | undefined>;
   policy?: UsagePolicy;
   metering?: MeteringSink;
   config: GenerateHandlerConfig;
@@ -327,33 +328,41 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
       | ReturnType<typeof buildExerciseCandidatePool>
       | undefined;
 
-    if (deps.exerciseLibrary) {
+    if (
+      (deps.exerciseLibrary || deps.loadExerciseLibrary) &&
+      (apiKey || useVertexAi)
+    ) {
       try {
-        candidatePool = buildExerciseCandidatePool({
-          exerciseLibrary: deps.exerciseLibrary,
-          request: providerRequest,
-          context,
-          planningBrief: effectivePlanningBrief,
-          previousPlan: previousState?.plan,
-        });
-        if (
-          candidatePool.candidateExercises.length === 0 &&
-          candidatePool.diagnostics?.blockerCodes?.length
-        ) {
-          effectivePlanningBrief = {
-            ...effectivePlanningBrief,
-            fallbackReasons: candidatePool.diagnostics.blockerCodes,
-          };
+        const exerciseLibrary =
+          deps.exerciseLibrary ?? (await deps.loadExerciseLibrary?.());
+
+        if (exerciseLibrary) {
+          candidatePool = buildExerciseCandidatePool({
+            exerciseLibrary,
+            request: providerRequest,
+            context,
+            planningBrief: effectivePlanningBrief,
+            previousPlan: previousState?.plan,
+          });
+          if (
+            candidatePool.candidateExercises.length === 0 &&
+            candidatePool.diagnostics?.blockerCodes?.length
+          ) {
+            effectivePlanningBrief = {
+              ...effectivePlanningBrief,
+              fallbackReasons: candidatePool.diagnostics.blockerCodes,
+            };
+          }
+          log.info('exercise candidate pool prepared', {
+            libraryVersion: candidatePool.libraryVersion,
+            totalEligibleCount: candidatePool.totalEligibleCount,
+            candidateCount: candidatePool.candidateExercises.length,
+            baselineExerciseCount: candidatePool.baselineExerciseIds.length,
+            blockerCodes: candidatePool.diagnostics?.blockerCodes,
+            fallbackReasons: effectivePlanningBrief.fallbackReasons,
+            isRegeneration,
+          });
         }
-        log.info('exercise candidate pool prepared', {
-          libraryVersion: candidatePool.libraryVersion,
-          totalEligibleCount: candidatePool.totalEligibleCount,
-          candidateCount: candidatePool.candidateExercises.length,
-          baselineExerciseCount: candidatePool.baselineExerciseIds.length,
-          blockerCodes: candidatePool.diagnostics?.blockerCodes,
-          fallbackReasons: effectivePlanningBrief.fallbackReasons,
-          isRegeneration,
-        });
       } catch (error) {
         log.warn('exercise candidate pool unavailable', {
           message: sanitizeErrorMessage((error as Error).message),

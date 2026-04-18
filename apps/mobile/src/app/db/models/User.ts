@@ -4,7 +4,7 @@ import { field, date, readonly } from '@nozbe/watermelondb/decorators';
 export default class User extends Model {
   static override table = 'users';
 
-  @field('preferences') preferences!: string;
-  @readonly @date('created_at') createdAt!: number;
-  @readonly @date('updated_at') updatedAt!: number;
+  @field('preferences') preferences: string;
+  @readonly @date('created_at') createdAt: number;
+  @readonly @date('updated_at') updatedAt: number;
 }

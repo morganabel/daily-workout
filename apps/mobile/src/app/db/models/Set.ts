@@ -18,10 +18,10 @@ export default class Set extends Model {
   @field('weight') weight?: number;
   @field('weight_unit') weightUnit?: WeightUnit;
   @field('rpe') rpe?: number;
-  @field('completed') completed!: boolean;
-  @field('order') order!: number;
-  @readonly @date('created_at') createdAt!: number;
-  @readonly @date('updated_at') updatedAt!: number;
+  @field('completed') completed: boolean;
+  @field('order') order: number;
+  @readonly @date('created_at') createdAt: number;
+  @readonly @date('updated_at') updatedAt: number;
 
-  @relation('exercises', 'exercise_id') exercise!: Relation<Exercise>;
+  @relation('exercises', 'exercise_id') exercise: Relation<Exercise>;
 }
