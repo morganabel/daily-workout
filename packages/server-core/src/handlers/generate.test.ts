@@ -883,6 +883,181 @@ describe('createGenerateHandler', () => {
     );
   });
 
+  it('falls back to single-pass generation when the stage-one planner feature flag is disabled', async () => {
+    const router = createRouterMock();
+    const planner = createStageOnePlannerMock();
+    const { handler } = createHandler({
+      router,
+      planner,
+      config: {
+        edition: 'CE',
+        defaultProvider: 'openai',
+        enableStageOnePlanner: false,
+      },
+    });
+
+    const response = await handler(
+      createPlanningRequest({
+        focus: 'Smart',
+        notes:
+          'Keep it athletic, avoid heavy leg fatigue, and make it fit around a hard climbing session tomorrow morning.',
+        upcomingEvents: [
+          {
+            kind: 'sport',
+            title: 'Climbing Session',
+            localDate: '2026-04-16',
+            intensity: 'high',
+          },
+        ],
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(planner.plan).not.toHaveBeenCalled();
+    expect(router.generate).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      expect.objectContaining({
+        stageOneArtifact: undefined,
+        planningBrief: expect.objectContaining({
+          stagedPlanning: expect.objectContaining({
+            shouldRun: true,
+            reasons: expect.arrayContaining(['smart-focus', 'dense-notes']),
+          }),
+        }),
+      }),
+    );
+  });
+
+  it('passes the stage-one artifact through stateful OpenAI regeneration when provenance matches', async () => {
+    const router = createRouterMock();
+    const planner = createStageOnePlannerMock();
+    const baselineWorkout = createTodayPlanMock({
+      responseId: 'resp-openai',
+      generationProvenance: {
+        provider: 'openai',
+        responseId: 'resp-openai',
+      },
+    });
+    const { handler } = createHandler({
+      router,
+      planner,
+      config: {
+        edition: 'CE',
+        defaultProvider: 'openai',
+        enableStageOnePlanner: true,
+      },
+    });
+
+    const response = await handler(
+      createPlanningRequest({
+        previousResponseId: 'resp-openai',
+        baselineWorkout,
+        feedback: ['different-exercises'],
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(planner.plan).toHaveBeenCalledWith(
+      expect.objectContaining({
+        previousResponseId: 'resp-openai',
+        baselineWorkout,
+      }),
+      expect.anything(),
+      expect.objectContaining({
+        provider: 'openai',
+        planningBrief: expect.objectContaining({
+          regeneration: expect.objectContaining({ mode: 'stateful' }),
+        }),
+      }),
+    );
+    expect(router.generate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        previousResponseId: 'resp-openai',
+        baselineWorkout,
+      }),
+      expect.anything(),
+      expect.objectContaining({
+        provider: 'openai',
+        stageOneArtifact: expect.objectContaining({
+          mode: 'llm-assisted',
+          noveltyTarget: 'medium',
+        }),
+        planningBrief: expect.objectContaining({
+          regeneration: expect.objectContaining({ mode: 'stateful' }),
+        }),
+      }),
+    );
+  });
+
+  it('passes the stage-one artifact through stateless Gemini regeneration when provider continuity is unavailable', async () => {
+    const router = createRouterMock();
+    const planner = createStageOnePlannerMock();
+    const baselineWorkout = createTodayPlanMock({
+      responseId: 'resp-openai',
+      generationProvenance: {
+        provider: 'openai',
+        responseId: 'resp-openai',
+      },
+    });
+    const { handler } = createHandler({
+      router,
+      planner,
+      config: {
+        edition: 'CE',
+        defaultProvider: 'gemini',
+        enableStageOnePlanner: true,
+      },
+    });
+
+    const response = await handler(
+      createPlanningRequest(
+        {
+          previousResponseId: 'resp-openai',
+          baselineWorkout,
+          feedback: ['different-exercises'],
+        },
+        {
+          'x-ai-provider': 'gemini',
+          'x-gemini-key': 'gemini-key',
+          'x-openai-key': '',
+        },
+      ),
+    );
+
+    expect(response.status).toBe(200);
+    expect(planner.plan).toHaveBeenCalledWith(
+      expect.objectContaining({
+        previousResponseId: undefined,
+        baselineWorkout,
+      }),
+      expect.anything(),
+      expect.objectContaining({
+        provider: 'gemini',
+        planningBrief: expect.objectContaining({
+          regeneration: expect.objectContaining({ mode: 'stateless' }),
+        }),
+      }),
+    );
+    expect(router.generate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        previousResponseId: undefined,
+        baselineWorkout,
+      }),
+      expect.anything(),
+      expect.objectContaining({
+        provider: 'gemini',
+        stageOneArtifact: expect.objectContaining({
+          mode: 'llm-assisted',
+          noveltyTarget: 'medium',
+        }),
+        planningBrief: expect.objectContaining({
+          regeneration: expect.objectContaining({ mode: 'stateless' }),
+        }),
+      }),
+    );
+  });
+
   it('reranks the candidate pool using the stage-one planner artifact before final generation', async () => {
     const router = createRouterMock();
     const planner = createStageOnePlannerMock();

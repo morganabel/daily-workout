@@ -105,6 +105,23 @@ Notes:
 - The evaluator reuses the real generation handler, so request validation, context merging, provider routing, and fallback semantics match the production flow.
 - The report now explicitly calls out mock-only runs vs mixed/live coverage so it is harder to mistake plumbing validation for real model evaluation.
 
+## Two-stage planner notes
+
+The generation flow now supports an optional stage-1 planner pass before the final workout-generation call.
+
+- Activation is ambiguous-only in v1. The extra planner call is considered for Smart focus, recent-session plus upcoming-event conflicts, dense free-form notes, and regeneration requests with feedback.
+- Stage 1 is advisory only. Hard constraints such as equipment, contraindications, avoid lists, and planner-safe candidate filtering remain server-owned.
+- Disable the feature with `ENABLE_STAGE_ONE_PLANNER=false` to force the legacy single-pass path for comparison or rollback.
+- Planner model defaults are intentionally cheaper than the final generation model: `OPENAI_PLANNER_MODEL` defaults to `gpt-5.4-nano` and `GEMINI_PLANNER_MODEL` defaults to `gemini-3.1-flash-lite-preview`.
+- In `HOSTED`, eligible requests may incur an extra provider call and extra latency because stage 1 runs before stage 2. In `CE`, the staged path still follows the same BYOK/mock-fallback rules as normal generation.
+
+For staged-vs-single-pass comparisons, run the evaluator twice against the same live slice, once with the default config and once with stage 1 disabled:
+
+- Staged: `npm run evaluate:generation -- --provider openai --tag smart-focus --tag regeneration`
+- Single-pass: `ENABLE_STAGE_ONE_PLANNER=false npm run evaluate:generation -- --provider openai --tag smart-focus --tag regeneration`
+
+When keys are available, use the HTML and JSON reports to compare hard-check deltas, stage-1 usage rate, and stage-1/stage-2 latency splits.
+
 ## API surface
 
 - `GET /api/meta` → server capabilities (auth methods, protocol version). Does not require auth.
