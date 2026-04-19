@@ -10,22 +10,27 @@ const packageRoot = path.resolve(
 export const paths = {
   packageRoot,
   dataDir: path.join(packageRoot, 'data'),
-  sourceDir: path.join(packageRoot, 'data', 'source'),
+  publicDir: path.join(packageRoot, 'data', 'public'),
   vocabDir: path.join(packageRoot, 'data', 'vocab'),
   curationDir: path.join(packageRoot, 'data', 'curation'),
   generatedDir: path.join(packageRoot, 'data', 'generated'),
-  sourceSnapshot: path.join(
+  publicCanonical: path.join(
     packageRoot,
     'data',
-    'source',
-    'free-exercise-db.snapshot.json',
+    'public',
+    'canonical-exercises.json',
   ),
-  sourceManifest: path.join(packageRoot, 'data', 'source-manifest.json'),
+  publicManifest: path.join(packageRoot, 'data', 'public', 'manifest.json'),
+  publicSqlite: path.join(
+    packageRoot,
+    'data',
+    'public',
+    'exercise-library.sqlite',
+  ),
   equipmentVocab: path.join(packageRoot, 'data', 'vocab', 'equipment.json'),
   enumsVocab: path.join(packageRoot, 'data', 'vocab', 'enums.json'),
   tagsVocab: path.join(packageRoot, 'data', 'vocab', 'tags.json'),
   overrides: path.join(packageRoot, 'data', 'curation', 'overrides.json'),
-  templates: path.join(packageRoot, 'data', 'curation', 'templates.json'),
   generatedCanonical: path.join(
     packageRoot,
     'data',
@@ -37,12 +42,6 @@ export const paths = {
     'data',
     'generated',
     'manifest.json',
-  ),
-  generatedSqlite: path.join(
-    packageRoot,
-    'data',
-    'generated',
-    'exercise-library.sqlite',
   ),
   generatedSqliteTemp: path.join(
     packageRoot,
@@ -61,7 +60,7 @@ export const paths = {
 export async function ensureDirectories() {
   await Promise.all(
     [
-      paths.sourceDir,
+      paths.publicDir,
       paths.vocabDir,
       paths.curationDir,
       paths.generatedDir,
@@ -84,13 +83,4 @@ export function slugify(value) {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '');
-}
-
-export function normalizeTag(value) {
-  return value
-    .trim()
-    .toLowerCase()
-    .replace(/&/g, 'and')
-    .replace(/[^a-z0-9]+/g, '_')
-    .replace(/^_+|_+$/g, '');
 }

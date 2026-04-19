@@ -10,6 +10,7 @@ if (asJson) {
 
 const topBlockers = Object.entries(report.blockerCounts ?? {}).slice(0, 8);
 const topFamilies = Object.entries(report.countsByFamily ?? {}).slice(0, 8);
+const topSources = Object.entries(report.countsBySource ?? {}).slice(0, 8);
 
 console.log('Exercise readiness report');
 console.log(
@@ -17,6 +18,7 @@ console.log(
 );
 console.log(`Auto-promoted: ${report.autoPromotedCount}`);
 console.log(`Risk tiers: ${JSON.stringify(report.countsByRiskTier)}`);
+console.log(`Sources: ${JSON.stringify(Object.fromEntries(topSources))}`);
 console.log('Top families:');
 for (const [family, count] of topFamilies) {
   console.log(`- ${family}: ${count}`);

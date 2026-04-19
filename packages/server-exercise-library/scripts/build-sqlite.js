@@ -250,8 +250,10 @@ for (const exercise of canonical) {
     JSON.stringify(exercise.sourceRefs),
   );
 
-  for (const alias of exercise.aliases) {
-    insertAlias.run(exercise.id, alias.toLowerCase());
+  for (const alias of new Set(
+    exercise.aliases.map((value) => value.toLowerCase()),
+  )) {
+    insertAlias.run(exercise.id, alias);
   }
 
   for (const equipmentId of exercise.requiredEquipment) {
@@ -303,7 +305,7 @@ for (const exercise of canonical) {
 
 database.close();
 
-await rm(paths.generatedSqlite, { force: true });
-await rename(tempSqlitePath, paths.generatedSqlite);
+await rm(paths.publicSqlite, { force: true });
+await rename(tempSqlitePath, paths.publicSqlite);
 
-console.log(`Built SQLite exercise library at ${paths.generatedSqlite}`);
+console.log(`Built SQLite exercise library at ${paths.publicSqlite}`);

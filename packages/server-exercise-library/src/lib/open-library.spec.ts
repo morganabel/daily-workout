@@ -18,8 +18,9 @@ describe('openExerciseLibrary', () => {
     const library = openExerciseLibrary();
     const metadata = library.getLibraryMetadata();
 
-    expect(metadata.exerciseCount).toBe(873);
+    expect(metadata.exerciseCount).toBeGreaterThanOrEqual(873);
     expect(metadata.plannerReadyCount).toBeGreaterThanOrEqual(400);
+    expect(metadata.sourceVersion).toContain('free-exercise-db@');
 
     library.close();
   });
@@ -68,7 +69,11 @@ describe('openExerciseLibrary', () => {
       limit: 3,
     });
 
-    expect(result.exercises[0]?.id).toBe('fedb:rowing-stationary');
+    expect(result.exercises[0]?.requiredEquipment).toContain('rowing_machine');
+    expect(result.exercises[0]?.styleTags).toEqual(
+      expect.arrayContaining(['cardio', 'conditioning']),
+    );
+    expect(result.exercises[0]?.name.toLowerCase()).toContain('rowing');
 
     library.close();
   });
