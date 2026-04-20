@@ -1,1 +1,1063 @@
-{}
+{
+  "ex:00021": {
+    "_drop": true
+  },
+  "ex:00037": {
+    "_drop": true
+  },
+  "ex:00059": {
+    "_drop": true
+  },
+  "ex:00066": {
+    "_drop": true
+  },
+  "ex:00081": {
+    "_drop": true
+  },
+  "ex:00112": {
+    "_drop": true
+  },
+  "ex:00113": {
+    "_drop": true
+  },
+  "ex:00119": {
+    "_drop": true
+  },
+  "ex:00142": {
+    "_drop": true
+  },
+  "ex:00144": {
+    "_drop": true
+  },
+  "ex:00145": {
+    "_drop": true
+  },
+  "ex:00148": {
+    "_drop": true
+  },
+  "ex:00149": {
+    "_drop": true
+  },
+  "ex:00193": {
+    "_drop": true
+  },
+  "ex:00231": {
+    "_drop": true
+  },
+  "ex:00233": {
+    "_drop": true
+  },
+  "ex:00234": {
+    "_drop": true
+  },
+  "ex:00251": {
+    "_drop": true
+  },
+  "ex:00289": {
+    "_drop": true
+  },
+  "ex:00298": {
+    "_drop": true
+  },
+  "ex:00299": {
+    "_drop": true
+  },
+  "ex:00300": {
+    "_drop": true
+  },
+  "ex:00301": {
+    "_drop": true
+  },
+  "ex:00302": {
+    "_drop": true
+  },
+  "ex:00303": {
+    "_drop": true
+  },
+  "ex:00304": {
+    "_drop": true
+  },
+  "ex:00306": {
+    "_drop": true
+  },
+  "ex:00333": {
+    "_drop": true
+  },
+  "ex:00336": {
+    "_drop": true
+  },
+  "ex:00344": {
+    "_drop": true
+  },
+  "ex:00353": {
+    "_drop": true
+  },
+  "ex:00377": {
+    "_drop": true
+  },
+  "ex:00395": {
+    "_drop": true
+  },
+  "ex:00510": {
+    "_drop": true
+  },
+  "ex:00556": {
+    "_drop": true
+  },
+  "ex:00561": {
+    "_drop": true
+  },
+  "ex:00564": {
+    "_drop": true
+  },
+  "ex:00569": {
+    "_drop": true
+  },
+  "ex:00576": {
+    "_drop": true
+  },
+  "ex:00577": {
+    "_drop": true
+  },
+  "ex:00580": {
+    "_drop": true
+  },
+  "ex:00632": {
+    "_drop": true
+  },
+  "ex:00646": {
+    "_drop": true
+  },
+  "ex:00688": {
+    "_drop": true
+  },
+  "ex:00689": {
+    "_drop": true
+  },
+  "ex:00704": {
+    "_drop": true
+  },
+  "ex:00721": {
+    "_drop": true
+  },
+  "ex:00736": {
+    "_drop": true
+  },
+  "ex:00738": {
+    "_drop": true
+  },
+  "ex:00749": {
+    "_drop": true
+  },
+  "ex:00750": {
+    "_drop": true
+  },
+  "ex:00761": {
+    "_drop": true
+  },
+  "ex:00777": {
+    "_drop": true
+  },
+  "ex:00783": {
+    "_drop": true
+  },
+  "ex:00803": {
+    "_drop": true
+  },
+  "ex:00813": {
+    "_drop": true
+  },
+  "ex:00826": {
+    "_drop": true
+  },
+  "ex:00854": {
+    "_drop": true
+  },
+  "ex:00863": {
+    "_drop": true
+  },
+  "ex:00870": {
+    "_drop": true
+  },
+  "ex:00872": {
+    "_drop": true
+  },
+  "ex:00873": {
+    "_drop": true
+  },
+  "ex:00883": {
+    "_drop": true
+  },
+  "ex:00890": {
+    "_drop": true
+  },
+  "ex:00893": {
+    "_drop": true
+  },
+  "ex:00896": {
+    "_drop": true
+  },
+  "ex:00897": {
+    "_drop": true
+  },
+  "ex:00908": {
+    "_drop": true
+  },
+  "ex:00910": {
+    "_drop": true
+  },
+  "ex:00911": {
+    "_drop": true
+  },
+  "ex:00915": {
+    "_drop": true
+  },
+  "ex:00919": {
+    "_drop": true
+  },
+  "ex:00940": {
+    "_drop": true
+  },
+  "ex:00941": {
+    "_drop": true
+  },
+  "ex:00943": {
+    "name": "Barbell Revers Wrist Curl",
+    "slug": "barbell-revers-wrist-curl",
+    "aliases": [
+      "Barbell Revers Wrist Curl V. 2"
+    ]
+  },
+  "ex:00946": {
+    "_drop": true
+  },
+  "ex:00957": {
+    "_drop": true
+  },
+  "ex:00958": {
+    "name": "Barbell Side Bent",
+    "slug": "barbell-side-bent",
+    "aliases": [
+      "Barbell Side Bent V. 2"
+    ]
+  },
+  "ex:00959": {
+    "_drop": true
+  },
+  "ex:00960": {
+    "_drop": true
+  },
+  "ex:00981": {
+    "_drop": true
+  },
+  "ex:00987": {
+    "_drop": true
+  },
+  "ex:00988": {
+    "_drop": true
+  },
+  "ex:00990": {
+    "_drop": true
+  },
+  "ex:00993": {
+    "_drop": true
+  },
+  "ex:00994": {
+    "_drop": true
+  },
+  "ex:01014": {
+    "_drop": true
+  },
+  "ex:01018": {
+    "_drop": true
+  },
+  "ex:01019": {
+    "_drop": true
+  },
+  "ex:01029": {
+    "_drop": true
+  },
+  "ex:01037": {
+    "_drop": true
+  },
+  "ex:01041": {
+    "name": "Cable Pushdown (Straight Arm)",
+    "slug": "cable-pushdown-straight-arm",
+    "aliases": [
+      "Cable Pushdown (Straight Arm) V. 2"
+    ]
+  },
+  "ex:01059": {
+    "_drop": true
+  },
+  "ex:01091": {
+    "_drop": true
+  },
+  "ex:01093": {
+    "_drop": true
+  },
+  "ex:01094": {
+    "_drop": true
+  },
+  "ex:01095": {
+    "_drop": true
+  },
+  "ex:01099": {
+    "_drop": true
+  },
+  "ex:01107": {
+    "_drop": true
+  },
+  "ex:01109": {
+    "_drop": true
+  },
+  "ex:01113": {
+    "_drop": true
+  },
+  "ex:01115": {
+    "_drop": true
+  },
+  "ex:01117": {
+    "_drop": true
+  },
+  "ex:01120": {
+    "_drop": true
+  },
+  "ex:01122": {
+    "_drop": true
+  },
+  "ex:01124": {
+    "_drop": true
+  },
+  "ex:01128": {
+    "_drop": true
+  },
+  "ex:01129": {
+    "_drop": true
+  },
+  "ex:01132": {
+    "_drop": true
+  },
+  "ex:01137": {
+    "_drop": true
+  },
+  "ex:01138": {
+    "_drop": true
+  },
+  "ex:01139": {
+    "_drop": true
+  },
+  "ex:01148": {
+    "_drop": true
+  },
+  "ex:01162": {
+    "_drop": true
+  },
+  "ex:01165": {
+    "_drop": true
+  },
+  "ex:01176": {
+    "_drop": true
+  },
+  "ex:01179": {
+    "_drop": true
+  },
+  "ex:01190": {
+    "_drop": true
+  },
+  "ex:01191": {
+    "_drop": true
+  },
+  "ex:01196": {
+    "_drop": true
+  },
+  "ex:01210": {
+    "_drop": true
+  },
+  "ex:01220": {
+    "_drop": true
+  },
+  "ex:01225": {
+    "_drop": true
+  },
+  "ex:01248": {
+    "_drop": true
+  },
+  "ex:01251": {
+    "_drop": true
+  },
+  "ex:01265": {
+    "_drop": true
+  },
+  "ex:01272": {
+    "_drop": true
+  },
+  "ex:01282": {
+    "_drop": true
+  },
+  "ex:01286": {
+    "_drop": true
+  },
+  "ex:01289": {
+    "_drop": true
+  },
+  "ex:01291": {
+    "_drop": true
+  },
+  "ex:01292": {
+    "_drop": true
+  },
+  "ex:01293": {
+    "_drop": true
+  },
+  "ex:01301": {
+    "_drop": true
+  },
+  "ex:01310": {
+    "_drop": true
+  },
+  "ex:01313": {
+    "_drop": true
+  },
+  "ex:01322": {
+    "_drop": true
+  },
+  "ex:01324": {
+    "_drop": true
+  },
+  "ex:01325": {
+    "_drop": true
+  },
+  "ex:01326": {
+    "_drop": true
+  },
+  "ex:01327": {
+    "_drop": true
+  },
+  "ex:01328": {
+    "_drop": true
+  },
+  "ex:01329": {
+    "_drop": true
+  },
+  "ex:01332": {
+    "_drop": true
+  },
+  "ex:01385": {
+    "_drop": true
+  },
+  "ex:01388": {
+    "_drop": true
+  },
+  "ex:01391": {
+    "_drop": true
+  },
+  "ex:01397": {
+    "_drop": true
+  },
+  "ex:01401": {
+    "_drop": true
+  },
+  "ex:01403": {
+    "_drop": true
+  },
+  "ex:01414": {
+    "_drop": true
+  },
+  "ex:01417": {
+    "_drop": true
+  },
+  "ex:01418": {
+    "_drop": true
+  },
+  "ex:01425": {
+    "_drop": true
+  },
+  "ex:01432": {
+    "_drop": true
+  },
+  "ex:01435": {
+    "_drop": true
+  },
+  "ex:01473": {
+    "_drop": true
+  },
+  "ex:01474": {
+    "_drop": true
+  },
+  "ex:01476": {
+    "_drop": true
+  },
+  "ex:01478": {
+    "_drop": true
+  },
+  "ex:01494": {
+    "_drop": true
+  },
+  "ex:01526": {
+    "_drop": true
+  },
+  "ex:01527": {
+    "_drop": true
+  },
+  "ex:01528": {
+    "_drop": true
+  },
+  "ex:01529": {
+    "_drop": true
+  },
+  "ex:01581": {
+    "_drop": true
+  },
+  "ex:01601": {
+    "_drop": true
+  },
+  "ex:01603": {
+    "_drop": true
+  },
+  "ex:01632": {
+    "_drop": true
+  },
+  "ex:01636": {
+    "_drop": true
+  },
+  "ex:01655": {
+    "_drop": true
+  },
+  "ex:01679": {
+    "_drop": true
+  },
+  "ex:01682": {
+    "_drop": true
+  },
+  "ex:01684": {
+    "_drop": true
+  },
+  "ex:01688": {
+    "_drop": true
+  },
+  "ex:01690": {
+    "_drop": true
+  },
+  "ex:01691": {
+    "_drop": true
+  },
+  "ex:01693": {
+    "_drop": true
+  },
+  "ex:01694": {
+    "_drop": true
+  },
+  "ex:01695": {
+    "name": "Band Two Legs Calf Raise - (Band Under Both Legs)",
+    "slug": "band-two-legs-calf-raise-band-under-both-legs",
+    "aliases": [
+      "Band Two Legs Calf Raise - (Band Under Both Legs) V. 2"
+    ]
+  },
+  "ex:01715": {
+    "_drop": true
+  },
+  "ex:01729": {
+    "_drop": true
+  },
+  "ex:01740": {
+    "_drop": true
+  },
+  "ex:01742": {
+    "_drop": true
+  },
+  "ex:01748": {
+    "_drop": true
+  },
+  "ex:01749": {
+    "_drop": true
+  },
+  "ex:01759": {
+    "_drop": true
+  },
+  "ex:01766": {
+    "_drop": true
+  },
+  "ex:01775": {
+    "_drop": true
+  },
+  "ex:01779": {
+    "_drop": true
+  },
+  "ex:01783": {
+    "name": "Oblique Crunch",
+    "slug": "oblique-crunch",
+    "aliases": [
+      "Oblique Crunch V. 2"
+    ]
+  },
+  "ex:01785": {
+    "_drop": true
+  },
+  "ex:01788": {
+    "_drop": true
+  },
+  "ex:01792": {
+    "_drop": true
+  },
+  "ex:01798": {
+    "_drop": true
+  },
+  "ex:01840": {
+    "_drop": true
+  },
+  "ex:01923": {
+    "name": "single leg squat (pistol)",
+    "slug": "single-leg-squat-pistol",
+    "aliases": [
+      "single leg squat (pistol) male"
+    ]
+  },
+  "ex:01924": {
+    "_drop": true
+  },
+  "ex:01939": {
+    "_drop": true
+  },
+  "ex:01961": {
+    "name": "Lever Hip Extension",
+    "slug": "lever-hip-extension",
+    "aliases": [
+      "Lever Hip Extension V. 2"
+    ]
+  },
+  "ex:01976": {
+    "name": "Dumbbell Standing Inner Biceps Curl",
+    "slug": "dumbbell-standing-inner-biceps-curl",
+    "aliases": [
+      "Dumbbell Standing Inner Biceps Curl V. 2"
+    ]
+  },
+  "ex:01977": {
+    "name": "dumbbell reverse grip row",
+    "slug": "dumbbell-reverse-grip-row",
+    "aliases": [
+      "dumbbell reverse grip row (female)"
+    ]
+  },
+  "ex:01988": {
+    "_drop": true
+  },
+  "ex:01989": {
+    "_drop": true
+  },
+  "ex:02004": {
+    "_drop": true
+  },
+  "ex:02021": {
+    "_drop": true
+  },
+  "ex:02022": {
+    "_drop": true
+  },
+  "ex:02027": {
+    "name": "Barbell Split Squat",
+    "slug": "barbell-split-squat",
+    "aliases": [
+      "Barbell Split Squat V. 2"
+    ]
+  },
+  "ex:02061": {
+    "_drop": true
+  },
+  "ex:02065": {
+    "name": "half sit-up",
+    "slug": "half-sit-up",
+    "aliases": [
+      "half sit-up (male)"
+    ]
+  },
+  "ex:02066": {
+    "name": "prisoner half sit-up",
+    "slug": "prisoner-half-sit-up",
+    "aliases": [
+      "prisoner half sit-up (male)"
+    ]
+  },
+  "ex:02067": {
+    "name": "arms overhead full sit-up",
+    "slug": "arms-overhead-full-sit-up",
+    "aliases": [
+      "arms overhead full sit-up (male)"
+    ]
+  },
+  "ex:02068": {
+    "name": "kneeling push-up",
+    "slug": "kneeling-push-up",
+    "aliases": [
+      "kneeling push-up (male)"
+    ]
+  },
+  "ex:02069": {
+    "name": "basic toe touch",
+    "slug": "basic-toe-touch",
+    "aliases": [
+      "basic toe touch (male)"
+    ]
+  },
+  "ex:02070": {
+    "name": "side-to-side toe touch",
+    "slug": "side-to-side-toe-touch",
+    "aliases": [
+      "side-to-side toe touch (male)"
+    ]
+  },
+  "ex:02071": {
+    "name": "arms apart circular toe touch",
+    "slug": "arms-apart-circular-toe-touch",
+    "aliases": [
+      "arms apart circular toe touch (male)"
+    ]
+  },
+  "ex:02072": {
+    "name": "hands reversed clasped circular toe touch",
+    "slug": "hands-reversed-clasped-circular-toe-touch",
+    "aliases": [
+      "hands reversed clasped circular toe touch (male)"
+    ]
+  },
+  "ex:02073": {
+    "name": "chest tap push-up",
+    "slug": "chest-tap-push-up",
+    "aliases": [
+      "chest tap push-up (male)"
+    ],
+    "_drop": true
+  },
+  "ex:02074": {
+    "name": "modified hindu push-up",
+    "slug": "modified-hindu-push-up",
+    "aliases": [
+      "modified hindu push-up (male)"
+    ]
+  },
+  "ex:02075": {
+    "name": "hands clasped circular toe touch",
+    "slug": "hands-clasped-circular-toe-touch",
+    "aliases": [
+      "hands clasped circular toe touch (male)"
+    ]
+  },
+  "ex:02076": {
+    "name": "scissor jumps",
+    "slug": "scissor-jumps",
+    "aliases": [
+      "scissor jumps (male)"
+    ]
+  },
+  "ex:02077": {
+    "name": "astride jumps",
+    "slug": "astride-jumps",
+    "aliases": [
+      "astride jumps (male)"
+    ]
+  },
+  "ex:02078": {
+    "name": "half knee bends",
+    "slug": "half-knee-bends",
+    "aliases": [
+      "half knee bends (male)"
+    ]
+  },
+  "ex:02079": {
+    "name": "semi squat jump",
+    "slug": "semi-squat-jump",
+    "aliases": [
+      "semi squat jump (male)"
+    ]
+  },
+  "ex:02080": {
+    "_drop": true
+  },
+  "ex:02081": {
+    "name": "jack jump",
+    "slug": "jack-jump",
+    "aliases": [
+      "jack jump (male)"
+    ]
+  },
+  "ex:02082": {
+    "name": "two toe touch",
+    "slug": "two-toe-touch",
+    "aliases": [
+      "two toe touch (male)"
+    ]
+  },
+  "ex:02085": {
+    "name": "resistance band hip thrusts on knees",
+    "slug": "resistance-band-hip-thrusts-on-knees",
+    "aliases": [
+      "resistance band hip thrusts on knees (female)"
+    ]
+  },
+  "ex:02087": {
+    "name": "kneeling plank tap shoulder",
+    "slug": "kneeling-plank-tap-shoulder",
+    "aliases": [
+      "kneeling plank tap shoulder (male)"
+    ]
+  },
+  "ex:02098": {
+    "_drop": true
+  },
+  "ex:02101": {
+    "_drop": true
+  },
+  "ex:02122": {
+    "name": "Swimmer Kicks",
+    "slug": "swimmer-kicks",
+    "aliases": [
+      "swimmer kicks v. 2 (male)",
+      "Swimmer Kicks V. 2"
+    ]
+  },
+  "ex:02123": {
+    "name": "forward lunge",
+    "slug": "forward-lunge",
+    "aliases": [
+      "forward lunge (male)"
+    ]
+  },
+  "ex:02124": {
+    "name": "glute bridge two legs on bench",
+    "slug": "glute-bridge-two-legs-on-bench",
+    "aliases": [
+      "glute bridge two legs on bench (male)"
+    ]
+  },
+  "ex:02134": {
+    "name": "Quick Feet",
+    "slug": "quick-feet",
+    "aliases": [
+      "Quick Feet V. 2"
+    ]
+  },
+  "ex:02137": {
+    "name": "barbell glute bridge two legs on bench",
+    "slug": "barbell-glute-bridge-two-legs-on-bench",
+    "aliases": [
+      "barbell glute bridge two legs on bench (male)"
+    ]
+  },
+  "ex:02144": {
+    "name": "bent knee lying twist",
+    "slug": "bent-knee-lying-twist",
+    "aliases": [
+      "bent knee lying twist (male)"
+    ]
+  },
+  "ex:02148": {
+    "name": "weighted cossack squats",
+    "slug": "weighted-cossack-squats",
+    "aliases": [
+      "weighted cossack squats (male)"
+    ]
+  },
+  "ex:02158": {
+    "name": "side lying hip adduction",
+    "slug": "side-lying-hip-adduction",
+    "aliases": [
+      "side lying hip adduction (male)"
+    ]
+  },
+  "ex:02164": {
+    "name": "cable kneeling rear delt row (with rope)",
+    "slug": "cable-kneeling-rear-delt-row-with-rope",
+    "aliases": [
+      "cable kneeling rear delt row (with rope) (male)"
+    ]
+  },
+  "ex:02165": {
+    "_drop": true
+  },
+  "ex:02169": {
+    "_drop": true
+  },
+  "fedb:barbell-ab-rollout": {
+    "metadataCompleteness": "curated"
+  },
+  "fedb:barbell-bench-press-medium-grip": {
+    "metadataCompleteness": "planner-ready",
+    "name": "Barbell Bench Press",
+    "slug": "barbell-bench-press",
+    "aliases": [
+      "Bench Press",
+      "Barbell Bench Press - Medium Grip"
+    ]
+  },
+  "fedb:barbell-curl": {
+    "metadataCompleteness": "curated"
+  },
+  "fedb:barbell-deadlift": {
+    "metadataCompleteness": "planner-ready",
+    "aliases": [
+      "Deadlift"
+    ]
+  },
+  "fedb:barbell-full-squat": {
+    "metadataCompleteness": "curated"
+  },
+  "fedb:barbell-glute-bridge": {
+    "metadataCompleteness": "curated"
+  },
+  "fedb:barbell-guillotine-bench-press": {
+    "metadataCompleteness": "curated"
+  },
+  "fedb:barbell-hack-squat": {
+    "metadataCompleteness": "curated"
+  },
+  "fedb:barbell-hip-thrust": {
+    "metadataCompleteness": "curated"
+  },
+  "fedb:barbell-incline-shoulder-raise": {
+    "metadataCompleteness": "curated"
+  },
+  "fedb:barbell-lunge": {
+    "metadataCompleteness": "curated"
+  },
+  "fedb:barbell-rear-delt-row": {
+    "metadataCompleteness": "curated"
+  },
+  "fedb:barbell-shrug": {
+    "metadataCompleteness": "curated"
+  },
+  "fedb:barbell-side-split-squat": {
+    "metadataCompleteness": "curated"
+  },
+  "fedb:barbell-squat": {
+    "metadataCompleteness": "planner-ready",
+    "aliases": [
+      "Back Squat",
+      "Squat"
+    ]
+  },
+  "fedb:box-squat": {
+    "metadataCompleteness": "planner-ready"
+  },
+  "fedb:clean": {
+    "metadataCompleteness": "curated"
+  },
+  "fedb:clean-and-press": {
+    "metadataCompleteness": "curated"
+  },
+  "fedb:clock-push-up": {
+    "metadataCompleteness": "planner-ready"
+  },
+  "fedb:decline-dumbbell-flyes": {
+    "name": "Decline Dumbbell Fly",
+    "slug": "decline-dumbbell-fly",
+    "aliases": [
+      "Decline Dumbbell Flyes",
+      "Fly With Dumbbells, Decline Bench"
+    ]
+  },
+  "fedb:deficit-deadlift": {
+    "metadataCompleteness": "curated"
+  },
+  "fedb:dumbbell-floor-press": {
+    "metadataCompleteness": "planner-ready"
+  },
+  "fedb:dumbbell-flyes": {
+    "name": "Dumbbell Fly",
+    "slug": "dumbbell-fly",
+    "aliases": [
+      "Dumbbell Flyes",
+      "Fly With Dumbbells"
+    ]
+  },
+  "fedb:dumbbell-one-arm-upright-row": {
+    "metadataCompleteness": "curated"
+  },
+  "fedb:dumbbell-rear-lunge": {
+    "metadataCompleteness": "curated"
+  },
+  "fedb:dumbbell-squat": {
+    "metadataCompleteness": "curated"
+  },
+  "fedb:frankenstein-squat": {
+    "metadataCompleteness": "curated"
+  },
+  "fedb:incline-dumbbell-flyes": {
+    "name": "Incline Dumbbell Fly",
+    "slug": "incline-dumbbell-fly",
+    "aliases": [
+      "Incline Dumbbell Flyes",
+      "Dumbbell Incline Fly"
+    ]
+  },
+  "fedb:jm-press": {
+    "metadataCompleteness": "curated"
+  },
+  "fedb:kettlebell-arnold-press": {
+    "metadataCompleteness": "curated"
+  },
+  "fedb:kettlebell-figure-8": {
+    "metadataCompleteness": "curated"
+  },
+  "fedb:kettlebell-hang-clean": {
+    "metadataCompleteness": "curated"
+  },
+  "fedb:kettlebell-one-legged-deadlift": {
+    "metadataCompleteness": "curated"
+  },
+  "fedb:kettlebell-pistol-squat": {
+    "metadataCompleteness": "curated"
+  },
+  "fedb:kettlebell-seated-press": {
+    "metadataCompleteness": "curated"
+  },
+  "fedb:kettlebell-seesaw-press": {
+    "metadataCompleteness": "curated"
+  },
+  "fedb:kettlebell-turkish-get-up-squat-style": {
+    "metadataCompleteness": "curated"
+  },
+  "fedb:kettlebell-windmill": {
+    "metadataCompleteness": "curated"
+  },
+  "fedb:kneeling-jump-squat": {
+    "metadataCompleteness": "curated"
+  },
+  "fedb:one-arm-chin-up": {
+    "metadataCompleteness": "curated"
+  },
+  "fedb:plyo-push-up": {
+    "metadataCompleteness": "planner-ready"
+  },
+  "fedb:power-clean": {
+    "metadataCompleteness": "curated"
+  },
+  "fedb:romanian-deadlift": {
+    "metadataCompleteness": "planner-ready",
+    "aliases": [
+      "Barbell Romanian Deadlift"
+    ]
+  },
+  "fedb:scapular-pull-up": {
+    "metadataCompleteness": "curated"
+  },
+  "fedb:snatch-pull": {
+    "metadataCompleteness": "curated"
+  },
+  "fedb:split-squats": {
+    "metadataCompleteness": "planner-ready",
+    "name": "Split Squat",
+    "slug": "split-squat",
+    "aliases": [
+      "Split Squats",
+      "Bodyweight Split Squat"
+    ]
+  },
+  "fedb:squat-jerk": {
+    "metadataCompleteness": "curated"
+  },
+  "fedb:wide-grip-rear-pull-up": {
+    "metadataCompleteness": "curated"
+  }
+}

@@ -1,5 +1,31 @@
 import { ensureDirectories, paths, readJson, writeJson } from './_common.js';
 
+function normalizeWhitespace(value) {
+  return value.trim().replace(/\s+/g, ' ');
+}
+
+function toTitleCase(value) {
+  return value.replace(/[A-Za-z0-9]+/g, (token) => {
+    if (/^[A-Z0-9]+$/.test(token)) {
+      return token;
+    }
+
+    return token[0].toUpperCase() + token.slice(1).toLowerCase();
+  });
+}
+
+function normalizeDisplayName(value) {
+  const trimmed = normalizeWhitespace(value);
+
+  // Public-seed rows often arrive fully lowercase; title-casing them makes
+  // the runtime library consistent without changing fedb-authored names.
+  if (!/[A-Z]/.test(trimmed)) {
+    return toTitleCase(trimmed);
+  }
+
+  return trimmed;
+}
+
 function countBy(records, keySelector) {
   const counts = new Map();
 
@@ -12,18 +38,30 @@ function countBy(records, keySelector) {
 }
 
 function applyOverride(exercise, override) {
-  if (!override) {
-    return exercise;
-  }
-
-  const next = {
+  const baseExercise = {
     ...exercise,
-    ...override,
+    name: normalizeDisplayName(exercise.name),
   };
 
+  if (!override) {
+    return baseExercise;
+  }
+
+  if (override._drop === true) {
+    return null;
+  }
+
+  const { _drop: _ignoredDrop, ...overrideFields } = override;
+  const next = {
+    ...baseExercise,
+    ...overrideFields,
+  };
+
+  next.name = normalizeDisplayName(next.name);
+
   if (
-    Object.keys(override).length > 0 &&
-    !Object.prototype.hasOwnProperty.call(override, 'promotionSource')
+    Object.keys(overrideFields).length > 0 &&
+    !Object.prototype.hasOwnProperty.call(overrideFields, 'promotionSource')
   ) {
     next.promotionSource = 'override';
   }
@@ -79,6 +117,7 @@ const [publicCanonical, publicManifest, overrides] = await Promise.all([
 
 const canonical = publicCanonical
   .map((exercise) => applyOverride(exercise, overrides[exercise.id]))
+  .filter(Boolean)
   .sort(
     (left, right) =>
       left.sortKey - right.sortKey || left.id.localeCompare(right.id),

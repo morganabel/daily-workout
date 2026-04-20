@@ -4,6 +4,32 @@ import { paths, readJson } from './_common.js';
 const legacySourceIdPattern = /^(wger:|fitnessshub:)/;
 const legacySlugPattern = /^(wger-|fitnessshub-)/;
 const legacySourcePattern = /\b(?:wger|fitnessshub)\b/i;
+const forbiddenTitlePatterns = [
+  { pattern: /\bhd\b/i, label: 'HD suffix' },
+  { pattern: /\bv\.?\s*2\b/i, label: 'v2 suffix' },
+  { pattern: /\b(?:male|female)\b/i, label: 'gender marker' },
+  { pattern: /\bno leg drive\b/i, label: 'coaching cue variant' },
+];
+
+function normalizeDuplicateName(value) {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function normalizeSideBaseName(value) {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/\b(left|right)\b/g, ' ')
+    .replace(/\bleg\b/g, ' ')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
 
 const [canonical, manifest, readinessReport, enums, tags, equipment] =
   await Promise.all([
@@ -35,6 +61,8 @@ const allowedTags = {
 
 const ids = new Set();
 const sourceIds = new Set();
+const duplicateGroups = new Map();
+const canonicalKeys = new Map();
 
 for (const exercise of canonical) {
   if (ids.has(exercise.id)) {
@@ -92,6 +120,30 @@ for (const exercise of canonical) {
           `free-exercise-db exercise ${exercise.id} has unexpected source ref ${sourceRef.source}`,
         );
       }
+    }
+  }
+
+  const duplicateKey = `${normalizeDuplicateName(exercise.name)}::${[...exercise.requiredEquipment].sort().join('|')}`;
+  const duplicateGroup = duplicateGroups.get(duplicateKey) ?? [];
+  duplicateGroup.push(exercise.id);
+  duplicateGroups.set(duplicateKey, duplicateGroup);
+
+  const canonicalKey = `${normalizeSideBaseName(exercise.name)}::${[...exercise.requiredEquipment].sort().join('|')}`;
+  const canonicalMatches = canonicalKeys.get(canonicalKey) ?? [];
+  canonicalMatches.push({ id: exercise.id, name: exercise.name });
+  canonicalKeys.set(canonicalKey, canonicalMatches);
+
+  if (/^[a-z]/.test(exercise.name)) {
+    throw new Error(
+      `Exercise ${exercise.id} must use consistent capitalization: ${exercise.name}`,
+    );
+  }
+
+  for (const { pattern, label } of forbiddenTitlePatterns) {
+    if (pattern.test(exercise.name)) {
+      throw new Error(
+        `Exercise ${exercise.id} contains forbidden ${label}: ${exercise.name}`,
+      );
     }
   }
 
@@ -182,6 +234,29 @@ for (const exercise of canonical) {
         `Planner-ready exercise ${exercise.id} must define allowed roles`,
       );
     }
+  }
+}
+
+for (const [duplicateKey, duplicateIds] of duplicateGroups.entries()) {
+  if (duplicateIds.length > 1) {
+    throw new Error(
+      `Duplicate canonical exercise group detected for ${duplicateKey}: ${duplicateIds.join(', ')}`,
+    );
+  }
+}
+
+for (const [canonicalKey, exercisesForKey] of canonicalKeys.entries()) {
+  const sideVariants = exercisesForKey.filter(({ name }) =>
+    /\b(left|right)\b/i.test(name),
+  );
+  const baseVariants = exercisesForKey.filter(
+    ({ name }) => !/\b(left|right)\b/i.test(name),
+  );
+
+  if (sideVariants.length > 0 && baseVariants.length > 0) {
+    throw new Error(
+      `Laterality-only duplicate group detected for ${canonicalKey}: ${exercisesForKey.map(({ id }) => id).join(', ')}`,
+    );
   }
 }
 

@@ -63,11 +63,76 @@ const equipmentAliasMap = new Map<string, string>(
   equipmentAliasPairs.map(([label, id]) => [label.toLowerCase(), id]),
 );
 
+const equipmentPresets: Record<string, string[]> = {
+  gym: [
+    'bodyweight',
+    'barbell',
+    'dumbbell',
+    'bench',
+    'incline_bench',
+    'squat_rack',
+    'machine',
+    'cable_machine',
+    'pull_up_bar',
+    'resistance_bands',
+    'kettlebell',
+    'ez_curl_bar',
+    'medicine_ball',
+    'exercise_ball',
+    'foam_roller',
+    'rowing_machine',
+    'treadmill',
+  ],
+  full_gym: [
+    'bodyweight',
+    'barbell',
+    'dumbbell',
+    'bench',
+    'incline_bench',
+    'squat_rack',
+    'machine',
+    'cable_machine',
+    'pull_up_bar',
+    'resistance_bands',
+    'kettlebell',
+    'ez_curl_bar',
+    'medicine_ball',
+    'exercise_ball',
+    'foam_roller',
+    'rowing_machine',
+    'treadmill',
+    'jump_rope',
+    'sandbag',
+    'other',
+  ],
+  minimal_home: ['bodyweight', 'resistance_bands', 'dumbbell', 'bench'],
+  dumbbell_bench: ['bodyweight', 'dumbbell', 'bench', 'incline_bench'],
+};
+
 export function normalizeEquipmentId(value: string): string {
   const normalized = value.trim().toLowerCase();
   return (
     equipmentAliasMap.get(normalized) ?? normalized.replace(/[^a-z0-9]+/g, '_')
   );
+}
+
+export function expandAvailableEquipment(values: string[]): string[] {
+  const expanded = new Set<string>();
+
+  for (const value of values) {
+    const normalized = normalizeEquipmentId(value);
+    const preset = equipmentPresets[normalized];
+    if (preset) {
+      for (const equipmentId of preset) {
+        expanded.add(equipmentId);
+      }
+      continue;
+    }
+
+    expanded.add(normalized);
+  }
+
+  return [...expanded];
 }
 
 const experienceRank: Record<string, number> = {

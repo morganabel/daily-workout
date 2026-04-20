@@ -1,5 +1,6 @@
 import type Database from 'better-sqlite3';
 import {
+  expandAvailableEquipment,
   getExperienceRank,
   getImpactRank,
   getLoadRank,
@@ -183,9 +184,9 @@ function buildEligibleExerciseSql(
   }
 
   if (query.availableEquipment?.length) {
-    const equipmentIds = [
-      ...new Set(query.availableEquipment.map(normalizeEquipmentId)),
-    ];
+    const equipmentIds = expandAvailableEquipment(query.availableEquipment).map(
+      normalizeEquipmentId,
+    );
     const placeholders = equipmentIds.map(() => '?').join(', ');
     conditions.push(`NOT EXISTS (
       SELECT 1
@@ -287,6 +288,21 @@ function buildEligibleExerciseSql(
   }
 
   const styleScore = buildStyleBiasScore(query.styleBias, params);
+  const textMatchScore = buildTextMatchScore(query.searchText, params);
+  const sourcePriorityScore = `CASE WHEN e.id LIKE 'fedb:%' THEN 1 ELSE 0 END`;
+  const compoundScore = `EXISTS (
+    SELECT 1
+    FROM exercise_tags et
+    WHERE et.exercise_id = e.id
+      AND et.tag_type = 'movement'
+      AND et.tag = 'compound'
+  )`;
+  const mainRoleScore = `EXISTS (
+    SELECT 1
+    FROM exercise_roles er
+    WHERE er.exercise_id = e.id
+      AND er.role = 'main'
+  )`;
   const limitClause = query.limit ? 'LIMIT ?' : '';
   if (query.limit) {
     params.push(query.limit);
@@ -297,7 +313,14 @@ function buildEligibleExerciseSql(
     sql: `${BASE_SELECT_SQL}
       ${fromSql}
       ${whereClause}
-      ORDER BY ${orderBySql ? `${orderBySql}, ` : ''}${styleScore} DESC, e.sort_key ASC, e.id ASC
+      ORDER BY ${textMatchScore} DESC,
+        ${styleScore} DESC,
+        ${sourcePriorityScore} DESC,
+        ${compoundScore} DESC,
+        ${mainRoleScore} DESC,
+        ${orderBySql ? `${orderBySql},` : ''}
+        e.sort_key ASC,
+        e.id ASC
       ${limitClause}`,
     params,
     orderBySql,
@@ -331,6 +354,37 @@ function buildStyleBiasScore(
   const placeholders = styleBias.map(() => '?').join(', ');
   params.push(...styleBias);
   return `(SELECT COUNT(*) FROM exercise_tags et WHERE et.exercise_id = e.id AND et.tag_type = 'style' AND et.tag IN (${placeholders}))`;
+}
+
+function buildTextMatchScore(
+  rawSearchText: string | undefined,
+  params: Array<string | number>,
+): string {
+  const normalized = rawSearchText?.trim().toLowerCase();
+  if (!normalized) {
+    return 'CASE WHEN 1 = 1 THEN 0 END';
+  }
+
+  const contains = `%${normalized}%`;
+  params.push(normalized, normalized, contains, contains);
+
+  return `CASE
+    WHEN lower(e.name) = ? THEN 40
+    WHEN EXISTS (
+      SELECT 1
+      FROM exercise_aliases ea
+      WHERE ea.exercise_id = e.id
+        AND lower(ea.alias) = ?
+    ) THEN 36
+    WHEN lower(e.name) LIKE ? THEN 24
+    WHEN EXISTS (
+      SELECT 1
+      FROM exercise_aliases ea
+      WHERE ea.exercise_id = e.id
+        AND lower(ea.alias) LIKE ?
+    ) THEN 12
+    ELSE 0
+  END`;
 }
 
 function addTagExistsCondition(
