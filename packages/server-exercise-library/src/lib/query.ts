@@ -303,6 +303,8 @@ function buildEligibleExerciseSql(
     WHERE er.exercise_id = e.id
       AND er.role = 'main'
   )`;
+  const loadPriorityScore = buildLoadPriorityScore(query);
+  const equipmentPriorityScore = buildEquipmentPriorityScore(query);
   const limitClause = query.limit ? 'LIMIT ?' : '';
   if (query.limit) {
     params.push(query.limit);
@@ -318,6 +320,8 @@ function buildEligibleExerciseSql(
         ${sourcePriorityScore} DESC,
         ${compoundScore} DESC,
         ${mainRoleScore} DESC,
+        ${loadPriorityScore} DESC,
+        ${equipmentPriorityScore} DESC,
         ${orderBySql ? `${orderBySql},` : ''}
         e.sort_key ASC,
         e.id ASC
@@ -383,6 +387,76 @@ function buildTextMatchScore(
       WHERE ea.exercise_id = e.id
         AND lower(ea.alias) LIKE ?
     ) THEN 12
+    ELSE 0
+  END`;
+}
+
+function buildLoadPriorityScore(query: CandidateQuery): string {
+  const prefersStrengthLoads =
+    query.blockRole === 'main' || query.styleBias?.includes('strength');
+
+  if (!prefersStrengthLoads) {
+    return 'CASE WHEN 1 = 1 THEN 0 END';
+  }
+
+  return `CASE e.load_level
+    WHEN 'heavy' THEN 3
+    WHEN 'moderate' THEN 2
+    WHEN 'light' THEN 1
+    ELSE 0
+  END`;
+}
+
+function buildEquipmentPriorityScore(query: CandidateQuery): string {
+  const prefersLoadedStrength =
+    query.availableEquipment?.length &&
+    (query.blockRole === 'main' || query.styleBias?.includes('strength'));
+
+  if (!prefersLoadedStrength) {
+    return 'CASE WHEN 1 = 1 THEN 0 END';
+  }
+
+  return `CASE
+    WHEN EXISTS (
+      SELECT 1
+      FROM exercise_equipment ee
+      WHERE ee.exercise_id = e.id
+        AND ee.requirement_type = 'required'
+        AND ee.equipment_id IN (
+          'barbell',
+          'dumbbell',
+          'kettlebell',
+          'machine',
+          'cable_machine',
+          'bench',
+          'incline_bench',
+          'squat_rack',
+          'ez_curl_bar',
+          'medicine_ball',
+          'sandbag'
+        )
+    ) THEN 3
+    WHEN EXISTS (
+      SELECT 1
+      FROM exercise_equipment ee
+      WHERE ee.exercise_id = e.id
+        AND ee.requirement_type = 'required'
+        AND ee.equipment_id IN (
+          'resistance_bands',
+          'pull_up_bar',
+          'rowing_machine',
+          'treadmill',
+          'jump_rope',
+          'other'
+        )
+    ) THEN 2
+    WHEN EXISTS (
+      SELECT 1
+      FROM exercise_equipment ee
+      WHERE ee.exercise_id = e.id
+        AND ee.requirement_type = 'required'
+        AND ee.equipment_id = 'bodyweight'
+    ) THEN 1
     ELSE 0
   END`;
 }
