@@ -20,6 +20,14 @@ function normalizeDuplicateName(value) {
     .trim();
 }
 
+function normalizeTokenOrderName(value) {
+  return normalizeDuplicateName(value)
+    .split(' ')
+    .filter(Boolean)
+    .sort()
+    .join(' ');
+}
+
 function normalizeSideBaseName(value) {
   return value
     .trim()
@@ -62,6 +70,7 @@ const allowedTags = {
 const ids = new Set();
 const sourceIds = new Set();
 const duplicateGroups = new Map();
+const tokenOrderDuplicateGroups = new Map();
 const canonicalKeys = new Map();
 
 for (const exercise of canonical) {
@@ -127,6 +136,15 @@ for (const exercise of canonical) {
   const duplicateGroup = duplicateGroups.get(duplicateKey) ?? [];
   duplicateGroup.push(exercise.id);
   duplicateGroups.set(duplicateKey, duplicateGroup);
+
+  const tokenOrderDuplicateKey = `${normalizeTokenOrderName(exercise.name)}::${[...exercise.requiredEquipment].sort().join('|')}`;
+  const tokenOrderDuplicateGroup =
+    tokenOrderDuplicateGroups.get(tokenOrderDuplicateKey) ?? [];
+  tokenOrderDuplicateGroup.push(exercise.id);
+  tokenOrderDuplicateGroups.set(
+    tokenOrderDuplicateKey,
+    tokenOrderDuplicateGroup,
+  );
 
   const canonicalKey = `${normalizeSideBaseName(exercise.name)}::${[...exercise.requiredEquipment].sort().join('|')}`;
   const canonicalMatches = canonicalKeys.get(canonicalKey) ?? [];
@@ -245,6 +263,17 @@ for (const [duplicateKey, duplicateIds] of duplicateGroups.entries()) {
   }
 }
 
+for (const [
+  duplicateKey,
+  duplicateIds,
+] of tokenOrderDuplicateGroups.entries()) {
+  if (duplicateIds.length > 1) {
+    throw new Error(
+      `Token-order duplicate exercise group detected for ${duplicateKey}: ${duplicateIds.join(', ')}`,
+    );
+  }
+}
+
 for (const [canonicalKey, exercisesForKey] of canonicalKeys.entries()) {
   const sideVariants = exercisesForKey.filter(({ name }) =>
     /\b(left|right)\b/i.test(name),
@@ -278,9 +307,9 @@ if (readinessReport.plannerReadyCount !== manifest.plannerReadyCount) {
   );
 }
 
-if (readinessReport.autoPromotedCount < 350) {
+if (readinessReport.autoPromotedCount < 330) {
   throw new Error(
-    `Expected at least 350 auto-promoted exercises, found ${readinessReport.autoPromotedCount}`,
+    `Expected at least 330 auto-promoted exercises, found ${readinessReport.autoPromotedCount}`,
   );
 }
 

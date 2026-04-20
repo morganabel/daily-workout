@@ -1,6 +1,21 @@
 {
+  "ex:00013": {
+    "aliases": [
+      "Kettlebell Swings"
+    ]
+  },
   "ex:00021": {
     "_drop": true
+  },
+  "ex:00029": {
+    "aliases": [
+      "Fly With Cable"
+    ]
+  },
+  "ex:00033": {
+    "aliases": [
+      "Mountain Climber"
+    ]
   },
   "ex:00037": {
     "_drop": true
@@ -9,6 +24,9 @@
     "_drop": true
   },
   "ex:00066": {
+    "_drop": true
+  },
+  "ex:00077": {
     "_drop": true
   },
   "ex:00081": {
@@ -32,6 +50,9 @@
   "ex:00145": {
     "_drop": true
   },
+  "ex:00147": {
+    "_drop": true
+  },
   "ex:00148": {
     "_drop": true
   },
@@ -51,6 +72,16 @@
     "_drop": true
   },
   "ex:00251": {
+    "_drop": true
+  },
+  "ex:00267": {
+    "aliases": [
+      "Dumbbell Incline Bench Press",
+      "Incline Bench Press - Dumbbell",
+      "Incline Dumbbell Press"
+    ]
+  },
+  "ex:00277": {
     "_drop": true
   },
   "ex:00289": {
@@ -80,6 +111,17 @@
   "ex:00306": {
     "_drop": true
   },
+  "ex:00312": {
+    "_drop": true
+  },
+  "ex:00315": {
+    "aliases": [
+      "Shoulder Press, Dumbbells"
+    ]
+  },
+  "ex:00325": {
+    "_drop": true
+  },
   "ex:00333": {
     "_drop": true
   },
@@ -98,14 +140,40 @@
   "ex:00395": {
     "_drop": true
   },
+  "ex:00401": {
+    "aliases": [
+      "Barbell Incline Close Grip Bench Press"
+    ]
+  },
   "ex:00510": {
+    "_drop": true
+  },
+  "ex:00519": {
+    "aliases": [
+      "Seated machine row"
+    ]
+  },
+  "ex:00527": {
+    "aliases": [
+      "Dumbbell Seated Calf Raise"
+    ]
+  },
+  "ex:00546": {
     "_drop": true
   },
   "ex:00556": {
     "_drop": true
   },
+  "ex:00560": {
+    "_drop": true
+  },
   "ex:00561": {
     "_drop": true
+  },
+  "ex:00563": {
+    "aliases": [
+      "Dumbbell Single Leg Deadlift"
+    ]
   },
   "ex:00564": {
     "_drop": true
@@ -128,10 +196,19 @@
   "ex:00646": {
     "_drop": true
   },
+  "ex:00673": {
+    "_drop": true
+  },
+  "ex:00677": {
+    "_drop": true
+  },
   "ex:00688": {
     "_drop": true
   },
   "ex:00689": {
+    "_drop": true
+  },
+  "ex:00694": {
     "_drop": true
   },
   "ex:00704": {
@@ -146,16 +223,31 @@
   "ex:00738": {
     "_drop": true
   },
+  "ex:00743": {
+    "_drop": true
+  },
+  "ex:00744": {
+    "_drop": true
+  },
+  "ex:00747": {
+    "_drop": true
+  },
   "ex:00749": {
     "_drop": true
   },
   "ex:00750": {
     "_drop": true
   },
+  "ex:00751": {
+    "_drop": true
+  },
   "ex:00761": {
     "_drop": true
   },
   "ex:00777": {
+    "_drop": true
+  },
+  "ex:00779": {
     "_drop": true
   },
   "ex:00783": {
@@ -167,10 +259,30 @@
   "ex:00813": {
     "_drop": true
   },
+  "ex:00817": {
+    "aliases": [
+      "Barbell Incline Bench Press"
+    ]
+  },
+  "ex:00823": {
+    "_drop": true
+  },
+  "ex:00824": {
+    "_drop": true
+  },
   "ex:00826": {
     "_drop": true
   },
+  "ex:00830": {
+    "_drop": true
+  },
+  "ex:00832": {
+    "_drop": true
+  },
   "ex:00854": {
+    "_drop": true
+  },
+  "ex:00858": {
     "_drop": true
   },
   "ex:00863": {
@@ -191,13 +303,28 @@
   "ex:00890": {
     "_drop": true
   },
+  "ex:00892": {
+    "_drop": true
+  },
   "ex:00893": {
+    "_drop": true
+  },
+  "ex:00895": {
     "_drop": true
   },
   "ex:00896": {
     "_drop": true
   },
   "ex:00897": {
+    "_drop": true
+  },
+  "ex:00898": {
+    "_drop": true
+  },
+  "ex:00902": {
+    "_drop": true
+  },
+  "ex:00907": {
     "_drop": true
   },
   "ex:00908": {
@@ -209,10 +336,16 @@
   "ex:00911": {
     "_drop": true
   },
+  "ex:00912": {
+    "_drop": true
+  },
   "ex:00915": {
     "_drop": true
   },
   "ex:00919": {
+    "_drop": true
+  },
+  "ex:00932": {
     "_drop": true
   },
   "ex:00940": {
@@ -228,7 +361,16 @@
       "Barbell Revers Wrist Curl V. 2"
     ]
   },
+  "ex:00944": {
+    "_drop": true
+  },
+  "ex:00945": {
+    "_drop": true
+  },
   "ex:00946": {
+    "_drop": true
+  },
+  "ex:00956": {
     "_drop": true
   },
   "ex:00957": {
@@ -247,7 +389,25 @@
   "ex:00960": {
     "_drop": true
   },
+  "ex:00968": {
+    "_drop": true
+  },
+  "ex:00969": {
+    "_drop": true
+  },
+  "ex:00971": {
+    "_drop": true
+  },
+  "ex:00975": {
+    "_drop": true
+  },
+  "ex:00977": {
+    "_drop": true
+  },
   "ex:00981": {
+    "_drop": true
+  },
+  "ex:00982": {
     "_drop": true
   },
   "ex:00987": {
@@ -265,6 +425,12 @@
   "ex:00994": {
     "_drop": true
   },
+  "ex:01005": {
+    "_drop": true
+  },
+  "ex:01010": {
+    "_drop": true
+  },
   "ex:01014": {
     "_drop": true
   },
@@ -272,6 +438,9 @@
     "_drop": true
   },
   "ex:01019": {
+    "_drop": true
+  },
+  "ex:01021": {
     "_drop": true
   },
   "ex:01029": {
@@ -287,7 +456,25 @@
       "Cable Pushdown (Straight Arm) V. 2"
     ]
   },
+  "ex:01048": {
+    "_drop": true
+  },
   "ex:01059": {
+    "_drop": true
+  },
+  "ex:01060": {
+    "_drop": true
+  },
+  "ex:01061": {
+    "_drop": true
+  },
+  "ex:01070": {
+    "_drop": true
+  },
+  "ex:01085": {
+    "_drop": true
+  },
+  "ex:01086": {
     "_drop": true
   },
   "ex:01091": {
@@ -305,6 +492,9 @@
   "ex:01099": {
     "_drop": true
   },
+  "ex:01105": {
+    "_drop": true
+  },
   "ex:01107": {
     "_drop": true
   },
@@ -312,6 +502,9 @@
     "_drop": true
   },
   "ex:01113": {
+    "_drop": true
+  },
+  "ex:01114": {
     "_drop": true
   },
   "ex:01115": {
@@ -323,10 +516,16 @@
   "ex:01120": {
     "_drop": true
   },
+  "ex:01121": {
+    "_drop": true
+  },
   "ex:01122": {
     "_drop": true
   },
   "ex:01124": {
+    "_drop": true
+  },
+  "ex:01126": {
     "_drop": true
   },
   "ex:01128": {
@@ -335,7 +534,13 @@
   "ex:01129": {
     "_drop": true
   },
+  "ex:01130": {
+    "_drop": true
+  },
   "ex:01132": {
+    "_drop": true
+  },
+  "ex:01134": {
     "_drop": true
   },
   "ex:01137": {
@@ -356,6 +561,15 @@
   "ex:01165": {
     "_drop": true
   },
+  "ex:01167": {
+    "_drop": true
+  },
+  "ex:01168": {
+    "_drop": true
+  },
+  "ex:01169": {
+    "_drop": true
+  },
   "ex:01176": {
     "_drop": true
   },
@@ -371,13 +585,39 @@
   "ex:01196": {
     "_drop": true
   },
+  "ex:01206": {
+    "_drop": true
+  },
+  "ex:01208": {
+    "_drop": true
+  },
   "ex:01210": {
+    "_drop": true
+  },
+  "ex:01215": {
     "_drop": true
   },
   "ex:01220": {
     "_drop": true
   },
+  "ex:01222": {
+    "aliases": [
+      "Single Leg Calf Raise (On A Dumbbell)"
+    ]
+  },
   "ex:01225": {
+    "_drop": true
+  },
+  "ex:01229": {
+    "_drop": true
+  },
+  "ex:01239": {
+    "_drop": true
+  },
+  "ex:01241": {
+    "_drop": true
+  },
+  "ex:01242": {
     "_drop": true
   },
   "ex:01248": {
@@ -392,7 +632,16 @@
   "ex:01272": {
     "_drop": true
   },
+  "ex:01276": {
+    "_drop": true
+  },
+  "ex:01279": {
+    "_drop": true
+  },
   "ex:01282": {
+    "_drop": true
+  },
+  "ex:01283": {
     "_drop": true
   },
   "ex:01286": {
@@ -410,13 +659,58 @@
   "ex:01293": {
     "_drop": true
   },
+  "ex:01295": {
+    "_drop": true
+  },
+  "ex:01298": {
+    "_drop": true
+  },
+  "ex:01300": {
+    "_drop": true
+  },
   "ex:01301": {
+    "_drop": true
+  },
+  "ex:01304": {
+    "_drop": true
+  },
+  "ex:01305": {
+    "_drop": true
+  },
+  "ex:01306": {
+    "_drop": true
+  },
+  "ex:01307": {
+    "_drop": true
+  },
+  "ex:01308": {
+    "_drop": true
+  },
+  "ex:01309": {
     "_drop": true
   },
   "ex:01310": {
     "_drop": true
   },
   "ex:01313": {
+    "_drop": true
+  },
+  "ex:01315": {
+    "_drop": true
+  },
+  "ex:01316": {
+    "_drop": true
+  },
+  "ex:01317": {
+    "_drop": true
+  },
+  "ex:01318": {
+    "_drop": true
+  },
+  "ex:01319": {
+    "_drop": true
+  },
+  "ex:01320": {
     "_drop": true
   },
   "ex:01322": {
@@ -440,10 +734,28 @@
   "ex:01329": {
     "_drop": true
   },
+  "ex:01330": {
+    "_drop": true
+  },
+  "ex:01331": {
+    "_drop": true
+  },
   "ex:01332": {
     "_drop": true
   },
+  "ex:01375": {
+    "_drop": true
+  },
+  "ex:01377": {
+    "_drop": true
+  },
+  "ex:01379": {
+    "_drop": true
+  },
   "ex:01385": {
+    "_drop": true
+  },
+  "ex:01387": {
     "_drop": true
   },
   "ex:01388": {
@@ -451,6 +763,11 @@
   },
   "ex:01391": {
     "_drop": true
+  },
+  "ex:01395": {
+    "aliases": [
+      "Push Up On Bosu Ball"
+    ]
   },
   "ex:01397": {
     "_drop": true
@@ -474,6 +791,9 @@
     "_drop": true
   },
   "ex:01432": {
+    "_drop": true
+  },
+  "ex:01433": {
     "_drop": true
   },
   "ex:01435": {
@@ -506,7 +826,16 @@
   "ex:01529": {
     "_drop": true
   },
+  "ex:01557": {
+    "_drop": true
+  },
+  "ex:01564": {
+    "_drop": true
+  },
   "ex:01581": {
+    "_drop": true
+  },
+  "ex:01584": {
     "_drop": true
   },
   "ex:01601": {
@@ -515,13 +844,25 @@
   "ex:01603": {
     "_drop": true
   },
+  "ex:01628": {
+    "_drop": true
+  },
   "ex:01632": {
     "_drop": true
   },
   "ex:01636": {
     "_drop": true
   },
+  "ex:01637": {
+    "_drop": true
+  },
+  "ex:01645": {
+    "_drop": true
+  },
   "ex:01655": {
+    "_drop": true
+  },
+  "ex:01672": {
     "_drop": true
   },
   "ex:01679": {
@@ -555,10 +896,28 @@
       "Band Two Legs Calf Raise - (Band Under Both Legs) V. 2"
     ]
   },
+  "ex:01697": {
+    "_drop": true
+  },
+  "ex:01702": {
+    "_drop": true
+  },
+  "ex:01704": {
+    "_drop": true
+  },
   "ex:01715": {
     "_drop": true
   },
+  "ex:01725": {
+    "_drop": true
+  },
+  "ex:01728": {
+    "_drop": true
+  },
   "ex:01729": {
+    "_drop": true
+  },
+  "ex:01732": {
     "_drop": true
   },
   "ex:01740": {
@@ -590,7 +949,8 @@
     "slug": "oblique-crunch",
     "aliases": [
       "Oblique Crunch V. 2"
-    ]
+    ],
+    "_drop": true
   },
   "ex:01785": {
     "_drop": true
@@ -604,7 +964,22 @@
   "ex:01798": {
     "_drop": true
   },
+  "ex:01819": {
+    "_drop": true
+  },
   "ex:01840": {
+    "_drop": true
+  },
+  "ex:01884": {
+    "_drop": true
+  },
+  "ex:01904": {
+    "_drop": true
+  },
+  "ex:01905": {
+    "_drop": true
+  },
+  "ex:01921": {
     "_drop": true
   },
   "ex:01923": {
@@ -618,6 +993,14 @@
     "_drop": true
   },
   "ex:01939": {
+    "_drop": true
+  },
+  "ex:01949": {
+    "aliases": [
+      "Dumbbells Seated Triceps Extension"
+    ]
+  },
+  "ex:01950": {
     "_drop": true
   },
   "ex:01961": {
@@ -749,7 +1132,8 @@
     "slug": "scissor-jumps",
     "aliases": [
       "scissor jumps (male)"
-    ]
+    ],
+    "_drop": true
   },
   "ex:02077": {
     "name": "astride jumps",
@@ -879,6 +1263,24 @@
   "ex:02169": {
     "_drop": true
   },
+  "fedb:advanced-kettlebell-windmill": {
+    "aliases": [
+      "Kettlebell Advanced Windmill"
+    ],
+    "metadataCompleteness": "curated"
+  },
+  "fedb:alternating-kettlebell-press": {
+    "aliases": [
+      "Kettlebell Alternating Press"
+    ],
+    "metadataCompleteness": "curated"
+  },
+  "fedb:alternating-kettlebell-row": {
+    "aliases": [
+      "Kettlebell Alternating Row"
+    ],
+    "metadataCompleteness": "curated"
+  },
   "fedb:barbell-ab-rollout": {
     "metadataCompleteness": "curated"
   },
@@ -910,7 +1312,10 @@
     "metadataCompleteness": "curated"
   },
   "fedb:barbell-hack-squat": {
-    "metadataCompleteness": "curated"
+    "metadataCompleteness": "curated",
+    "aliases": [
+      "Barbell Hack Squats"
+    ]
   },
   "fedb:barbell-hip-thrust": {
     "metadataCompleteness": "curated"
@@ -924,8 +1329,17 @@
   "fedb:barbell-rear-delt-row": {
     "metadataCompleteness": "curated"
   },
-  "fedb:barbell-shrug": {
+  "fedb:barbell-shoulder-press": {
+    "aliases": [
+      "Shoulder Press, Barbell"
+    ],
     "metadataCompleteness": "curated"
+  },
+  "fedb:barbell-shrug": {
+    "metadataCompleteness": "curated",
+    "aliases": [
+      "Shrugs, Barbells"
+    ]
   },
   "fedb:barbell-side-split-squat": {
     "metadataCompleteness": "curated"
@@ -937,8 +1351,50 @@
       "Squat"
     ]
   },
+  "fedb:bench-press-with-bands": {
+    "aliases": [
+      "Band Bench Press"
+    ]
+  },
+  "fedb:bent-arm-barbell-pullover": {
+    "aliases": [
+      "Barbell Bent Arm Pullover"
+    ],
+    "metadataCompleteness": "curated"
+  },
+  "fedb:bent-knee-hip-raise": {
+    "aliases": [
+      "Hip Raise (Bent Knee)"
+    ]
+  },
+  "fedb:bent-over-barbell-row": {
+    "aliases": [
+      "Barbell Bent Over Row"
+    ],
+    "metadataCompleteness": "curated"
+  },
+  "fedb:bosu-ball-cable-crunch-with-side-bends": {
+    "aliases": [
+      "Cable Side Bend Crunch (Bosu Ball)"
+    ]
+  },
   "fedb:box-squat": {
     "metadataCompleteness": "planner-ready"
+  },
+  "fedb:cable-deadlifts": {
+    "aliases": [
+      "Cable Deadlift"
+    ]
+  },
+  "fedb:cable-shrugs": {
+    "aliases": [
+      "Cable Shrug"
+    ]
+  },
+  "fedb:calf-stretch-hands-against-wall": {
+    "aliases": [
+      "Calf Stretch With Hands Against Wall"
+    ]
   },
   "fedb:clean": {
     "metadataCompleteness": "curated"
@@ -949,6 +1405,36 @@
   "fedb:clock-push-up": {
     "metadataCompleteness": "planner-ready"
   },
+  "fedb:close-grip-barbell-bench-press": {
+    "aliases": [
+      "Barbell Close-Grip Bench Press"
+    ],
+    "metadataCompleteness": "curated"
+  },
+  "fedb:close-grip-standing-barbell-curl": {
+    "aliases": [
+      "Barbell Standing Close Grip Curl"
+    ],
+    "metadataCompleteness": "curated"
+  },
+  "fedb:concentration-curls": {
+    "aliases": [
+      "Concentration Curl"
+    ]
+  },
+  "fedb:decline-barbell-bench-press": {
+    "aliases": [
+      "Decline Bench Press Barbell",
+      "Barbell Decline Bench Press"
+    ],
+    "metadataCompleteness": "curated"
+  },
+  "fedb:decline-dumbbell-bench-press": {
+    "aliases": [
+      "Decline Bench Press Dumbbell",
+      "Dumbbell Decline Bench Press"
+    ]
+  },
   "fedb:decline-dumbbell-flyes": {
     "name": "Decline Dumbbell Fly",
     "slug": "decline-dumbbell-fly",
@@ -957,11 +1443,62 @@
       "Fly With Dumbbells, Decline Bench"
     ]
   },
+  "fedb:decline-dumbbell-triceps-extension": {
+    "aliases": [
+      "Dumbbell Decline Triceps Extension"
+    ]
+  },
   "fedb:deficit-deadlift": {
     "metadataCompleteness": "curated"
   },
+  "fedb:double-kettlebell-alternating-hang-clean": {
+    "aliases": [
+      "Kettlebell Double Alternating Hang Clean"
+    ]
+  },
+  "fedb:double-kettlebell-jerk": {
+    "aliases": [
+      "Kettlebell Double Jerk"
+    ]
+  },
+  "fedb:double-kettlebell-push-press": {
+    "aliases": [
+      "Kettlebell Double Push Press"
+    ],
+    "metadataCompleteness": "curated"
+  },
+  "fedb:double-kettlebell-snatch": {
+    "aliases": [
+      "Kettlebell Double Snatch"
+    ]
+  },
+  "fedb:double-kettlebell-windmill": {
+    "aliases": [
+      "Kettlebell Double Windmill"
+    ],
+    "metadataCompleteness": "curated"
+  },
+  "fedb:dumbbell-alternate-bicep-curl": {
+    "aliases": [
+      "Dumbbell Alternate Biceps Curl"
+    ]
+  },
+  "fedb:dumbbell-bench-press-with-neutral-grip": {
+    "aliases": [
+      "Dumbbell Neutral Grip Bench Press"
+    ]
+  },
+  "fedb:dumbbell-bicep-curl": {
+    "aliases": [
+      "Biceps Curls With Dumbbell",
+      "Dumbbell Biceps Curl"
+    ]
+  },
   "fedb:dumbbell-floor-press": {
-    "metadataCompleteness": "planner-ready"
+    "metadataCompleteness": "planner-ready",
+    "aliases": [
+      "Floor Dumbbell Bench Press"
+    ]
   },
   "fedb:dumbbell-flyes": {
     "name": "Dumbbell Fly",
@@ -971,17 +1508,70 @@
       "Fly With Dumbbells"
     ]
   },
+  "fedb:dumbbell-incline-row": {
+    "aliases": [
+      "Incline Dumbbell Row"
+    ],
+    "metadataCompleteness": "curated"
+  },
   "fedb:dumbbell-one-arm-upright-row": {
     "metadataCompleteness": "curated"
   },
   "fedb:dumbbell-rear-lunge": {
     "metadataCompleteness": "curated"
   },
+  "fedb:dumbbell-shrug": {
+    "aliases": [
+      "Shrugs, Dumbbells"
+    ]
+  },
   "fedb:dumbbell-squat": {
     "metadataCompleteness": "curated"
   },
+  "fedb:extended-range-one-arm-kettlebell-floor-press": {
+    "aliases": [
+      "Kettlebell Extended Range One Arm Press On Floor"
+    ],
+    "metadataCompleteness": "curated"
+  },
+  "fedb:flat-bench-lying-leg-raise": {
+    "aliases": [
+      "Lying Leg Raise Flat Bench"
+    ]
+  },
   "fedb:frankenstein-squat": {
     "metadataCompleteness": "curated"
+  },
+  "fedb:front-barbell-squat": {
+    "aliases": [
+      "Barbell Front Squat"
+    ],
+    "metadataCompleteness": "curated"
+  },
+  "fedb:front-cable-raise": {
+    "aliases": [
+      "Cable Front Raise"
+    ]
+  },
+  "fedb:front-dumbbell-raise": {
+    "aliases": [
+      "Dumbbell Front Raise"
+    ]
+  },
+  "fedb:hammer-curls": {
+    "aliases": [
+      "Hammer Curl"
+    ]
+  },
+  "fedb:hip-lift-with-band": {
+    "aliases": [
+      "Band Hip Lift"
+    ]
+  },
+  "fedb:incline-dumbbell-curl": {
+    "aliases": [
+      "Dumbbell Incline Curl"
+    ]
   },
   "fedb:incline-dumbbell-flyes": {
     "name": "Incline Dumbbell Fly",
@@ -989,6 +1579,16 @@
     "aliases": [
       "Incline Dumbbell Flyes",
       "Dumbbell Incline Fly"
+    ]
+  },
+  "fedb:incline-push-up-close-grip": {
+    "aliases": [
+      "Incline Close-Grip Push-Up"
+    ]
+  },
+  "fedb:incline-push-up-reverse-grip": {
+    "aliases": [
+      "Incline Reverse Grip Push-Up"
     ]
   },
   "fedb:jm-press": {
@@ -1021,10 +1621,97 @@
   "fedb:kettlebell-windmill": {
     "metadataCompleteness": "curated"
   },
+  "fedb:kneeling-cable-triceps-extension": {
+    "aliases": [
+      "Cable Kneeling Triceps Extension"
+    ]
+  },
   "fedb:kneeling-jump-squat": {
     "metadataCompleteness": "curated"
   },
+  "fedb:lying-dumbbell-tricep-extension": {
+    "aliases": [
+      "Dumbbell Lying Triceps Extension"
+    ]
+  },
+  "fedb:lying-supine-dumbbell-curl": {
+    "aliases": [
+      "Dumbbell Lying Supine Curl"
+    ]
+  },
+  "fedb:mixed-grip-chin": {
+    "aliases": [
+      "Mixed Grip Chin-Up"
+    ],
+    "metadataCompleteness": "curated"
+  },
+  "fedb:oblique-crunches": {
+    "aliases": [
+      "Oblique Crunch"
+    ]
+  },
   "fedb:one-arm-chin-up": {
+    "metadataCompleteness": "curated"
+  },
+  "fedb:one-arm-kettlebell-clean-and-jerk": {
+    "aliases": [
+      "Kettlebell One Arm Clean And Jerk"
+    ]
+  },
+  "fedb:one-arm-kettlebell-floor-press": {
+    "aliases": [
+      "Kettlebell One Arm Floor Press"
+    ],
+    "metadataCompleteness": "curated"
+  },
+  "fedb:one-arm-kettlebell-jerk": {
+    "aliases": [
+      "Kettlebell One Arm Jerk"
+    ]
+  },
+  "fedb:one-arm-kettlebell-military-press-to-the-side": {
+    "aliases": [
+      "Kettlebell One Arm Military Press To The Side"
+    ],
+    "metadataCompleteness": "curated"
+  },
+  "fedb:one-arm-kettlebell-push-press": {
+    "aliases": [
+      "Kettlebell One Arm Push Press"
+    ],
+    "metadataCompleteness": "curated"
+  },
+  "fedb:one-arm-kettlebell-row": {
+    "aliases": [
+      "Kettlebell One Arm Row"
+    ],
+    "metadataCompleteness": "curated"
+  },
+  "fedb:one-arm-kettlebell-snatch": {
+    "aliases": [
+      "Kettlebell One Arm Snatch"
+    ]
+  },
+  "fedb:one-arm-medicine-ball-slam": {
+    "aliases": [
+      "One Arm Slam (With Medicine Ball)"
+    ]
+  },
+  "fedb:one-leg-barbell-squat": {
+    "aliases": [
+      "Barbell One Leg Squat"
+    ],
+    "metadataCompleteness": "curated"
+  },
+  "fedb:overhead-cable-curl": {
+    "aliases": [
+      "Cable Overhead Curl"
+    ]
+  },
+  "fedb:palms-up-barbell-wrist-curl-over-a-bench": {
+    "aliases": [
+      "Barbell Palms Up Wrist Curl Over A Bench"
+    ],
     "metadataCompleteness": "curated"
   },
   "fedb:plyo-push-up": {
@@ -1032,6 +1719,23 @@
   },
   "fedb:power-clean": {
     "metadataCompleteness": "curated"
+  },
+  "fedb:reverse-barbell-curl": {
+    "aliases": [
+      "Barbell Reverse Curl"
+    ],
+    "metadataCompleteness": "curated"
+  },
+  "fedb:reverse-barbell-preacher-curls": {
+    "aliases": [
+      "Barbell Reverse Preacher Curl"
+    ],
+    "metadataCompleteness": "curated"
+  },
+  "fedb:reverse-cable-curl": {
+    "aliases": [
+      "Cable Reverse Curl"
+    ]
   },
   "fedb:romanian-deadlift": {
     "metadataCompleteness": "planner-ready",
@@ -1042,7 +1746,50 @@
   "fedb:scapular-pull-up": {
     "metadataCompleteness": "curated"
   },
+  "fedb:scissors-jump": {
+    "aliases": [
+      "Scissor Jumps"
+    ]
+  },
+  "fedb:seated-barbell-twist": {
+    "aliases": [
+      "Barbell Seated Twist"
+    ],
+    "metadataCompleteness": "curated"
+  },
+  "fedb:seated-dumbbell-curl": {
+    "aliases": [
+      "Dumbbell Seated Curl",
+      "Seated Dumbbell Curls"
+    ]
+  },
+  "fedb:seated-dumbbell-inner-biceps-curl": {
+    "aliases": [
+      "Dumbbell Seated Inner Biceps Curl"
+    ]
+  },
+  "fedb:seated-dumbbell-palms-up-wrist-curl": {
+    "aliases": [
+      "Dumbbell Seated Palms Up Wrist Curl"
+    ]
+  },
+  "fedb:shoulder-press-with-bands": {
+    "aliases": [
+      "Band Shoulder Press"
+    ]
+  },
+  "fedb:side-neck-stretch": {
+    "aliases": [
+      "Neck Side Stretch"
+    ]
+  },
   "fedb:snatch-pull": {
+    "metadataCompleteness": "curated"
+  },
+  "fedb:split-squat-with-dumbbells": {
+    "aliases": [
+      "Dumbbell Split Squat"
+    ],
     "metadataCompleteness": "curated"
   },
   "fedb:split-squats": {
@@ -1057,7 +1804,122 @@
   "fedb:squat-jerk": {
     "metadataCompleteness": "curated"
   },
+  "fedb:squat-with-bands": {
+    "aliases": [
+      "Squats - With Bands",
+      "Band Squat"
+    ]
+  },
+  "fedb:squats-with-bands": {
+    "_drop": true
+  },
+  "fedb:standing-barbell-calf-raise": {
+    "aliases": [
+      "Barbell Standing Calf Raise"
+    ],
+    "metadataCompleteness": "curated"
+  },
+  "fedb:standing-bent-over-one-arm-dumbbell-triceps-extension": {
+    "aliases": [
+      "Dumbbell Standing Bent Over One Arm Triceps Extension"
+    ]
+  },
+  "fedb:standing-bent-over-two-arm-dumbbell-triceps-extension": {
+    "aliases": [
+      "Dumbbell Standing Bent Over Two Arm Triceps Extension"
+    ]
+  },
+  "fedb:standing-cable-lift": {
+    "aliases": [
+      "Cable Standing Lift"
+    ]
+  },
+  "fedb:standing-dumbbell-calf-raise": {
+    "aliases": [
+      "Dumbbell Standing Calf Raise"
+    ],
+    "metadataCompleteness": "curated"
+  },
+  "fedb:standing-dumbbell-reverse-curl": {
+    "aliases": [
+      "Dumbbell Standing Reverse Curl"
+    ]
+  },
+  "fedb:standing-dumbbell-triceps-extension": {
+    "aliases": [
+      "Dumbbell Standing Triceps Extension"
+    ]
+  },
+  "fedb:standing-front-barbell-raise-over-head": {
+    "aliases": [
+      "Barbell Standing Front Raise Over Head"
+    ],
+    "metadataCompleteness": "curated"
+  },
+  "fedb:standing-overhead-barbell-triceps-extension": {
+    "aliases": [
+      "Barbell Standing Overhead Triceps Extension"
+    ],
+    "metadataCompleteness": "curated"
+  },
+  "fedb:standing-palms-in-dumbbell-press": {
+    "aliases": [
+      "Dumbbell Standing Palms In Press"
+    ],
+    "metadataCompleteness": "curated"
+  },
+  "fedb:stiff-leg-barbell-good-morning": {
+    "aliases": [
+      "Barbell Stiff Leg Good Morning"
+    ],
+    "metadataCompleteness": "curated"
+  },
+  "fedb:two-arm-kettlebell-clean": {
+    "aliases": [
+      "Kettlebell Two Arm Clean"
+    ]
+  },
+  "fedb:two-arm-kettlebell-military-press": {
+    "aliases": [
+      "Kettlebell Two Arm Military Press"
+    ],
+    "metadataCompleteness": "curated"
+  },
+  "fedb:two-arm-kettlebell-row": {
+    "aliases": [
+      "Kettlebell Two Arm Row"
+    ],
+    "metadataCompleteness": "curated"
+  },
+  "fedb:underhand-cable-pulldowns": {
+    "aliases": [
+      "Cable Underhand Pulldown"
+    ]
+  },
+  "fedb:upright-barbell-row": {
+    "aliases": [
+      "Barbell Upright Row"
+    ],
+    "metadataCompleteness": "curated"
+  },
+  "fedb:upright-cable-row": {
+    "aliases": [
+      "Cable Upright Row"
+    ]
+  },
+  "fedb:wide-grip-decline-barbell-pullover": {
+    "aliases": [
+      "Barbell Decline Wide-Grip Pullover"
+    ],
+    "metadataCompleteness": "curated"
+  },
   "fedb:wide-grip-rear-pull-up": {
+    "metadataCompleteness": "curated"
+  },
+  "fedb:wide-grip-standing-barbell-curl": {
+    "aliases": [
+      "Barbell Standing Wide-Grip Curl"
+    ],
     "metadataCompleteness": "curated"
   }
 }
