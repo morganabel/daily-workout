@@ -1,0 +1,303 @@
+.page {
+  min-height: 100vh;
+  background: #f5f2eb;
+  color: #1f1c17;
+  padding: 24px;
+}
+
+.shell {
+  max-width: 1400px;
+  margin: 0 auto;
+  display: grid;
+  gap: 20px;
+}
+
+.hero {
+  background: linear-gradient(135deg, #201912 0%, #3c2d20 100%);
+  color: #f7efe2;
+  border-radius: 20px;
+  padding: 24px;
+  display: grid;
+  gap: 12px;
+}
+
+.eyebrow {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: #ccb699;
+}
+
+.title {
+  font-size: 34px;
+  line-height: 1.05;
+  font-weight: 700;
+  margin: 0;
+}
+
+.subtitle {
+  margin: 0;
+  max-width: 900px;
+  color: #e6d8c5;
+}
+
+.note {
+  margin: 0;
+  font-size: 14px;
+  color: #d3c1aa;
+}
+
+.layout {
+  display: grid;
+  gap: 20px;
+  align-items: start;
+}
+
+.panel {
+  background: #fffaf2;
+  border: 1px solid #e7dccd;
+  border-radius: 18px;
+  padding: 20px;
+  box-shadow: 0 12px 30px rgba(40, 28, 16, 0.06);
+}
+
+.panelTitle {
+  margin: 0 0 14px;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.form {
+  display: grid;
+  gap: 14px;
+}
+
+.fieldGrid {
+  display: grid;
+  gap: 12px;
+}
+
+.field {
+  display: grid;
+  gap: 6px;
+}
+
+.field label {
+  font-size: 13px;
+  font-weight: 700;
+  color: #4d3a29;
+}
+
+.field input,
+.field textarea,
+.field select {
+  width: 100%;
+  border: 1px solid #d9ccb8;
+  border-radius: 12px;
+  background: #fff;
+  color: #1f1c17;
+  padding: 11px 12px;
+  font: inherit;
+}
+
+.field textarea {
+  min-height: 88px;
+  resize: vertical;
+}
+
+.hint {
+  font-size: 12px;
+  color: #7f6a55;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.button,
+.secondaryButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  padding: 0 16px;
+  border-radius: 999px;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.button {
+  background: #2b7a59;
+  color: #fff;
+}
+
+.secondaryButton {
+  background: #efe5d7;
+  color: #4d3a29;
+}
+
+.summaryGrid {
+  display: grid;
+  gap: 12px;
+}
+
+.summaryCard {
+  background: #fff;
+  border: 1px solid #eadfcf;
+  border-radius: 14px;
+  padding: 14px;
+}
+
+.summaryLabel {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #886f56;
+}
+
+.summaryValue {
+  margin-top: 6px;
+  font-size: 26px;
+  font-weight: 700;
+}
+
+.metaList,
+.tagList,
+.steps,
+.diagnosticsList,
+.sourceRefList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  background: #efe6d8;
+  color: #5a4430;
+  padding: 6px 10px;
+  font-size: 12px;
+}
+
+.warning {
+  border: 1px solid #edc8b9;
+  background: #fff1eb;
+  color: #6d2c10;
+  border-radius: 14px;
+  padding: 14px;
+}
+
+.queryBlock {
+  margin-top: 12px;
+  border-radius: 14px;
+  background: #1e1914;
+  color: #f6eee4;
+  padding: 14px;
+  overflow-x: auto;
+  font-size: 12px;
+}
+
+.resultsList {
+  display: grid;
+  gap: 14px;
+}
+
+.resultCard {
+  background: #fff;
+  border: 1px solid #e9dece;
+  border-radius: 16px;
+  padding: 16px;
+  display: grid;
+  gap: 14px;
+}
+
+.resultHeader {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.resultTitle {
+  margin: 0;
+  font-size: 22px;
+  line-height: 1.15;
+}
+
+.resultSubtitle {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: #7c6751;
+}
+
+.metaGrid {
+  display: grid;
+  gap: 12px;
+}
+
+.metaSection {
+  display: grid;
+  gap: 8px;
+}
+
+.metaSection h3 {
+  margin: 0;
+  font-size: 14px;
+}
+
+.description {
+  margin: 0;
+  color: #413224;
+}
+
+.steps {
+  display: grid;
+  gap: 8px;
+}
+
+.steps li,
+.sourceRefList li {
+  background: #fbf6ef;
+  border: 1px solid #eee3d2;
+  border-radius: 12px;
+  padding: 10px 12px;
+}
+
+.sourceRefList {
+  display: grid;
+}
+
+.empty {
+  padding: 18px;
+  border-radius: 14px;
+  background: #fff;
+  border: 1px dashed #d8c8af;
+  color: #725c45;
+}
+
+@media (min-width: 960px) {
+  .layout {
+    grid-template-columns: 380px minmax(0, 1fr);
+  }
+
+  .fieldGrid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .summaryGrid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .metaGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
