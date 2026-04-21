@@ -420,18 +420,28 @@ export default async function ExerciseLibraryBrowserPage({
                       </summary>
                       {exercise.sourceRefs.length ? (
                         <ul className={styles.sourceRefList}>
-                          {exercise.sourceRefs.map((sourceRef) => (
-                            <li
-                              key={`${exercise.id}-${sourceRef.source}-${sourceRef.sourceId}`}
-                            >
-                              <strong>{sourceRef.source}</strong>
-                              <div>{sourceRef.sourceId}</div>
-                              <div>{sourceRef.sourceVersion}</div>
-                              {sourceRef.sourceUrl ? (
-                                <div>{sourceRef.sourceUrl}</div>
-                              ) : null}
-                            </li>
-                          ))}
+                          {exercise.sourceRefs.map((sourceRef) =>
+                            // Older library builds may omit sourceUrl from the exported type surface.
+                            // Keep the browser compatible with either shape while preserving the value when present.
+                            (() => {
+                              const sourceUrl =
+                                'sourceUrl' in sourceRef &&
+                                typeof sourceRef.sourceUrl === 'string'
+                                  ? sourceRef.sourceUrl
+                                  : undefined;
+
+                              return (
+                                <li
+                                  key={`${exercise.id}-${sourceRef.source}-${sourceRef.sourceId}`}
+                                >
+                                  <strong>{sourceRef.source}</strong>
+                                  <div>{sourceRef.sourceId}</div>
+                                  <div>{sourceRef.sourceVersion}</div>
+                                  {sourceUrl ? <div>{sourceUrl}</div> : null}
+                                </li>
+                              );
+                            })(),
+                          )}
                         </ul>
                       ) : (
                         <div className={styles.empty}>

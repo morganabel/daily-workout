@@ -7,7 +7,7 @@ const packageRoot = process.cwd();
 const generatedDbPath = path.join(
   packageRoot,
   'data',
-  'generated',
+  'public',
   'exercise-library.sqlite',
 );
 
