@@ -1,5 +1,6 @@
 import {
   isAutoFocus,
+  type GenerationContext,
   type GenerationRequest,
   type RegenerationFeedback,
 } from '@workout-agent/shared';
@@ -12,7 +13,7 @@ export const SYSTEM_PROMPT =
   'You are a concise workout planner. Only reply with valid JSON that matches the schema and never include code fences, explanations, or markdown.';
 
 export const INITIAL_GENERATION_INSTRUCTIONS =
-  'Generate a single workout session with at least one block and one exercise per block. Use realistic exercise names and prescriptions. Prioritize user context (history, preferences, environment) when deciding focus, volume, and equipment. If no focus is specified, choose the most appropriate one based on the user context.';
+  'Generate a single workout session with at least one block and one exercise per block. Use realistic exercise names and prescriptions. Prefer the planning brief when present, otherwise use the request and context as the source of truth for focus, duration, equipment, and constraints. Prefer exercises from the candidate pool when one is provided. If no focus is specified, choose the most appropriate one from the available planning data.';
 
 const MAX_PROMPT_CANDIDATE_EXERCISES = 64;
 
@@ -81,6 +82,33 @@ export function buildPlanningBriefPromptData(planningBrief?: PlanningBrief):
     regeneration: planningBrief.regeneration,
     variationMode: planningBrief.variationMode,
     priorityNotes: planningBrief.priorityNotes,
+  };
+}
+
+export function buildInitialGenerationPromptPayload(
+  request: GenerationRequest,
+  context: GenerationContext,
+  planningBrief?: PlanningBrief,
+  candidatePool?: ExerciseCandidatePool,
+) {
+  const payload = {
+    planningBrief: buildPlanningBriefPromptData(planningBrief),
+    candidatePool: buildCandidatePoolPromptData(candidatePool),
+    instructions: INITIAL_GENERATION_INSTRUCTIONS,
+  };
+
+  if (planningBrief) {
+    return payload;
+  }
+
+  return {
+    ...payload,
+    request: {
+      ...request,
+      // Filter out auto focus so it doesn't anchor the LLM.
+      focus: isAutoFocus(request.focus) ? undefined : request.focus,
+    },
+    context,
   };
 }
 

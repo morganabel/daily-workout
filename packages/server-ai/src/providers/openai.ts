@@ -10,9 +10,7 @@ import type { AiProvider, AiProviderOptions, GenerationResult } from './types';
 import { AiGenerationError } from './types';
 import {
   SYSTEM_PROMPT,
-  INITIAL_GENERATION_INSTRUCTIONS,
-  buildCandidatePoolPromptData,
-  buildPlanningBriefPromptData,
+  buildInitialGenerationPromptPayload,
   buildRegenerationMessage,
 } from './prompts';
 import {
@@ -75,15 +73,14 @@ export class OpenAIProvider implements AiProvider {
           },
           {
             role: 'user',
-            content: JSON.stringify({
-              planningBrief: buildPlanningBriefPromptData(
+            content: JSON.stringify(
+              buildInitialGenerationPromptPayload(
+                request,
+                context,
                 options.planningBrief,
-              ),
-              candidatePool: buildCandidatePoolPromptData(
                 options.candidatePool,
               ),
-              instructions: INITIAL_GENERATION_INSTRUCTIONS,
-            }),
+            ),
           },
         ];
 
