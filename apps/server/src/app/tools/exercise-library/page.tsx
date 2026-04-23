@@ -1,9 +1,9 @@
 import type {
-  CandidateDiagnostics,
   CandidateResult,
   ExerciseLibraryMetadata,
 } from '@workout-agent-ce/server-exercise-library';
 import { openExerciseLibrary } from '@workout-agent-ce/server-exercise-library';
+import { notFound } from 'next/navigation';
 import { buildBrowserQueryState } from './query';
 import styles from './page.module.css';
 
@@ -21,6 +21,14 @@ export default async function ExerciseLibraryBrowserPage({
 }: {
   searchParams?: Promise<SearchParams>;
 }) {
+  const browserEnabled =
+    process.env.NODE_ENV !== 'production' ||
+    process.env.ENABLE_EXERCISE_LIBRARY_BROWSER === 'true';
+
+  if (!browserEnabled) {
+    notFound();
+  }
+
   const resolvedSearchParams = await searchParams;
   const state = buildBrowserQueryState(resolvedSearchParams);
 
@@ -291,19 +299,6 @@ export default async function ExerciseLibraryBrowserPage({
               </div>
             ) : null}
 
-            {result?.diagnostics ? (
-              <div className={styles.warning}>
-                <strong>No exact matches.</strong>
-                <ul className={styles.diagnosticsList}>
-                  {formatDiagnostics(result.diagnostics).map((diagnostic) => (
-                    <li className={styles.chip} key={diagnostic}>
-                      {diagnostic}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ) : null}
-
             <div className={styles.queryBlock}>
               <strong>
                 {state.variationMode
@@ -483,33 +478,4 @@ function TagSection({ title, values }: { title: string; values: string[] }) {
       )}
     </section>
   );
-}
-
-function formatDiagnostics(diagnostics: CandidateDiagnostics): string[] {
-  const items = diagnostics.blockerCodes.map((blockerCode) => {
-    const countKey = mapDiagnosticCountKey(blockerCode);
-    const count = countKey ? diagnostics.counts?.[countKey] : undefined;
-    return count ? `${blockerCode}: ${count}` : blockerCode;
-  });
-
-  return items;
-}
-
-function mapDiagnosticCountKey(
-  blockerCode: CandidateDiagnostics['blockerCodes'][number],
-): keyof NonNullable<CandidateDiagnostics['counts']> | undefined {
-  switch (blockerCode) {
-    case 'unsupported_equipment':
-      return 'relaxedEquipment';
-    case 'focus_gap':
-      return 'relaxedFocus';
-    case 'role_gap':
-      return 'relaxedRole';
-    case 'stressor_conflict':
-      return 'relaxedStressors';
-    case 'planner_ready_gap':
-      return 'lowerCompleteness';
-    default:
-      return undefined;
-  }
 }

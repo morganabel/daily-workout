@@ -287,8 +287,8 @@ function buildEligibleExerciseSql(
     };
   }
 
-  const styleScore = buildStyleBiasScore(query.styleBias, params);
   const textMatchScore = buildTextMatchScore(query.searchText, params);
+  const styleScore = buildStyleBiasScore(query.styleBias, params);
   const sourcePriorityScore = `CASE WHEN e.id LIKE 'fedb:%' THEN 1 ELSE 0 END`;
   const compoundScore = `EXISTS (
     SELECT 1
