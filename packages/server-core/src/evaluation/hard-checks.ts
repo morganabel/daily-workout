@@ -21,15 +21,15 @@ function buildExerciseNameText(plan: TodayPlan): string {
 function collectExerciseNames(plan: TodayPlan): Set<string> {
   return new Set(
     plan.blocks.flatMap((block) =>
-      block.exercises.map((exercise) => normalize(exercise.name))
-    )
+      block.exercises.map((exercise) => normalize(exercise.name)),
+    ),
   );
 }
 
 function buildResult(
   name: HardCheckName,
   status: GenerationEvaluationHardCheckResult['status'],
-  message?: string
+  message?: string,
 ): GenerationEvaluationHardCheckResult {
   return generationEvaluationHardCheckResultSchema.parse({
     name,
@@ -51,14 +51,15 @@ function runSchemaValidityCheck(plan: TodayPlan | undefined) {
 
 function runDurationFitCheck(
   scenario: GenerationEvaluationScenario,
-  plan: TodayPlan | undefined
+  plan: TodayPlan | undefined,
 ) {
   if (!plan) {
     return buildResult('duration-fit', 'not-applicable');
   }
 
   const target =
-    scenario.request.timeMinutes ?? scenario.context?.environment.timeAvailableMinutes;
+    scenario.request.timeMinutes ??
+    scenario.context?.environment.timeAvailableMinutes;
   if (!target) {
     return buildResult('duration-fit', 'not-applicable');
   }
@@ -68,18 +69,18 @@ function runDurationFitCheck(
     ? buildResult(
         'duration-fit',
         'pass',
-        `Target ${target} min, got ${plan.durationMinutes} min.`
+        `Target ${target} min, got ${plan.durationMinutes} min.`,
       )
     : buildResult(
         'duration-fit',
         'fail',
-        `Target ${target} min, got ${plan.durationMinutes} min.`
+        `Target ${target} min, got ${plan.durationMinutes} min.`,
       );
 }
 
 function runFocusFitCheck(
   scenario: GenerationEvaluationScenario,
-  plan: TodayPlan | undefined
+  plan: TodayPlan | undefined,
 ) {
   const requiredFocus = scenario.hardExpectations.requiredFocus;
   if (!plan || !requiredFocus) {
@@ -92,13 +93,13 @@ function runFocusFitCheck(
     : buildResult(
         'focus-fit',
         'fail',
-        `Expected focus similar to '${requiredFocus}', got '${plan.focus}'.`
+        `Expected focus similar to '${requiredFocus}', got '${plan.focus}'.`,
       );
 }
 
 function runEquipmentFitCheck(
   scenario: GenerationEvaluationScenario,
-  plan: TodayPlan | undefined
+  plan: TodayPlan | undefined,
 ) {
   if (!plan) {
     return buildResult('equipment-fit', 'not-applicable');
@@ -108,19 +109,26 @@ function runEquipmentFitCheck(
     return buildResult('equipment-fit', 'not-applicable');
   }
 
-  const allowed = new Set(
-    (scenario.request.equipment ?? scenario.context?.environment.equipment ?? ['Bodyweight']).map(
-      normalize
-    )
-  );
+  const requestedEquipment = scenario.request.equipment;
+  const environmentEquipment = scenario.context?.environment.equipment;
+  const effectiveEquipment =
+    requestedEquipment && requestedEquipment.length > 0
+      ? requestedEquipment
+      : environmentEquipment && environmentEquipment.length > 0
+        ? environmentEquipment
+        : ['Bodyweight'];
 
-  const unexpected = plan.equipment.filter((item) => !allowed.has(normalize(item)));
+  const allowed = new Set(effectiveEquipment.map(normalize));
+
+  const unexpected = plan.equipment.filter(
+    (item) => !allowed.has(normalize(item)),
+  );
   return unexpected.length === 0
     ? buildResult('equipment-fit', 'pass')
     : buildResult(
         'equipment-fit',
         'fail',
-        `Plan uses unavailable equipment: ${unexpected.join(', ')}.`
+        `Plan uses unavailable equipment: ${unexpected.join(', ')}.`,
       );
 }
 
@@ -128,7 +136,7 @@ function runSafetyCheck(
   name: 'injury-safety' | 'avoid-list-safety',
   active: boolean,
   bannedTerms: string[],
-  plan: TodayPlan | undefined
+  plan: TodayPlan | undefined,
 ) {
   if (!active || !plan || bannedTerms.length === 0) {
     return buildResult(name, 'not-applicable');
@@ -136,7 +144,7 @@ function runSafetyCheck(
 
   const exerciseText = buildExerciseNameText(plan);
   const matches = bannedTerms.filter((term) =>
-    exerciseText.includes(normalize(term))
+    exerciseText.includes(normalize(term)),
   );
   return matches.length === 0
     ? buildResult(name, 'pass')
@@ -145,28 +153,31 @@ function runSafetyCheck(
 
 function runUpcomingEventSensitivityCheck(
   scenario: GenerationEvaluationScenario,
-  plan: TodayPlan | undefined
+  plan: TodayPlan | undefined,
 ) {
   if (!scenario.hardExpectations.requireUpcomingEventSensitivity || !plan) {
     return buildResult('upcoming-event-sensitivity', 'not-applicable');
   }
 
-  const disallowedFocuses = scenario.hardExpectations.disallowedFocuses.map(normalize);
+  const disallowedFocuses =
+    scenario.hardExpectations.disallowedFocuses.map(normalize);
   const planFocus = normalize(plan.focus);
-  const matched = disallowedFocuses.filter((focus) => planFocus.includes(focus));
+  const matched = disallowedFocuses.filter((focus) =>
+    planFocus.includes(focus),
+  );
 
   return matched.length === 0
     ? buildResult('upcoming-event-sensitivity', 'pass')
     : buildResult(
         'upcoming-event-sensitivity',
         'fail',
-        `Plan focus '${plan.focus}' matched disallowed focuses: ${matched.join(', ')}.`
+        `Plan focus '${plan.focus}' matched disallowed focuses: ${matched.join(', ')}.`,
       );
 }
 
 function runRegenerationDifferenceCheck(
   scenario: GenerationEvaluationScenario,
-  plan: TodayPlan | undefined
+  plan: TodayPlan | undefined,
 ) {
   if (!scenario.hardExpectations.requireRegenerationDifference) {
     return buildResult('regeneration-difference', 'not-applicable');
@@ -176,18 +187,19 @@ function runRegenerationDifferenceCheck(
     return buildResult(
       'regeneration-difference',
       'fail',
-      'Missing regenerated plan or baseline plan.'
+      'Missing regenerated plan or baseline plan.',
     );
   }
 
   const previousNames = collectExerciseNames(scenario.baselinePlan);
   const currentNames = collectExerciseNames(plan);
   const intersection = Array.from(previousNames).filter((name) =>
-    currentNames.has(name)
+    currentNames.has(name),
   ).length;
   const union = new Set([...previousNames, ...currentNames]).size;
   const similarity = union === 0 ? 1 : intersection / union;
-  const focusChanged = normalize(plan.focus) !== normalize(scenario.baselinePlan.focus);
+  const focusChanged =
+    normalize(plan.focus) !== normalize(scenario.baselinePlan.focus);
   const durationChanged =
     Math.abs(plan.durationMinutes - scenario.baselinePlan.durationMinutes) >= 5;
 
@@ -195,20 +207,20 @@ function runRegenerationDifferenceCheck(
     return buildResult(
       'regeneration-difference',
       'pass',
-      `Exercise similarity ${similarity.toFixed(2)}.`
+      `Exercise similarity ${similarity.toFixed(2)}.`,
     );
   }
 
   return buildResult(
     'regeneration-difference',
     'fail',
-    `Exercise similarity ${similarity.toFixed(2)} looks too close to baseline.`
+    `Exercise similarity ${similarity.toFixed(2)} looks too close to baseline.`,
   );
 }
 
 export function runHardChecksForScenario(
   scenario: GenerationEvaluationScenario,
-  plan?: TodayPlan
+  plan?: TodayPlan,
 ): GenerationEvaluationHardCheckResult[] {
   const bannedTerms = scenario.hardExpectations.bannedExerciseTerms;
   const hasInjuries = Boolean(scenario.context?.preferences.injuries?.length);
@@ -227,7 +239,7 @@ export function runHardChecksForScenario(
 }
 
 export function summarizeHardFailures(
-  results: GenerationEvaluationHardCheckResult[]
+  results: GenerationEvaluationHardCheckResult[],
 ): Record<string, number> {
   return results.reduce<Record<string, number>>((acc, result) => {
     if (result.status !== 'fail') {
