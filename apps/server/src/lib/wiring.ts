@@ -18,7 +18,7 @@ import {
   createLogWorkoutHandler,
   type GenerateHandlerConfig,
 } from '@workout-agent-ce/server-core';
-import { openExerciseLibrary } from '@workout-agent-ce/server-exercise-library';
+import type { ExerciseLibrary } from '@workout-agent-ce/server-exercise-library';
 import { DefaultModelRouter } from '@workout-agent-ce/server-ai';
 import { getAuthContext } from './auth-context';
 
@@ -28,16 +28,26 @@ const store = new InMemoryGenerationStore();
 const router = new DefaultModelRouter();
 const policy = new NoOpUsagePolicy();
 const metering = new NoOpMeteringSink();
-const exerciseLibrary = (() => {
+let cachedExerciseLibrary: ExerciseLibrary | null | undefined;
+
+const loadExerciseLibrary = async (): Promise<ExerciseLibrary | undefined> => {
+  if (cachedExerciseLibrary !== undefined) {
+    return cachedExerciseLibrary ?? undefined;
+  }
+
   try {
-    return openExerciseLibrary();
+    const { openExerciseLibrary } =
+      await import('@workout-agent-ce/server-exercise-library');
+    cachedExerciseLibrary = openExerciseLibrary();
   } catch (error) {
     console.warn(
       `[exercise-library] unavailable: ${error instanceof Error ? error.message : String(error)}`,
     );
-    return undefined;
+    cachedExerciseLibrary = null;
   }
-})();
+
+  return cachedExerciseLibrary ?? undefined;
+};
 
 const allowedEditions = new Set(['CE', 'HOSTED'] as const);
 const allowedProviders = new Set(['openai', 'gemini'] as const);
@@ -92,7 +102,7 @@ export const generateHandler = createGenerateHandler({
   auth,
   store,
   router,
-  exerciseLibrary,
+  loadExerciseLibrary,
   policy,
   metering,
   config,

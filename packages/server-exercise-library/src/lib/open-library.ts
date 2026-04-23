@@ -1,12 +1,38 @@
 import { existsSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
-import Database from 'better-sqlite3';
+import { createRequire } from 'node:module';
+import path from 'node:path';
 import { ExerciseLibraryQueryEngine } from './query.js';
 import type { ExerciseLibrary } from './types.js';
 
-export const DEFAULT_LIBRARY_PATH = fileURLToPath(
-  new URL('../../data/generated/exercise-library.sqlite', import.meta.url),
+const require = createRequire(import.meta.url);
+type BetterSqlite3Database = import('better-sqlite3').Database;
+type DatabaseConstructor = new (
+  path: string,
+  options: { readonly: boolean; fileMustExist: boolean },
+) => BetterSqlite3Database;
+const betterSqlite3Module = require('better-sqlite3') as {
+  default?: DatabaseConstructor;
+} & DatabaseConstructor;
+
+const Database = (betterSqlite3Module.default ??
+  (betterSqlite3Module as DatabaseConstructor)) as DatabaseConstructor;
+
+const defaultLibraryUrl = new URL(
+  '../../data/generated/exercise-library.sqlite',
+  import.meta.url,
 );
+
+function toFileSystemPath(url: URL): string {
+  const pathname = decodeURIComponent(url.pathname);
+
+  if (process.platform === 'win32' && /^\/[A-Za-z]:/.test(pathname)) {
+    return pathname.slice(1);
+  }
+
+  return pathname;
+}
+
+export const DEFAULT_LIBRARY_PATH = toFileSystemPath(defaultLibraryUrl);
 
 export interface OpenExerciseLibraryOptions {
   path?: string;
@@ -14,18 +40,61 @@ export interface OpenExerciseLibraryOptions {
 
 export class ExerciseLibraryError extends Error {}
 
+const WORKSPACE_LIBRARY_PATH = path.join(
+  'packages',
+  'server-exercise-library',
+  'data',
+  'generated',
+  'exercise-library.sqlite',
+);
+
+const LOCAL_LIBRARY_PATH = path.join(
+  'data',
+  'generated',
+  'exercise-library.sqlite',
+);
+
+function resolveDefaultLibraryPath(): string {
+  if (existsSync(DEFAULT_LIBRARY_PATH)) {
+    return DEFAULT_LIBRARY_PATH;
+  }
+
+  let currentDir = process.cwd();
+
+  for (let depth = 0; depth < 6; depth += 1) {
+    const localCandidate = path.join(currentDir, LOCAL_LIBRARY_PATH);
+    if (existsSync(localCandidate)) {
+      return localCandidate;
+    }
+
+    const workspaceCandidate = path.join(currentDir, WORKSPACE_LIBRARY_PATH);
+    if (existsSync(workspaceCandidate)) {
+      return workspaceCandidate;
+    }
+
+    const parentDir = path.dirname(currentDir);
+    if (parentDir === currentDir) {
+      break;
+    }
+
+    currentDir = parentDir;
+  }
+
+  return DEFAULT_LIBRARY_PATH;
+}
+
 export function openExerciseLibrary(
   options: OpenExerciseLibraryOptions = {},
 ): ExerciseLibrary {
-  const path = options.path ?? DEFAULT_LIBRARY_PATH;
+  const libraryPath = options.path ?? resolveDefaultLibraryPath();
 
-  if (!existsSync(path)) {
+  if (!existsSync(libraryPath)) {
     throw new ExerciseLibraryError(
-      `Exercise library not found at ${path}. Run \`nx run server-exercise-library:build-db\` first.`,
+      `Exercise library not found at ${libraryPath}. Run \`nx run server-exercise-library:build-db\` first.`,
     );
   }
 
-  const database = new Database(path, {
+  const database = new Database(libraryPath, {
     readonly: true,
     fileMustExist: true,
   });

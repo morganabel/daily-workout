@@ -260,9 +260,18 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
 
     const context = await loadGenerationContext(auth.userId, generationRequest);
     const isRegeneration = Boolean(generationRequest.previousResponseId);
-    const previousState: GenerationState | null = isRegeneration
-      ? await deps.store.getState(auth.principalId)
-      : null;
+    let previousState: GenerationState | null = null;
+
+    if (isRegeneration) {
+      try {
+        previousState = await deps.store.getState(auth.principalId);
+      } catch (error) {
+        log.warn('failed to load previous generation state', {
+          error,
+          principalId: auth.principalId,
+        });
+      }
+    }
     let candidatePool:
       | ReturnType<typeof buildExerciseCandidatePool>
       | undefined;
