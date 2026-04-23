@@ -10,6 +10,8 @@ export type {
 } from './storage';
 export type {
   ModelRouter,
+  ExerciseCandidatePool,
+  ExerciseCandidateReference,
   GenerationResult,
   ModelGenerationOptions,
 } from './model-router';

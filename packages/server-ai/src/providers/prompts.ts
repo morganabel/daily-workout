@@ -3,12 +3,42 @@ import {
   type GenerationRequest,
   type RegenerationFeedback,
 } from '@workout-agent/shared';
+import type { ExerciseCandidatePool } from '@workout-agent-ce/server-core';
 
 export const SYSTEM_PROMPT =
   'You are a concise workout planner. Only reply with valid JSON that matches the schema and never include code fences, explanations, or markdown.';
 
 export const INITIAL_GENERATION_INSTRUCTIONS =
   'Generate a single workout session with at least one block and one exercise per block. Use realistic exercise names and prescriptions. Prioritize user context (history, preferences, environment) when deciding focus, volume, and equipment. If no focus is specified, choose the most appropriate one based on the user context.';
+
+export function buildCandidatePoolPromptData(
+  candidatePool?: ExerciseCandidatePool,
+):
+  | {
+      libraryVersion: string;
+      totalEligibleCount: number;
+      searchText?: string;
+      baselineExerciseIds: string[];
+      exercises: Array<{ id: string; name: string }>;
+      instructions: string;
+    }
+  | undefined {
+  if (!candidatePool) {
+    return undefined;
+  }
+
+  const exercises = candidatePool.candidateExercises.slice(0, 16);
+
+  return {
+    libraryVersion: candidatePool.libraryVersion,
+    totalEligibleCount: candidatePool.totalEligibleCount,
+    searchText: candidatePool.searchText,
+    baselineExerciseIds: candidatePool.baselineExerciseIds,
+    exercises,
+    instructions:
+      'Prefer exercises from this candidate pool unless there is a strong reason not to. Treat the list as a bounded high-confidence set chosen from the exercise library after applying hard constraints. Do not mention the candidate pool in the final response.',
+  };
+}
 
 /**
  * Build a conversational follow-up message for regeneration.
@@ -18,7 +48,8 @@ export const INITIAL_GENERATION_INSTRUCTIONS =
  */
 export function buildRegenerationMessage(
   request: GenerationRequest,
-  feedback?: RegenerationFeedback[]
+  feedback?: RegenerationFeedback[],
+  candidatePool?: ExerciseCandidatePool,
 ): string {
   const parts: string[] = [];
 
@@ -101,14 +132,26 @@ export function buildRegenerationMessage(
   if (request.notes) {
     if (!hasStructured) {
       parts.push(
-        'The instructions below are free form feedback from the user. Treat the instructions below as the single source of truth. Override any prior context or workout details when there is a conflict.'
+        'The instructions below are free form feedback from the user. Treat the instructions below as the single source of truth. Override any prior context or workout details when there is a conflict.',
       );
     } else {
       parts.push(
-        'Prioritize the user instructions below over any previous context or the earlier workout. If there is a conflict, follow the new instructions.'
+        'Prioritize the user instructions below over any previous context or the earlier workout. If there is a conflict, follow the new instructions.',
       );
     }
     parts.push(`User explicit instructions: ${request.notes}`);
+  }
+
+  const promptData = buildCandidatePoolPromptData(candidatePool);
+  if (promptData) {
+    parts.push(
+      `Candidate pool from exercise library v${promptData.libraryVersion}: ${promptData.exercises.map((exercise) => exercise.name).join(', ')}. ${promptData.instructions}`,
+    );
+    if (promptData.baselineExerciseIds.length > 0) {
+      parts.push(
+        `Avoid repeating baseline exercises already used in the prior workout unless necessary.`,
+      );
+    }
   }
 
   parts.push('Please generate a new workout that addresses these preferences.');

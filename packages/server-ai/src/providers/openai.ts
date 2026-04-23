@@ -12,6 +12,7 @@ import { AiGenerationError } from './types';
 import {
   SYSTEM_PROMPT,
   INITIAL_GENERATION_INSTRUCTIONS,
+  buildCandidatePoolPromptData,
   buildRegenerationMessage,
 } from './prompts';
 import {
@@ -57,7 +58,11 @@ export class OpenAIProvider implements AiProvider {
       ? [
           {
             role: 'user',
-            content: buildRegenerationMessage(request, request.feedback),
+            content: buildRegenerationMessage(
+              request,
+              request.feedback,
+              options.candidatePool,
+            ),
           },
         ]
       : [
@@ -73,6 +78,9 @@ export class OpenAIProvider implements AiProvider {
                 // Filter out auto focus so it doesn't anchor the LLM
                 focus: isAutoFocus(request.focus) ? undefined : request.focus,
               },
+              candidatePool: buildCandidatePoolPromptData(
+                options.candidatePool,
+              ),
               context,
               instructions: INITIAL_GENERATION_INSTRUCTIONS,
             }),

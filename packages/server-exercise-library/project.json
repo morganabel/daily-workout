@@ -1,0 +1,49 @@
+{
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "name": "server-exercise-library",
+  "sourceRoot": "packages/server-exercise-library/src",
+  "projectType": "library",
+  "targets": {
+    "import-upstream": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "node packages/server-exercise-library/scripts/import-upstream.js"
+      }
+    },
+    "build-canonical": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "node packages/server-exercise-library/scripts/build-canonical.js"
+      }
+    },
+    "build-db": {
+      "executor": "nx:run-commands",
+      "dependsOn": ["build-canonical"],
+      "options": {
+        "command": "node packages/server-exercise-library/scripts/build-sqlite.js"
+      }
+    },
+    "report-readiness": {
+      "executor": "nx:run-commands",
+      "dependsOn": ["build-canonical"],
+      "options": {
+        "command": "node packages/server-exercise-library/scripts/report-readiness.js"
+      }
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "dependsOn": ["build-db"],
+      "options": {
+        "cwd": "packages/server-exercise-library",
+        "command": "jest"
+      }
+    },
+    "validate-library": {
+      "executor": "nx:run-commands",
+      "dependsOn": ["build-db"],
+      "options": {
+        "command": "node packages/server-exercise-library/scripts/validate.js"
+      }
+    }
+  }
+}

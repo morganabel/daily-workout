@@ -29,6 +29,9 @@
     },
     {
       "path": "./packages/server-auth"
+    },
+    {
+      "path": "./packages/server-exercise-library"
     }
   ]
 }

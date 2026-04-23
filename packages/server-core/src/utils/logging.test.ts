@@ -53,7 +53,7 @@ describe('logging redaction', () => {
     const response = createErrorResponse(
       'UNAUTHORIZED',
       'Invalid Authorization: Bearer secret-token',
-      401
+      401,
     );
     const json = (await response.json()) as { message: string };
     expect(json.message).toContain('[REDACTED]');
@@ -148,7 +148,9 @@ describe('Logger', () => {
   });
 
   it('emits to console.error at error level', () => {
-    const spy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    const spy = jest
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
     try {
       const logger = createLogger({ route: 'test' });
       logger.error('something broke');
@@ -179,8 +181,12 @@ describe('Logger', () => {
     process.env.LOG_LEVEL = 'warn';
     resetLoggerForTest();
 
-    const logSpy = jest.spyOn(console, 'log').mockImplementation(() => undefined);
-    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const logSpy = jest
+      .spyOn(console, 'log')
+      .mockImplementation(() => undefined);
+    const warnSpy = jest
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
     try {
       const logger = createLogger({ route: 'test' });
       logger.info('should be suppressed');
@@ -195,7 +201,9 @@ describe('Logger', () => {
   });
 
   it('normalizes error objects in data', () => {
-    const spy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    const spy = jest
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
     try {
       const logger = createLogger({ route: 'test' });
       logger.error('failed', { error: new Error('boom') });
@@ -306,7 +314,7 @@ describe('getOrCreateRequestId', () => {
   });
 
   it('truncates long header values to 128 chars', () => {
-    const longId = 'a'.repeat(200);
+    const longId = 'request-id-'.repeat(20);
     const request = new Request('http://localhost', {
       headers: { 'x-request-id': longId },
     });

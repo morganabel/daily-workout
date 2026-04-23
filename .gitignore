@@ -71,6 +71,9 @@ test-output
 .next
 out
 
+# Generated exercise-library artifacts
+packages/server-exercise-library/data/generated/
+
 # Environment files
 .env
 .env.*

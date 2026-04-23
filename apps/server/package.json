@@ -7,6 +7,7 @@
     "@workout-agent-ce/server-auth": "*",
     "@workout-agent-ce/server-core": "*",
     "@workout-agent-ce/server-db": "*",
+    "@workout-agent-ce/server-exercise-library": "*",
     "@workout-agent/shared": "*",
     "next": "~15.2.4",
     "react": "^19.0.0",

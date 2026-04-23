@@ -1,11 +1,29 @@
-import { buildRegenerationMessage } from './prompts';
-import type { GenerationRequest, RegenerationFeedback } from '@workout-agent/shared';
+import {
+  buildCandidatePoolPromptData,
+  buildRegenerationMessage,
+} from './prompts';
+import type { ExerciseCandidatePool } from '@workout-agent-ce/server-core';
+import type {
+  GenerationRequest,
+  RegenerationFeedback,
+} from '@workout-agent/shared';
 
 describe('buildRegenerationMessage', () => {
   const baseRequest: GenerationRequest = {
     timeMinutes: 30,
     equipment: ['Dumbbells'],
     energy: 'moderate',
+  };
+
+  const candidatePool: ExerciseCandidatePool = {
+    libraryVersion: 'test-library',
+    totalEligibleCount: 2,
+    searchText: 'upper body strength',
+    baselineExerciseIds: ['fedb:pushups'],
+    candidateExercises: [
+      { id: 'fedb:pushups', name: 'Pushups' },
+      { id: 'fedb:chin-up', name: 'Chin-Up' },
+    ],
   };
 
   describe('auto-focus handling', () => {
@@ -98,7 +116,10 @@ describe('buildRegenerationMessage', () => {
 
   describe('feedback handling', () => {
     it('includes feedback descriptions', () => {
-      const feedback: RegenerationFeedback[] = ['too-hard', 'different-exercises'];
+      const feedback: RegenerationFeedback[] = [
+        'too-hard',
+        'different-exercises',
+      ];
 
       const message = buildRegenerationMessage(baseRequest, feedback);
 
@@ -122,12 +143,41 @@ describe('buildRegenerationMessage', () => {
     it('includes energy level in changes', () => {
       const request: GenerationRequest = {
         ...baseRequest,
-        energy: 'high',
+        energy: 'intense',
       };
 
       const message = buildRegenerationMessage(request);
 
-      expect(message).toContain('energy level: high');
+      expect(message).toContain('energy level: intense');
+    });
+  });
+
+  describe('candidate pool prompt data', () => {
+    it('formats candidate pool prompt payload for initial generation', () => {
+      expect(buildCandidatePoolPromptData(candidatePool)).toEqual(
+        expect.objectContaining({
+          libraryVersion: 'test-library',
+          totalEligibleCount: 2,
+          searchText: 'upper body strength',
+          exercises: [
+            { id: 'fedb:pushups', name: 'Pushups' },
+            { id: 'fedb:chin-up', name: 'Chin-Up' },
+          ],
+        }),
+      );
+    });
+
+    it('includes candidate pool guidance in regeneration messages', () => {
+      const message = buildRegenerationMessage(
+        baseRequest,
+        undefined,
+        candidatePool,
+      );
+
+      expect(message).toContain('Candidate pool from exercise library');
+      expect(message).toContain('Pushups');
+      expect(message).toContain('Chin-Up');
+      expect(message).toContain('Avoid repeating baseline exercises');
     });
   });
 });

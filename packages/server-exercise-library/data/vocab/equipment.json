@@ -1,0 +1,80 @@
+{
+  "items": [
+    {
+      "id": "bodyweight",
+      "label": "Bodyweight",
+      "aliases": ["body only", "bodyweight"]
+    },
+    {
+      "id": "dumbbell",
+      "label": "Dumbbells",
+      "aliases": ["dumbbell", "dumbbells"]
+    },
+    { "id": "barbell", "label": "Barbell", "aliases": ["barbell"] },
+    {
+      "id": "kettlebell",
+      "label": "Kettlebells",
+      "aliases": ["kettlebell", "kettlebells"]
+    },
+    {
+      "id": "pull_up_bar",
+      "label": "Pull-up Bar",
+      "aliases": ["pull-up bar", "pullup bar", "chin-up bar"]
+    },
+    {
+      "id": "resistance_bands",
+      "label": "Resistance Bands",
+      "aliases": ["bands", "band", "resistance bands"]
+    },
+    {
+      "id": "cable_machine",
+      "label": "Cable Machine",
+      "aliases": ["cable", "cable machine"]
+    },
+    { "id": "bench", "label": "Bench", "aliases": ["bench", "flat bench"] },
+    {
+      "id": "incline_bench",
+      "label": "Incline Bench",
+      "aliases": ["incline bench"]
+    },
+    {
+      "id": "squat_rack",
+      "label": "Squat Rack",
+      "aliases": ["squat rack", "power rack"]
+    },
+    { "id": "treadmill", "label": "Treadmill", "aliases": ["treadmill"] },
+    {
+      "id": "rowing_machine",
+      "label": "Rowing Machine",
+      "aliases": ["rowing machine", "rower", "erg"]
+    },
+    {
+      "id": "jump_rope",
+      "label": "Jump Rope",
+      "aliases": ["jump rope", "rope jumping"]
+    },
+    {
+      "id": "medicine_ball",
+      "label": "Medicine Ball",
+      "aliases": ["medicine ball"]
+    },
+    {
+      "id": "exercise_ball",
+      "label": "Exercise Ball",
+      "aliases": ["exercise ball", "stability ball"]
+    },
+    {
+      "id": "foam_roller",
+      "label": "Foam Roll",
+      "aliases": ["foam roll", "foam roller"]
+    },
+    { "id": "machine", "label": "Machine", "aliases": ["machine"] },
+    {
+      "id": "ez_curl_bar",
+      "label": "EZ Curl Bar",
+      "aliases": ["e-z curl bar", "ez curl bar"]
+    },
+    { "id": "sandbag", "label": "Sandbag", "aliases": ["sandbag"] },
+    { "id": "other", "label": "Other", "aliases": ["other"] }
+  ]
+}

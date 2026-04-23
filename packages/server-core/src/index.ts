@@ -4,6 +4,8 @@ export const PROTOCOL_VERSION = '1.0.0';
 export type {
   AuthProvider,
   AuthResult,
+  ExerciseCandidatePool,
+  ExerciseCandidateReference,
   GenerationStore,
   GenerationState,
   TransformationMetadata,
@@ -40,9 +42,12 @@ export {
 export {
   createErrorResponse,
   buildQuickActions,
+  buildExerciseCandidatePool,
   loadGenerationContext,
   type ApiError,
   type ApiErrorCode,
+  type BuildExerciseCandidatePoolParams,
+  type ExerciseCandidatePoolSummary,
   type GenerationRequestWithContext,
   safeLog,
   redactSecrets,

@@ -10,7 +10,10 @@ import type {
   GenerationResult,
   ModelGenerationOptions,
 } from '@workout-agent-ce/server-core';
-import type { GenerationRequest, GenerationContext } from '@workout-agent/shared';
+import type {
+  GenerationRequest,
+  GenerationContext,
+} from '@workout-agent/shared';
 import {
   registerProvider,
   getProvider,
@@ -50,7 +53,7 @@ export class DefaultModelRouter implements ModelRouter {
   async generate(
     request: GenerationRequest,
     context: GenerationContext,
-    options: ModelGenerationOptions
+    options: ModelGenerationOptions,
   ): Promise<GenerationResult> {
     if (!options.apiKey && !options.useVertexAi) {
       throw new AiGenerationError('Missing API key', 'NO_API_KEY');
@@ -62,12 +65,13 @@ export class DefaultModelRouter implements ModelRouter {
     if (!provider) {
       throw new AiGenerationError(
         `Provider '${providerName}' is not registered`,
-        'REQUEST_FAILED'
+        'REQUEST_FAILED',
       );
     }
 
     const providerOptions: AiProviderOptions = {
       apiKey: options.apiKey,
+      candidatePool: options.candidatePool,
       model: options.model,
       useVertexAi: options.useVertexAi,
     };

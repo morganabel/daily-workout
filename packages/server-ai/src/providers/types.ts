@@ -1,3 +1,4 @@
+import type { ExerciseCandidatePool } from '@workout-agent-ce/server-core';
 import type {
   GenerationRequest,
   GenerationContext,
@@ -11,6 +12,7 @@ export interface AiProviderOptions {
   apiKey?: string;
   model?: string;
   apiBaseUrl?: string;
+  candidatePool?: ExerciseCandidatePool;
   // Optional passthrough client for testing/mocking
   client?: unknown;
   /**
@@ -52,4 +54,3 @@ export class AiGenerationError extends Error {
     this.name = 'AiGenerationError';
   }
 }
-
