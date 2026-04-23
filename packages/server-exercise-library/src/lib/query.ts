@@ -70,7 +70,7 @@ export class ExerciseLibraryQueryEngine implements ExerciseLibrary {
     const normalized = nameOrAlias.trim().toLowerCase();
     const row = this.database
       .prepare(
-        `${BASE_SELECT_SQL} FROM exercises e WHERE lower(e.name) = ? OR EXISTS (SELECT 1 FROM exercise_aliases ea WHERE ea.exercise_id = e.id AND lower(ea.alias) = ?) LIMIT 1`,
+        `${BASE_SELECT_SQL} FROM exercises e WHERE lower(e.name) = ? OR EXISTS (SELECT 1 FROM exercise_aliases ea WHERE ea.exercise_id = e.id AND ea.alias = ?) LIMIT 1`,
       )
       .get(normalized, normalized) as ExerciseRow | undefined;
 

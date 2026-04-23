@@ -296,9 +296,19 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
     const isRegeneration = Boolean(
       generationRequest.previousResponseId || generationRequest.baselineWorkout,
     );
-    const previousState: GenerationState | null = isRegeneration
-      ? await deps.store.getState(auth.principalId)
-      : null;
+    let previousState: GenerationState | null = null;
+
+    if (isRegeneration) {
+      try {
+        previousState = await deps.store.getState(auth.principalId);
+      } catch (error) {
+        log.warn('failed to load previous generation state', {
+          error,
+          principalId: auth.principalId,
+        });
+      }
+    }
+
     const providerRequest = createProviderRequest(
       generationRequest,
       provider,
@@ -438,7 +448,9 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
     if (deps.metering && apiKey && !encounteredProviderError) {
       await deps.metering.recordUsage({
         userId: auth.userId,
-        operation: isRegeneration ? 'regenerate' : 'generate',
+        operation: effectivePlanningBrief.regeneration.isRegeneration
+          ? 'regenerate'
+          : 'generate',
         provider,
         byok: isByok,
         timestamp: new Date().toISOString(),
