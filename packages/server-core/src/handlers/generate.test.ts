@@ -436,7 +436,7 @@ describe('createGenerateHandler', () => {
     expect(store.markPending).toHaveBeenCalledWith('device-123', 18);
     expect(metering.recordUsage).toHaveBeenCalledWith(
       expect.objectContaining({
-        operation: 'regenerate',
+        operation: 'generate',
         provider: 'openai',
         byok: true,
         metadata: {
