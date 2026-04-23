@@ -1,6 +1,7 @@
 import type {
   CandidateQuery,
   ExerciseLibrary,
+  LoadLevel,
 } from '@workout-agent-ce/server-exercise-library';
 import {
   isAutoFocus,
@@ -8,9 +9,10 @@ import {
   type TodayPlan,
 } from '@workout-agent/shared';
 import type { ExerciseCandidatePool } from '../types/model-router';
+import type { PlanningBrief } from '../types/planning';
 import type { GenerationRequestWithContext } from './context';
 
-const DEFAULT_CANDIDATE_LIMIT = 24;
+const DEFAULT_CANDIDATE_LIMIT = 128;
 const DEFAULT_EQUIPMENT = ['Bodyweight'];
 
 export interface ExerciseCandidatePoolSummary extends ExerciseCandidatePool {
@@ -22,6 +24,7 @@ export interface BuildExerciseCandidatePoolParams {
   request: GenerationRequestWithContext;
   context: GenerationContext;
   previousPlan?: TodayPlan | null;
+  planningBrief?: PlanningBrief;
 }
 
 export function buildExerciseCandidatePool({
@@ -29,11 +32,18 @@ export function buildExerciseCandidatePool({
   request,
   context,
   previousPlan,
+  planningBrief,
 }: BuildExerciseCandidatePoolParams): ExerciseCandidatePoolSummary {
-  const baselineExerciseIds = previousPlan
-    ? resolvePlanExerciseIds(previousPlan, exerciseLibrary)
+  const baselinePlan = request.baselineWorkout ?? previousPlan ?? undefined;
+  const baselineExerciseIds = baselinePlan
+    ? resolvePlanExerciseIds(baselinePlan, exerciseLibrary)
     : [];
-  const query = buildCandidateQuery(request, context, baselineExerciseIds);
+  const query = buildCandidateQuery(
+    request,
+    context,
+    baselineExerciseIds,
+    planningBrief,
+  );
   const result = baselineExerciseIds.length
     ? exerciseLibrary.listVariationCandidates({
         ...query,
@@ -47,6 +57,12 @@ export function buildExerciseCandidatePool({
     candidateExercises: result.exercises.map(({ id, name }) => ({ id, name })),
     baselineExerciseIds,
     searchText: query.searchText,
+    diagnostics: result.diagnostics
+      ? {
+          blockerCodes: result.diagnostics.blockerCodes,
+          counts: result.diagnostics.counts,
+        }
+      : undefined,
     query,
   };
 }
@@ -55,9 +71,12 @@ function buildCandidateQuery(
   request: GenerationRequestWithContext,
   context: GenerationContext,
   baselineExerciseIds: string[],
+  planningBrief?: PlanningBrief,
 ): CandidateQuery {
   const noteText = collectEnvironmentText(request, context);
-  const focusTags = deriveFocusTags(request.focus, context);
+  const focusTags = planningBrief?.blockIntents[0]?.candidateFocusTags?.length
+    ? planningBrief.blockIntents[0].candidateFocusTags
+    : deriveFocusTags(request.focus, context);
   const searchText = deriveSearchText(request, context, noteText, focusTags);
   const avoidTags = new Set(
     normalizeAvoidTags(context.preferences.avoid ?? []),
@@ -78,11 +97,32 @@ function buildCandidateQuery(
     searchText,
     environment,
     focusTags,
-    styleBias: normalizeStyleBias(context.userProfile.preferredStyle),
+    blockRole:
+      planningBrief?.blockIntents[0]?.key === 'main' ? 'main' : undefined,
+    disallowedStressors: planningBrief?.disallowedStressors,
+    loadCeiling: normalizeLoadCeiling(planningBrief?.loadCeiling),
+    styleBias:
+      normalizeStyleBias(planningBrief?.styleBias) ??
+      normalizeStyleBias(context.userProfile.preferredStyle),
     excludeExerciseIds: baselineExerciseIds,
     minimumMetadataCompleteness: 'planner-ready',
     limit: DEFAULT_CANDIDATE_LIMIT,
   };
+}
+
+function normalizeLoadCeiling(
+  value: PlanningBrief['loadCeiling'] | undefined,
+): LoadLevel | undefined {
+  switch (value) {
+    case 'low':
+      return 'light';
+    case 'moderate':
+      return 'moderate';
+    case 'high':
+      return 'heavy';
+    default:
+      return undefined;
+  }
 }
 
 function deriveSearchText(

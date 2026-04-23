@@ -11,10 +11,10 @@ import {
   loadGenerationContext,
   type GenerationRequestWithContext,
 } from '../utils/context';
+import { derivePlanningBrief } from '../utils/planning';
 import { buildExerciseCandidatePool } from '../utils/exercise-library';
 import {
-  generationRequestSchema,
-  generationContextSchema,
+  generationRequestPayloadSchema,
   isAutoFocus,
   todayPlanSchema,
   createTodayPlanMock,
@@ -26,11 +26,6 @@ import {
   createRequestContext,
   redactSensitiveStrings,
 } from '../utils/logging';
-
-// Extended schema that accepts optional client-provided context
-const generationRequestWithContextSchema = generationRequestSchema.extend({
-  context: generationContextSchema.optional(),
-});
 
 const DEFAULT_GENERATION_ETA_SECONDS = 18;
 
@@ -93,6 +88,45 @@ function sanitizeErrorMessage(message: string): string {
   return redactSensitiveStrings(message);
 }
 
+function canUseProviderContinuity(
+  request: GenerationRequestWithContext,
+  provider: 'openai' | 'gemini',
+  previousPlan: TodayPlan | null,
+): boolean {
+  if (!request.previousResponseId || provider !== 'openai') {
+    return false;
+  }
+
+  const provenance =
+    request.baselineWorkout?.generationProvenance ??
+    previousPlan?.generationProvenance;
+
+  return (
+    provenance?.provider === provider &&
+    provenance.responseId === request.previousResponseId
+  );
+}
+
+function createProviderRequest(
+  request: GenerationRequestWithContext,
+  provider: 'openai' | 'gemini',
+  previousPlan: TodayPlan | null,
+): GenerationRequestWithContext {
+  if (canUseProviderContinuity(request, provider, previousPlan)) {
+    return request;
+  }
+
+  if (!request.previousResponseId) {
+    return request;
+  }
+
+  return {
+    ...request,
+    previousResponseId: undefined,
+    baselineWorkout: request.baselineWorkout ?? previousPlan ?? undefined,
+  };
+}
+
 /**
  * Factory for creating the POST /api/workouts/generate handler
  *
@@ -148,7 +182,7 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
       );
     }
 
-    const parseResult = generationRequestWithContextSchema.safeParse(body);
+    const parseResult = generationRequestPayloadSchema.safeParse(body);
     if (!parseResult.success) {
       log.warn('request validation failed', {
         method: request.method,
@@ -259,7 +293,9 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
       });
 
     const context = await loadGenerationContext(auth.userId, generationRequest);
-    const isRegeneration = Boolean(generationRequest.previousResponseId);
+    const isRegeneration = Boolean(
+      generationRequest.previousResponseId || generationRequest.baselineWorkout,
+    );
     let previousState: GenerationState | null = null;
 
     if (isRegeneration) {
@@ -272,6 +308,18 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
         });
       }
     }
+    const providerRequest = createProviderRequest(
+      generationRequest,
+      provider,
+      previousState?.plan ?? null,
+    );
+    const planningBrief = derivePlanningBrief({
+      request: providerRequest,
+      context,
+      provider,
+      previousPlan: previousState?.plan,
+    });
+    let effectivePlanningBrief = planningBrief;
     let candidatePool:
       | ReturnType<typeof buildExerciseCandidatePool>
       | undefined;
@@ -280,15 +328,27 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
       try {
         candidatePool = buildExerciseCandidatePool({
           exerciseLibrary: deps.exerciseLibrary,
-          request: generationRequest,
+          request: providerRequest,
           context,
+          planningBrief: effectivePlanningBrief,
           previousPlan: previousState?.plan,
         });
+        if (
+          candidatePool.candidateExercises.length === 0 &&
+          candidatePool.diagnostics?.blockerCodes?.length
+        ) {
+          effectivePlanningBrief = {
+            ...effectivePlanningBrief,
+            fallbackReasons: candidatePool.diagnostics.blockerCodes,
+          };
+        }
         log.info('exercise candidate pool prepared', {
           libraryVersion: candidatePool.libraryVersion,
           totalEligibleCount: candidatePool.totalEligibleCount,
           candidateCount: candidatePool.candidateExercises.length,
           baselineExerciseCount: candidatePool.baselineExerciseIds.length,
+          blockerCodes: candidatePool.diagnostics?.blockerCodes,
+          fallbackReasons: effectivePlanningBrief.fallbackReasons,
           isRegeneration,
         });
       } catch (error) {
@@ -304,7 +364,11 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
       provider,
       hasApiKey: Boolean(apiKey),
       isByok,
-      isRegeneration,
+      isRegeneration: effectivePlanningBrief.regeneration.isRegeneration,
+      focusMode: effectivePlanningBrief.focusMode,
+      resolvedFocus: effectivePlanningBrief.resolvedFocus,
+      regenerationMode: effectivePlanningBrief.regeneration.mode,
+      fallbackReasons: effectivePlanningBrief.fallbackReasons,
       hasFeedback: (generationRequest.feedback?.length ?? 0) > 0,
       feedbackCount: generationRequest.feedback?.length ?? 0,
     });
@@ -322,15 +386,26 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
 
     if (apiKey) {
       try {
-        const result = await deps.router.generate(generationRequest, context, {
+        const result = await deps.router.generate(providerRequest, context, {
           apiKey: useVertexAi ? undefined : (apiKey ?? undefined),
           candidatePool,
+          planningBrief: effectivePlanningBrief,
           provider,
           useVertexAi,
         });
         plan = result.plan;
         responseId = result.responseId;
         schemaVersion = result.schemaVersion;
+
+        const providerResponseId = plan.responseId ?? responseId;
+        plan = {
+          ...plan,
+          responseId: providerResponseId,
+          generationProvenance: {
+            provider,
+            ...(providerResponseId ? { responseId: providerResponseId } : {}),
+          },
+        };
       } catch (error) {
         encounteredProviderError = true;
         const sanitizedMessage = sanitizeErrorMessage((error as Error).message);
@@ -372,7 +447,9 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
     if (deps.metering && apiKey && !encounteredProviderError) {
       await deps.metering.recordUsage({
         userId: auth.userId,
-        operation: isRegeneration ? 'regenerate' : 'generate',
+        operation: effectivePlanningBrief.regeneration.isRegeneration
+          ? 'regenerate'
+          : 'generate',
         provider,
         byok: isByok,
         timestamp: new Date().toISOString(),

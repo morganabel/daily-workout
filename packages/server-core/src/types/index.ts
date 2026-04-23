@@ -11,9 +11,21 @@ export type {
 export type {
   ModelRouter,
   ExerciseCandidatePool,
+  ExerciseCandidateDiagnostics,
   ExerciseCandidateReference,
   GenerationResult,
   ModelGenerationOptions,
 } from './model-router';
+export type {
+  PlanningBrief,
+  PlanningBlockIntent,
+  PlanningEventProtection,
+  PlanningFallbackMode,
+  PlanningFocusMode,
+  PlanningLoadCeiling,
+  PlanningRegenerationMode,
+  PlanningRegenerationSummary,
+  PlanningVariationMode,
+} from './planning';
 export type { UsagePolicy, PolicyResult, Entitlements } from './policy';
 export type { MeteringSink, UsageEvent } from './metering';

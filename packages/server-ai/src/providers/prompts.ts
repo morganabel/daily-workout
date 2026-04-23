@@ -1,15 +1,21 @@
 import {
   isAutoFocus,
+  type GenerationContext,
   type GenerationRequest,
   type RegenerationFeedback,
 } from '@workout-agent/shared';
-import type { ExerciseCandidatePool } from '@workout-agent-ce/server-core';
+import type {
+  ExerciseCandidatePool,
+  PlanningBrief,
+} from '@workout-agent-ce/server-core';
 
 export const SYSTEM_PROMPT =
   'You are a concise workout planner. Only reply with valid JSON that matches the schema and never include code fences, explanations, or markdown.';
 
 export const INITIAL_GENERATION_INSTRUCTIONS =
-  'Generate a single workout session with at least one block and one exercise per block. Use realistic exercise names and prescriptions. Prioritize user context (history, preferences, environment) when deciding focus, volume, and equipment. If no focus is specified, choose the most appropriate one based on the user context.';
+  'Generate a single workout session with at least one block and one exercise per block. Use realistic exercise names and prescriptions. Prefer the planning brief when present, otherwise use the request and context as the source of truth for focus, duration, equipment, and constraints. Prefer exercises from the candidate pool when one is provided. If no focus is specified, choose the most appropriate one from the available planning data.';
+
+const MAX_PROMPT_CANDIDATE_EXERCISES = 64;
 
 export function buildCandidatePoolPromptData(
   candidatePool?: ExerciseCandidatePool,
@@ -27,7 +33,10 @@ export function buildCandidatePoolPromptData(
     return undefined;
   }
 
-  const exercises = candidatePool.candidateExercises.slice(0, 16);
+  const exercises = candidatePool.candidateExercises.slice(
+    0,
+    MAX_PROMPT_CANDIDATE_EXERCISES,
+  );
 
   return {
     libraryVersion: candidatePool.libraryVersion,
@@ -40,6 +49,88 @@ export function buildCandidatePoolPromptData(
   };
 }
 
+export function buildPlanningBriefPromptData(planningBrief?: PlanningBrief):
+  | {
+      resolvedFocus: string;
+      focusMode: PlanningBrief['focusMode'];
+      durationMinutes: number;
+      loadCeiling: PlanningBrief['loadCeiling'];
+      availableEquipment: string[];
+      disallowedStressors: string[];
+      recentStressorsToAvoid: string[];
+      eventProtection?: PlanningBrief['eventProtection'];
+      blockIntents: PlanningBrief['blockIntents'];
+      regeneration: PlanningBrief['regeneration'];
+      variationMode: PlanningBrief['variationMode'];
+      priorityNotes?: string;
+    }
+  | undefined {
+  if (!planningBrief) {
+    return undefined;
+  }
+
+  return {
+    resolvedFocus: planningBrief.resolvedFocus,
+    focusMode: planningBrief.focusMode,
+    durationMinutes: planningBrief.durationMinutes,
+    loadCeiling: planningBrief.loadCeiling,
+    availableEquipment: planningBrief.availableEquipment,
+    disallowedStressors: planningBrief.disallowedStressors,
+    recentStressorsToAvoid: planningBrief.recentStressorsToAvoid,
+    eventProtection: planningBrief.eventProtection,
+    blockIntents: planningBrief.blockIntents,
+    regeneration: planningBrief.regeneration,
+    variationMode: planningBrief.variationMode,
+    priorityNotes: planningBrief.priorityNotes,
+  };
+}
+
+export function buildInitialGenerationPromptPayload(
+  request: GenerationRequest,
+  context: GenerationContext,
+  planningBrief?: PlanningBrief,
+  candidatePool?: ExerciseCandidatePool,
+) {
+  const payload = {
+    planningBrief: buildPlanningBriefPromptData(planningBrief),
+    candidatePool: buildCandidatePoolPromptData(candidatePool),
+    instructions: INITIAL_GENERATION_INSTRUCTIONS,
+  };
+
+  if (planningBrief) {
+    return payload;
+  }
+
+  return {
+    ...payload,
+    request: {
+      ...request,
+      // Filter out auto focus so it doesn't anchor the LLM.
+      focus: isAutoFocus(request.focus) ? undefined : request.focus,
+    },
+    context,
+  };
+}
+
+function buildBaselineWorkoutSummary(
+  request: GenerationRequest,
+): string | null {
+  const baselineWorkout = request.baselineWorkout;
+  if (!baselineWorkout) {
+    return null;
+  }
+
+  const exerciseNames = baselineWorkout.blocks
+    .flatMap((block) => block.exercises.map((exercise) => exercise.name))
+    .slice(0, 12);
+
+  return [
+    `Baseline workout focus: ${baselineWorkout.focus}.`,
+    `Baseline duration: ${baselineWorkout.durationMinutes} minutes.`,
+    `Baseline exercises: ${exerciseNames.join(', ')}.`,
+  ].join(' ');
+}
+
 /**
  * Build a conversational follow-up message for regeneration.
  * This is used when we have conversation history (previousResponseId).
@@ -50,6 +141,7 @@ export function buildRegenerationMessage(
   request: GenerationRequest,
   feedback?: RegenerationFeedback[],
   candidatePool?: ExerciseCandidatePool,
+  planningBrief?: PlanningBrief,
 ): string {
   const parts: string[] = [];
 
@@ -61,6 +153,22 @@ export function buildRegenerationMessage(
     Boolean(feedback && feedback.length > 0);
 
   parts.push("The user wasn't satisfied with the previous workout.");
+
+  if (planningBrief) {
+    parts.push(
+      `Resolved session intent: ${planningBrief.resolvedFocus}. Load ceiling: ${planningBrief.loadCeiling}.`,
+    );
+    if (planningBrief.disallowedStressors.length > 0) {
+      parts.push(
+        `Avoid these stressors: ${planningBrief.disallowedStressors.join(', ')}.`,
+      );
+    }
+    if (planningBrief.eventProtection) {
+      parts.push(
+        `Protect freshness for ${planningBrief.eventProtection.title} on ${planningBrief.eventProtection.localDate}.`,
+      );
+    }
+  }
 
   // Add feedback if provided
   if (feedback && feedback.length > 0) {
@@ -140,6 +248,11 @@ export function buildRegenerationMessage(
       );
     }
     parts.push(`User explicit instructions: ${request.notes}`);
+  }
+
+  const baselineSummary = buildBaselineWorkoutSummary(request);
+  if (baselineSummary) {
+    parts.push(baselineSummary);
   }
 
   const promptData = buildCandidatePoolPromptData(candidatePool);

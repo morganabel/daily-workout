@@ -2,7 +2,6 @@ import OpenAI from 'openai';
 import { zodTextFormat } from 'openai/helpers/zod';
 import {
   todayPlanSchema,
-  isAutoFocus,
   type GenerationRequest,
   type GenerationContext,
 } from '@workout-agent/shared';
@@ -11,8 +10,7 @@ import type { AiProvider, AiProviderOptions, GenerationResult } from './types';
 import { AiGenerationError } from './types';
 import {
   SYSTEM_PROMPT,
-  INITIAL_GENERATION_INSTRUCTIONS,
-  buildCandidatePoolPromptData,
+  buildInitialGenerationPromptPayload,
   buildRegenerationMessage,
 } from './prompts';
 import {
@@ -44,7 +42,9 @@ export class OpenAIProvider implements AiProvider {
     });
 
     const model = options.model ?? DEFAULT_MODEL;
-    const isRegeneration = Boolean(request.previousResponseId);
+    const isRegeneration = Boolean(
+      request.previousResponseId || request.baselineWorkout,
+    );
 
     // Select schema version using selection algorithm
     // OpenAI supports both v1-current and v2-flat
@@ -62,6 +62,7 @@ export class OpenAIProvider implements AiProvider {
               request,
               request.feedback,
               options.candidatePool,
+              options.planningBrief,
             ),
           },
         ]
@@ -72,18 +73,14 @@ export class OpenAIProvider implements AiProvider {
           },
           {
             role: 'user',
-            content: JSON.stringify({
-              request: {
-                ...request,
-                // Filter out auto focus so it doesn't anchor the LLM
-                focus: isAutoFocus(request.focus) ? undefined : request.focus,
-              },
-              candidatePool: buildCandidatePoolPromptData(
+            content: JSON.stringify(
+              buildInitialGenerationPromptPayload(
+                request,
+                context,
+                options.planningBrief,
                 options.candidatePool,
               ),
-              context,
-              instructions: INITIAL_GENERATION_INSTRUCTIONS,
-            }),
+            ),
           },
         ];
 

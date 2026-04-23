@@ -1,8 +1,12 @@
 import {
   buildCandidatePoolPromptData,
+  buildPlanningBriefPromptData,
   buildRegenerationMessage,
 } from './prompts';
-import type { ExerciseCandidatePool } from '@workout-agent-ce/server-core';
+import type {
+  ExerciseCandidatePool,
+  PlanningBrief,
+} from '@workout-agent-ce/server-core';
 import type {
   GenerationRequest,
   RegenerationFeedback,
@@ -24,6 +28,45 @@ describe('buildRegenerationMessage', () => {
       { id: 'fedb:pushups', name: 'Pushups' },
       { id: 'fedb:chin-up', name: 'Chin-Up' },
     ],
+  };
+
+  const planningBrief: PlanningBrief = {
+    provider: 'openai',
+    planningDateLocal: '2026-04-15',
+    focusMode: 'smart',
+    resolvedFocus: 'Upper Body & Core',
+    durationMinutes: 30,
+    availableEquipment: ['Dumbbells'],
+    energy: 'moderate',
+    loadCeiling: 'low',
+    unknowns: [],
+    disallowedStressors: ['lower_body_overload'],
+    recentStressorsToAvoid: ['lower_body'],
+    eventProtection: {
+      kind: 'run',
+      title: '10K Tune-Up',
+      localDate: '2026-04-16',
+      reason: 'Protect freshness for the upcoming event.',
+    },
+    blockIntents: [
+      {
+        key: 'main',
+        title: 'Main Block',
+        focus: 'Upper Body & Core',
+        durationMinutes: 30,
+        objective: 'Protect lower-body freshness.',
+        candidateFocusTags: ['upper_body', 'core'],
+      },
+    ],
+    variationMode: 'different-exercises',
+    fallbackMode: 'strict-library',
+    regeneration: {
+      isRegeneration: true,
+      mode: 'stateless',
+      feedback: ['different-exercises'],
+      baselineWorkoutId: 'plan-1',
+      baselineExerciseCount: 4,
+    },
   };
 
   describe('auto-focus handling', () => {
@@ -126,6 +169,46 @@ describe('buildRegenerationMessage', () => {
       expect(message).toContain('too hard/intense');
       expect(message).toContain('different exercises');
     });
+
+    it('includes planning brief and baseline workout guidance', () => {
+      const message = buildRegenerationMessage(
+        {
+          ...baseRequest,
+          baselineWorkout: {
+            id: 'plan-1',
+            focus: 'Lower Body',
+            durationMinutes: 30,
+            equipment: ['Dumbbells'],
+            source: 'ai',
+            energy: 'moderate',
+            summary: 'Baseline summary',
+            blocks: [
+              {
+                id: 'block-1',
+                title: 'Main',
+                durationMinutes: 30,
+                focus: 'Lower Body',
+                exercises: [
+                  {
+                    id: 'exercise-1',
+                    name: 'Goblet Squat',
+                    prescription: '3x10',
+                    detail: null,
+                  },
+                ],
+              },
+            ],
+          },
+        },
+        ['different-exercises'],
+        candidatePool,
+        planningBrief,
+      );
+
+      expect(message).toContain('Resolved session intent: Upper Body & Core');
+      expect(message).toContain('Avoid these stressors: lower_body_overload');
+      expect(message).toContain('Baseline exercises: Goblet Squat');
+    });
   });
 
   describe('equipment and energy', () => {
@@ -178,6 +261,20 @@ describe('buildRegenerationMessage', () => {
       expect(message).toContain('Pushups');
       expect(message).toContain('Chin-Up');
       expect(message).toContain('Avoid repeating baseline exercises');
+    });
+  });
+
+  describe('planning brief prompt data', () => {
+    it('formats planning brief payload for provider prompts', () => {
+      expect(buildPlanningBriefPromptData(planningBrief)).toEqual(
+        expect.objectContaining({
+          resolvedFocus: 'Upper Body & Core',
+          loadCeiling: 'low',
+          blockIntents: [
+            expect.objectContaining({ focus: 'Upper Body & Core' }),
+          ],
+        }),
+      );
     });
   });
 });

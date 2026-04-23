@@ -1,4 +1,7 @@
-import type { ExerciseCandidatePool } from '@workout-agent-ce/server-core';
+import type {
+  ExerciseCandidatePool,
+  PlanningBrief,
+} from '@workout-agent-ce/server-core';
 import type {
   GenerationRequest,
   GenerationContext,
@@ -13,6 +16,7 @@ export interface AiProviderOptions {
   model?: string;
   apiBaseUrl?: string;
   candidatePool?: ExerciseCandidatePool;
+  planningBrief?: PlanningBrief;
   // Optional passthrough client for testing/mocking
   client?: unknown;
   /**

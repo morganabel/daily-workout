@@ -2,12 +2,12 @@
 
 ### Requirement: Planner-Facing Candidate Queries
 
-The exercise library query surface MUST support planner-facing candidate selection for block-level workout planning. Planner-facing queries MUST be able to apply block-specific constraints, bounded result limits, and baseline exercise exclusions while preserving the default `planner-ready` safety gate.
+The exercise library query surface MUST support planner-facing candidate selection for workout planning. Planner-facing queries MUST be able to apply planning constraints, bounded result limits, and baseline exercise exclusions while preserving the default `planner-ready` safety gate.
 
-#### Scenario: Block-level query applies planner constraints
+#### Scenario: Planning query applies planner constraints
 
-- **WHEN** the generation planner requests candidate exercises for a specific workout block
-- **THEN** the library can return a bounded candidate pool that reflects that block's constraints, preferences, and search text while still enforcing hard filters
+- **WHEN** the generation planner requests candidate exercises for a workout session
+- **THEN** the library can return a bounded candidate pool that reflects that session's constraints, preferences, and search text while still enforcing hard filters
 
 #### Scenario: Variation query excludes baseline exercise IDs
 

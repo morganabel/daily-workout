@@ -57,7 +57,7 @@ const buildSetLog = (set: Set): WorkoutSetLog => ({
 
 const buildExerciseLog = (
   exercise: Exercise,
-  sets: Set[]
+  sets: Set[],
 ): WorkoutExerciseLog => ({
   id: exercise.id,
   name: exercise.name,
@@ -100,7 +100,7 @@ export class WorkoutRepository {
       Q.where('archived_at', null),
       Q.where('scheduled_date', Q.between(start, end)),
       Q.sortBy('scheduled_date', Q.desc),
-      Q.take(1)
+      Q.take(1),
     );
   }
 
@@ -111,14 +111,14 @@ export class WorkoutRepository {
   observeRecentSessions(limit = 3, options?: { includeArchived?: boolean }) {
     return this.buildCompletedQuery(
       limit,
-      Boolean(options?.includeArchived)
+      Boolean(options?.includeArchived),
     ).observe();
   }
 
   observeCompletedSessionsByDateRange(
     start: number,
     end: number,
-    options?: { includeArchived?: boolean }
+    options?: { includeArchived?: boolean },
   ) {
     const conditions: Array<
       ReturnType<typeof Q.where> | ReturnType<typeof Q.sortBy>
@@ -138,7 +138,7 @@ export class WorkoutRepository {
   async listRecentSessions(limit = 5, options?: { includeArchived?: boolean }) {
     const query = this.buildCompletedQuery(
       limit,
-      Boolean(options?.includeArchived)
+      Boolean(options?.includeArchived),
     );
     return query.fetch();
   }
@@ -146,7 +146,7 @@ export class WorkoutRepository {
   async listCompletedSessionsByDateRange(
     start: number,
     end: number,
-    options?: { includeArchived?: boolean }
+    options?: { includeArchived?: boolean },
   ) {
     const conditions: Array<
       ReturnType<typeof Q.where> | ReturnType<typeof Q.sortBy>
@@ -165,21 +165,20 @@ export class WorkoutRepository {
 
   async getTodayWorkout(): Promise<Workout | null> {
     const workouts = await this.buildPlannedWorkoutQueryForDate(
-      Date.now()
+      Date.now(),
     ).fetch();
     return workouts.length > 0 ? workouts[0] : null;
   }
 
   async getPlannedWorkoutForDate(timestamp: number): Promise<Workout | null> {
-    const workouts = await this.buildPlannedWorkoutQueryForDate(
-      timestamp
-    ).fetch();
+    const workouts =
+      await this.buildPlannedWorkoutQueryForDate(timestamp).fetch();
     return workouts.length > 0 ? workouts[0] : null;
   }
 
   async saveGeneratedPlan(
     plan: TodayPlan,
-    options?: { scheduledDate?: number }
+    options?: { scheduledDate?: number },
   ) {
     const now = Date.now();
     const payload = planToPersistence(plan, now);
@@ -192,11 +191,11 @@ export class WorkoutRepository {
         .query(
           Q.where('status', 'planned'),
           Q.where('archived_at', null),
-          Q.where('scheduled_date', Q.between(start, end))
+          Q.where('scheduled_date', Q.between(start, end)),
         )
         .fetch();
       await Promise.all(
-        existing.map((workout) => workout.destroyPermanently())
+        existing.map((workout) => workout.destroyPermanently()),
       );
 
       const workout = await this.workouts.create((w) => {
@@ -215,7 +214,7 @@ export class WorkoutRepository {
         w.completedAt = payload.workout.completedAt ?? undefined;
         w.durationSeconds = payload.workout.durationSeconds ?? undefined;
         w.archivedAt = undefined;
-        // Store OpenAI response ID for conversation context
+        // Store provider response ID for continuity-aware regeneration.
         w.responseId = payload.workout.responseId ?? undefined;
       });
 
@@ -244,7 +243,7 @@ export class WorkoutRepository {
 
     return rowsToPlan(
       workout as unknown as WorkoutRowLike,
-      exercises as ExerciseRowLike[]
+      exercises as ExerciseRowLike[],
     );
   }
 
@@ -290,13 +289,13 @@ export class WorkoutRepository {
   }
 
   async listExerciseLogsByWorkoutId(
-    workoutId: string
+    workoutId: string,
   ): Promise<WorkoutExerciseLog[]> {
     const exercises = await this.exercises
       .query(
         Q.where('workout_id', workoutId),
         Q.sortBy('block_order', Q.asc),
-        Q.sortBy('order', Q.asc)
+        Q.sortBy('order', Q.asc),
       )
       .fetch();
 
@@ -306,7 +305,7 @@ export class WorkoutRepository {
           .query(Q.where('exercise_id', exercise.id))
           .fetch();
         return buildExerciseLog(exercise, sets);
-      })
+      }),
     );
 
     return logs;
@@ -332,7 +331,7 @@ export class WorkoutRepository {
    * Use this for Active Workout and explicit edit mode.
    */
   async getSessionDetailForEditing(
-    workoutId: string
+    workoutId: string,
   ): Promise<WorkoutSessionDetail> {
     await this.ensureSetsForWorkout(workoutId);
     return this.getSessionDetailById(workoutId);
@@ -347,7 +346,7 @@ export class WorkoutRepository {
       rpe?: number | null;
       completed?: boolean;
       order?: number;
-    }
+    },
   ): Promise<WorkoutSetLog> {
     const set = await this.sets.find(setId);
 
@@ -389,7 +388,7 @@ export class WorkoutRepository {
         set.exercise.set(exercise);
         set.order = nextOrder;
         set.completed = false;
-      })
+      }),
     );
 
     return buildSetLog(newSet);
@@ -410,15 +409,15 @@ export class WorkoutRepository {
         remainingSets.map((remaining, index) =>
           remaining.update((record) => {
             record.order = index;
-          })
-        )
+          }),
+        ),
       );
     });
   }
 
   async getLastExercisePerformance(
     exerciseName: string,
-    options?: { excludeWorkoutId?: string }
+    options?: { excludeWorkoutId?: string },
   ): Promise<{ completedAt: string; sets: WorkoutSetLog[] } | null> {
     const normalizedTarget = normalizeExerciseName(exerciseName);
     const workouts = await this.buildCompletedQuery(12, false).fetch();
@@ -436,7 +435,7 @@ export class WorkoutRepository {
         .fetch();
 
       const match = exercises.find(
-        (exercise) => normalizeExerciseName(exercise.name) === normalizedTarget
+        (exercise) => normalizeExerciseName(exercise.name) === normalizedTarget,
       );
       if (!match) {
         continue;

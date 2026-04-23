@@ -3,10 +3,16 @@ import type {
   GenerationContext,
   TodayPlan,
 } from '@workout-agent/shared';
+import type { PlanningBrief } from './planning';
 
 export interface ExerciseCandidateReference {
   id: string;
   name: string;
+}
+
+export interface ExerciseCandidateDiagnostics {
+  blockerCodes: string[];
+  counts?: Record<string, number>;
 }
 
 export interface ExerciseCandidatePool {
@@ -15,6 +21,7 @@ export interface ExerciseCandidatePool {
   candidateExercises: ExerciseCandidateReference[];
   baselineExerciseIds: string[];
   searchText?: string;
+  diagnostics?: ExerciseCandidateDiagnostics;
 }
 
 /**
@@ -56,6 +63,11 @@ export interface ModelGenerationOptions {
    * This is available for prompt construction but must not be exposed directly in the user-facing plan.
    */
   candidatePool?: ExerciseCandidatePool;
+
+  /**
+   * Internal planning artifact derived before provider prompting.
+   */
+  planningBrief?: PlanningBrief;
 }
 
 /**

@@ -2,16 +2,11 @@ import {
   generationContextSchema,
   isAutoFocus,
   type GenerationContext,
-  type GenerationRequest,
+  type GenerationRequestPayload,
 } from '@workout-agent/shared';
 import { createLogger } from './logging';
 
-/**
- * Extended request payload that includes client-provided context.
- */
-export interface GenerationRequestWithContext extends GenerationRequest {
-  context?: GenerationContext;
-}
+export type GenerationRequestWithContext = GenerationRequestPayload;
 
 /**
  * Loads generation context for a user.
@@ -24,7 +19,7 @@ export interface GenerationRequestWithContext extends GenerationRequest {
  */
 export async function loadGenerationContext(
   _userId: string,
-  request: GenerationRequestWithContext
+  request: GenerationRequestWithContext,
 ): Promise<GenerationContext> {
   const log = createLogger({ route: 'generation.context' });
 
@@ -47,9 +42,13 @@ export async function loadGenerationContext(
         },
         preferences: {
           ...result.data.preferences,
-          focusBias: request.focus && !isAutoFocus(request.focus)
-            ? [request.focus, ...(result.data.preferences.focusBias ?? []).slice(0, 2)]
-            : result.data.preferences.focusBias,
+          focusBias:
+            request.focus && !isAutoFocus(request.focus)
+              ? [
+                  request.focus,
+                  ...(result.data.preferences.focusBias ?? []).slice(0, 2),
+                ]
+              : result.data.preferences.focusBias,
         },
       };
     }
@@ -66,7 +65,10 @@ export async function loadGenerationContext(
       energyToday: request.energy ?? undefined,
     },
     preferences: {
-      focusBias: request.focus && !isAutoFocus(request.focus) ? [request.focus] : undefined,
+      focusBias:
+        request.focus && !isAutoFocus(request.focus)
+          ? [request.focus]
+          : undefined,
     },
     environment: {
       equipment: request.equipment ?? ['Bodyweight'],

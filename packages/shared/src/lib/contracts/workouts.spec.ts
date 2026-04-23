@@ -1,22 +1,25 @@
 import {
   buildGenerationRequestFromQuickActions,
+  createTodayPlanMock,
   normalizeQuickActionValue,
   workoutSetLogSchema,
   workoutExerciseLogSchema,
   workoutSessionDetailSchema,
   workoutLogPayloadSchema,
   generationRequestSchema,
+  generationRequestPayloadSchema,
   MAX_UPCOMING_EVENTS,
   createSessionDetailMock,
   createWorkoutExerciseLogMock,
   createWorkoutSetLogMock,
   isAutoFocus,
+  todayPlanSchema,
   type GenerationRequest,
   type QuickActionPreset,
 } from './workouts';
 
 const createPreset = (
-  overrides: Partial<QuickActionPreset>
+  overrides: Partial<QuickActionPreset>,
 ): QuickActionPreset =>
   ({
     key: 'time',
@@ -25,12 +28,12 @@ const createPreset = (
     description: '30 minutes',
     stagedValue: null,
     ...overrides,
-  } as QuickActionPreset);
+  }) as QuickActionPreset;
 
 describe('quick action helpers', () => {
   it('normalizes individual quick action values', () => {
     const timeResult = normalizeQuickActionValue(
-      createPreset({ key: 'time', stagedValue: '95' })
+      createPreset({ key: 'time', stagedValue: '95' }),
     );
     expect(timeResult).toEqual({ timeMinutes: 95 });
 
@@ -38,7 +41,7 @@ describe('quick action helpers', () => {
       createPreset({
         key: 'focus',
         stagedValue: '  Lower Body  ',
-      })
+      }),
     );
     expect(focusResult).toEqual({ focus: 'Lower Body' });
 
@@ -46,19 +49,19 @@ describe('quick action helpers', () => {
       createPreset({
         key: 'equipment',
         stagedValue: 'Dumbbells, Bands,  Bench ',
-      })
+      }),
     );
     expect(equipmentResult).toEqual({
       equipment: ['Dumbbells', 'Bands', 'Bench'],
     });
 
     const energyResult = normalizeQuickActionValue(
-      createPreset({ key: 'energy', stagedValue: 'Intense' })
+      createPreset({ key: 'energy', stagedValue: 'Intense' }),
     );
     expect(energyResult).toEqual({ energy: 'intense' });
 
     const backfillResult = normalizeQuickActionValue(
-      createPreset({ key: 'backfill', stagedValue: 'YES' })
+      createPreset({ key: 'backfill', stagedValue: 'YES' }),
     );
     expect(backfillResult).toEqual({ backfill: true });
 
@@ -66,7 +69,7 @@ describe('quick action helpers', () => {
       createPreset({
         key: 'focus',
         stagedValue: 'Smart',
-      })
+      }),
     );
     expect(smartFocusResult).toEqual({ focus: 'Smart' });
   });
@@ -113,7 +116,7 @@ describe('quick action helpers', () => {
         key: 'equipment',
         value: 'Dumbbells', // display value
         stagedValue: null, // user didn't explicitly select
-      })
+      }),
     );
     expect(equipmentWithDefaultOnly).toEqual({});
 
@@ -123,7 +126,7 @@ describe('quick action helpers', () => {
         key: 'time',
         value: '30',
         stagedValue: null,
-      })
+      }),
     );
     expect(timeWithDefaultOnly).toEqual({ timeMinutes: 30 });
   });
@@ -213,7 +216,7 @@ describe('generation request upcoming events', () => {
         kind: 'hike',
         title: `Trail ${index + 1}`,
         localDate: '2025-06-0' + ((index % 9) + 1),
-      })
+      }),
     );
 
     const result = generationRequestSchema.safeParse({
@@ -231,10 +234,73 @@ describe('generation request upcoming events', () => {
         kind: 'run',
         title: `Run ${index + 1}`,
         localDate: '2025-06-15',
-      })
+      }),
     );
 
     const result = generationRequestSchema.safeParse({ upcomingEvents });
     expect(result.success).toBe(false);
+  });
+
+  it('accepts planning-date and baseline-workout regeneration fields', () => {
+    const baselineWorkout = createTodayPlanMock({
+      responseId: 'resp-baseline',
+      generationProvenance: {
+        provider: 'openai',
+        responseId: 'resp-baseline',
+      },
+    });
+
+    const result = generationRequestSchema.safeParse({
+      planningDateLocal: '2026-04-15',
+      previousResponseId: 'resp-baseline',
+      baselineWorkout,
+      feedback: ['different-exercises'],
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts context payloads for regeneration requests', () => {
+    const result = generationRequestPayloadSchema.safeParse({
+      previousResponseId: 'resp-baseline',
+      planningDateLocal: '2026-04-15',
+      context: {
+        userProfile: {
+          experienceLevel: 'beginner',
+        },
+        preferences: {
+          injuries: ['knee'],
+        },
+        environment: {
+          equipment: ['Bodyweight'],
+          timeAvailableMinutes: 30,
+        },
+        recentSessions: [],
+      },
+    });
+
+    expect(result.success).toBe(true);
+  });
+});
+
+describe('today plan provenance', () => {
+  it('accepts minimal regeneration provenance on the canonical plan', () => {
+    const result = todayPlanSchema.safeParse(
+      createTodayPlanMock({
+        responseId: 'resp-generated',
+        generationProvenance: {
+          provider: 'gemini',
+          responseId: 'resp-generated',
+        },
+      }),
+    );
+
+    expect(result.success).toBe(true);
+  });
+
+  it('continues to accept plans without regeneration provenance', () => {
+    const result = todayPlanSchema.safeParse(createTodayPlanMock());
+
+    expect(result.success).toBe(true);
   });
 });

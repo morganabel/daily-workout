@@ -1,5 +1,10 @@
 import { Model, Query } from '@nozbe/watermelondb';
-import { field, date, children, readonly } from '@nozbe/watermelondb/decorators';
+import {
+  field,
+  date,
+  children,
+  readonly,
+} from '@nozbe/watermelondb/decorators';
 import Exercise from './Exercise';
 
 export default class Workout extends Model {
@@ -22,7 +27,7 @@ export default class Workout extends Model {
   @field('duration_seconds') durationSeconds?: number;
   @date('archived_at') archivedAt?: number;
   @field('is_favorite') isFavorite?: boolean;
-  // OpenAI response ID for conversation context when regenerating
+  // Provider response ID for continuity-aware regeneration.
   @field('response_id') responseId?: string;
   @readonly @date('created_at') createdAt!: number;
   @readonly @date('updated_at') updatedAt!: number;

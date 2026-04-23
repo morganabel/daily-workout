@@ -19,7 +19,7 @@ export type WorkoutRowLike = {
   completedAt?: number | null;
   durationSeconds?: number | null;
   archivedAt?: number | null;
-  // OpenAI response ID for conversation context
+  // Provider response ID for continuity-aware regeneration.
   responseId?: string | null;
   createdAt?: number | null;
   updatedAt?: number | null;
@@ -167,7 +167,7 @@ export const planToPersistence = (
     scheduledDate: timestamp,
     durationSeconds: plan.durationMinutes * 60,
     archivedAt: null,
-    // Store OpenAI response ID for conversation context
+    // Store provider response ID for continuity-aware regeneration.
     responseId: plan.responseId,
     createdAt: timestamp,
     updatedAt: timestamp,
@@ -227,7 +227,7 @@ export const rowsToPlan = (
         parsedPlan.blocks && parsedPlan.blocks.length > 0
           ? parsedPlan.blocks
           : fallbackBlocks,
-      // Preserve responseId for conversation context
+      // Preserve provider response ID for continuity-aware regeneration.
       responseId: parsedPlan.responseId ?? workout.responseId ?? undefined,
     };
   }
@@ -241,7 +241,7 @@ export const rowsToPlan = (
     energy: (workout.energy as TodayPlan['energy'] | undefined) ?? 'moderate',
     summary: workout.summary ?? 'Personalized workout',
     blocks: fallbackBlocks,
-    // Preserve responseId for conversation context
+    // Preserve provider response ID for continuity-aware regeneration.
     responseId: workout.responseId ?? undefined,
   };
 };

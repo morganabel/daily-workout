@@ -2,7 +2,6 @@ import { GoogleGenAI, GoogleGenAIOptions } from '@google/genai';
 import * as z from 'zod';
 import {
   todayPlanSchema,
-  isAutoFocus,
   type GenerationRequest,
   type GenerationContext,
 } from '@workout-agent/shared';
@@ -11,8 +10,7 @@ import type { AiProvider, AiProviderOptions, GenerationResult } from './types';
 import { AiGenerationError } from './types';
 import {
   SYSTEM_PROMPT,
-  INITIAL_GENERATION_INSTRUCTIONS,
-  buildCandidatePoolPromptData,
+  buildInitialGenerationPromptPayload,
   buildRegenerationMessage,
 } from './prompts';
 import {
@@ -71,7 +69,9 @@ export class GeminiProvider implements AiProvider {
     const genAI = new GoogleGenAI(clientConfig);
     const model = options.model ?? DEFAULT_MODEL;
 
-    const isRegeneration = Boolean(request.previousResponseId);
+    const isRegeneration = Boolean(
+      request.previousResponseId || request.baselineWorkout,
+    );
 
     // Select schema version using selection algorithm
     // Gemini supports both v1-current and v2-flat, but prefers v2-flat for lower depth
@@ -90,18 +90,17 @@ export class GeminiProvider implements AiProvider {
         request,
         request.feedback,
         options.candidatePool,
+        options.planningBrief,
       );
     } else {
-      prompt = `${SYSTEM_PROMPT}\n\n${JSON.stringify({
-        request: {
-          ...request,
-          // Filter out auto focus so it doesn't anchor the LLM
-          focus: isAutoFocus(request.focus) ? undefined : request.focus,
-        },
-        candidatePool: buildCandidatePoolPromptData(options.candidatePool),
-        context,
-        instructions: INITIAL_GENERATION_INSTRUCTIONS,
-      })}`;
+      prompt = `${SYSTEM_PROMPT}\n\n${JSON.stringify(
+        buildInitialGenerationPromptPayload(
+          request,
+          context,
+          options.planningBrief,
+          options.candidatePool,
+        ),
+      )}`;
     }
 
     let planPayload: unknown = null;

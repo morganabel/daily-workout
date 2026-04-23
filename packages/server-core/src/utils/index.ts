@@ -14,6 +14,10 @@ export {
   type ExerciseCandidatePoolSummary,
 } from './exercise-library';
 export {
+  derivePlanningBrief,
+  type DerivePlanningBriefParams,
+} from './planning';
+export {
   safeLog,
   redactSecrets,
   redactSecretsAndPii,
