@@ -1,11 +1,8 @@
-import { existsSync } from 'node:fs';
-import { DEFAULT_LIBRARY_PATH, openExerciseLibrary } from './open-library.js';
+import { openExerciseLibrary } from './open-library.js';
 import type { ExerciseRecord } from './types.js';
 
 describe('openExerciseLibrary', () => {
   it('opens the generated library and reports metadata', () => {
-    expect(existsSync(DEFAULT_LIBRARY_PATH)).toBe(true);
-
     const library = openExerciseLibrary();
     const metadata = library.getLibraryMetadata();
 

@@ -166,7 +166,9 @@ export function determineStageOnePlanningActivation({
   planningBrief,
 }: DetermineStageOnePlanningActivationParams): PlanningStageOneActivation {
   const reasons = new Set<PlanningStageOneReason>();
-  const notes = [request.notes, planningBrief.priorityNotes, context.notes]
+  const notes = [
+    ...new Set([request.notes, planningBrief.priorityNotes, context.notes]),
+  ]
     .filter((value): value is string => Boolean(value?.trim()))
     .join(' ')
     .trim();

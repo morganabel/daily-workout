@@ -162,12 +162,16 @@ function runEquipmentFitCheck(
     return buildResult('equipment-fit', 'not-applicable');
   }
 
-  const allowed = new Set(
-    (
-      scenario.request.equipment ??
-      scenario.context?.environment.equipment ?? ['Bodyweight']
-    ).map(normalizeEquipment),
-  );
+  const requestedEquipment = scenario.request.equipment;
+  const environmentEquipment = scenario.context?.environment.equipment;
+  const effectiveEquipment =
+    requestedEquipment && requestedEquipment.length > 0
+      ? requestedEquipment
+      : environmentEquipment && environmentEquipment.length > 0
+        ? environmentEquipment
+        : ['Bodyweight'];
+
+  const allowed = new Set(effectiveEquipment.map(normalizeEquipment));
 
   const unexpected = plan.equipment.filter(
     (item) =>

@@ -39,10 +39,9 @@ export function buildCandidatePoolPromptData(
     return undefined;
   }
 
-  const exercises = candidatePool.candidateExercises.slice(
-    0,
-    MAX_PROMPT_CANDIDATE_EXERCISES,
-  );
+  const exercises = candidatePool.candidateExercises
+    .slice(0, MAX_PROMPT_CANDIDATE_EXERCISES)
+    .map(({ id, name }) => ({ id, name }));
 
   return {
     libraryVersion: candidatePool.libraryVersion,

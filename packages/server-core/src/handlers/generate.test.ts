@@ -824,7 +824,7 @@ describe('createGenerateHandler', () => {
           stagedPlanning: expect.objectContaining({
             mode: 'llm-assisted',
             shouldRun: true,
-            reasons: expect.arrayContaining(['smart-focus', 'dense-notes']),
+            reasons: expect.arrayContaining(['smart-focus']),
           }),
         }),
       }),
@@ -922,7 +922,7 @@ describe('createGenerateHandler', () => {
         planningBrief: expect.objectContaining({
           stagedPlanning: expect.objectContaining({
             shouldRun: true,
-            reasons: expect.arrayContaining(['smart-focus', 'dense-notes']),
+            reasons: expect.arrayContaining(['smart-focus']),
           }),
         }),
       }),

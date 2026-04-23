@@ -767,7 +767,10 @@ function renderHtmlReport(
     )
     .join('');
 
-  const reportDataScript = escapeHtml(JSON.stringify(report));
+  const reportDataScript = JSON.stringify(report).replace(
+    /<\/script/gi,
+    '<\\/script',
+  );
 
   const cards = report.entries
     .map((entry) => {
@@ -1463,15 +1466,18 @@ export async function runGenerationEvaluation(
     {},
   );
   const averageLatencyMs = buildAverageLatency(entries);
-  const averageLatencyByProvider = entries.reduce<
-    Record<string, GenerationEvaluationAverageLatency>
+  const entriesByProvider = entries.reduce<
+    Record<string, GenerationEvaluationReportEntry[]>
   >((acc, entry) => {
-    const providerEntries = entries.filter(
-      (item) => item.provider === entry.provider,
-    );
-    acc[entry.provider] = buildAverageLatency(providerEntries);
+    (acc[entry.provider] ??= []).push(entry);
     return acc;
   }, {});
+  const averageLatencyByProvider = Object.fromEntries(
+    Object.entries(entriesByProvider).map(([provider, providerEntries]) => [
+      provider,
+      buildAverageLatency(providerEntries),
+    ]),
+  ) as Record<string, GenerationEvaluationAverageLatency>;
 
   const report = generationEvaluationReportSchema.parse({
     corpusVersion: workoutGenerationEvaluationCorpus.version,

@@ -189,8 +189,8 @@ function scoreCandidateForStageOne(
   ]);
   const styleTags = new Set(candidate.styleTags ?? []);
   const blockedStressors = new Set([
-    ...artifact.avoidStressors,
-    ...artifact.protectStressors,
+    ...artifact.avoidStressors.map(normalizePlannerToken),
+    ...artifact.protectStressors.map(normalizePlannerToken),
   ]);
 
   for (const tag of preferredTags) {

@@ -141,6 +141,7 @@ describe('derivePlanningBrief', () => {
     const brief = derivePlanningBrief({
       request: {
         focus: 'Smart',
+        planningDateLocal: '2026-04-15',
       },
       context: createContext({
         recentSessions: [

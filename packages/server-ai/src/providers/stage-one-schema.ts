@@ -24,14 +24,18 @@ export const stageOnePlannerArtifactSchema = z.object({
 export function parseStageOnePlannerArtifact(
   input: unknown,
 ): StageOnePlannerArtifact {
-  if (!input || typeof input !== 'object') {
-    const parsed = stageOnePlannerArtifactSchema.parse(input);
-    return {
-      ...parsed,
-      resolvedFocus: parsed.resolvedFocus ?? undefined,
-      loadBias: parsed.loadBias ?? undefined,
-      noveltyTarget: parsed.noveltyTarget ?? undefined,
-    };
+  if (input && typeof input === 'object') {
+    try {
+      const parsed = stageOnePlannerArtifactSchema.parse(input);
+      return {
+        ...parsed,
+        resolvedFocus: parsed.resolvedFocus ?? undefined,
+        loadBias: parsed.loadBias ?? undefined,
+        noveltyTarget: parsed.noveltyTarget ?? undefined,
+      };
+    } catch {
+      // Fall back to tolerant normalization when providers omit fields like `mode`.
+    }
   }
 
   const record = input as Record<string, unknown>;
@@ -50,7 +54,7 @@ export function parseStageOnePlannerArtifact(
     resolvedFocus:
       typeof record.resolvedFocus === 'string' && record.resolvedFocus.trim()
         ? record.resolvedFocus.trim()
-        : 'Full Body',
+        : null,
     protectStressors: normalizeStringArray(record.protectStressors),
     avoidStressors: normalizeStringArray(record.avoidStressors),
     styleBiases: normalizeStringArray(record.styleBiases),
@@ -59,11 +63,11 @@ export function parseStageOnePlannerArtifact(
       ['low', 'moderate', 'high', 'unknown'],
       'unknown',
     ),
-    noveltyTarget: normalizeEnum(
-      record.noveltyTarget,
-      ['low', 'medium', 'high'],
+    noveltyTarget: normalizeNullableEnum(record.noveltyTarget, [
+      'low',
       'medium',
-    ),
+      'high',
+    ]),
     rerankHints: normalizeStringArray(record.rerankHints),
     candidateInstructions: normalizeStringArray(record.candidateInstructions),
   });
@@ -98,4 +102,18 @@ function normalizeEnum<const T extends readonly string[]>(
 
   const normalized = value.trim().toLowerCase();
   return (allowed.find((item) => item === normalized) ?? fallback) as T[number];
+}
+
+function normalizeNullableEnum<const T extends readonly string[]>(
+  value: unknown,
+  allowed: T,
+): T[number] | null {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const normalized = value.trim().toLowerCase();
+  return (allowed.find((item) => item === normalized) ?? null) as
+    | T[number]
+    | null;
 }
