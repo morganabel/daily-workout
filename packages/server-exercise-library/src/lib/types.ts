@@ -101,10 +101,29 @@ export interface CandidateQuery {
   limit?: number;
 }
 
+export interface CandidateDiagnostics {
+  blockerCodes: Array<
+    | 'unsupported_equipment'
+    | 'focus_gap'
+    | 'role_gap'
+    | 'planner_ready_gap'
+    | 'stressor_conflict'
+    | 'constraint_conflict'
+  >;
+  counts: Partial<{
+    relaxedEquipment: number;
+    relaxedFocus: number;
+    relaxedRole: number;
+    relaxedStressors: number;
+    lowerCompleteness: number;
+  }>;
+}
+
 export interface CandidateResult {
   exercises: ExerciseRecord[];
   totalEligibleCount: number;
   libraryVersion: string;
+  diagnostics?: CandidateDiagnostics;
 }
 
 export interface ExerciseLibraryMetadata {

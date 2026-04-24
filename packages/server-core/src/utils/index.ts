@@ -10,9 +10,16 @@ export {
 } from './context';
 export {
   buildExerciseCandidatePool,
+  rerankExerciseCandidatePool,
   type BuildExerciseCandidatePoolParams,
   type ExerciseCandidatePoolSummary,
 } from './exercise-library';
+export {
+  determineStageOnePlanningActivation,
+  derivePlanningBrief,
+  type DetermineStageOnePlanningActivationParams,
+  type DerivePlanningBriefParams,
+} from './planning';
 export {
   safeLog,
   redactSecrets,

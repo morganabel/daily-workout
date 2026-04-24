@@ -6,6 +6,9 @@ export type WorkoutEnergy = z.infer<typeof workoutEnergySchema>;
 export const workoutSourceSchema = z.enum(['ai', 'manual']);
 export type WorkoutSource = z.infer<typeof workoutSourceSchema>;
 
+export const aiProviderNameSchema = z.enum(['openai', 'gemini']);
+export type AiProviderName = z.infer<typeof aiProviderNameSchema>;
+
 const workoutExerciseBaseSchema = z.object({
   name: z.string(),
   prescription: z.string(),
@@ -49,8 +52,15 @@ const todayPlanBaseSchema = z.object({
 export const todayPlanSchema = todayPlanBaseSchema.extend({
   id: z.string(),
   blocks: z.array(workoutBlockSchema).min(1),
-  // OpenAI response ID for conversation context when regenerating
+  // Provider response ID for continuity-aware regeneration.
   responseId: z.string().optional(),
+  generationProvenance: z
+    .object({
+      provider: aiProviderNameSchema,
+      responseId: z.string().optional(),
+    })
+    .strict()
+    .optional(),
 });
 export type TodayPlan = z.infer<typeof todayPlanSchema>;
 
@@ -340,14 +350,14 @@ const coerceNumber = (value: string): number | undefined => {
 };
 
 export const normalizeQuickActionValue = (
-  action: QuickActionPreset
+  action: QuickActionPreset,
 ): Partial<GenerationRequest> => {
   // For equipment, only use stagedValue (explicit user choice), not the default display value.
   // This allows the API layer to fall back to user profile equipment when not explicitly set.
   const source =
     action.key === 'equipment'
       ? action.stagedValue
-      : action.stagedValue ?? action.value;
+      : (action.stagedValue ?? action.value);
 
   if (!source) {
     return {};
@@ -383,7 +393,7 @@ export const normalizeQuickActionValue = (
 
 export const buildGenerationRequestFromQuickActions = (
   quickActions: QuickActionPreset[],
-  base: Partial<GenerationRequest> = {}
+  base: Partial<GenerationRequest> = {},
 ): GenerationRequest => {
   const request: Partial<GenerationRequest> = { ...base };
 
@@ -407,7 +417,7 @@ export type RegenerationFeedback = z.infer<typeof regenerationFeedbackSchema>;
 
 export const aiProviderSchema = z
   .object({
-    name: z.enum(['openai', 'gemini']),
+    name: aiProviderNameSchema,
     model: z.string().optional(),
   })
   .strict();
@@ -421,8 +431,11 @@ export const generationRequestSchema = z
     energy: workoutEnergySchema.optional(),
     backfill: z.boolean().optional(),
     notes: z.string().optional(),
+    planningDateLocal: localDateSchema.optional(),
     // For regeneration: link to previous conversation
     previousResponseId: z.string().optional(),
+    // For regeneration: explicit baseline workout for stateless providers
+    baselineWorkout: todayPlanSchema.optional(),
     // For regeneration: user feedback about what was wrong
     feedback: z.array(regenerationFeedbackSchema).optional(),
     // Optional upcoming events context (bounded)
@@ -511,6 +524,13 @@ export const generationContextSchema = z.object({
 });
 export type GenerationContext = z.infer<typeof generationContextSchema>;
 
+export const generationRequestPayloadSchema = generationRequestSchema.extend({
+  context: generationContextSchema.optional(),
+});
+export type GenerationRequestPayload = z.infer<
+  typeof generationRequestPayloadSchema
+>;
+
 export const quickLogPayloadSchema = z.object({
   name: z.string(),
   focus: z.string(),
@@ -521,7 +541,7 @@ export const quickLogPayloadSchema = z.object({
 export type QuickLogPayload = z.infer<typeof quickLogPayloadSchema>;
 
 export const createTodayPlanMock = (
-  overrides: Partial<TodayPlan> = {}
+  overrides: Partial<TodayPlan> = {},
 ): TodayPlan => ({
   id: 'plan-mock',
   focus: 'Upper Body Push',
@@ -579,7 +599,7 @@ export const createTodayPlanMock = (
 });
 
 export const createSessionSummaryMock = (
-  overrides: Partial<WorkoutSessionSummary> = {}
+  overrides: Partial<WorkoutSessionSummary> = {},
 ): WorkoutSessionSummary => ({
   id: 'session-mock',
   name: 'Quick Reset',
@@ -592,7 +612,7 @@ export const createSessionSummaryMock = (
 });
 
 export const createWorkoutSetLogMock = (
-  overrides: Partial<WorkoutSetLog> = {}
+  overrides: Partial<WorkoutSetLog> = {},
 ): WorkoutSetLog => ({
   id: 'set-1',
   order: 0,
@@ -605,7 +625,7 @@ export const createWorkoutSetLogMock = (
 });
 
 export const createWorkoutExerciseLogMock = (
-  overrides: Partial<WorkoutExerciseLog> = {}
+  overrides: Partial<WorkoutExerciseLog> = {},
 ): WorkoutExerciseLog => ({
   id: 'exercise-1',
   name: 'Dumbbell Bench Press',
@@ -621,7 +641,7 @@ export const createWorkoutExerciseLogMock = (
 });
 
 export const createSessionDetailMock = (
-  overrides: Partial<WorkoutSessionDetail> = {}
+  overrides: Partial<WorkoutSessionDetail> = {},
 ): WorkoutSessionDetail => ({
   ...createSessionSummaryMock(),
   exercises: [createWorkoutExerciseLogMock()],
@@ -629,7 +649,7 @@ export const createSessionDetailMock = (
 });
 
 export const createGenerationContextMock = (
-  overrides: Partial<GenerationContext> = {}
+  overrides: Partial<GenerationContext> = {},
 ): GenerationContext => {
   const base: GenerationContext = {
     userProfile: {

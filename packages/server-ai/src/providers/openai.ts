@@ -2,17 +2,20 @@ import OpenAI from 'openai';
 import { zodTextFormat } from 'openai/helpers/zod';
 import {
   todayPlanSchema,
-  isAutoFocus,
   type GenerationRequest,
   type GenerationContext,
 } from '@workout-agent/shared';
-import { createLogger } from '@workout-agent-ce/server-core';
+import {
+  createLogger,
+  type StageOnePlannerArtifact,
+} from '@workout-agent-ce/server-core';
 import type { AiProvider, AiProviderOptions, GenerationResult } from './types';
 import { AiGenerationError } from './types';
 import {
   SYSTEM_PROMPT,
-  INITIAL_GENERATION_INSTRUCTIONS,
-  buildCandidatePoolPromptData,
+  STAGE_ONE_PLANNER_SYSTEM_PROMPT,
+  buildInitialGenerationPromptPayload,
+  buildStageOnePlannerRequestPayload,
   buildRegenerationMessage,
 } from './prompts';
 import {
@@ -20,13 +23,97 @@ import {
   getDefaultSchemaVersion,
   getSchemaForVersion,
 } from '../llm-transformer';
+import {
+  parseStageOnePlannerArtifact,
+  stageOnePlannerArtifactSchema,
+} from './stage-one-schema';
 
 const DEFAULT_MODEL = process.env.OPENAI_MODEL ?? 'gpt-5-mini';
+const DEFAULT_PLANNER_MODEL =
+  process.env.OPENAI_PLANNER_MODEL ?? 'gpt-5.4-nano';
 const DEFAULT_API_BASE =
   process.env.OPENAI_API_BASE ?? 'https://api.openai.com/v1';
 
 export class OpenAIProvider implements AiProvider {
   private readonly log = createLogger({ route: 'ai.openai' });
+
+  async planStageOne(
+    request: GenerationRequest,
+    _context: GenerationContext,
+    options: AiProviderOptions,
+  ): Promise<StageOnePlannerArtifact> {
+    const { log } = this;
+    if (!options.apiKey) {
+      throw new AiGenerationError('Missing API key', 'NO_API_KEY');
+    }
+
+    const client = new OpenAI({
+      apiKey: options.apiKey,
+      baseURL: options.apiBaseUrl ?? DEFAULT_API_BASE,
+    });
+    const model = options.model ?? DEFAULT_PLANNER_MODEL;
+    const input: OpenAI.Responses.ResponseInputItem[] = [
+      {
+        role: 'system',
+        content: STAGE_ONE_PLANNER_SYSTEM_PROMPT,
+      },
+      {
+        role: 'user',
+        content: JSON.stringify(
+          buildStageOnePlannerRequestPayload(
+            request,
+            options.planningBrief,
+            options.candidatePool,
+          ),
+        ),
+      },
+    ];
+
+    options.promptRecorder?.({
+      provider: 'openai',
+      model,
+      isRegeneration: Boolean(
+        request.previousResponseId || request.baselineWorkout,
+      ),
+      phase: 'stage-one-planner',
+      content: JSON.stringify({ input }, null, 2),
+    });
+
+    const started = Date.now();
+    try {
+      const response = await client.responses.parse({
+        model,
+        reasoning: { effort: 'low' },
+        input,
+        text: {
+          format: zodTextFormat(
+            stageOnePlannerArtifactSchema,
+            'stage_one_planner',
+          ),
+        },
+      });
+
+      log.info('stage-one planner completed', {
+        provider: 'openai',
+        model,
+        durationMs: Date.now() - started,
+      });
+
+      return parseStageOnePlannerArtifact(response.output_parsed);
+    } catch (error) {
+      const originalMessage =
+        error instanceof Error ? error.message : String(error);
+      const status =
+        typeof (error as { status?: number }).status === 'number'
+          ? (error as { status?: number }).status
+          : undefined;
+      throw new AiGenerationError(
+        `Provider request failed${status ? ` (${status})` : ''}: ${originalMessage}`,
+        'REQUEST_FAILED',
+        status,
+      );
+    }
+  }
 
   async generate(
     request: GenerationRequest,
@@ -44,7 +131,9 @@ export class OpenAIProvider implements AiProvider {
     });
 
     const model = options.model ?? DEFAULT_MODEL;
-    const isRegeneration = Boolean(request.previousResponseId);
+    const isRegeneration = Boolean(
+      request.previousResponseId || request.baselineWorkout,
+    );
 
     // Select schema version using selection algorithm
     // OpenAI supports both v1-current and v2-flat
@@ -62,6 +151,8 @@ export class OpenAIProvider implements AiProvider {
               request,
               request.feedback,
               options.candidatePool,
+              options.planningBrief,
+              options.stageOneArtifact,
             ),
           },
         ]
@@ -72,20 +163,35 @@ export class OpenAIProvider implements AiProvider {
           },
           {
             role: 'user',
-            content: JSON.stringify({
-              request: {
-                ...request,
-                // Filter out auto focus so it doesn't anchor the LLM
-                focus: isAutoFocus(request.focus) ? undefined : request.focus,
-              },
-              candidatePool: buildCandidatePoolPromptData(
+            content: JSON.stringify(
+              buildInitialGenerationPromptPayload(
+                request,
+                context,
+                options.planningBrief,
                 options.candidatePool,
+                options.stageOneArtifact,
               ),
-              context,
-              instructions: INITIAL_GENERATION_INSTRUCTIONS,
-            }),
+            ),
           },
         ];
+
+    options.promptRecorder?.({
+      provider: 'openai',
+      model,
+      schemaVersion,
+      isRegeneration,
+      phase: 'stage-two-generation',
+      content: JSON.stringify(
+        {
+          input,
+          ...(request.previousResponseId
+            ? { previous_response_id: request.previousResponseId }
+            : {}),
+        },
+        null,
+        2,
+      ),
+    });
 
     let planPayload: unknown = null;
     let responseId = '';

@@ -1,20 +1,8 @@
-import { existsSync } from 'node:fs';
-import path from 'node:path';
 import { openExerciseLibrary } from './open-library.js';
 import type { ExerciseRecord } from './types.js';
 
-const packageRoot = process.cwd();
-const generatedDbPath = path.join(
-  packageRoot,
-  'data',
-  'public',
-  'exercise-library.sqlite',
-);
-
 describe('openExerciseLibrary', () => {
   it('opens the generated library and reports metadata', () => {
-    expect(existsSync(generatedDbPath)).toBe(true);
-
     const library = openExerciseLibrary();
     const metadata = library.getLibraryMetadata();
 
@@ -69,11 +57,25 @@ describe('openExerciseLibrary', () => {
       limit: 3,
     });
 
-    expect(result.exercises[0]?.requiredEquipment).toContain('rowing_machine');
-    expect(result.exercises[0]?.styleTags).toEqual(
-      expect.arrayContaining(['cardio', 'conditioning']),
+    expect(result.exercises[0]?.id).toBe('fedb:rowing-stationary');
+
+    library.close();
+  });
+
+  it('returns stable ordering for repeated planner candidate queries', () => {
+    const library = openExerciseLibrary();
+    const query = {
+      availableEquipment: ['Bodyweight'],
+      focusTags: ['upper_body'],
+      limit: 5,
+    };
+
+    const first = library.listEligibleExercises(query);
+    const second = library.listEligibleExercises(query);
+
+    expect(first.exercises.map((exercise) => exercise.id)).toEqual(
+      second.exercises.map((exercise) => exercise.id),
     );
-    expect(result.exercises[0]?.name.toLowerCase()).toContain('rowing');
 
     library.close();
   });
@@ -96,6 +98,21 @@ describe('openExerciseLibrary', () => {
         (exercise: ExerciseRecord) => exercise.id === 'fedb:chin-up',
       ),
     ).toBe(true);
+
+    library.close();
+  });
+
+  it('returns planner-facing diagnostics for empty planner-ready results', () => {
+    const library = openExerciseLibrary();
+    const result = library.listEligibleExercises({
+      availableEquipment: ['Parachute'],
+      focusTags: ['upper_body'],
+      limit: 5,
+    });
+
+    expect(result.exercises).toHaveLength(0);
+    expect(result.diagnostics?.blockerCodes).toContain('unsupported_equipment');
+    expect(result.diagnostics?.counts.relaxedEquipment).toBeGreaterThan(0);
 
     library.close();
   });

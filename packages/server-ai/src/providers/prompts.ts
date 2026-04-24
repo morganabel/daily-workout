@@ -1,15 +1,28 @@
 import {
   isAutoFocus,
+  type GenerationContext,
   type GenerationRequest,
   type RegenerationFeedback,
 } from '@workout-agent/shared';
-import type { ExerciseCandidatePool } from '@workout-agent-ce/server-core';
+import type {
+  ExerciseCandidatePool,
+  PlanningBrief,
+  StageOnePlannerArtifact,
+} from '@workout-agent-ce/server-core';
 
 export const SYSTEM_PROMPT =
   'You are a concise workout planner. Only reply with valid JSON that matches the schema and never include code fences, explanations, or markdown.';
 
 export const INITIAL_GENERATION_INSTRUCTIONS =
-  'Generate a single workout session with at least one block and one exercise per block. Use realistic exercise names and prescriptions. Prioritize user context (history, preferences, environment) when deciding focus, volume, and equipment. If no focus is specified, choose the most appropriate one based on the user context.';
+  "Generate a single workout session with at least one block and one exercise per block. Use realistic exercise names and prescriptions. Prefer the planning brief when present, otherwise use the request and context as the source of truth for focus, duration, equipment, and constraints. Prefer exercises from the candidate pool when one is provided. Treat user-supplied injuries and avoid lists as hard constraints. Treat planner-generated avoidances as lower-confidence guidance that should not override the user's explicit constraints. If no focus is specified, choose the most appropriate one from the available planning data.";
+
+export const STAGE_ONE_PLANNER_SYSTEM_PROMPT =
+  'You are an internal workout planning assistant. Return only valid JSON matching the schema. Resolve ambiguity, preserve hard constraints, and give advisory guidance for a final workout-generation model. Do not assemble the full workout.';
+
+export const STAGE_ONE_PLANNER_INSTRUCTIONS =
+  'Interpret the request and context, resolve the most likely session intent, note stressors to protect or avoid, and produce concise rerank/prompt guidance for the final workout model. Treat user-supplied injuries and avoid lists as hard constraints. Keep hard constraints server-owned and treat your output as advisory.';
+
+const MAX_PROMPT_CANDIDATE_EXERCISES = 64;
 
 export function buildCandidatePoolPromptData(
   candidatePool?: ExerciseCandidatePool,
@@ -27,7 +40,9 @@ export function buildCandidatePoolPromptData(
     return undefined;
   }
 
-  const exercises = candidatePool.candidateExercises.slice(0, 16);
+  const exercises = candidatePool.candidateExercises
+    .slice(0, MAX_PROMPT_CANDIDATE_EXERCISES)
+    .map(({ id, name }) => ({ id, name }));
 
   return {
     libraryVersion: candidatePool.libraryVersion,
@@ -40,6 +55,158 @@ export function buildCandidatePoolPromptData(
   };
 }
 
+export function buildPlanningBriefPromptData(planningBrief?: PlanningBrief):
+  | {
+      resolvedFocus: string;
+      focusMode: PlanningBrief['focusMode'];
+      durationMinutes: number;
+      loadCeiling: PlanningBrief['loadCeiling'];
+      availableEquipment: string[];
+      userConstraints: PlanningBrief['userConstraints'];
+      plannerAvoidances: string[];
+      recentStressorsToAvoid: string[];
+      eventProtection?: PlanningBrief['eventProtection'];
+      blockIntents: PlanningBrief['blockIntents'];
+      regeneration: PlanningBrief['regeneration'];
+      variationMode: PlanningBrief['variationMode'];
+      stagedPlanning: PlanningBrief['stagedPlanning'];
+      priorityNotes?: string;
+    }
+  | undefined {
+  if (!planningBrief) {
+    return undefined;
+  }
+
+  return {
+    resolvedFocus: planningBrief.resolvedFocus,
+    focusMode: planningBrief.focusMode,
+    durationMinutes: planningBrief.durationMinutes,
+    loadCeiling: planningBrief.loadCeiling,
+    availableEquipment: planningBrief.availableEquipment,
+    userConstraints: planningBrief.userConstraints,
+    plannerAvoidances: planningBrief.disallowedStressors,
+    recentStressorsToAvoid: planningBrief.recentStressorsToAvoid,
+    eventProtection: planningBrief.eventProtection,
+    blockIntents: planningBrief.blockIntents,
+    regeneration: planningBrief.regeneration,
+    variationMode: planningBrief.variationMode,
+    stagedPlanning: planningBrief.stagedPlanning,
+    priorityNotes: planningBrief.priorityNotes,
+  };
+}
+
+export function buildStageOnePlannerArtifactPromptData(
+  artifact?: StageOnePlannerArtifact,
+):
+  | {
+      planningIntent: string;
+      confidence: StageOnePlannerArtifact['confidence'];
+      resolvedFocus?: string;
+      protectStressors: string[];
+      avoidStressors: string[];
+      styleBiases: string[];
+      loadBias?: StageOnePlannerArtifact['loadBias'];
+      noveltyTarget?: StageOnePlannerArtifact['noveltyTarget'];
+      rerankHints: string[];
+      candidateInstructions: string[];
+    }
+  | undefined {
+  if (!artifact) {
+    return undefined;
+  }
+
+  return {
+    planningIntent: artifact.planningIntent,
+    confidence: artifact.confidence,
+    resolvedFocus: artifact.resolvedFocus,
+    protectStressors: artifact.protectStressors,
+    avoidStressors: artifact.avoidStressors,
+    styleBiases: artifact.styleBiases,
+    loadBias: artifact.loadBias,
+    noveltyTarget: artifact.noveltyTarget,
+    rerankHints: artifact.rerankHints,
+    candidateInstructions: artifact.candidateInstructions,
+  };
+}
+
+export function buildStageOnePlannerRequestPayload(
+  request: GenerationRequest,
+  planningBrief?: PlanningBrief,
+  candidatePool?: ExerciseCandidatePool,
+) {
+  return {
+    request: {
+      focus: request.focus,
+      timeMinutes: request.timeMinutes,
+      equipment: request.equipment,
+      energy: request.energy,
+      feedback: request.feedback,
+      notes: request.notes,
+      planningDateLocal: request.planningDateLocal,
+      upcomingEvents: request.upcomingEvents,
+      baselineWorkout: request.baselineWorkout
+        ? {
+            focus: request.baselineWorkout.focus,
+            durationMinutes: request.baselineWorkout.durationMinutes,
+            equipment: request.baselineWorkout.equipment,
+            summary: request.baselineWorkout.summary,
+          }
+        : undefined,
+    },
+    planningBrief: buildPlanningBriefPromptData(planningBrief),
+    candidatePool: buildCandidatePoolPromptData(candidatePool),
+    instructions: STAGE_ONE_PLANNER_INSTRUCTIONS,
+  };
+}
+
+export function buildInitialGenerationPromptPayload(
+  request: GenerationRequest,
+  context: GenerationContext,
+  planningBrief?: PlanningBrief,
+  candidatePool?: ExerciseCandidatePool,
+  stageOneArtifact?: StageOnePlannerArtifact,
+) {
+  const payload = {
+    planningBrief: buildPlanningBriefPromptData(planningBrief),
+    stageOnePlanner: buildStageOnePlannerArtifactPromptData(stageOneArtifact),
+    candidatePool: buildCandidatePoolPromptData(candidatePool),
+    instructions: INITIAL_GENERATION_INSTRUCTIONS,
+  };
+
+  if (planningBrief) {
+    return payload;
+  }
+
+  return {
+    ...payload,
+    request: {
+      ...request,
+      // Filter out auto focus so it doesn't anchor the LLM.
+      focus: isAutoFocus(request.focus) ? undefined : request.focus,
+    },
+    context,
+  };
+}
+
+function buildBaselineWorkoutSummary(
+  request: GenerationRequest,
+): string | null {
+  const baselineWorkout = request.baselineWorkout;
+  if (!baselineWorkout) {
+    return null;
+  }
+
+  const exerciseNames = baselineWorkout.blocks
+    .flatMap((block) => block.exercises.map((exercise) => exercise.name))
+    .slice(0, 12);
+
+  return [
+    `Baseline workout focus: ${baselineWorkout.focus}.`,
+    `Baseline duration: ${baselineWorkout.durationMinutes} minutes.`,
+    `Baseline exercises: ${exerciseNames.join(', ')}.`,
+  ].join(' ');
+}
+
 /**
  * Build a conversational follow-up message for regeneration.
  * This is used when we have conversation history (previousResponseId).
@@ -50,8 +217,20 @@ export function buildRegenerationMessage(
   request: GenerationRequest,
   feedback?: RegenerationFeedback[],
   candidatePool?: ExerciseCandidatePool,
+  planningBrief?: PlanningBrief,
+  stageOneArtifact?: StageOnePlannerArtifact,
 ): string {
   const parts: string[] = [];
+  const shouldForceExerciseChanges =
+    Boolean(request.baselineWorkout) &&
+    (Boolean(
+      feedback?.some((item) =>
+        ['different-exercises', 'just-try-again', 'too-hard'].includes(item),
+      ),
+    ) ||
+      planningBrief?.variationMode === 'different-exercises' ||
+      stageOneArtifact?.noveltyTarget === 'medium' ||
+      stageOneArtifact?.noveltyTarget === 'high');
 
   const hasStructured =
     Boolean(request.timeMinutes) ||
@@ -61,6 +240,49 @@ export function buildRegenerationMessage(
     Boolean(feedback && feedback.length > 0);
 
   parts.push("The user wasn't satisfied with the previous workout.");
+
+  if (planningBrief) {
+    parts.push(
+      `Resolved session intent: ${planningBrief.resolvedFocus}. Load ceiling: ${planningBrief.loadCeiling}.`,
+    );
+    if (planningBrief.userConstraints.avoid.length > 0) {
+      parts.push(
+        `Hard user avoid list: ${planningBrief.userConstraints.avoid.join(', ')}. Treat these as hard constraints and do not include them.`,
+      );
+    }
+    if (planningBrief.userConstraints.injuries.length > 0) {
+      parts.push(
+        `Hard user injury context: ${planningBrief.userConstraints.injuries.join(', ')}. Treat these as hard constraints and keep the workout safely away from aggravating patterns.`,
+      );
+    }
+    if (planningBrief.disallowedStressors.length > 0) {
+      parts.push(
+        `Planner-generated avoidances: ${planningBrief.disallowedStressors.join(', ')}. Use these as lower-confidence guidance unless they conflict with the user's explicit constraints.`,
+      );
+    }
+    if (planningBrief.eventProtection) {
+      parts.push(
+        `Protect freshness for ${planningBrief.eventProtection.title} on ${planningBrief.eventProtection.localDate}.`,
+      );
+    }
+  }
+
+  if (stageOneArtifact) {
+    parts.push(
+      `Planner intent: ${stageOneArtifact.planningIntent}. Confidence: ${stageOneArtifact.confidence}.`,
+    );
+    if (stageOneArtifact.resolvedFocus) {
+      parts.push(`Planner-resolved focus: ${stageOneArtifact.resolvedFocus}.`);
+    }
+    if (stageOneArtifact.avoidStressors.length > 0) {
+      parts.push(
+        `Planner avoid stressors: ${stageOneArtifact.avoidStressors.join(', ')}.`,
+      );
+    }
+    if (stageOneArtifact.noveltyTarget) {
+      parts.push(`Novelty target: ${stageOneArtifact.noveltyTarget}.`);
+    }
+  }
 
   // Add feedback if provided
   if (feedback && feedback.length > 0) {
@@ -142,6 +364,11 @@ export function buildRegenerationMessage(
     parts.push(`User explicit instructions: ${request.notes}`);
   }
 
+  const baselineSummary = buildBaselineWorkoutSummary(request);
+  if (baselineSummary) {
+    parts.push(baselineSummary);
+  }
+
   const promptData = buildCandidatePoolPromptData(candidatePool);
   if (promptData) {
     parts.push(
@@ -150,6 +377,17 @@ export function buildRegenerationMessage(
     if (promptData.baselineExerciseIds.length > 0) {
       parts.push(
         `Avoid repeating baseline exercises already used in the prior workout unless necessary.`,
+      );
+    }
+  }
+
+  if (shouldForceExerciseChanges) {
+    parts.push(
+      'When viable alternatives exist, make meaningful exercise changes that are proportional to the feedback. If only one or two baseline exercises are the problem, it is acceptable to replace only those exercises and keep the rest of the workout aligned to the original intent. Do not just reshuffle the exact same full exercise list into new blocks or lightly rewrite prescriptions/details when the user is asking for a real change.',
+    );
+    if (promptData?.baselineExerciseIds.length) {
+      parts.push(
+        'Prefer unused exercises from the candidate pool before falling back to any baseline exercise.',
       );
     }
   }

@@ -3,6 +3,8 @@ import type {
   GenerationState,
   GenerationStore,
   ModelRouter,
+  StageOnePlanner,
+  StageOnePlannerArtifact,
   UsagePolicy,
   MeteringSink,
 } from '../types';
@@ -11,10 +13,13 @@ import {
   loadGenerationContext,
   type GenerationRequestWithContext,
 } from '../utils/context';
-import { buildExerciseCandidatePool } from '../utils/exercise-library';
+import { derivePlanningBrief } from '../utils/planning';
 import {
-  generationRequestSchema,
-  generationContextSchema,
+  buildExerciseCandidatePool,
+  rerankExerciseCandidatePool,
+} from '../utils/exercise-library';
+import {
+  generationRequestPayloadSchema,
   isAutoFocus,
   todayPlanSchema,
   createTodayPlanMock,
@@ -26,11 +31,6 @@ import {
   createRequestContext,
   redactSensitiveStrings,
 } from '../utils/logging';
-
-// Extended schema that accepts optional client-provided context
-const generationRequestWithContextSchema = generationRequestSchema.extend({
-  context: generationContextSchema.optional(),
-});
 
 const DEFAULT_GENERATION_ETA_SECONDS = 18;
 
@@ -71,6 +71,11 @@ export interface GenerateHandlerConfig {
    * Default provider when not specified
    */
   defaultProvider?: 'openai' | 'gemini';
+
+  /**
+   * Enables the optional stage-one planner path.
+   */
+  enableStageOnePlanner?: boolean;
 }
 
 /**
@@ -80,7 +85,9 @@ export interface GenerateHandlerDeps {
   auth: AuthProvider;
   store: GenerationStore;
   router: ModelRouter;
+  planner?: StageOnePlanner;
   exerciseLibrary?: ExerciseLibrary;
+  loadExerciseLibrary?: () => Promise<ExerciseLibrary | undefined>;
   policy?: UsagePolicy;
   metering?: MeteringSink;
   config: GenerateHandlerConfig;
@@ -91,6 +98,45 @@ export interface GenerateHandlerDeps {
  */
 function sanitizeErrorMessage(message: string): string {
   return redactSensitiveStrings(message);
+}
+
+function canUseProviderContinuity(
+  request: GenerationRequestWithContext,
+  provider: 'openai' | 'gemini',
+  previousPlan: TodayPlan | null,
+): boolean {
+  if (!request.previousResponseId || provider !== 'openai') {
+    return false;
+  }
+
+  const provenance =
+    request.baselineWorkout?.generationProvenance ??
+    previousPlan?.generationProvenance;
+
+  return (
+    provenance?.provider === provider &&
+    provenance.responseId === request.previousResponseId
+  );
+}
+
+function createProviderRequest(
+  request: GenerationRequestWithContext,
+  provider: 'openai' | 'gemini',
+  previousPlan: TodayPlan | null,
+): GenerationRequestWithContext {
+  if (canUseProviderContinuity(request, provider, previousPlan)) {
+    return request;
+  }
+
+  if (!request.previousResponseId) {
+    return request;
+  }
+
+  return {
+    ...request,
+    previousResponseId: undefined,
+    baselineWorkout: request.baselineWorkout ?? previousPlan ?? undefined,
+  };
 }
 
 /**
@@ -148,7 +194,7 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
       );
     }
 
-    const parseResult = generationRequestWithContextSchema.safeParse(body);
+    const parseResult = generationRequestPayloadSchema.safeParse(body);
     if (!parseResult.success) {
       log.warn('request validation failed', {
         method: request.method,
@@ -259,33 +305,114 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
       });
 
     const context = await loadGenerationContext(auth.userId, generationRequest);
-    const isRegeneration = Boolean(generationRequest.previousResponseId);
-    const previousState: GenerationState | null = isRegeneration
-      ? await deps.store.getState(auth.principalId)
-      : null;
+    const isRegeneration = Boolean(
+      generationRequest.previousResponseId || generationRequest.baselineWorkout,
+    );
+    let previousState: GenerationState | null = null;
+
+    if (isRegeneration) {
+      try {
+        previousState = await deps.store.getState(auth.principalId);
+      } catch (error) {
+        log.warn('failed to load previous generation state', {
+          error,
+          principalId: auth.principalId,
+        });
+      }
+    }
+    const providerRequest = createProviderRequest(
+      generationRequest,
+      provider,
+      previousState?.plan ?? null,
+    );
+    const planningBrief = derivePlanningBrief({
+      request: providerRequest,
+      context,
+      provider,
+      previousPlan: previousState?.plan,
+    });
+    let effectivePlanningBrief = planningBrief;
+    let stageOneArtifact: StageOnePlannerArtifact | undefined;
     let candidatePool:
       | ReturnType<typeof buildExerciseCandidatePool>
       | undefined;
 
-    if (deps.exerciseLibrary) {
+    if (
+      (deps.exerciseLibrary || deps.loadExerciseLibrary) &&
+      (apiKey || useVertexAi)
+    ) {
       try {
-        candidatePool = buildExerciseCandidatePool({
-          exerciseLibrary: deps.exerciseLibrary,
-          request: generationRequest,
-          context,
-          previousPlan: previousState?.plan,
-        });
-        log.info('exercise candidate pool prepared', {
-          libraryVersion: candidatePool.libraryVersion,
-          totalEligibleCount: candidatePool.totalEligibleCount,
-          candidateCount: candidatePool.candidateExercises.length,
-          baselineExerciseCount: candidatePool.baselineExerciseIds.length,
-          isRegeneration,
-        });
+        const exerciseLibrary =
+          deps.exerciseLibrary ?? (await deps.loadExerciseLibrary?.());
+
+        if (exerciseLibrary) {
+          candidatePool = buildExerciseCandidatePool({
+            exerciseLibrary,
+            request: providerRequest,
+            context,
+            planningBrief: effectivePlanningBrief,
+            previousPlan: previousState?.plan,
+          });
+          if (
+            candidatePool.candidateExercises.length === 0 &&
+            candidatePool.diagnostics?.blockerCodes?.length
+          ) {
+            effectivePlanningBrief = {
+              ...effectivePlanningBrief,
+              fallbackReasons: candidatePool.diagnostics.blockerCodes,
+            };
+          }
+          log.info('exercise candidate pool prepared', {
+            libraryVersion: candidatePool.libraryVersion,
+            totalEligibleCount: candidatePool.totalEligibleCount,
+            candidateCount: candidatePool.candidateExercises.length,
+            baselineExerciseCount: candidatePool.baselineExerciseIds.length,
+            blockerCodes: candidatePool.diagnostics?.blockerCodes,
+            fallbackReasons: effectivePlanningBrief.fallbackReasons,
+            isRegeneration,
+          });
+        }
       } catch (error) {
         log.warn('exercise candidate pool unavailable', {
           message: sanitizeErrorMessage((error as Error).message),
           isRegeneration,
+        });
+      }
+    }
+
+    if (
+      deps.config.enableStageOnePlanner &&
+      deps.planner &&
+      effectivePlanningBrief.stagedPlanning.shouldRun &&
+      (apiKey || useVertexAi)
+    ) {
+      try {
+        stageOneArtifact = await deps.planner.plan(providerRequest, context, {
+          apiKey: useVertexAi ? undefined : (apiKey ?? undefined),
+          candidatePool,
+          planningBrief: effectivePlanningBrief,
+          provider,
+          useVertexAi,
+        });
+        log.info('stage-one planner completed', {
+          provider,
+          confidence: stageOneArtifact.confidence,
+          resolvedFocus: stageOneArtifact.resolvedFocus,
+          noveltyTarget: stageOneArtifact.noveltyTarget,
+          rerankHintCount: stageOneArtifact.rerankHints.length,
+          reasons: effectivePlanningBrief.stagedPlanning.reasons,
+        });
+        if (candidatePool) {
+          candidatePool = rerankExerciseCandidatePool(
+            candidatePool,
+            stageOneArtifact,
+          );
+        }
+      } catch (error) {
+        log.warn('stage-one planner unavailable', {
+          provider,
+          message: sanitizeErrorMessage((error as Error).message),
+          reasons: effectivePlanningBrief.stagedPlanning.reasons,
         });
       }
     }
@@ -295,7 +422,13 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
       provider,
       hasApiKey: Boolean(apiKey),
       isByok,
-      isRegeneration,
+      isRegeneration: effectivePlanningBrief.regeneration.isRegeneration,
+      focusMode: effectivePlanningBrief.focusMode,
+      resolvedFocus: effectivePlanningBrief.resolvedFocus,
+      regenerationMode: effectivePlanningBrief.regeneration.mode,
+      stagedPlanningMode: effectivePlanningBrief.stagedPlanning.mode,
+      stagedPlanningReasons: effectivePlanningBrief.stagedPlanning.reasons,
+      fallbackReasons: effectivePlanningBrief.fallbackReasons,
       hasFeedback: (generationRequest.feedback?.length ?? 0) > 0,
       feedbackCount: generationRequest.feedback?.length ?? 0,
     });
@@ -313,15 +446,27 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
 
     if (apiKey) {
       try {
-        const result = await deps.router.generate(generationRequest, context, {
+        const result = await deps.router.generate(providerRequest, context, {
           apiKey: useVertexAi ? undefined : (apiKey ?? undefined),
           candidatePool,
+          planningBrief: effectivePlanningBrief,
+          stageOneArtifact,
           provider,
           useVertexAi,
         });
         plan = result.plan;
         responseId = result.responseId;
         schemaVersion = result.schemaVersion;
+
+        const providerResponseId = plan.responseId ?? responseId;
+        plan = {
+          ...plan,
+          responseId: providerResponseId,
+          generationProvenance: {
+            provider,
+            ...(providerResponseId ? { responseId: providerResponseId } : {}),
+          },
+        };
       } catch (error) {
         encounteredProviderError = true;
         const sanitizedMessage = sanitizeErrorMessage((error as Error).message);
@@ -363,7 +508,9 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
     if (deps.metering && apiKey && !encounteredProviderError) {
       await deps.metering.recordUsage({
         userId: auth.userId,
-        operation: isRegeneration ? 'regenerate' : 'generate',
+        operation: effectivePlanningBrief.regeneration.isRegeneration
+          ? 'regenerate'
+          : 'generate',
         provider,
         byok: isByok,
         timestamp: new Date().toISOString(),

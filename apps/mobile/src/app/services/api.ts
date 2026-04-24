@@ -6,6 +6,7 @@ import type {
   HomeSnapshot,
   TodayPlan,
   GenerationRequest,
+  GenerationRequestPayload,
   WorkoutSessionSummary,
   WorkoutLogPayload,
   GenerationContext,
@@ -16,6 +17,7 @@ import { getByokApiKey, getByokConfig } from '../storage/byokKey';
 import { userRepository } from '../db/repositories/UserRepository';
 import { workoutRepository } from '../db/repositories/WorkoutRepository';
 import { plannedEventRepository } from '../db/repositories/PlannedEventRepository';
+import { getLocalDateFromTimestamp } from '../utils/date';
 import {
   getSessionCookie,
   getSessionToken,
@@ -93,7 +95,7 @@ async function getAuthHeaders(): Promise<{
  */
 async function apiRequest<T>(
   endpoint: string,
-  options: RequestInit = {}
+  options: RequestInit = {},
 ): Promise<T> {
   const auth = await getAuthHeaders();
   const byokConfig = await getByokConfig();
@@ -173,7 +175,7 @@ export async function fetchHomeSnapshot(): Promise<HomeSnapshot> {
  * This replaces the mock context with real user data.
  */
 export async function buildGenerationContext(
-  request: GenerationRequest
+  request: GenerationRequest,
 ): Promise<GenerationContext> {
   // Get user preferences from local DB
   const prefs: UserPreferences = await userRepository.getPreferences();
@@ -183,7 +185,7 @@ export async function buildGenerationContext(
     includeArchived: false,
   });
   const recentSessions = recentWorkouts.map((w) =>
-    workoutRepository.toSessionSummary(w)
+    workoutRepository.toSessionSummary(w),
   );
 
   // Determine equipment: quick action override > profile default > fallback
@@ -217,13 +219,12 @@ export async function buildGenerationContext(
 /**
  * Generate a workout plan.
  *
- * For initial generation: builds full context from user preferences and history.
- * For regeneration (when previousResponseId is provided): sends a lighter request
- * since the LLM already has the conversation context.
+ * Builds full context from user preferences and history for both initial
+ * generation and regeneration so provider continuity remains optional.
  */
 export async function generateWorkout(
   request: GenerationRequest,
-  options?: { scheduledDate?: number }
+  options?: { scheduledDate?: number },
 ): Promise<TodayPlan> {
   const upcomingEvents =
     request.upcomingEvents ??
@@ -232,29 +233,39 @@ export async function generateWorkout(
   const requestWithEvents = upcomingEvents?.length
     ? { ...request, upcomingEvents }
     : request;
+  const planningDateLocal =
+    requestWithEvents.planningDateLocal ??
+    (options?.scheduledDate
+      ? getLocalDateFromTimestamp(options.scheduledDate)
+      : undefined);
+  const requestWithPlanningDate = planningDateLocal
+    ? { ...requestWithEvents, planningDateLocal }
+    : requestWithEvents;
 
-  const isRegeneration = Boolean(requestWithEvents.previousResponseId);
+  const isRegeneration = Boolean(requestWithPlanningDate.previousResponseId);
+  const context = await buildGenerationContext(requestWithPlanningDate);
+  const enrichedRequest: GenerationRequestPayload = {
+    ...requestWithPlanningDate,
+    context,
+  };
 
-  let enrichedRequest: GenerationRequest & { context?: GenerationContext };
-
-  if (isRegeneration) {
-    // For regeneration, don't send full context - the LLM has it from the conversation
-    enrichedRequest = { ...requestWithEvents };
-    console.log('[API] Regeneration request:', {
-      previousResponseId: requestWithEvents.previousResponseId,
-      feedback: requestWithEvents.feedback,
-      timeMinutes: requestWithEvents.timeMinutes,
-      focus: requestWithEvents.focus,
-      equipment: requestWithEvents.equipment,
-      energy: requestWithEvents.energy,
-      upcomingEvents: requestWithEvents.upcomingEvents?.length ?? 0,
-    });
-  } else {
-    // For initial generation, build full context
-    const context = await buildGenerationContext(requestWithEvents);
-    enrichedRequest = { ...requestWithEvents, context };
-    console.log('[API] Generation context:', JSON.stringify(context, null, 2));
-  }
+  console.log(
+    isRegeneration
+      ? '[API] Regeneration request:'
+      : '[API] Generation request:',
+    {
+      previousResponseId: requestWithPlanningDate.previousResponseId,
+      planningDateLocal,
+      hasBaselineWorkout: Boolean(requestWithPlanningDate.baselineWorkout),
+      hasContext: true,
+      feedback: requestWithPlanningDate.feedback,
+      timeMinutes: requestWithPlanningDate.timeMinutes,
+      focus: requestWithPlanningDate.focus,
+      equipment: requestWithPlanningDate.equipment,
+      energy: requestWithPlanningDate.energy,
+      upcomingEvents: requestWithPlanningDate.upcomingEvents?.length ?? 0,
+    },
+  );
 
   const plan = await apiRequest<TodayPlan>('/api/workouts/generate', {
     method: 'POST',
@@ -272,7 +283,7 @@ export async function generateWorkout(
  */
 export async function logWorkout(
   planId: string,
-  payload?: WorkoutLogPayload
+  payload?: WorkoutLogPayload,
 ): Promise<WorkoutSessionSummary> {
   return apiRequest<WorkoutSessionSummary>(`/api/workouts/${planId}/log`, {
     method: 'POST',
@@ -291,7 +302,7 @@ export async function archiveWorkoutSession(workoutId: string): Promise<void> {
  * Unarchive a previously archived workout session.
  */
 export async function unarchiveWorkoutSession(
-  workoutId: string
+  workoutId: string,
 ): Promise<void> {
   await workoutRepository.unarchiveWorkoutById(workoutId);
 }

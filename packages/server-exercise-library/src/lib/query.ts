@@ -10,6 +10,7 @@ import {
   normalizeEquipmentId,
 } from './vocab.js';
 import type {
+  CandidateDiagnostics,
   CandidateQuery,
   CandidateResult,
   ExerciseLibrary,
@@ -70,7 +71,7 @@ export class ExerciseLibraryQueryEngine implements ExerciseLibrary {
     const normalized = nameOrAlias.trim().toLowerCase();
     const row = this.database
       .prepare(
-        `${BASE_SELECT_SQL} FROM exercises e WHERE lower(e.name) = ? OR EXISTS (SELECT 1 FROM exercise_aliases ea WHERE ea.exercise_id = e.id AND lower(ea.alias) = ?) LIMIT 1`,
+        `${BASE_SELECT_SQL} FROM exercises e WHERE lower(e.name) = ? OR EXISTS (SELECT 1 FROM exercise_aliases ea WHERE ea.exercise_id = e.id AND ea.alias = ?) LIMIT 1`,
       )
       .get(normalized, normalized) as ExerciseRow | undefined;
 
@@ -123,13 +124,82 @@ export class ExerciseLibraryQueryEngine implements ExerciseLibrary {
     const rows = this.database
       .prepare(built.sql)
       .all(...built.params) as unknown as ExerciseRow[];
+    const diagnostics = rows.length
+      ? undefined
+      : diagnoseEmptyResult(this, query);
 
     return {
       exercises: rows.map(mapExerciseRow),
       totalEligibleCount: this.countEligibleExercises(query),
       libraryVersion: this.getLibraryMetadata().libraryVersion,
+      diagnostics,
     };
   }
+}
+
+function diagnoseEmptyResult(
+  library: ExerciseLibrary,
+  query: CandidateQuery,
+): CandidateDiagnostics {
+  const blockerCodes = new Set<CandidateDiagnostics['blockerCodes'][number]>();
+  const counts: CandidateDiagnostics['counts'] = {};
+
+  if (query.availableEquipment?.length) {
+    counts.relaxedEquipment = library.countEligibleExercises({
+      ...query,
+      availableEquipment: undefined,
+    });
+    if (counts.relaxedEquipment > 0) {
+      blockerCodes.add('unsupported_equipment');
+    }
+  }
+
+  if (query.focusTags?.length) {
+    counts.relaxedFocus = library.countEligibleExercises({
+      ...query,
+      focusTags: undefined,
+    });
+    if (counts.relaxedFocus > 0) {
+      blockerCodes.add('focus_gap');
+    }
+  }
+
+  if (query.blockRole) {
+    counts.relaxedRole = library.countEligibleExercises({
+      ...query,
+      blockRole: undefined,
+    });
+    if (counts.relaxedRole > 0) {
+      blockerCodes.add('role_gap');
+    }
+  }
+
+  if (query.disallowedStressors?.length) {
+    counts.relaxedStressors = library.countEligibleExercises({
+      ...query,
+      disallowedStressors: undefined,
+    });
+    if (counts.relaxedStressors > 0) {
+      blockerCodes.add('stressor_conflict');
+    }
+  }
+
+  counts.lowerCompleteness = library.countEligibleExercises({
+    ...query,
+    minimumMetadataCompleteness: 'curated',
+  });
+  if (counts.lowerCompleteness > 0) {
+    blockerCodes.add('planner_ready_gap');
+  }
+
+  if (!blockerCodes.size) {
+    blockerCodes.add('constraint_conflict');
+  }
+
+  return {
+    blockerCodes: [...blockerCodes],
+    counts,
+  };
 }
 
 const BASE_SELECT_SQL = `

@@ -1,4 +1,9 @@
-import type { ExerciseCandidatePool } from '@workout-agent-ce/server-core';
+import type {
+  ExerciseCandidatePool,
+  ModelPromptCapture,
+  PlanningBrief,
+  StageOnePlannerArtifact,
+} from '@workout-agent-ce/server-core';
 import type {
   GenerationRequest,
   GenerationContext,
@@ -13,6 +18,8 @@ export interface AiProviderOptions {
   model?: string;
   apiBaseUrl?: string;
   candidatePool?: ExerciseCandidatePool;
+  planningBrief?: PlanningBrief;
+  stageOneArtifact?: StageOnePlannerArtifact;
   // Optional passthrough client for testing/mocking
   client?: unknown;
   /**
@@ -20,6 +27,7 @@ export interface AiProviderOptions {
    * Requires GOOGLE_CLOUD_PROJECT and GOOGLE_CLOUD_LOCATION.
    */
   useVertexAi?: boolean;
+  promptRecorder?: (capture: ModelPromptCapture) => void;
 }
 
 export interface GenerationResult {
@@ -42,6 +50,12 @@ export interface AiProvider {
     context: GenerationContext,
     options: AiProviderOptions,
   ): Promise<GenerationResult>;
+
+  planStageOne(
+    request: GenerationRequest,
+    context: GenerationContext,
+    options: AiProviderOptions,
+  ): Promise<StageOnePlannerArtifact>;
 }
 
 export class AiGenerationError extends Error {

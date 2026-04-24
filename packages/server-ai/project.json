@@ -1,0 +1,42 @@
+{
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "name": "@workout-agent-ce/server-ai",
+  "targets": {
+    "test": {
+      "options": {
+        "cwd": "packages/server-ai",
+        "env": {
+          "TS_NODE_COMPILER_OPTIONS": "{\"moduleResolution\":\"node10\",\"module\":\"commonjs\",\"customConditions\":null}",
+          "NODE_OPTIONS": "--no-experimental-strip-types"
+        },
+        "command": "jest"
+      },
+      "metadata": {
+        "technologies": ["jest"],
+        "description": "Run Jest tests",
+        "help": {
+          "command": "npx jest --help",
+          "example": {
+            "options": {
+              "coverage": true
+            }
+          }
+        }
+      },
+      "cache": true,
+      "inputs": [
+        "default",
+        "^production",
+        "{workspaceRoot}/jest.preset.js",
+        {
+          "externalDependencies": ["jest"]
+        }
+      ],
+      "outputs": ["{projectRoot}/test-output/jest/coverage"],
+      "executor": "nx:run-commands",
+      "configurations": {},
+      "parallelism": true,
+      "dependsOn": ["^build"]
+    }
+  }
+}

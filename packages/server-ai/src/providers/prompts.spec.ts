@@ -1,8 +1,15 @@
 import {
   buildCandidatePoolPromptData,
+  buildPlanningBriefPromptData,
+  buildStageOnePlannerArtifactPromptData,
+  buildStageOnePlannerRequestPayload,
   buildRegenerationMessage,
 } from './prompts';
-import type { ExerciseCandidatePool } from '@workout-agent-ce/server-core';
+import type {
+  ExerciseCandidatePool,
+  PlanningBrief,
+  StageOnePlannerArtifact,
+} from '@workout-agent-ce/server-core';
 import type {
   GenerationRequest,
   RegenerationFeedback,
@@ -24,6 +31,70 @@ describe('buildRegenerationMessage', () => {
       { id: 'fedb:pushups', name: 'Pushups' },
       { id: 'fedb:chin-up', name: 'Chin-Up' },
     ],
+  };
+
+  const planningBrief: PlanningBrief = {
+    provider: 'openai',
+    planningDateLocal: '2026-04-15',
+    focusMode: 'smart',
+    resolvedFocus: 'Upper Body & Core',
+    durationMinutes: 30,
+    availableEquipment: ['Dumbbells'],
+    energy: 'moderate',
+    loadCeiling: 'low',
+    userConstraints: {
+      injuries: ['left shoulder irritation'],
+      avoid: ['overhead pressing'],
+    },
+    unknowns: [],
+    disallowedStressors: ['lower_body_overload'],
+    recentStressorsToAvoid: ['lower_body'],
+    eventProtection: {
+      kind: 'run',
+      title: '10K Tune-Up',
+      localDate: '2026-04-16',
+      reason: 'Protect freshness for the upcoming event.',
+    },
+    blockIntents: [
+      {
+        key: 'main',
+        title: 'Main Block',
+        focus: 'Upper Body & Core',
+        durationMinutes: 30,
+        objective: 'Protect lower-body freshness.',
+        candidateFocusTags: ['upper_body', 'core'],
+      },
+    ],
+    variationMode: 'different-exercises',
+    fallbackMode: 'strict-library',
+    fallbackReasons: [],
+    regeneration: {
+      isRegeneration: true,
+      mode: 'stateless',
+      feedback: ['different-exercises'],
+      baselineWorkoutId: 'plan-1',
+      baselineExerciseCount: 4,
+    },
+    stagedPlanning: {
+      mode: 'llm-assisted',
+      shouldRun: true,
+      reasons: ['smart-focus'],
+    },
+  };
+
+  const stageOneArtifact: StageOnePlannerArtifact = {
+    mode: 'llm-assisted',
+    confidence: 'high',
+    planningIntent:
+      'Protect lower-body freshness and bias toward upper-body work.',
+    resolvedFocus: 'Upper Body & Core',
+    protectStressors: ['lower_body_overload'],
+    avoidStressors: ['lower_body_fatigue'],
+    styleBiases: ['athletic'],
+    loadBias: 'low',
+    noveltyTarget: 'high',
+    rerankHints: ['prefer upper-body compound lifts'],
+    candidateInstructions: ['keep lower-body fatigue minimal'],
   };
 
   describe('auto-focus handling', () => {
@@ -126,6 +197,69 @@ describe('buildRegenerationMessage', () => {
       expect(message).toContain('too hard/intense');
       expect(message).toContain('different exercises');
     });
+
+    it('includes planning brief and baseline workout guidance', () => {
+      const message = buildRegenerationMessage(
+        {
+          ...baseRequest,
+          baselineWorkout: {
+            id: 'plan-1',
+            focus: 'Lower Body',
+            durationMinutes: 30,
+            equipment: ['Dumbbells'],
+            source: 'ai',
+            energy: 'moderate',
+            summary: 'Baseline summary',
+            blocks: [
+              {
+                id: 'block-1',
+                title: 'Main',
+                durationMinutes: 30,
+                focus: 'Lower Body',
+                exercises: [
+                  {
+                    id: 'exercise-1',
+                    name: 'Goblet Squat',
+                    prescription: '3x10',
+                    detail: null,
+                  },
+                ],
+              },
+            ],
+          },
+        },
+        ['different-exercises'],
+        candidatePool,
+        planningBrief,
+        stageOneArtifact,
+      );
+
+      expect(message).toContain('Resolved session intent: Upper Body & Core');
+      expect(message).toContain(
+        'Hard user avoid list: overhead pressing. Treat these as hard constraints and do not include them.',
+      );
+      expect(message).toContain(
+        'Hard user injury context: left shoulder irritation. Treat these as hard constraints and keep the workout safely away from aggravating patterns.',
+      );
+      expect(message).toContain(
+        "Planner-generated avoidances: lower_body_overload. Use these as lower-confidence guidance unless they conflict with the user's explicit constraints.",
+      );
+      expect(message).toContain('Baseline exercises: Goblet Squat');
+      expect(message).toContain('Planner intent: Protect lower-body freshness');
+      expect(message).toContain('Novelty target: high');
+      expect(message).toContain(
+        'When viable alternatives exist, make meaningful exercise changes that are proportional to the feedback.',
+      );
+      expect(message).toContain(
+        'If only one or two baseline exercises are the problem, it is acceptable to replace only those exercises and keep the rest of the workout aligned to the original intent.',
+      );
+      expect(message).toContain(
+        'Do not just reshuffle the exact same full exercise list into new blocks or lightly rewrite prescriptions/details when the user is asking for a real change.',
+      );
+      expect(message).toContain(
+        'Prefer unused exercises from the candidate pool before falling back to any baseline exercise.',
+      );
+    });
   });
 
   describe('equipment and energy', () => {
@@ -178,6 +312,57 @@ describe('buildRegenerationMessage', () => {
       expect(message).toContain('Pushups');
       expect(message).toContain('Chin-Up');
       expect(message).toContain('Avoid repeating baseline exercises');
+    });
+  });
+
+  describe('planning brief prompt data', () => {
+    it('formats planning brief payload for provider prompts', () => {
+      expect(buildPlanningBriefPromptData(planningBrief)).toEqual(
+        expect.objectContaining({
+          resolvedFocus: 'Upper Body & Core',
+          loadCeiling: 'low',
+          userConstraints: expect.objectContaining({
+            injuries: ['left shoulder irritation'],
+            avoid: ['overhead pressing'],
+          }),
+          plannerAvoidances: ['lower_body_overload'],
+          stagedPlanning: expect.objectContaining({
+            mode: 'llm-assisted',
+          }),
+          blockIntents: [
+            expect.objectContaining({ focus: 'Upper Body & Core' }),
+          ],
+        }),
+      );
+    });
+
+    it('formats stage-one planner request payload', () => {
+      expect(
+        buildStageOnePlannerRequestPayload(
+          baseRequest,
+          planningBrief,
+          candidatePool,
+        ),
+      ).toEqual(
+        expect.objectContaining({
+          planningBrief: expect.objectContaining({
+            resolvedFocus: 'Upper Body & Core',
+          }),
+          candidatePool: expect.objectContaining({
+            libraryVersion: 'test-library',
+          }),
+        }),
+      );
+    });
+
+    it('formats stage-one planner artifact prompt data', () => {
+      expect(buildStageOnePlannerArtifactPromptData(stageOneArtifact)).toEqual(
+        expect.objectContaining({
+          confidence: 'high',
+          noveltyTarget: 'high',
+          resolvedFocus: 'Upper Body & Core',
+        }),
+      );
     });
   });
 });

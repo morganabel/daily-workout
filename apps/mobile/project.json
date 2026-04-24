@@ -1,0 +1,17 @@
+{
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "name": "@workout-agent-ce/mobile",
+  "sourceRoot": "apps/mobile/src",
+  "projectType": "application",
+  "targets": {
+    "build": {
+      "executor": "@nx/expo:export",
+      "dependsOn": ["sync-deps"],
+      "outputs": ["{workspaceRoot}/apps/mobile/dist"],
+      "options": {
+        "platform": "all",
+        "outputDir": "apps/mobile/dist"
+      }
+    }
+  }
+}

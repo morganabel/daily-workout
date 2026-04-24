@@ -6,6 +6,7 @@ export {
 } from './lib/open-library.js';
 
 export type {
+  CandidateDiagnostics,
   CandidateQuery,
   CandidateResult,
   CanonicalExerciseRecord,

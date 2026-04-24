@@ -3,10 +3,21 @@ import type {
   GenerationContext,
   TodayPlan,
 } from '@workout-agent/shared';
+import type { PlanningBrief, StageOnePlannerArtifact } from './planning';
 
 export interface ExerciseCandidateReference {
   id: string;
   name: string;
+  focusTags?: string[];
+  movementTags?: string[];
+  styleTags?: string[];
+  stressorTags?: string[];
+  loadLevel?: 'light' | 'moderate' | 'heavy';
+}
+
+export interface ExerciseCandidateDiagnostics {
+  blockerCodes: string[];
+  counts?: Record<string, number>;
 }
 
 export interface ExerciseCandidatePool {
@@ -15,6 +26,16 @@ export interface ExerciseCandidatePool {
   candidateExercises: ExerciseCandidateReference[];
   baselineExerciseIds: string[];
   searchText?: string;
+  diagnostics?: ExerciseCandidateDiagnostics;
+}
+
+export interface ModelPromptCapture {
+  provider: 'openai' | 'gemini';
+  model?: string;
+  schemaVersion?: string;
+  isRegeneration: boolean;
+  content: string;
+  phase?: 'stage-one-planner' | 'stage-two-generation';
 }
 
 /**
@@ -56,6 +77,21 @@ export interface ModelGenerationOptions {
    * This is available for prompt construction but must not be exposed directly in the user-facing plan.
    */
   candidatePool?: ExerciseCandidatePool;
+
+  /**
+   * Internal planning artifact derived before provider prompting.
+   */
+  planningBrief?: PlanningBrief;
+
+  /**
+   * Optional advisory artifact from the stage-one planner.
+   */
+  stageOneArtifact?: StageOnePlannerArtifact;
+
+  /**
+   * Optional sink for capturing the provider prompt for debugging/evaluation.
+   */
+  promptRecorder?: (capture: ModelPromptCapture) => void;
 }
 
 /**
