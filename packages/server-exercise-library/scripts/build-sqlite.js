@@ -11,7 +11,6 @@ await rm(tempSqlitePath, { force: true });
 const database = new Database(tempSqlitePath);
 
 database.exec(`
-PRAGMA foreign_keys = ON;
 PRAGMA journal_mode = DELETE;
 
 CREATE TABLE library_metadata (
@@ -211,104 +210,102 @@ const spaceRank = {
   large: 3,
 };
 
-const seedDatabase = database.transaction(() => {
-  for (const [key, value] of Object.entries(manifest)) {
-    insertMetadata.run(key, String(value));
+for (const [key, value] of Object.entries(manifest)) {
+  insertMetadata.run(key, String(value));
+}
+
+for (const exercise of canonical) {
+  insertExercise.run(
+    exercise.id,
+    exercise.sourceId,
+    exercise.slug,
+    exercise.name,
+    exercise.description,
+    JSON.stringify(exercise.instructionSteps),
+    JSON.stringify(exercise.aliases),
+    JSON.stringify(exercise.requiredEquipment),
+    JSON.stringify(exercise.optionalEquipment),
+    JSON.stringify(exercise.focusTags),
+    JSON.stringify(exercise.movementTags),
+    JSON.stringify(exercise.styleTags),
+    JSON.stringify(exercise.stressorTags),
+    JSON.stringify(exercise.contraindicationTags),
+    JSON.stringify(exercise.avoidTags),
+    exercise.impactLevel,
+    impactRank[exercise.impactLevel],
+    exercise.noiseLevel,
+    noiseRank[exercise.noiseLevel],
+    exercise.spaceFootprint,
+    spaceRank[exercise.spaceFootprint],
+    exercise.travelFriendly ? 1 : 0,
+    exercise.floorRequired ? 1 : 0,
+    exercise.experienceLevelMin,
+    experienceRank[exercise.experienceLevelMin],
+    exercise.loadLevel,
+    loadRank[exercise.loadLevel],
+    JSON.stringify(exercise.allowedRoles),
+    exercise.metadataCompleteness,
+    metadataRank[exercise.metadataCompleteness],
+    exercise.sortKey,
+    JSON.stringify(exercise.sourceRefs),
+  );
+
+  for (const alias of new Set(
+    exercise.aliases.map((value) => value.toLowerCase()),
+  )) {
+    insertAlias.run(exercise.id, alias);
   }
 
-  for (const exercise of canonical) {
-    insertExercise.run(
+  for (const equipmentId of exercise.requiredEquipment) {
+    insertEquipment.run(exercise.id, equipmentId, 'required');
+  }
+
+  for (const equipmentId of exercise.optionalEquipment) {
+    insertEquipment.run(exercise.id, equipmentId, 'optional');
+  }
+
+  for (const [tagType, tags] of [
+    ['focus', exercise.focusTags],
+    ['movement', exercise.movementTags],
+    ['style', exercise.styleTags],
+    ['stressor', exercise.stressorTags],
+    ['contraindication', exercise.contraindicationTags],
+    ['avoid', exercise.avoidTags],
+  ]) {
+    for (const tag of tags) {
+      insertTag.run(exercise.id, tagType, tag);
+    }
+  }
+
+  for (const role of exercise.allowedRoles) {
+    insertRole.run(exercise.id, role);
+  }
+
+  for (const sourceRef of exercise.sourceRefs) {
+    insertSourceRef.run(
       exercise.id,
-      exercise.sourceId,
-      exercise.slug,
-      exercise.name,
-      exercise.description,
-      JSON.stringify(exercise.instructionSteps),
-      JSON.stringify(exercise.aliases),
-      JSON.stringify(exercise.requiredEquipment),
-      JSON.stringify(exercise.optionalEquipment),
-      JSON.stringify(exercise.focusTags),
-      JSON.stringify(exercise.movementTags),
-      JSON.stringify(exercise.styleTags),
-      JSON.stringify(exercise.stressorTags),
-      JSON.stringify(exercise.contraindicationTags),
-      JSON.stringify(exercise.avoidTags),
-      exercise.impactLevel,
-      impactRank[exercise.impactLevel],
-      exercise.noiseLevel,
-      noiseRank[exercise.noiseLevel],
-      exercise.spaceFootprint,
-      spaceRank[exercise.spaceFootprint],
-      exercise.travelFriendly ? 1 : 0,
-      exercise.floorRequired ? 1 : 0,
-      exercise.experienceLevelMin,
-      experienceRank[exercise.experienceLevelMin],
-      exercise.loadLevel,
-      loadRank[exercise.loadLevel],
-      JSON.stringify(exercise.allowedRoles),
-      exercise.metadataCompleteness,
-      metadataRank[exercise.metadataCompleteness],
-      exercise.sortKey,
-      JSON.stringify(exercise.sourceRefs),
-    );
-
-    for (const alias of exercise.aliases) {
-      insertAlias.run(exercise.id, alias.toLowerCase());
-    }
-
-    for (const equipmentId of exercise.requiredEquipment) {
-      insertEquipment.run(exercise.id, equipmentId, 'required');
-    }
-
-    for (const equipmentId of exercise.optionalEquipment) {
-      insertEquipment.run(exercise.id, equipmentId, 'optional');
-    }
-
-    for (const [tagType, tags] of [
-      ['focus', exercise.focusTags],
-      ['movement', exercise.movementTags],
-      ['style', exercise.styleTags],
-      ['stressor', exercise.stressorTags],
-      ['contraindication', exercise.contraindicationTags],
-      ['avoid', exercise.avoidTags],
-    ]) {
-      for (const tag of tags) {
-        insertTag.run(exercise.id, tagType, tag);
-      }
-    }
-
-    for (const role of exercise.allowedRoles) {
-      insertRole.run(exercise.id, role);
-    }
-
-    for (const sourceRef of exercise.sourceRefs) {
-      insertSourceRef.run(
-        exercise.id,
-        sourceRef.source,
-        sourceRef.sourceId,
-        sourceRef.sourceVersion,
-      );
-    }
-
-    insertSearch.run(
-      exercise.id,
-      exercise.name,
-      exercise.aliases.join(' '),
-      exercise.description,
-      exercise.instructionSteps.join(' '),
-      exercise.focusTags.join(' '),
-      exercise.movementTags.join(' '),
-      exercise.styleTags.join(' '),
-      [...exercise.requiredEquipment, ...exercise.optionalEquipment].join(' '),
+      sourceRef.source,
+      sourceRef.sourceId,
+      sourceRef.sourceVersion,
     );
   }
-});
 
-seedDatabase();
+  insertSearch.run(
+    exercise.id,
+    exercise.name,
+    exercise.aliases.join(' '),
+    exercise.description,
+    exercise.instructionSteps.join(' '),
+    exercise.focusTags.join(' '),
+    exercise.movementTags.join(' '),
+    exercise.styleTags.join(' '),
+    [...exercise.requiredEquipment, ...exercise.optionalEquipment].join(' '),
+  );
+}
 
 database.close();
 
-await rm(paths.generatedSqlite, { force: true });
-await rename(tempSqlitePath, paths.generatedSqlite);
+await rm(paths.publicSqlite, { force: true });
+await rename(tempSqlitePath, paths.publicSqlite);
 
-console.log(`Built SQLite exercise library at ${paths.generatedSqlite}`);
+console.log(`Built SQLite exercise library at ${paths.publicSqlite}`);

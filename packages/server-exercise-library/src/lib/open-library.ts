@@ -18,7 +18,7 @@ const Database = (betterSqlite3Module.default ??
   (betterSqlite3Module as DatabaseConstructor)) as DatabaseConstructor;
 
 const defaultLibraryUrl = new URL(
-  '../../data/generated/exercise-library.sqlite',
+  '../../data/public/exercise-library.sqlite',
   import.meta.url,
 );
 
@@ -44,13 +44,13 @@ const WORKSPACE_LIBRARY_PATH = path.join(
   'packages',
   'server-exercise-library',
   'data',
-  'generated',
+  'public',
   'exercise-library.sqlite',
 );
 
 const LOCAL_LIBRARY_PATH = path.join(
   'data',
-  'generated',
+  'public',
   'exercise-library.sqlite',
 );
 

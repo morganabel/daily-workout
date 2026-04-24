@@ -4,30 +4,30 @@ Server-only exercise library package for deterministic workout-generation candid
 
 ## Purpose
 
-This package owns the exercise-library data pipeline and the runtime query layer used by server-side planning.
+This package owns the public exercise-library seed, the SQLite build pipeline, and the runtime query layer used by server-side planning.
 
-It builds a local SQLite database from committed source inputs:
+The committed source-of-truth files are:
 
-- a reduced pinned snapshot of `free-exercise-db`
-- local vocabularies
-- family templates
-- local curation overrides
+- `data/public/canonical-exercises.json`
+- `data/public/manifest.json`
+- `data/curation/overrides.json`
+- `data/vocab/*.json`
 
-The generated SQLite artifact is not committed. It is rebuilt locally and in CI from the committed inputs.
+The package rebuilds `data/public/exercise-library.sqlite` deterministically from those committed inputs.
 
 ## Data Flow
 
-1. `data/source/free-exercise-db.snapshot.json`
-2. `data/source-manifest.json`
-3. `data/vocab/*.json`
-4. `data/curation/templates.json`
-5. `data/curation/overrides.json`
-6. `scripts/build-canonical.js` generates `data/generated/canonical-exercises.json`
-7. `scripts/build-canonical.js` also generates `data/generated/readiness-report.json`
-8. `scripts/build-sqlite.js` generates `data/generated/exercise-library.sqlite`
-9. `src/lib/open-library.ts` opens the generated SQLite file through `better-sqlite3`
+1. `data/public/canonical-exercises.json` provides the sanitized public base dataset.
+2. `data/curation/overrides.json` applies the small human-editable curation layer.
+3. `scripts/build-canonical.js` writes merged artifacts to `data/generated/` for local validation and reporting.
+4. `scripts/build-sqlite.js` rebuilds `data/public/exercise-library.sqlite` from the merged canonical dataset.
+5. `src/lib/open-library.ts` opens the public SQLite file through `better-sqlite3`.
 
-Only the inputs in steps 1-5 are source-of-truth files.
+## Provenance Rules
+
+- Existing `free-exercise-db` records keep stable `fedb:*` exercise IDs and explicit `sourceRefs`.
+- Sanitized public-seed records use stable public `ex:*` IDs and public slugs.
+- Non-`fedb` public records keep `sourceRefs: []` and do not expose private crawl metadata.
 
 ## Metadata Completeness
 
@@ -40,32 +40,18 @@ Every exercise record gets a `metadataCompleteness` value:
 
 Production candidate-pool queries default to `planner-ready` records only.
 
-The canonical build uses template-driven promotion:
-
-- classify each exercise into a family when possible
-- apply family defaults
-- apply exercise-specific overrides
-- compute ambiguity flags and promotion blockers
-- auto-promote low-risk exercises with no blockers to `planner-ready`
-
-`data/generated/readiness-report.json` summarizes the current readiness distribution and top blockers.
+`data/generated/readiness-report.json` summarizes the current readiness distribution and top blockers after overrides are applied.
 
 The query engine supports hybrid retrieval:
 
-- hard filters over normalized SQLite columns/join tables
+- hard filters over normalized SQLite columns and join tables
 - optional BM25 ranking through an FTS5 search index
 
 BM25 only ranks exercises that already satisfy the hard filters.
 
 ## Commands
 
-Refresh the pinned upstream snapshot:
-
-```bash
-node packages/server-exercise-library/scripts/import-upstream.js
-```
-
-Build the canonical merged dataset:
+Build the merged canonical dataset:
 
 ```bash
 node packages/server-exercise-library/scripts/build-canonical.js
@@ -83,7 +69,7 @@ Print the readiness report:
 NX_DAEMON=false ./node_modules/.bin/nx run server-exercise-library:report-readiness
 ```
 
-Validate the generated library:
+Validate the library:
 
 ```bash
 NX_DAEMON=false ./node_modules/.bin/nx run server-exercise-library:validate-library
@@ -97,5 +83,6 @@ NX_DAEMON=false ./node_modules/.bin/nx test server-exercise-library
 
 ## Notes
 
-- The generated artifacts live under `data/generated/` and are git-ignored.
-- The current curated subset is intentionally small; imported records remain in the library with lower completeness until they are reviewed.
+- Temporary validation artifacts live under `data/generated/` and are git-ignored.
+- `data/public/exercise-library.sqlite` is the runtime artifact opened by the package.
+- Future hand edits should usually go into `data/curation/overrides.json`, not directly into the public canonical seed.

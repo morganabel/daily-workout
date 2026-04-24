@@ -1,10 +1,15 @@
 const equipmentAliasPairs = [
   ['Bodyweight', 'bodyweight'],
   ['body only', 'bodyweight'],
+  ['body weight', 'bodyweight'],
+  ['none (bodyweight exercise)', 'bodyweight'],
+  ['gym mat', 'bodyweight'],
   ['Dumbbells', 'dumbbell'],
   ['dumbbell', 'dumbbell'],
   ['Barbell', 'barbell'],
   ['barbell', 'barbell'],
+  ['olympic barbell', 'barbell'],
+  ['trap bar', 'barbell'],
   ['Kettlebells', 'kettlebell'],
   ['kettlebells', 'kettlebell'],
   ['Pull-up Bar', 'pull_up_bar'],
@@ -14,9 +19,12 @@ const equipmentAliasPairs = [
   ['Resistance Bands', 'resistance_bands'],
   ['bands', 'resistance_bands'],
   ['resistance bands', 'resistance_bands'],
+  ['resistance band', 'resistance_bands'],
   ['Cable Machine', 'cable_machine'],
   ['cable', 'cable_machine'],
   ['machine', 'machine'],
+  ['leverage machine', 'machine'],
+  ['smith machine', 'machine'],
   ['Bench', 'bench'],
   ['bench', 'bench'],
   ['Incline Bench', 'incline_bench'],
@@ -36,10 +44,15 @@ const equipmentAliasPairs = [
   ['medicine ball', 'medicine_ball'],
   ['Exercise Ball', 'exercise_ball'],
   ['exercise ball', 'exercise_ball'],
+  ['stability ball', 'exercise_ball'],
+  ['swiss ball', 'exercise_ball'],
+  ['bosu ball', 'exercise_ball'],
   ['Foam Roll', 'foam_roller'],
   ['foam roll', 'foam_roller'],
   ['EZ Curl Bar', 'ez_curl_bar'],
   ['e-z curl bar', 'ez_curl_bar'],
+  ['sz-bar', 'ez_curl_bar'],
+  ['ez barbell', 'ez_curl_bar'],
   ['Sandbag', 'sandbag'],
   ['sandbag', 'sandbag'],
   ['Other', 'other'],
@@ -50,11 +63,76 @@ const equipmentAliasMap = new Map<string, string>(
   equipmentAliasPairs.map(([label, id]) => [label.toLowerCase(), id]),
 );
 
+const equipmentPresets: Record<string, string[]> = {
+  gym: [
+    'bodyweight',
+    'barbell',
+    'dumbbell',
+    'bench',
+    'incline_bench',
+    'squat_rack',
+    'machine',
+    'cable_machine',
+    'pull_up_bar',
+    'resistance_bands',
+    'kettlebell',
+    'ez_curl_bar',
+    'medicine_ball',
+    'exercise_ball',
+    'foam_roller',
+    'rowing_machine',
+    'treadmill',
+  ],
+  full_gym: [
+    'bodyweight',
+    'barbell',
+    'dumbbell',
+    'bench',
+    'incline_bench',
+    'squat_rack',
+    'machine',
+    'cable_machine',
+    'pull_up_bar',
+    'resistance_bands',
+    'kettlebell',
+    'ez_curl_bar',
+    'medicine_ball',
+    'exercise_ball',
+    'foam_roller',
+    'rowing_machine',
+    'treadmill',
+    'jump_rope',
+    'sandbag',
+    'other',
+  ],
+  minimal_home: ['bodyweight', 'resistance_bands', 'dumbbell', 'bench'],
+  dumbbell_bench: ['bodyweight', 'dumbbell', 'bench', 'incline_bench'],
+};
+
 export function normalizeEquipmentId(value: string): string {
   const normalized = value.trim().toLowerCase();
   return (
     equipmentAliasMap.get(normalized) ?? normalized.replace(/[^a-z0-9]+/g, '_')
   );
+}
+
+export function expandAvailableEquipment(values: string[]): string[] {
+  const expanded = new Set<string>();
+
+  for (const value of values) {
+    const normalized = normalizeEquipmentId(value);
+    const preset = equipmentPresets[normalized];
+    if (preset) {
+      for (const equipmentId of preset) {
+        expanded.add(equipmentId);
+      }
+      continue;
+    }
+
+    expanded.add(normalized);
+  }
+
+  return [...expanded];
 }
 
 const experienceRank: Record<string, number> = {

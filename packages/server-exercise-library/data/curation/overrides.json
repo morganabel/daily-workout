@@ -1,493 +1,1925 @@
 {
-  "90_90_Hamstring": {
-    "focusTags": ["calves", "hamstrings", "lower_body", "mobility", "recovery"],
-    "movementTags": ["static"],
-    "styleTags": ["mobility", "recovery", "stretching"],
-    "requiredEquipment": ["bodyweight"],
-    "allowedRoles": ["recovery", "warmup"],
-    "impactLevel": "none",
-    "noiseLevel": "quiet",
-    "spaceFootprint": "small",
-    "travelFriendly": true,
-    "floorRequired": true,
-    "loadLevel": "light",
-    "metadataCompleteness": "planner-ready"
+  "ex:00013": {
+    "aliases": [
+      "Kettlebell Swings"
+    ]
   },
-  "All_Fours_Quad_Stretch": {
-    "focusTags": ["lower_body", "mobility", "quadriceps", "recovery"],
-    "movementTags": ["static"],
-    "styleTags": ["mobility", "recovery", "stretching"],
-    "requiredEquipment": ["bodyweight"],
-    "allowedRoles": ["recovery", "warmup"],
-    "impactLevel": "none",
-    "noiseLevel": "quiet",
-    "spaceFootprint": "small",
-    "travelFriendly": true,
-    "floorRequired": true,
-    "loadLevel": "light",
-    "metadataCompleteness": "planner-ready"
+  "ex:00021": {
+    "_drop": true
   },
-  "Alternate_Incline_Dumbbell_Curl": {
-    "aliases": ["incline alternating dumbbell curl"],
-    "requiredEquipment": ["dumbbell", "incline_bench"],
-    "focusTags": ["biceps", "forearms", "upper_body"],
-    "movementTags": ["curl", "isolation", "pull"],
-    "styleTags": ["strength"],
-    "stressorTags": ["upper_body_pull_fatigue"],
-    "allowedRoles": ["accessory", "main"],
-    "impactLevel": "none",
-    "noiseLevel": "quiet",
-    "spaceFootprint": "small",
-    "travelFriendly": false,
-    "floorRequired": false,
-    "loadLevel": "light",
-    "metadataCompleteness": "planner-ready"
+  "ex:00029": {
+    "aliases": [
+      "Fly With Cable"
+    ]
   },
-  "Arm_Circles": {
-    "focusTags": ["mobility", "recovery", "shoulders", "traps", "upper_body"],
-    "movementTags": ["isolation", "push"],
-    "styleTags": ["mobility", "recovery", "stretching"],
-    "requiredEquipment": ["bodyweight"],
-    "allowedRoles": ["recovery", "warmup"],
-    "impactLevel": "none",
-    "noiseLevel": "quiet",
-    "spaceFootprint": "small",
-    "travelFriendly": true,
-    "floorRequired": false,
-    "loadLevel": "light",
-    "metadataCompleteness": "planner-ready"
+  "ex:00033": {
+    "aliases": [
+      "Mountain Climber"
+    ]
   },
-  "Arnold_Dumbbell_Press": {
-    "requiredEquipment": ["bench", "dumbbell"],
-    "focusTags": ["shoulders", "triceps", "upper_body"],
-    "movementTags": ["compound", "press", "push"],
-    "styleTags": ["strength"],
-    "stressorTags": ["shoulder_loading", "upper_body_push_fatigue"],
-    "contraindicationTags": ["shoulder_irritation"],
-    "avoidTags": ["overhead_pressing"],
-    "allowedRoles": ["accessory", "main"],
-    "impactLevel": "low",
-    "noiseLevel": "quiet",
-    "spaceFootprint": "small",
-    "travelFriendly": false,
-    "floorRequired": false,
-    "loadLevel": "moderate",
-    "metadataCompleteness": "planner-ready"
+  "ex:00037": {
+    "_drop": true
   },
-  "Back_Flyes_-_With_Bands": {
-    "requiredEquipment": ["resistance_bands"],
-    "focusTags": ["middle_back", "shoulders", "triceps", "upper_body"],
-    "movementTags": ["compound", "pull"],
-    "styleTags": ["strength"],
-    "stressorTags": ["upper_body_pull_fatigue"],
-    "allowedRoles": ["accessory", "main"],
-    "impactLevel": "none",
-    "noiseLevel": "quiet",
-    "spaceFootprint": "small",
-    "travelFriendly": true,
-    "floorRequired": false,
-    "loadLevel": "light",
-    "metadataCompleteness": "planner-ready"
+  "ex:00059": {
+    "_drop": true
   },
-  "Band_Assisted_Pull-Up": {
-    "requiredEquipment": ["bodyweight", "pull_up_bar", "resistance_bands"],
-    "focusTags": [
-      "abdominals",
-      "forearms",
-      "lats",
-      "middle_back",
-      "upper_body"
+  "ex:00066": {
+    "_drop": true
+  },
+  "ex:00077": {
+    "_drop": true
+  },
+  "ex:00081": {
+    "_drop": true
+  },
+  "ex:00112": {
+    "_drop": true
+  },
+  "ex:00113": {
+    "_drop": true
+  },
+  "ex:00119": {
+    "_drop": true
+  },
+  "ex:00142": {
+    "_drop": true
+  },
+  "ex:00144": {
+    "_drop": true
+  },
+  "ex:00145": {
+    "_drop": true
+  },
+  "ex:00147": {
+    "_drop": true
+  },
+  "ex:00148": {
+    "_drop": true
+  },
+  "ex:00149": {
+    "_drop": true
+  },
+  "ex:00193": {
+    "_drop": true
+  },
+  "ex:00231": {
+    "_drop": true
+  },
+  "ex:00233": {
+    "_drop": true
+  },
+  "ex:00234": {
+    "_drop": true
+  },
+  "ex:00251": {
+    "_drop": true
+  },
+  "ex:00267": {
+    "aliases": [
+      "Dumbbell Incline Bench Press",
+      "Incline Bench Press - Dumbbell",
+      "Incline Dumbbell Press"
+    ]
+  },
+  "ex:00277": {
+    "_drop": true
+  },
+  "ex:00289": {
+    "_drop": true
+  },
+  "ex:00298": {
+    "_drop": true
+  },
+  "ex:00299": {
+    "_drop": true
+  },
+  "ex:00300": {
+    "_drop": true
+  },
+  "ex:00301": {
+    "_drop": true
+  },
+  "ex:00302": {
+    "_drop": true
+  },
+  "ex:00303": {
+    "_drop": true
+  },
+  "ex:00304": {
+    "_drop": true
+  },
+  "ex:00306": {
+    "_drop": true
+  },
+  "ex:00312": {
+    "_drop": true
+  },
+  "ex:00315": {
+    "aliases": [
+      "Shoulder Press, Dumbbells"
+    ]
+  },
+  "ex:00325": {
+    "_drop": true
+  },
+  "ex:00333": {
+    "_drop": true
+  },
+  "ex:00336": {
+    "_drop": true
+  },
+  "ex:00344": {
+    "_drop": true
+  },
+  "ex:00353": {
+    "_drop": true
+  },
+  "ex:00377": {
+    "_drop": true
+  },
+  "ex:00395": {
+    "_drop": true
+  },
+  "ex:00401": {
+    "aliases": [
+      "Barbell Incline Close Grip Bench Press"
+    ]
+  },
+  "ex:00510": {
+    "_drop": true
+  },
+  "ex:00519": {
+    "aliases": [
+      "Seated machine row"
+    ]
+  },
+  "ex:00527": {
+    "aliases": [
+      "Dumbbell Seated Calf Raise"
+    ]
+  },
+  "ex:00546": {
+    "_drop": true
+  },
+  "ex:00556": {
+    "_drop": true
+  },
+  "ex:00560": {
+    "_drop": true
+  },
+  "ex:00561": {
+    "_drop": true
+  },
+  "ex:00563": {
+    "aliases": [
+      "Dumbbell Single Leg Deadlift"
+    ]
+  },
+  "ex:00564": {
+    "_drop": true
+  },
+  "ex:00569": {
+    "_drop": true
+  },
+  "ex:00576": {
+    "_drop": true
+  },
+  "ex:00577": {
+    "_drop": true
+  },
+  "ex:00580": {
+    "_drop": true
+  },
+  "ex:00632": {
+    "_drop": true
+  },
+  "ex:00646": {
+    "_drop": true
+  },
+  "ex:00673": {
+    "_drop": true
+  },
+  "ex:00677": {
+    "_drop": true
+  },
+  "ex:00688": {
+    "_drop": true
+  },
+  "ex:00689": {
+    "_drop": true
+  },
+  "ex:00694": {
+    "_drop": true
+  },
+  "ex:00704": {
+    "_drop": true
+  },
+  "ex:00721": {
+    "_drop": true
+  },
+  "ex:00736": {
+    "_drop": true
+  },
+  "ex:00738": {
+    "_drop": true
+  },
+  "ex:00743": {
+    "_drop": true
+  },
+  "ex:00744": {
+    "_drop": true
+  },
+  "ex:00747": {
+    "_drop": true
+  },
+  "ex:00749": {
+    "_drop": true
+  },
+  "ex:00750": {
+    "_drop": true
+  },
+  "ex:00751": {
+    "_drop": true
+  },
+  "ex:00761": {
+    "_drop": true
+  },
+  "ex:00777": {
+    "_drop": true
+  },
+  "ex:00779": {
+    "_drop": true
+  },
+  "ex:00783": {
+    "_drop": true
+  },
+  "ex:00803": {
+    "_drop": true
+  },
+  "ex:00813": {
+    "_drop": true
+  },
+  "ex:00817": {
+    "aliases": [
+      "Barbell Incline Bench Press"
+    ]
+  },
+  "ex:00823": {
+    "_drop": true
+  },
+  "ex:00824": {
+    "_drop": true
+  },
+  "ex:00826": {
+    "_drop": true
+  },
+  "ex:00830": {
+    "_drop": true
+  },
+  "ex:00832": {
+    "_drop": true
+  },
+  "ex:00854": {
+    "_drop": true
+  },
+  "ex:00858": {
+    "_drop": true
+  },
+  "ex:00863": {
+    "_drop": true
+  },
+  "ex:00870": {
+    "_drop": true
+  },
+  "ex:00872": {
+    "_drop": true
+  },
+  "ex:00873": {
+    "_drop": true
+  },
+  "ex:00883": {
+    "_drop": true
+  },
+  "ex:00890": {
+    "_drop": true
+  },
+  "ex:00892": {
+    "_drop": true
+  },
+  "ex:00893": {
+    "_drop": true
+  },
+  "ex:00895": {
+    "_drop": true
+  },
+  "ex:00896": {
+    "_drop": true
+  },
+  "ex:00897": {
+    "_drop": true
+  },
+  "ex:00898": {
+    "_drop": true
+  },
+  "ex:00902": {
+    "_drop": true
+  },
+  "ex:00907": {
+    "_drop": true
+  },
+  "ex:00908": {
+    "_drop": true
+  },
+  "ex:00910": {
+    "_drop": true
+  },
+  "ex:00911": {
+    "_drop": true
+  },
+  "ex:00912": {
+    "_drop": true
+  },
+  "ex:00915": {
+    "_drop": true
+  },
+  "ex:00919": {
+    "_drop": true
+  },
+  "ex:00932": {
+    "_drop": true
+  },
+  "ex:00940": {
+    "_drop": true
+  },
+  "ex:00941": {
+    "_drop": true
+  },
+  "ex:00943": {
+    "name": "Barbell Revers Wrist Curl",
+    "slug": "barbell-revers-wrist-curl",
+    "aliases": [
+      "Barbell Revers Wrist Curl V. 2"
+    ]
+  },
+  "ex:00944": {
+    "_drop": true
+  },
+  "ex:00945": {
+    "_drop": true
+  },
+  "ex:00946": {
+    "_drop": true
+  },
+  "ex:00956": {
+    "_drop": true
+  },
+  "ex:00957": {
+    "_drop": true
+  },
+  "ex:00958": {
+    "name": "Barbell Side Bent",
+    "slug": "barbell-side-bent",
+    "aliases": [
+      "Barbell Side Bent V. 2"
+    ]
+  },
+  "ex:00959": {
+    "_drop": true
+  },
+  "ex:00960": {
+    "_drop": true
+  },
+  "ex:00968": {
+    "_drop": true
+  },
+  "ex:00969": {
+    "_drop": true
+  },
+  "ex:00971": {
+    "_drop": true
+  },
+  "ex:00975": {
+    "_drop": true
+  },
+  "ex:00977": {
+    "_drop": true
+  },
+  "ex:00981": {
+    "_drop": true
+  },
+  "ex:00982": {
+    "_drop": true
+  },
+  "ex:00987": {
+    "_drop": true
+  },
+  "ex:00988": {
+    "_drop": true
+  },
+  "ex:00990": {
+    "_drop": true
+  },
+  "ex:00993": {
+    "_drop": true
+  },
+  "ex:00994": {
+    "_drop": true
+  },
+  "ex:01005": {
+    "_drop": true
+  },
+  "ex:01010": {
+    "_drop": true
+  },
+  "ex:01014": {
+    "_drop": true
+  },
+  "ex:01018": {
+    "_drop": true
+  },
+  "ex:01019": {
+    "_drop": true
+  },
+  "ex:01021": {
+    "_drop": true
+  },
+  "ex:01029": {
+    "_drop": true
+  },
+  "ex:01037": {
+    "_drop": true
+  },
+  "ex:01041": {
+    "name": "Cable Pushdown (Straight Arm)",
+    "slug": "cable-pushdown-straight-arm",
+    "aliases": [
+      "Cable Pushdown (Straight Arm) V. 2"
+    ]
+  },
+  "ex:01048": {
+    "_drop": true
+  },
+  "ex:01059": {
+    "_drop": true
+  },
+  "ex:01060": {
+    "_drop": true
+  },
+  "ex:01061": {
+    "_drop": true
+  },
+  "ex:01070": {
+    "_drop": true
+  },
+  "ex:01085": {
+    "_drop": true
+  },
+  "ex:01086": {
+    "_drop": true
+  },
+  "ex:01091": {
+    "_drop": true
+  },
+  "ex:01093": {
+    "_drop": true
+  },
+  "ex:01094": {
+    "_drop": true
+  },
+  "ex:01095": {
+    "_drop": true
+  },
+  "ex:01099": {
+    "_drop": true
+  },
+  "ex:01105": {
+    "_drop": true
+  },
+  "ex:01107": {
+    "_drop": true
+  },
+  "ex:01109": {
+    "_drop": true
+  },
+  "ex:01113": {
+    "_drop": true
+  },
+  "ex:01114": {
+    "_drop": true
+  },
+  "ex:01115": {
+    "_drop": true
+  },
+  "ex:01117": {
+    "_drop": true
+  },
+  "ex:01120": {
+    "_drop": true
+  },
+  "ex:01121": {
+    "_drop": true
+  },
+  "ex:01122": {
+    "_drop": true
+  },
+  "ex:01124": {
+    "_drop": true
+  },
+  "ex:01126": {
+    "_drop": true
+  },
+  "ex:01128": {
+    "_drop": true
+  },
+  "ex:01129": {
+    "_drop": true
+  },
+  "ex:01130": {
+    "_drop": true
+  },
+  "ex:01132": {
+    "_drop": true
+  },
+  "ex:01134": {
+    "_drop": true
+  },
+  "ex:01137": {
+    "_drop": true
+  },
+  "ex:01138": {
+    "_drop": true
+  },
+  "ex:01139": {
+    "_drop": true
+  },
+  "ex:01148": {
+    "_drop": true
+  },
+  "ex:01162": {
+    "_drop": true
+  },
+  "ex:01165": {
+    "_drop": true
+  },
+  "ex:01167": {
+    "_drop": true
+  },
+  "ex:01168": {
+    "_drop": true
+  },
+  "ex:01169": {
+    "_drop": true
+  },
+  "ex:01176": {
+    "_drop": true
+  },
+  "ex:01179": {
+    "_drop": true
+  },
+  "ex:01190": {
+    "_drop": true
+  },
+  "ex:01191": {
+    "_drop": true
+  },
+  "ex:01196": {
+    "_drop": true
+  },
+  "ex:01206": {
+    "_drop": true
+  },
+  "ex:01208": {
+    "_drop": true
+  },
+  "ex:01210": {
+    "_drop": true
+  },
+  "ex:01215": {
+    "_drop": true
+  },
+  "ex:01220": {
+    "_drop": true
+  },
+  "ex:01222": {
+    "aliases": [
+      "Single Leg Calf Raise (On A Dumbbell)"
+    ]
+  },
+  "ex:01225": {
+    "_drop": true
+  },
+  "ex:01229": {
+    "_drop": true
+  },
+  "ex:01239": {
+    "_drop": true
+  },
+  "ex:01241": {
+    "_drop": true
+  },
+  "ex:01242": {
+    "_drop": true
+  },
+  "ex:01248": {
+    "_drop": true
+  },
+  "ex:01251": {
+    "_drop": true
+  },
+  "ex:01265": {
+    "_drop": true
+  },
+  "ex:01272": {
+    "_drop": true
+  },
+  "ex:01276": {
+    "_drop": true
+  },
+  "ex:01279": {
+    "_drop": true
+  },
+  "ex:01282": {
+    "_drop": true
+  },
+  "ex:01283": {
+    "_drop": true
+  },
+  "ex:01286": {
+    "_drop": true
+  },
+  "ex:01289": {
+    "_drop": true
+  },
+  "ex:01291": {
+    "_drop": true
+  },
+  "ex:01292": {
+    "_drop": true
+  },
+  "ex:01293": {
+    "_drop": true
+  },
+  "ex:01295": {
+    "_drop": true
+  },
+  "ex:01298": {
+    "_drop": true
+  },
+  "ex:01300": {
+    "_drop": true
+  },
+  "ex:01301": {
+    "_drop": true
+  },
+  "ex:01304": {
+    "_drop": true
+  },
+  "ex:01305": {
+    "_drop": true
+  },
+  "ex:01306": {
+    "_drop": true
+  },
+  "ex:01307": {
+    "_drop": true
+  },
+  "ex:01308": {
+    "_drop": true
+  },
+  "ex:01309": {
+    "_drop": true
+  },
+  "ex:01310": {
+    "_drop": true
+  },
+  "ex:01313": {
+    "_drop": true
+  },
+  "ex:01315": {
+    "_drop": true
+  },
+  "ex:01316": {
+    "_drop": true
+  },
+  "ex:01317": {
+    "_drop": true
+  },
+  "ex:01318": {
+    "_drop": true
+  },
+  "ex:01319": {
+    "_drop": true
+  },
+  "ex:01320": {
+    "_drop": true
+  },
+  "ex:01322": {
+    "_drop": true
+  },
+  "ex:01324": {
+    "_drop": true
+  },
+  "ex:01325": {
+    "_drop": true
+  },
+  "ex:01326": {
+    "_drop": true
+  },
+  "ex:01327": {
+    "_drop": true
+  },
+  "ex:01328": {
+    "_drop": true
+  },
+  "ex:01329": {
+    "_drop": true
+  },
+  "ex:01330": {
+    "_drop": true
+  },
+  "ex:01331": {
+    "_drop": true
+  },
+  "ex:01332": {
+    "_drop": true
+  },
+  "ex:01375": {
+    "_drop": true
+  },
+  "ex:01377": {
+    "_drop": true
+  },
+  "ex:01379": {
+    "_drop": true
+  },
+  "ex:01385": {
+    "_drop": true
+  },
+  "ex:01387": {
+    "_drop": true
+  },
+  "ex:01388": {
+    "_drop": true
+  },
+  "ex:01391": {
+    "_drop": true
+  },
+  "ex:01395": {
+    "aliases": [
+      "Push Up On Bosu Ball"
+    ]
+  },
+  "ex:01397": {
+    "_drop": true
+  },
+  "ex:01401": {
+    "_drop": true
+  },
+  "ex:01403": {
+    "_drop": true
+  },
+  "ex:01414": {
+    "_drop": true
+  },
+  "ex:01417": {
+    "_drop": true
+  },
+  "ex:01418": {
+    "_drop": true
+  },
+  "ex:01425": {
+    "_drop": true
+  },
+  "ex:01432": {
+    "_drop": true
+  },
+  "ex:01433": {
+    "_drop": true
+  },
+  "ex:01435": {
+    "_drop": true
+  },
+  "ex:01473": {
+    "_drop": true
+  },
+  "ex:01474": {
+    "_drop": true
+  },
+  "ex:01476": {
+    "_drop": true
+  },
+  "ex:01478": {
+    "_drop": true
+  },
+  "ex:01494": {
+    "_drop": true
+  },
+  "ex:01526": {
+    "_drop": true
+  },
+  "ex:01527": {
+    "_drop": true
+  },
+  "ex:01528": {
+    "_drop": true
+  },
+  "ex:01529": {
+    "_drop": true
+  },
+  "ex:01557": {
+    "_drop": true
+  },
+  "ex:01564": {
+    "_drop": true
+  },
+  "ex:01581": {
+    "_drop": true
+  },
+  "ex:01584": {
+    "_drop": true
+  },
+  "ex:01601": {
+    "_drop": true
+  },
+  "ex:01603": {
+    "_drop": true
+  },
+  "ex:01628": {
+    "_drop": true
+  },
+  "ex:01632": {
+    "_drop": true
+  },
+  "ex:01636": {
+    "_drop": true
+  },
+  "ex:01637": {
+    "_drop": true
+  },
+  "ex:01645": {
+    "_drop": true
+  },
+  "ex:01655": {
+    "_drop": true
+  },
+  "ex:01672": {
+    "_drop": true
+  },
+  "ex:01679": {
+    "_drop": true
+  },
+  "ex:01682": {
+    "_drop": true
+  },
+  "ex:01684": {
+    "_drop": true
+  },
+  "ex:01688": {
+    "_drop": true
+  },
+  "ex:01690": {
+    "_drop": true
+  },
+  "ex:01691": {
+    "_drop": true
+  },
+  "ex:01693": {
+    "_drop": true
+  },
+  "ex:01694": {
+    "_drop": true
+  },
+  "ex:01695": {
+    "name": "Band Two Legs Calf Raise - (Band Under Both Legs)",
+    "slug": "band-two-legs-calf-raise-band-under-both-legs",
+    "aliases": [
+      "Band Two Legs Calf Raise - (Band Under Both Legs) V. 2"
+    ]
+  },
+  "ex:01697": {
+    "_drop": true
+  },
+  "ex:01702": {
+    "_drop": true
+  },
+  "ex:01704": {
+    "_drop": true
+  },
+  "ex:01715": {
+    "_drop": true
+  },
+  "ex:01725": {
+    "_drop": true
+  },
+  "ex:01728": {
+    "_drop": true
+  },
+  "ex:01729": {
+    "_drop": true
+  },
+  "ex:01732": {
+    "_drop": true
+  },
+  "ex:01740": {
+    "_drop": true
+  },
+  "ex:01742": {
+    "_drop": true
+  },
+  "ex:01748": {
+    "_drop": true
+  },
+  "ex:01749": {
+    "_drop": true
+  },
+  "ex:01759": {
+    "_drop": true
+  },
+  "ex:01766": {
+    "_drop": true
+  },
+  "ex:01775": {
+    "_drop": true
+  },
+  "ex:01779": {
+    "_drop": true
+  },
+  "ex:01783": {
+    "name": "Oblique Crunch",
+    "slug": "oblique-crunch",
+    "aliases": [
+      "Oblique Crunch V. 2"
     ],
-    "movementTags": ["compound", "pull", "vertical_pull"],
-    "styleTags": ["strength"],
-    "stressorTags": ["grip_heavy", "upper_body_pull_fatigue"],
-    "allowedRoles": ["accessory", "main"],
-    "impactLevel": "low",
-    "noiseLevel": "quiet",
-    "spaceFootprint": "small",
-    "travelFriendly": false,
-    "floorRequired": false,
-    "loadLevel": "moderate",
-    "metadataCompleteness": "planner-ready"
+    "_drop": true
   },
-  "Band_Hip_Adductions": {
-    "requiredEquipment": ["resistance_bands"],
-    "focusTags": ["adductors", "lower_body", "recovery"],
-    "movementTags": ["isolation", "pull"],
-    "styleTags": ["recovery", "strength"],
-    "allowedRoles": ["accessory", "recovery", "warmup"],
-    "impactLevel": "none",
-    "noiseLevel": "quiet",
-    "spaceFootprint": "small",
-    "travelFriendly": true,
-    "floorRequired": false,
-    "loadLevel": "light",
-    "metadataCompleteness": "planner-ready"
+  "ex:01785": {
+    "_drop": true
   },
-  "Band_Pull_Apart": {
-    "requiredEquipment": ["resistance_bands"],
-    "focusTags": ["middle_back", "shoulders", "traps", "upper_body"],
-    "movementTags": ["isolation", "pull"],
-    "styleTags": ["mobility", "recovery", "strength"],
-    "allowedRoles": ["accessory", "recovery", "warmup"],
-    "impactLevel": "none",
-    "noiseLevel": "quiet",
-    "spaceFootprint": "small",
-    "travelFriendly": true,
-    "floorRequired": false,
-    "loadLevel": "light",
-    "metadataCompleteness": "planner-ready"
+  "ex:01788": {
+    "_drop": true
   },
-  "Bodyweight_Squat": {
-    "requiredEquipment": ["bodyweight"],
-    "focusTags": ["glutes", "hamstrings", "lower_body", "quadriceps"],
-    "movementTags": ["compound", "push", "squat"],
-    "styleTags": ["strength"],
-    "stressorTags": ["lower_body_fatigue"],
-    "contraindicationTags": ["knee_sensitivity"],
-    "allowedRoles": ["accessory", "main"],
-    "impactLevel": "low",
-    "noiseLevel": "quiet",
-    "spaceFootprint": "small",
-    "travelFriendly": true,
-    "floorRequired": false,
-    "loadLevel": "moderate",
-    "metadataCompleteness": "planner-ready"
+  "ex:01792": {
+    "_drop": true
   },
-  "Butt_Lift_Bridge": {
-    "requiredEquipment": ["bodyweight"],
-    "focusTags": ["glutes", "hamstrings", "lower_body", "recovery"],
-    "movementTags": ["isolation", "push"],
-    "styleTags": ["recovery", "strength"],
-    "allowedRoles": ["accessory", "recovery", "warmup"],
-    "impactLevel": "none",
-    "noiseLevel": "quiet",
-    "spaceFootprint": "small",
-    "travelFriendly": true,
-    "floorRequired": true,
-    "loadLevel": "light",
-    "metadataCompleteness": "planner-ready"
+  "ex:01798": {
+    "_drop": true
   },
-  "Chin-Up": {
-    "requiredEquipment": ["bodyweight", "pull_up_bar"],
-    "focusTags": ["biceps", "forearms", "lats", "middle_back", "upper_body"],
-    "movementTags": ["compound", "pull", "vertical_pull"],
-    "styleTags": ["strength"],
-    "stressorTags": ["grip_heavy", "upper_body_pull_fatigue"],
-    "allowedRoles": ["accessory", "main"],
-    "impactLevel": "low",
-    "noiseLevel": "quiet",
-    "spaceFootprint": "small",
-    "travelFriendly": false,
-    "floorRequired": false,
-    "loadLevel": "moderate",
-    "metadataCompleteness": "planner-ready"
+  "ex:01819": {
+    "_drop": true
   },
-  "Dead_Bug": {
-    "requiredEquipment": ["bodyweight"],
-    "focusTags": ["abdominals", "core", "recovery"],
-    "movementTags": ["compound", "pull"],
-    "styleTags": ["recovery", "strength"],
-    "allowedRoles": ["accessory", "recovery", "warmup"],
-    "impactLevel": "none",
-    "noiseLevel": "quiet",
-    "spaceFootprint": "small",
-    "travelFriendly": true,
-    "floorRequired": true,
-    "loadLevel": "light",
-    "metadataCompleteness": "planner-ready"
+  "ex:01840": {
+    "_drop": true
   },
-  "Dumbbell_Bench_Press": {
-    "requiredEquipment": ["bench", "dumbbell"],
-    "focusTags": ["chest", "shoulders", "triceps", "upper_body"],
-    "movementTags": ["compound", "press", "push"],
-    "styleTags": ["strength"],
-    "stressorTags": ["shoulder_loading", "upper_body_push_fatigue"],
-    "contraindicationTags": ["shoulder_irritation"],
-    "allowedRoles": ["accessory", "main"],
-    "impactLevel": "low",
-    "noiseLevel": "quiet",
-    "spaceFootprint": "small",
-    "travelFriendly": false,
-    "floorRequired": false,
-    "loadLevel": "moderate",
-    "metadataCompleteness": "planner-ready"
+  "ex:01884": {
+    "_drop": true
   },
-  "Dumbbell_Step_Ups": {
-    "requiredEquipment": ["bench", "dumbbell"],
-    "focusTags": ["calves", "glutes", "hamstrings", "lower_body", "quadriceps"],
-    "movementTags": ["compound", "lunge", "push"],
-    "styleTags": ["strength"],
-    "stressorTags": ["lower_body_fatigue"],
-    "contraindicationTags": ["knee_sensitivity"],
-    "allowedRoles": ["accessory", "main"],
-    "impactLevel": "low",
-    "noiseLevel": "quiet",
-    "spaceFootprint": "small",
-    "travelFriendly": false,
-    "floorRequired": false,
-    "loadLevel": "moderate",
-    "metadataCompleteness": "planner-ready"
+  "ex:01904": {
+    "_drop": true
   },
-  "Face_Pull": {
-    "requiredEquipment": ["cable_machine"],
-    "focusTags": ["middle_back", "shoulders", "upper_body"],
-    "movementTags": ["compound", "pull"],
-    "styleTags": ["mobility", "strength"],
-    "allowedRoles": ["accessory", "recovery", "warmup"],
-    "impactLevel": "none",
-    "noiseLevel": "quiet",
-    "spaceFootprint": "small",
-    "travelFriendly": false,
-    "floorRequired": false,
-    "loadLevel": "light",
-    "metadataCompleteness": "planner-ready"
+  "ex:01905": {
+    "_drop": true
   },
-  "Inverted_Row": {
-    "requiredEquipment": ["squat_rack"],
-    "focusTags": ["lats", "middle_back", "upper_body"],
-    "movementTags": ["compound", "pull", "row"],
-    "styleTags": ["strength"],
-    "stressorTags": ["upper_body_pull_fatigue"],
-    "allowedRoles": ["accessory", "main"],
-    "impactLevel": "low",
-    "noiseLevel": "quiet",
-    "spaceFootprint": "medium",
-    "travelFriendly": false,
-    "floorRequired": false,
-    "loadLevel": "moderate",
-    "metadataCompleteness": "planner-ready"
+  "ex:01921": {
+    "_drop": true
   },
-  "Jogging_Treadmill": {
-    "requiredEquipment": ["treadmill"],
-    "focusTags": [
-      "conditioning",
-      "glutes",
-      "hamstrings",
-      "lower_body",
-      "quadriceps"
+  "ex:01923": {
+    "name": "single leg squat (pistol)",
+    "slug": "single-leg-squat-pistol",
+    "aliases": [
+      "single leg squat (pistol) male"
+    ]
+  },
+  "ex:01924": {
+    "_drop": true
+  },
+  "ex:01939": {
+    "_drop": true
+  },
+  "ex:01949": {
+    "aliases": [
+      "Dumbbells Seated Triceps Extension"
+    ]
+  },
+  "ex:01950": {
+    "_drop": true
+  },
+  "ex:01961": {
+    "name": "Lever Hip Extension",
+    "slug": "lever-hip-extension",
+    "aliases": [
+      "Lever Hip Extension V. 2"
+    ]
+  },
+  "ex:01976": {
+    "name": "Dumbbell Standing Inner Biceps Curl",
+    "slug": "dumbbell-standing-inner-biceps-curl",
+    "aliases": [
+      "Dumbbell Standing Inner Biceps Curl V. 2"
+    ]
+  },
+  "ex:01977": {
+    "name": "dumbbell reverse grip row",
+    "slug": "dumbbell-reverse-grip-row",
+    "aliases": [
+      "dumbbell reverse grip row (female)"
+    ]
+  },
+  "ex:01988": {
+    "_drop": true
+  },
+  "ex:01989": {
+    "_drop": true
+  },
+  "ex:02004": {
+    "_drop": true
+  },
+  "ex:02021": {
+    "_drop": true
+  },
+  "ex:02022": {
+    "_drop": true
+  },
+  "ex:02027": {
+    "name": "Barbell Split Squat",
+    "slug": "barbell-split-squat",
+    "aliases": [
+      "Barbell Split Squat V. 2"
+    ]
+  },
+  "ex:02061": {
+    "_drop": true
+  },
+  "ex:02065": {
+    "name": "half sit-up",
+    "slug": "half-sit-up",
+    "aliases": [
+      "half sit-up (male)"
+    ]
+  },
+  "ex:02066": {
+    "name": "prisoner half sit-up",
+    "slug": "prisoner-half-sit-up",
+    "aliases": [
+      "prisoner half sit-up (male)"
+    ]
+  },
+  "ex:02067": {
+    "name": "arms overhead full sit-up",
+    "slug": "arms-overhead-full-sit-up",
+    "aliases": [
+      "arms overhead full sit-up (male)"
+    ]
+  },
+  "ex:02068": {
+    "name": "kneeling push-up",
+    "slug": "kneeling-push-up",
+    "aliases": [
+      "kneeling push-up (male)"
+    ]
+  },
+  "ex:02069": {
+    "name": "basic toe touch",
+    "slug": "basic-toe-touch",
+    "aliases": [
+      "basic toe touch (male)"
+    ]
+  },
+  "ex:02070": {
+    "name": "side-to-side toe touch",
+    "slug": "side-to-side-toe-touch",
+    "aliases": [
+      "side-to-side toe touch (male)"
+    ]
+  },
+  "ex:02071": {
+    "name": "arms apart circular toe touch",
+    "slug": "arms-apart-circular-toe-touch",
+    "aliases": [
+      "arms apart circular toe touch (male)"
+    ]
+  },
+  "ex:02072": {
+    "name": "hands reversed clasped circular toe touch",
+    "slug": "hands-reversed-clasped-circular-toe-touch",
+    "aliases": [
+      "hands reversed clasped circular toe touch (male)"
+    ]
+  },
+  "ex:02073": {
+    "name": "chest tap push-up",
+    "slug": "chest-tap-push-up",
+    "aliases": [
+      "chest tap push-up (male)"
     ],
-    "movementTags": ["gait"],
-    "styleTags": ["cardio", "conditioning"],
-    "stressorTags": ["lower_body_fatigue"],
-    "contraindicationTags": ["knee_sensitivity"],
-    "allowedRoles": ["finisher", "main"],
-    "impactLevel": "moderate",
-    "noiseLevel": "moderate",
-    "spaceFootprint": "large",
-    "travelFriendly": false,
-    "floorRequired": false,
-    "loadLevel": "moderate",
-    "metadataCompleteness": "planner-ready"
+    "_drop": true
   },
-  "Lateral_Raise_-_With_Bands": {
-    "requiredEquipment": ["resistance_bands"],
-    "focusTags": ["shoulders", "upper_body"],
-    "movementTags": ["isolation", "push"],
-    "styleTags": ["strength"],
-    "contraindicationTags": ["shoulder_irritation"],
-    "allowedRoles": ["accessory", "main"],
-    "impactLevel": "none",
-    "noiseLevel": "quiet",
-    "spaceFootprint": "small",
-    "travelFriendly": true,
-    "floorRequired": false,
-    "loadLevel": "light",
-    "metadataCompleteness": "planner-ready"
+  "ex:02074": {
+    "name": "modified hindu push-up",
+    "slug": "modified-hindu-push-up",
+    "aliases": [
+      "modified hindu push-up (male)"
+    ]
   },
-  "Pallof_Press": {
-    "requiredEquipment": ["cable_machine"],
-    "focusTags": ["abdominals", "core", "upper_body"],
-    "movementTags": ["isolation", "pull", "static"],
-    "styleTags": ["recovery", "strength"],
-    "allowedRoles": ["accessory", "recovery", "warmup"],
-    "impactLevel": "none",
-    "noiseLevel": "quiet",
-    "spaceFootprint": "small",
-    "travelFriendly": false,
-    "floorRequired": false,
-    "loadLevel": "light",
-    "metadataCompleteness": "planner-ready"
+  "ex:02075": {
+    "name": "hands clasped circular toe touch",
+    "slug": "hands-clasped-circular-toe-touch",
+    "aliases": [
+      "hands clasped circular toe touch (male)"
+    ]
   },
-  "Plank": {
-    "requiredEquipment": ["bodyweight"],
-    "focusTags": ["abdominals", "core", "recovery"],
-    "movementTags": ["isolation", "static"],
-    "styleTags": ["recovery", "strength"],
-    "allowedRoles": ["accessory", "recovery", "warmup"],
-    "impactLevel": "none",
-    "noiseLevel": "quiet",
-    "spaceFootprint": "small",
-    "travelFriendly": true,
-    "floorRequired": true,
-    "loadLevel": "light",
-    "metadataCompleteness": "planner-ready"
-  },
-  "Pullups": {
-    "aliases": ["pull-up", "pullup"],
-    "requiredEquipment": ["bodyweight", "pull_up_bar"],
-    "focusTags": ["biceps", "lats", "middle_back", "upper_body"],
-    "movementTags": ["compound", "pull", "vertical_pull"],
-    "styleTags": ["strength"],
-    "stressorTags": ["grip_heavy", "upper_body_pull_fatigue"],
-    "allowedRoles": ["accessory", "main"],
-    "impactLevel": "low",
-    "noiseLevel": "quiet",
-    "spaceFootprint": "small",
-    "travelFriendly": false,
-    "floorRequired": false,
-    "loadLevel": "moderate",
-    "metadataCompleteness": "planner-ready"
-  },
-  "Pushups": {
-    "aliases": ["push-up", "push up"],
-    "requiredEquipment": ["bodyweight"],
-    "focusTags": ["chest", "shoulders", "triceps", "upper_body"],
-    "movementTags": ["compound", "push"],
-    "styleTags": ["strength"],
-    "stressorTags": ["shoulder_loading", "upper_body_push_fatigue"],
-    "contraindicationTags": ["shoulder_irritation"],
-    "allowedRoles": ["accessory", "main"],
-    "impactLevel": "low",
-    "noiseLevel": "quiet",
-    "spaceFootprint": "small",
-    "travelFriendly": true,
-    "floorRequired": true,
-    "loadLevel": "moderate",
-    "metadataCompleteness": "planner-ready"
-  },
-  "Rowing_Stationary": {
-    "aliases": ["stationary rower", "rowing machine"],
-    "requiredEquipment": ["rowing_machine"],
-    "focusTags": [
-      "biceps",
-      "conditioning",
-      "glutes",
-      "hamstrings",
-      "lower_body",
-      "middle_back",
-      "quadriceps",
-      "upper_body"
+  "ex:02076": {
+    "name": "scissor jumps",
+    "slug": "scissor-jumps",
+    "aliases": [
+      "scissor jumps (male)"
     ],
-    "movementTags": ["row"],
-    "styleTags": ["cardio", "conditioning"],
-    "stressorTags": [
-      "high_bracing",
-      "lower_body_fatigue",
-      "upper_body_pull_fatigue"
+    "_drop": true
+  },
+  "ex:02077": {
+    "name": "astride jumps",
+    "slug": "astride-jumps",
+    "aliases": [
+      "astride jumps (male)"
+    ]
+  },
+  "ex:02078": {
+    "name": "half knee bends",
+    "slug": "half-knee-bends",
+    "aliases": [
+      "half knee bends (male)"
+    ]
+  },
+  "ex:02079": {
+    "name": "semi squat jump",
+    "slug": "semi-squat-jump",
+    "aliases": [
+      "semi squat jump (male)"
+    ]
+  },
+  "ex:02080": {
+    "_drop": true
+  },
+  "ex:02081": {
+    "name": "jack jump",
+    "slug": "jack-jump",
+    "aliases": [
+      "jack jump (male)"
+    ]
+  },
+  "ex:02082": {
+    "name": "two toe touch",
+    "slug": "two-toe-touch",
+    "aliases": [
+      "two toe touch (male)"
+    ]
+  },
+  "ex:02085": {
+    "name": "resistance band hip thrusts on knees",
+    "slug": "resistance-band-hip-thrusts-on-knees",
+    "aliases": [
+      "resistance band hip thrusts on knees (female)"
+    ]
+  },
+  "ex:02087": {
+    "name": "kneeling plank tap shoulder",
+    "slug": "kneeling-plank-tap-shoulder",
+    "aliases": [
+      "kneeling plank tap shoulder (male)"
+    ]
+  },
+  "ex:02098": {
+    "_drop": true
+  },
+  "ex:02101": {
+    "_drop": true
+  },
+  "ex:02122": {
+    "name": "Swimmer Kicks",
+    "slug": "swimmer-kicks",
+    "aliases": [
+      "swimmer kicks v. 2 (male)",
+      "Swimmer Kicks V. 2"
+    ]
+  },
+  "ex:02123": {
+    "name": "forward lunge",
+    "slug": "forward-lunge",
+    "aliases": [
+      "forward lunge (male)"
+    ]
+  },
+  "ex:02124": {
+    "name": "glute bridge two legs on bench",
+    "slug": "glute-bridge-two-legs-on-bench",
+    "aliases": [
+      "glute bridge two legs on bench (male)"
+    ]
+  },
+  "ex:02134": {
+    "name": "Quick Feet",
+    "slug": "quick-feet",
+    "aliases": [
+      "Quick Feet V. 2"
+    ]
+  },
+  "ex:02137": {
+    "name": "barbell glute bridge two legs on bench",
+    "slug": "barbell-glute-bridge-two-legs-on-bench",
+    "aliases": [
+      "barbell glute bridge two legs on bench (male)"
+    ]
+  },
+  "ex:02144": {
+    "name": "bent knee lying twist",
+    "slug": "bent-knee-lying-twist",
+    "aliases": [
+      "bent knee lying twist (male)"
+    ]
+  },
+  "ex:02148": {
+    "name": "weighted cossack squats",
+    "slug": "weighted-cossack-squats",
+    "aliases": [
+      "weighted cossack squats (male)"
+    ]
+  },
+  "ex:02158": {
+    "name": "side lying hip adduction",
+    "slug": "side-lying-hip-adduction",
+    "aliases": [
+      "side lying hip adduction (male)"
+    ]
+  },
+  "ex:02164": {
+    "name": "cable kneeling rear delt row (with rope)",
+    "slug": "cable-kneeling-rear-delt-row-with-rope",
+    "aliases": [
+      "cable kneeling rear delt row (with rope) (male)"
+    ]
+  },
+  "ex:02165": {
+    "_drop": true
+  },
+  "ex:02169": {
+    "_drop": true
+  },
+  "fedb:advanced-kettlebell-windmill": {
+    "aliases": [
+      "Kettlebell Advanced Windmill"
     ],
-    "contraindicationTags": ["lower_back_sensitivity"],
-    "allowedRoles": ["finisher", "main"],
-    "impactLevel": "low",
-    "noiseLevel": "moderate",
-    "spaceFootprint": "large",
-    "travelFriendly": false,
-    "floorRequired": false,
-    "loadLevel": "moderate",
+    "metadataCompleteness": "curated"
+  },
+  "fedb:alternating-kettlebell-press": {
+    "aliases": [
+      "Kettlebell Alternating Press"
+    ],
+    "metadataCompleteness": "curated"
+  },
+  "fedb:alternating-kettlebell-row": {
+    "aliases": [
+      "Kettlebell Alternating Row"
+    ],
+    "metadataCompleteness": "curated"
+  },
+  "fedb:barbell-ab-rollout": {
+    "metadataCompleteness": "curated"
+  },
+  "fedb:barbell-bench-press-medium-grip": {
+    "metadataCompleteness": "planner-ready",
+    "name": "Barbell Bench Press",
+    "slug": "barbell-bench-press",
+    "aliases": [
+      "Bench Press",
+      "Barbell Bench Press - Medium Grip"
+    ]
+  },
+  "fedb:barbell-curl": {
+    "metadataCompleteness": "curated"
+  },
+  "fedb:barbell-deadlift": {
+    "metadataCompleteness": "planner-ready",
+    "aliases": [
+      "Deadlift"
+    ]
+  },
+  "fedb:barbell-full-squat": {
+    "metadataCompleteness": "curated"
+  },
+  "fedb:barbell-glute-bridge": {
+    "metadataCompleteness": "curated"
+  },
+  "fedb:barbell-guillotine-bench-press": {
+    "metadataCompleteness": "curated"
+  },
+  "fedb:barbell-hack-squat": {
+    "metadataCompleteness": "curated",
+    "aliases": [
+      "Barbell Hack Squats"
+    ]
+  },
+  "fedb:barbell-hip-thrust": {
+    "metadataCompleteness": "curated"
+  },
+  "fedb:barbell-incline-shoulder-raise": {
+    "metadataCompleteness": "curated"
+  },
+  "fedb:barbell-lunge": {
+    "metadataCompleteness": "curated"
+  },
+  "fedb:barbell-rear-delt-row": {
+    "metadataCompleteness": "curated"
+  },
+  "fedb:barbell-shoulder-press": {
+    "aliases": [
+      "Shoulder Press, Barbell"
+    ],
+    "metadataCompleteness": "curated"
+  },
+  "fedb:barbell-shrug": {
+    "metadataCompleteness": "curated",
+    "aliases": [
+      "Shrugs, Barbells"
+    ]
+  },
+  "fedb:barbell-side-split-squat": {
+    "metadataCompleteness": "curated"
+  },
+  "fedb:barbell-squat": {
+    "metadataCompleteness": "planner-ready",
+    "aliases": [
+      "Back Squat",
+      "Squat"
+    ]
+  },
+  "fedb:bench-press-with-bands": {
+    "aliases": [
+      "Band Bench Press"
+    ]
+  },
+  "fedb:bent-arm-barbell-pullover": {
+    "aliases": [
+      "Barbell Bent Arm Pullover"
+    ],
+    "metadataCompleteness": "curated"
+  },
+  "fedb:bent-knee-hip-raise": {
+    "aliases": [
+      "Hip Raise (Bent Knee)"
+    ]
+  },
+  "fedb:bent-over-barbell-row": {
+    "aliases": [
+      "Barbell Bent Over Row"
+    ],
+    "metadataCompleteness": "curated"
+  },
+  "fedb:bosu-ball-cable-crunch-with-side-bends": {
+    "aliases": [
+      "Cable Side Bend Crunch (Bosu Ball)"
+    ]
+  },
+  "fedb:box-squat": {
     "metadataCompleteness": "planner-ready"
   },
-  "Running_Treadmill": {
-    "requiredEquipment": ["treadmill"],
-    "focusTags": [
-      "calves",
-      "conditioning",
-      "glutes",
-      "hamstrings",
-      "lower_body",
-      "quadriceps"
-    ],
-    "movementTags": ["gait"],
-    "styleTags": ["cardio", "conditioning"],
-    "stressorTags": ["lower_body_fatigue", "plyometric"],
-    "contraindicationTags": ["knee_sensitivity"],
-    "allowedRoles": ["finisher", "main"],
-    "impactLevel": "high",
-    "noiseLevel": "moderate",
-    "spaceFootprint": "large",
-    "travelFriendly": false,
-    "floorRequired": false,
-    "loadLevel": "heavy",
+  "fedb:cable-deadlifts": {
+    "aliases": [
+      "Cable Deadlift"
+    ]
+  },
+  "fedb:cable-shrugs": {
+    "aliases": [
+      "Cable Shrug"
+    ]
+  },
+  "fedb:calf-stretch-hands-against-wall": {
+    "aliases": [
+      "Calf Stretch With Hands Against Wall"
+    ]
+  },
+  "fedb:clean": {
+    "metadataCompleteness": "curated"
+  },
+  "fedb:clean-and-press": {
+    "metadataCompleteness": "curated"
+  },
+  "fedb:clock-push-up": {
     "metadataCompleteness": "planner-ready"
   },
-  "Sandbag_Load": {
-    "requiredEquipment": ["sandbag"],
-    "focusTags": [
-      "conditioning",
-      "forearms",
-      "glutes",
-      "lower_body",
-      "middle_back",
-      "quadriceps",
-      "traps",
-      "upper_body"
+  "fedb:close-grip-barbell-bench-press": {
+    "aliases": [
+      "Barbell Close-Grip Bench Press"
     ],
-    "movementTags": ["carry", "compound", "pull"],
-    "styleTags": ["strongman"],
-    "stressorTags": [
-      "axial_loading",
-      "grip_heavy",
-      "high_bracing",
-      "lower_body_fatigue"
+    "metadataCompleteness": "curated"
+  },
+  "fedb:close-grip-standing-barbell-curl": {
+    "aliases": [
+      "Barbell Standing Close Grip Curl"
     ],
-    "contraindicationTags": ["lower_back_sensitivity"],
-    "allowedRoles": ["finisher", "main"],
-    "impactLevel": "moderate",
-    "noiseLevel": "moderate",
-    "spaceFootprint": "large",
-    "travelFriendly": false,
-    "floorRequired": false,
-    "loadLevel": "heavy",
+    "metadataCompleteness": "curated"
+  },
+  "fedb:concentration-curls": {
+    "aliases": [
+      "Concentration Curl"
+    ]
+  },
+  "fedb:decline-barbell-bench-press": {
+    "aliases": [
+      "Decline Bench Press Barbell",
+      "Barbell Decline Bench Press"
+    ],
+    "metadataCompleteness": "curated"
+  },
+  "fedb:decline-dumbbell-bench-press": {
+    "aliases": [
+      "Decline Bench Press Dumbbell",
+      "Dumbbell Decline Bench Press"
+    ]
+  },
+  "fedb:decline-dumbbell-flyes": {
+    "name": "Decline Dumbbell Fly",
+    "slug": "decline-dumbbell-fly",
+    "aliases": [
+      "Decline Dumbbell Flyes",
+      "Fly With Dumbbells, Decline Bench"
+    ]
+  },
+  "fedb:decline-dumbbell-triceps-extension": {
+    "aliases": [
+      "Dumbbell Decline Triceps Extension"
+    ]
+  },
+  "fedb:deficit-deadlift": {
+    "metadataCompleteness": "curated"
+  },
+  "fedb:double-kettlebell-alternating-hang-clean": {
+    "aliases": [
+      "Kettlebell Double Alternating Hang Clean"
+    ]
+  },
+  "fedb:double-kettlebell-jerk": {
+    "aliases": [
+      "Kettlebell Double Jerk"
+    ]
+  },
+  "fedb:double-kettlebell-push-press": {
+    "aliases": [
+      "Kettlebell Double Push Press"
+    ],
+    "metadataCompleteness": "curated"
+  },
+  "fedb:double-kettlebell-snatch": {
+    "aliases": [
+      "Kettlebell Double Snatch"
+    ]
+  },
+  "fedb:double-kettlebell-windmill": {
+    "aliases": [
+      "Kettlebell Double Windmill"
+    ],
+    "metadataCompleteness": "curated"
+  },
+  "fedb:dumbbell-alternate-bicep-curl": {
+    "aliases": [
+      "Dumbbell Alternate Biceps Curl"
+    ]
+  },
+  "fedb:dumbbell-bench-press-with-neutral-grip": {
+    "aliases": [
+      "Dumbbell Neutral Grip Bench Press"
+    ]
+  },
+  "fedb:dumbbell-bicep-curl": {
+    "aliases": [
+      "Biceps Curls With Dumbbell",
+      "Dumbbell Biceps Curl"
+    ]
+  },
+  "fedb:dumbbell-floor-press": {
+    "metadataCompleteness": "planner-ready",
+    "aliases": [
+      "Floor Dumbbell Bench Press"
+    ]
+  },
+  "fedb:dumbbell-flyes": {
+    "name": "Dumbbell Fly",
+    "slug": "dumbbell-fly",
+    "aliases": [
+      "Dumbbell Flyes",
+      "Fly With Dumbbells"
+    ]
+  },
+  "fedb:dumbbell-incline-row": {
+    "aliases": [
+      "Incline Dumbbell Row"
+    ],
+    "metadataCompleteness": "curated"
+  },
+  "fedb:dumbbell-one-arm-upright-row": {
+    "metadataCompleteness": "curated"
+  },
+  "fedb:dumbbell-rear-lunge": {
+    "metadataCompleteness": "curated"
+  },
+  "fedb:dumbbell-shrug": {
+    "aliases": [
+      "Shrugs, Dumbbells"
+    ]
+  },
+  "fedb:dumbbell-squat": {
+    "metadataCompleteness": "curated"
+  },
+  "fedb:extended-range-one-arm-kettlebell-floor-press": {
+    "aliases": [
+      "Kettlebell Extended Range One Arm Press On Floor"
+    ],
+    "metadataCompleteness": "curated"
+  },
+  "fedb:flat-bench-lying-leg-raise": {
+    "aliases": [
+      "Lying Leg Raise Flat Bench"
+    ]
+  },
+  "fedb:frankenstein-squat": {
+    "metadataCompleteness": "curated"
+  },
+  "fedb:front-barbell-squat": {
+    "aliases": [
+      "Barbell Front Squat"
+    ],
+    "metadataCompleteness": "curated"
+  },
+  "fedb:front-cable-raise": {
+    "aliases": [
+      "Cable Front Raise"
+    ]
+  },
+  "fedb:front-dumbbell-raise": {
+    "aliases": [
+      "Dumbbell Front Raise"
+    ]
+  },
+  "fedb:hammer-curls": {
+    "aliases": [
+      "Hammer Curl"
+    ]
+  },
+  "fedb:hip-lift-with-band": {
+    "aliases": [
+      "Band Hip Lift"
+    ]
+  },
+  "fedb:incline-dumbbell-curl": {
+    "aliases": [
+      "Dumbbell Incline Curl"
+    ]
+  },
+  "fedb:incline-dumbbell-flyes": {
+    "name": "Incline Dumbbell Fly",
+    "slug": "incline-dumbbell-fly",
+    "aliases": [
+      "Incline Dumbbell Flyes",
+      "Dumbbell Incline Fly"
+    ]
+  },
+  "fedb:incline-push-up-close-grip": {
+    "aliases": [
+      "Incline Close-Grip Push-Up"
+    ]
+  },
+  "fedb:incline-push-up-reverse-grip": {
+    "aliases": [
+      "Incline Reverse Grip Push-Up"
+    ]
+  },
+  "fedb:jm-press": {
+    "metadataCompleteness": "curated"
+  },
+  "fedb:kettlebell-arnold-press": {
+    "metadataCompleteness": "curated"
+  },
+  "fedb:kettlebell-figure-8": {
+    "metadataCompleteness": "curated"
+  },
+  "fedb:kettlebell-hang-clean": {
+    "metadataCompleteness": "curated"
+  },
+  "fedb:kettlebell-one-legged-deadlift": {
+    "metadataCompleteness": "curated"
+  },
+  "fedb:kettlebell-pistol-squat": {
+    "metadataCompleteness": "curated"
+  },
+  "fedb:kettlebell-seated-press": {
+    "metadataCompleteness": "curated"
+  },
+  "fedb:kettlebell-seesaw-press": {
+    "metadataCompleteness": "curated"
+  },
+  "fedb:kettlebell-turkish-get-up-squat-style": {
+    "metadataCompleteness": "curated"
+  },
+  "fedb:kettlebell-windmill": {
+    "metadataCompleteness": "curated"
+  },
+  "fedb:kneeling-cable-triceps-extension": {
+    "aliases": [
+      "Cable Kneeling Triceps Extension"
+    ]
+  },
+  "fedb:kneeling-jump-squat": {
+    "metadataCompleteness": "curated"
+  },
+  "fedb:lying-dumbbell-tricep-extension": {
+    "aliases": [
+      "Dumbbell Lying Triceps Extension"
+    ]
+  },
+  "fedb:lying-supine-dumbbell-curl": {
+    "aliases": [
+      "Dumbbell Lying Supine Curl"
+    ]
+  },
+  "fedb:mixed-grip-chin": {
+    "aliases": [
+      "Mixed Grip Chin-Up"
+    ],
+    "metadataCompleteness": "curated"
+  },
+  "fedb:oblique-crunches": {
+    "aliases": [
+      "Oblique Crunch"
+    ]
+  },
+  "fedb:one-arm-chin-up": {
+    "metadataCompleteness": "curated"
+  },
+  "fedb:one-arm-kettlebell-clean-and-jerk": {
+    "aliases": [
+      "Kettlebell One Arm Clean And Jerk"
+    ]
+  },
+  "fedb:one-arm-kettlebell-floor-press": {
+    "aliases": [
+      "Kettlebell One Arm Floor Press"
+    ],
+    "metadataCompleteness": "curated"
+  },
+  "fedb:one-arm-kettlebell-jerk": {
+    "aliases": [
+      "Kettlebell One Arm Jerk"
+    ]
+  },
+  "fedb:one-arm-kettlebell-military-press-to-the-side": {
+    "aliases": [
+      "Kettlebell One Arm Military Press To The Side"
+    ],
+    "metadataCompleteness": "curated"
+  },
+  "fedb:one-arm-kettlebell-push-press": {
+    "aliases": [
+      "Kettlebell One Arm Push Press"
+    ],
+    "metadataCompleteness": "curated"
+  },
+  "fedb:one-arm-kettlebell-row": {
+    "aliases": [
+      "Kettlebell One Arm Row"
+    ],
+    "metadataCompleteness": "curated"
+  },
+  "fedb:one-arm-kettlebell-snatch": {
+    "aliases": [
+      "Kettlebell One Arm Snatch"
+    ]
+  },
+  "fedb:one-arm-medicine-ball-slam": {
+    "aliases": [
+      "One Arm Slam (With Medicine Ball)"
+    ]
+  },
+  "fedb:one-leg-barbell-squat": {
+    "aliases": [
+      "Barbell One Leg Squat"
+    ],
+    "metadataCompleteness": "curated"
+  },
+  "fedb:overhead-cable-curl": {
+    "aliases": [
+      "Cable Overhead Curl"
+    ]
+  },
+  "fedb:palms-up-barbell-wrist-curl-over-a-bench": {
+    "aliases": [
+      "Barbell Palms Up Wrist Curl Over A Bench"
+    ],
+    "metadataCompleteness": "curated"
+  },
+  "fedb:plyo-push-up": {
     "metadataCompleteness": "planner-ready"
   },
-  "Side_Lateral_Raise": {
-    "requiredEquipment": ["dumbbell"],
-    "focusTags": ["shoulders", "upper_body"],
-    "movementTags": ["isolation", "push"],
-    "styleTags": ["strength"],
-    "contraindicationTags": ["shoulder_irritation"],
-    "allowedRoles": ["accessory", "main"],
-    "impactLevel": "none",
-    "noiseLevel": "quiet",
-    "spaceFootprint": "small",
-    "travelFriendly": true,
-    "floorRequired": false,
-    "loadLevel": "light",
-    "metadataCompleteness": "planner-ready"
+  "fedb:power-clean": {
+    "metadataCompleteness": "curated"
   },
-  "Single_Leg_Glute_Bridge": {
-    "requiredEquipment": ["bodyweight"],
-    "focusTags": ["glutes", "hamstrings", "lower_body", "recovery"],
-    "movementTags": ["isolation", "push"],
-    "styleTags": ["recovery", "strength"],
-    "allowedRoles": ["accessory", "recovery", "warmup"],
-    "impactLevel": "none",
-    "noiseLevel": "quiet",
-    "spaceFootprint": "small",
-    "travelFriendly": true,
-    "floorRequired": true,
-    "loadLevel": "light",
-    "metadataCompleteness": "planner-ready"
-  },
-  "Walking_Treadmill": {
-    "requiredEquipment": ["treadmill"],
-    "focusTags": [
-      "calves",
-      "conditioning",
-      "glutes",
-      "hamstrings",
-      "lower_body",
-      "quadriceps",
-      "recovery"
+  "fedb:reverse-barbell-curl": {
+    "aliases": [
+      "Barbell Reverse Curl"
     ],
-    "movementTags": ["gait"],
-    "styleTags": ["cardio", "conditioning", "recovery"],
-    "allowedRoles": ["main", "recovery", "warmup"],
-    "impactLevel": "low",
-    "noiseLevel": "moderate",
-    "spaceFootprint": "large",
-    "travelFriendly": false,
-    "floorRequired": false,
-    "loadLevel": "light",
-    "metadataCompleteness": "planner-ready"
+    "metadataCompleteness": "curated"
+  },
+  "fedb:reverse-barbell-preacher-curls": {
+    "aliases": [
+      "Barbell Reverse Preacher Curl"
+    ],
+    "metadataCompleteness": "curated"
+  },
+  "fedb:reverse-cable-curl": {
+    "aliases": [
+      "Cable Reverse Curl"
+    ]
+  },
+  "fedb:romanian-deadlift": {
+    "metadataCompleteness": "planner-ready",
+    "aliases": [
+      "Barbell Romanian Deadlift"
+    ]
+  },
+  "fedb:scapular-pull-up": {
+    "metadataCompleteness": "curated"
+  },
+  "fedb:scissors-jump": {
+    "aliases": [
+      "Scissor Jumps"
+    ]
+  },
+  "fedb:seated-barbell-twist": {
+    "aliases": [
+      "Barbell Seated Twist"
+    ],
+    "metadataCompleteness": "curated"
+  },
+  "fedb:seated-dumbbell-curl": {
+    "aliases": [
+      "Dumbbell Seated Curl",
+      "Seated Dumbbell Curls"
+    ]
+  },
+  "fedb:seated-dumbbell-inner-biceps-curl": {
+    "aliases": [
+      "Dumbbell Seated Inner Biceps Curl"
+    ]
+  },
+  "fedb:seated-dumbbell-palms-up-wrist-curl": {
+    "aliases": [
+      "Dumbbell Seated Palms Up Wrist Curl"
+    ]
+  },
+  "fedb:shoulder-press-with-bands": {
+    "aliases": [
+      "Band Shoulder Press"
+    ]
+  },
+  "fedb:side-neck-stretch": {
+    "aliases": [
+      "Neck Side Stretch"
+    ]
+  },
+  "fedb:snatch-pull": {
+    "metadataCompleteness": "curated"
+  },
+  "fedb:split-squat-with-dumbbells": {
+    "aliases": [
+      "Dumbbell Split Squat"
+    ],
+    "metadataCompleteness": "curated"
+  },
+  "fedb:split-squats": {
+    "metadataCompleteness": "planner-ready",
+    "name": "Split Squat",
+    "slug": "split-squat",
+    "aliases": [
+      "Split Squats",
+      "Bodyweight Split Squat"
+    ]
+  },
+  "fedb:squat-jerk": {
+    "metadataCompleteness": "curated"
+  },
+  "fedb:squat-with-bands": {
+    "aliases": [
+      "Squats - With Bands",
+      "Band Squat"
+    ]
+  },
+  "fedb:squats-with-bands": {
+    "_drop": true
+  },
+  "fedb:standing-barbell-calf-raise": {
+    "aliases": [
+      "Barbell Standing Calf Raise"
+    ],
+    "metadataCompleteness": "curated"
+  },
+  "fedb:standing-bent-over-one-arm-dumbbell-triceps-extension": {
+    "aliases": [
+      "Dumbbell Standing Bent Over One Arm Triceps Extension"
+    ]
+  },
+  "fedb:standing-bent-over-two-arm-dumbbell-triceps-extension": {
+    "aliases": [
+      "Dumbbell Standing Bent Over Two Arm Triceps Extension"
+    ]
+  },
+  "fedb:standing-cable-lift": {
+    "aliases": [
+      "Cable Standing Lift"
+    ]
+  },
+  "fedb:standing-dumbbell-calf-raise": {
+    "aliases": [
+      "Dumbbell Standing Calf Raise"
+    ],
+    "metadataCompleteness": "curated"
+  },
+  "fedb:standing-dumbbell-reverse-curl": {
+    "aliases": [
+      "Dumbbell Standing Reverse Curl"
+    ]
+  },
+  "fedb:standing-dumbbell-triceps-extension": {
+    "aliases": [
+      "Dumbbell Standing Triceps Extension"
+    ]
+  },
+  "fedb:standing-front-barbell-raise-over-head": {
+    "aliases": [
+      "Barbell Standing Front Raise Over Head"
+    ],
+    "metadataCompleteness": "curated"
+  },
+  "fedb:standing-overhead-barbell-triceps-extension": {
+    "aliases": [
+      "Barbell Standing Overhead Triceps Extension"
+    ],
+    "metadataCompleteness": "curated"
+  },
+  "fedb:standing-palms-in-dumbbell-press": {
+    "aliases": [
+      "Dumbbell Standing Palms In Press"
+    ],
+    "metadataCompleteness": "curated"
+  },
+  "fedb:stiff-leg-barbell-good-morning": {
+    "aliases": [
+      "Barbell Stiff Leg Good Morning"
+    ],
+    "metadataCompleteness": "curated"
+  },
+  "fedb:two-arm-kettlebell-clean": {
+    "aliases": [
+      "Kettlebell Two Arm Clean"
+    ]
+  },
+  "fedb:two-arm-kettlebell-military-press": {
+    "aliases": [
+      "Kettlebell Two Arm Military Press"
+    ],
+    "metadataCompleteness": "curated"
+  },
+  "fedb:two-arm-kettlebell-row": {
+    "aliases": [
+      "Kettlebell Two Arm Row"
+    ],
+    "metadataCompleteness": "curated"
+  },
+  "fedb:underhand-cable-pulldowns": {
+    "aliases": [
+      "Cable Underhand Pulldown"
+    ]
+  },
+  "fedb:upright-barbell-row": {
+    "aliases": [
+      "Barbell Upright Row"
+    ],
+    "metadataCompleteness": "curated"
+  },
+  "fedb:upright-cable-row": {
+    "aliases": [
+      "Cable Upright Row"
+    ]
+  },
+  "fedb:wide-grip-decline-barbell-pullover": {
+    "aliases": [
+      "Barbell Decline Wide-Grip Pullover"
+    ],
+    "metadataCompleteness": "curated"
+  },
+  "fedb:wide-grip-rear-pull-up": {
+    "metadataCompleteness": "curated"
+  },
+  "fedb:wide-grip-standing-barbell-curl": {
+    "aliases": [
+      "Barbell Standing Wide-Grip Curl"
+    ],
+    "metadataCompleteness": "curated"
   }
 }

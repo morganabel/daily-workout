@@ -1,5 +1,6 @@
 import type Database from 'better-sqlite3';
 import {
+  expandAvailableEquipment,
   getExperienceRank,
   getImpactRank,
   getLoadRank,
@@ -253,9 +254,9 @@ function buildEligibleExerciseSql(
   }
 
   if (query.availableEquipment?.length) {
-    const equipmentIds = [
-      ...new Set(query.availableEquipment.map(normalizeEquipmentId)),
-    ];
+    const equipmentIds = expandAvailableEquipment(query.availableEquipment).map(
+      normalizeEquipmentId,
+    );
     const placeholders = equipmentIds.map(() => '?').join(', ');
     conditions.push(`NOT EXISTS (
       SELECT 1
@@ -356,7 +357,24 @@ function buildEligibleExerciseSql(
     };
   }
 
+  const textMatchScore = buildTextMatchScore(query.searchText, params);
   const styleScore = buildStyleBiasScore(query.styleBias, params);
+  const sourcePriorityScore = `CASE WHEN e.id LIKE 'fedb:%' THEN 1 ELSE 0 END`;
+  const compoundScore = `EXISTS (
+    SELECT 1
+    FROM exercise_tags et
+    WHERE et.exercise_id = e.id
+      AND et.tag_type = 'movement'
+      AND et.tag = 'compound'
+  )`;
+  const mainRoleScore = `EXISTS (
+    SELECT 1
+    FROM exercise_roles er
+    WHERE er.exercise_id = e.id
+      AND er.role = 'main'
+  )`;
+  const loadPriorityScore = buildLoadPriorityScore(query);
+  const equipmentPriorityScore = buildEquipmentPriorityScore(query);
   const limitClause = query.limit ? 'LIMIT ?' : '';
   if (query.limit) {
     params.push(query.limit);
@@ -367,7 +385,16 @@ function buildEligibleExerciseSql(
     sql: `${BASE_SELECT_SQL}
       ${fromSql}
       ${whereClause}
-      ORDER BY ${orderBySql ? `${orderBySql}, ` : ''}${styleScore} DESC, e.sort_key ASC, e.id ASC
+      ORDER BY ${textMatchScore} DESC,
+        ${styleScore} DESC,
+        ${sourcePriorityScore} DESC,
+        ${compoundScore} DESC,
+        ${mainRoleScore} DESC,
+        ${loadPriorityScore} DESC,
+        ${equipmentPriorityScore} DESC,
+        ${orderBySql ? `${orderBySql},` : ''}
+        e.sort_key ASC,
+        e.id ASC
       ${limitClause}`,
     params,
     orderBySql,
@@ -401,6 +428,107 @@ function buildStyleBiasScore(
   const placeholders = styleBias.map(() => '?').join(', ');
   params.push(...styleBias);
   return `(SELECT COUNT(*) FROM exercise_tags et WHERE et.exercise_id = e.id AND et.tag_type = 'style' AND et.tag IN (${placeholders}))`;
+}
+
+function buildTextMatchScore(
+  rawSearchText: string | undefined,
+  params: Array<string | number>,
+): string {
+  const normalized = rawSearchText?.trim().toLowerCase();
+  if (!normalized) {
+    return 'CASE WHEN 1 = 1 THEN 0 END';
+  }
+
+  const contains = `%${normalized}%`;
+  params.push(normalized, normalized, contains, contains);
+
+  return `CASE
+    WHEN lower(e.name) = ? THEN 40
+    WHEN EXISTS (
+      SELECT 1
+      FROM exercise_aliases ea
+      WHERE ea.exercise_id = e.id
+        AND lower(ea.alias) = ?
+    ) THEN 36
+    WHEN lower(e.name) LIKE ? THEN 24
+    WHEN EXISTS (
+      SELECT 1
+      FROM exercise_aliases ea
+      WHERE ea.exercise_id = e.id
+        AND lower(ea.alias) LIKE ?
+    ) THEN 12
+    ELSE 0
+  END`;
+}
+
+function buildLoadPriorityScore(query: CandidateQuery): string {
+  const prefersStrengthLoads =
+    query.blockRole === 'main' || query.styleBias?.includes('strength');
+
+  if (!prefersStrengthLoads) {
+    return 'CASE WHEN 1 = 1 THEN 0 END';
+  }
+
+  return `CASE e.load_level
+    WHEN 'heavy' THEN 3
+    WHEN 'moderate' THEN 2
+    WHEN 'light' THEN 1
+    ELSE 0
+  END`;
+}
+
+function buildEquipmentPriorityScore(query: CandidateQuery): string {
+  const prefersLoadedStrength =
+    query.availableEquipment?.length &&
+    (query.blockRole === 'main' || query.styleBias?.includes('strength'));
+
+  if (!prefersLoadedStrength) {
+    return 'CASE WHEN 1 = 1 THEN 0 END';
+  }
+
+  return `CASE
+    WHEN EXISTS (
+      SELECT 1
+      FROM exercise_equipment ee
+      WHERE ee.exercise_id = e.id
+        AND ee.requirement_type = 'required'
+        AND ee.equipment_id IN (
+          'barbell',
+          'dumbbell',
+          'kettlebell',
+          'machine',
+          'cable_machine',
+          'bench',
+          'incline_bench',
+          'squat_rack',
+          'ez_curl_bar',
+          'medicine_ball',
+          'sandbag'
+        )
+    ) THEN 3
+    WHEN EXISTS (
+      SELECT 1
+      FROM exercise_equipment ee
+      WHERE ee.exercise_id = e.id
+        AND ee.requirement_type = 'required'
+        AND ee.equipment_id IN (
+          'resistance_bands',
+          'pull_up_bar',
+          'rowing_machine',
+          'treadmill',
+          'jump_rope',
+          'other'
+        )
+    ) THEN 2
+    WHEN EXISTS (
+      SELECT 1
+      FROM exercise_equipment ee
+      WHERE ee.exercise_id = e.id
+        AND ee.requirement_type = 'required'
+        AND ee.equipment_id = 'bodyweight'
+    ) THEN 1
+    ELSE 0
+  END`;
 }
 
 function addTagExistsCondition(

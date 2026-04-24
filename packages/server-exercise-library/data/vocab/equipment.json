@@ -3,14 +3,24 @@
     {
       "id": "bodyweight",
       "label": "Bodyweight",
-      "aliases": ["body only", "bodyweight"]
+      "aliases": [
+        "body only",
+        "bodyweight",
+        "body weight",
+        "none (bodyweight exercise)",
+        "gym mat"
+      ]
     },
     {
       "id": "dumbbell",
       "label": "Dumbbells",
       "aliases": ["dumbbell", "dumbbells"]
     },
-    { "id": "barbell", "label": "Barbell", "aliases": ["barbell"] },
+    {
+      "id": "barbell",
+      "label": "Barbell",
+      "aliases": ["barbell", "olympic barbell", "trap bar"]
+    },
     {
       "id": "kettlebell",
       "label": "Kettlebells",
@@ -24,7 +34,7 @@
     {
       "id": "resistance_bands",
       "label": "Resistance Bands",
-      "aliases": ["bands", "band", "resistance bands"]
+      "aliases": ["bands", "band", "resistance bands", "resistance band"]
     },
     {
       "id": "cable_machine",
@@ -61,18 +71,22 @@
     {
       "id": "exercise_ball",
       "label": "Exercise Ball",
-      "aliases": ["exercise ball", "stability ball"]
+      "aliases": ["exercise ball", "stability ball", "swiss ball", "bosu ball"]
     },
     {
       "id": "foam_roller",
       "label": "Foam Roll",
       "aliases": ["foam roll", "foam roller"]
     },
-    { "id": "machine", "label": "Machine", "aliases": ["machine"] },
+    {
+      "id": "machine",
+      "label": "Machine",
+      "aliases": ["machine", "leverage machine", "smith machine"]
+    },
     {
       "id": "ez_curl_bar",
       "label": "EZ Curl Bar",
-      "aliases": ["e-z curl bar", "ez curl bar"]
+      "aliases": ["e-z curl bar", "ez curl bar", "sz-bar", "ez barbell"]
     },
     { "id": "sandbag", "label": "Sandbag", "aliases": ["sandbag"] },
     { "id": "other", "label": "Other", "aliases": ["other"] }

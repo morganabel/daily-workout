@@ -39,6 +39,7 @@ export interface SourceRef {
   source: string;
   sourceId: string;
   sourceVersion: string;
+  sourceUrl?: string;
 }
 
 export interface ExerciseRecord {

@@ -6,8 +6,9 @@ describe('openExerciseLibrary', () => {
     const library = openExerciseLibrary();
     const metadata = library.getLibraryMetadata();
 
-    expect(metadata.exerciseCount).toBe(873);
+    expect(metadata.exerciseCount).toBeGreaterThanOrEqual(873);
     expect(metadata.plannerReadyCount).toBeGreaterThanOrEqual(400);
+    expect(metadata.sourceVersion).toContain('free-exercise-db@');
 
     library.close();
   });

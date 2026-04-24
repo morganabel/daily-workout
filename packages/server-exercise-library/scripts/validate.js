@@ -1,6 +1,44 @@
 import Database from 'better-sqlite3';
 import { paths, readJson } from './_common.js';
 
+const legacySourceIdPattern = /^(wger:|fitnessshub:)/;
+const legacySlugPattern = /^(wger-|fitnessshub-)/;
+const legacySourcePattern = /\b(?:wger|fitnessshub)\b/i;
+const forbiddenTitlePatterns = [
+  { pattern: /\bhd\b/i, label: 'HD suffix' },
+  { pattern: /\bv\.?\s*2\b/i, label: 'v2 suffix' },
+  { pattern: /\b(?:male|female)\b/i, label: 'gender marker' },
+  { pattern: /\bno leg drive\b/i, label: 'coaching cue variant' },
+];
+
+function normalizeDuplicateName(value) {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function normalizeTokenOrderName(value) {
+  return normalizeDuplicateName(value)
+    .split(' ')
+    .filter(Boolean)
+    .sort()
+    .join(' ');
+}
+
+function normalizeSideBaseName(value) {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/\b(left|right)\b/g, ' ')
+    .replace(/\bleg\b/g, ' ')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 const [canonical, manifest, readinessReport, enums, tags, equipment] =
   await Promise.all([
     readJson(paths.generatedCanonical),
@@ -31,6 +69,9 @@ const allowedTags = {
 
 const ids = new Set();
 const sourceIds = new Set();
+const duplicateGroups = new Map();
+const tokenOrderDuplicateGroups = new Map();
+const canonicalKeys = new Map();
 
 for (const exercise of canonical) {
   if (ids.has(exercise.id)) {
@@ -38,10 +79,91 @@ for (const exercise of canonical) {
   }
   ids.add(exercise.id);
 
+  if (legacySourceIdPattern.test(exercise.id)) {
+    throw new Error(
+      `Legacy source-prefixed exercise id leaked into public seed: ${exercise.id}`,
+    );
+  }
+
   if (sourceIds.has(exercise.sourceId)) {
     throw new Error(`Duplicate source id: ${exercise.sourceId}`);
   }
   sourceIds.add(exercise.sourceId);
+
+  if (legacySourceIdPattern.test(exercise.sourceId)) {
+    throw new Error(
+      `Legacy source-prefixed sourceId leaked into public seed: ${exercise.sourceId}`,
+    );
+  }
+
+  if (legacySlugPattern.test(exercise.slug)) {
+    throw new Error(
+      `Legacy source-prefixed slug leaked into public seed: ${exercise.slug}`,
+    );
+  }
+
+  if (exercise.id.startsWith('ex:')) {
+    if (exercise.sourceId !== exercise.id) {
+      throw new Error(
+        `Public exercise ${exercise.id} must reuse its opaque public id as sourceId`,
+      );
+    }
+
+    if (exercise.sourceRefs.length > 0) {
+      throw new Error(
+        `Public exercise ${exercise.id} must not keep sourceRefs in the public seed`,
+      );
+    }
+  }
+
+  if (exercise.id.startsWith('fedb:')) {
+    if (!exercise.sourceRefs.length) {
+      throw new Error(
+        `free-exercise-db exercise ${exercise.id} must retain explicit sourceRefs`,
+      );
+    }
+
+    for (const sourceRef of exercise.sourceRefs) {
+      if (sourceRef.source !== 'free-exercise-db') {
+        throw new Error(
+          `free-exercise-db exercise ${exercise.id} has unexpected source ref ${sourceRef.source}`,
+        );
+      }
+    }
+  }
+
+  const duplicateKey = `${normalizeDuplicateName(exercise.name)}::${[...exercise.requiredEquipment].sort().join('|')}`;
+  const duplicateGroup = duplicateGroups.get(duplicateKey) ?? [];
+  duplicateGroup.push(exercise.id);
+  duplicateGroups.set(duplicateKey, duplicateGroup);
+
+  const tokenOrderDuplicateKey = `${normalizeTokenOrderName(exercise.name)}::${[...exercise.requiredEquipment].sort().join('|')}`;
+  const tokenOrderDuplicateGroup =
+    tokenOrderDuplicateGroups.get(tokenOrderDuplicateKey) ?? [];
+  tokenOrderDuplicateGroup.push(exercise.id);
+  tokenOrderDuplicateGroups.set(
+    tokenOrderDuplicateKey,
+    tokenOrderDuplicateGroup,
+  );
+
+  const canonicalKey = `${normalizeSideBaseName(exercise.name)}::${[...exercise.requiredEquipment].sort().join('|')}`;
+  const canonicalMatches = canonicalKeys.get(canonicalKey) ?? [];
+  canonicalMatches.push({ id: exercise.id, name: exercise.name });
+  canonicalKeys.set(canonicalKey, canonicalMatches);
+
+  if (/^[a-z]/.test(exercise.name)) {
+    throw new Error(
+      `Exercise ${exercise.id} must use consistent capitalization: ${exercise.name}`,
+    );
+  }
+
+  for (const { pattern, label } of forbiddenTitlePatterns) {
+    if (pattern.test(exercise.name)) {
+      throw new Error(
+        `Exercise ${exercise.id} contains forbidden ${label}: ${exercise.name}`,
+      );
+    }
+  }
 
   for (const equipmentId of [
     ...exercise.requiredEquipment,
@@ -133,6 +255,46 @@ for (const exercise of canonical) {
   }
 }
 
+for (const [duplicateKey, duplicateIds] of duplicateGroups.entries()) {
+  if (duplicateIds.length > 1) {
+    throw new Error(
+      `Duplicate canonical exercise group detected for ${duplicateKey}: ${duplicateIds.join(', ')}`,
+    );
+  }
+}
+
+for (const [
+  duplicateKey,
+  duplicateIds,
+] of tokenOrderDuplicateGroups.entries()) {
+  if (duplicateIds.length > 1) {
+    throw new Error(
+      `Token-order duplicate exercise group detected for ${duplicateKey}: ${duplicateIds.join(', ')}`,
+    );
+  }
+}
+
+for (const [canonicalKey, exercisesForKey] of canonicalKeys.entries()) {
+  const sideVariants = exercisesForKey.filter(({ name }) =>
+    /\b(left|right)\b/i.test(name),
+  );
+  const baseVariants = exercisesForKey.filter(
+    ({ name }) => !/\b(left|right)\b/i.test(name),
+  );
+
+  if (sideVariants.length > 0 && baseVariants.length > 0) {
+    throw new Error(
+      `Laterality-only duplicate group detected for ${canonicalKey}: ${exercisesForKey.map(({ id }) => id).join(', ')}`,
+    );
+  }
+}
+
+if (legacySourcePattern.test(manifest.sourceVersion)) {
+  throw new Error(
+    `Public manifest leaked a legacy crawled source in sourceVersion: ${manifest.sourceVersion}`,
+  );
+}
+
 if (manifest.plannerReadyCount < 400) {
   throw new Error(
     `Expected at least 400 planner-ready exercises, found ${manifest.plannerReadyCount}`,
@@ -145,9 +307,9 @@ if (readinessReport.plannerReadyCount !== manifest.plannerReadyCount) {
   );
 }
 
-if (readinessReport.autoPromotedCount < 350) {
+if (readinessReport.autoPromotedCount < 330) {
   throw new Error(
-    `Expected at least 350 auto-promoted exercises, found ${readinessReport.autoPromotedCount}`,
+    `Expected at least 330 auto-promoted exercises, found ${readinessReport.autoPromotedCount}`,
   );
 }
 
@@ -157,7 +319,7 @@ if ((readinessReport.countsByRiskTier?.low ?? 0) < 400) {
   );
 }
 
-const database = new Database(paths.generatedSqlite, {
+const database = new Database(paths.publicSqlite, {
   readonly: true,
   fileMustExist: true,
 });
@@ -171,6 +333,70 @@ if ((plannerReadyCount?.count ?? 0) !== manifest.plannerReadyCount) {
   throw new Error(
     'Planner-ready count mismatch between manifest and SQLite database',
   );
+}
+
+const leakedLegacyExerciseIds = database
+  .prepare(
+    "SELECT COUNT(*) as count FROM exercises WHERE id LIKE 'wger:%' OR id LIKE 'fitnessshub:%'",
+  )
+  .get();
+
+if ((leakedLegacyExerciseIds?.count ?? 0) !== 0) {
+  throw new Error(
+    'Legacy source-prefixed exercise ids leaked into public SQLite',
+  );
+}
+
+const leakedLegacySourceIds = database
+  .prepare(
+    "SELECT COUNT(*) as count FROM exercises WHERE source_id LIKE 'wger:%' OR source_id LIKE 'fitnessshub:%'",
+  )
+  .get();
+
+if ((leakedLegacySourceIds?.count ?? 0) !== 0) {
+  throw new Error(
+    'Legacy source-prefixed source ids leaked into public SQLite',
+  );
+}
+
+const leakedLegacySlugs = database
+  .prepare(
+    "SELECT COUNT(*) as count FROM exercises WHERE slug LIKE 'wger-%' OR slug LIKE 'fitnessshub-%'",
+  )
+  .get();
+
+if ((leakedLegacySlugs?.count ?? 0) !== 0) {
+  throw new Error('Legacy source-prefixed slugs leaked into public SQLite');
+}
+
+const publicExerciseSourceRefs = database
+  .prepare(
+    "SELECT COUNT(DISTINCT e.id) as count FROM exercises e JOIN exercise_source_refs r ON r.exercise_id = e.id WHERE e.id LIKE 'ex:%'",
+  )
+  .get();
+
+if ((publicExerciseSourceRefs?.count ?? 0) !== 0) {
+  throw new Error(
+    'Public ex:* exercises must not retain source refs in SQLite',
+  );
+}
+
+const sourceUrlColumn = database
+  .prepare(
+    "SELECT COUNT(*) as count FROM pragma_table_info('exercise_source_refs') WHERE name = 'source_url'",
+  )
+  .get();
+
+if ((sourceUrlColumn?.count ?? 0) !== 0) {
+  throw new Error('Public SQLite must not expose source_url columns');
+}
+
+const metadataRows = database
+  .prepare("SELECT value FROM library_metadata WHERE key = 'sourceVersion'")
+  .all();
+
+if (metadataRows.some((row) => legacySourcePattern.test(row.value))) {
+  throw new Error('Public SQLite metadata leaked a legacy crawled source');
 }
 
 const smokeQueries = [

@@ -4,12 +4,6 @@
   "sourceRoot": "packages/server-exercise-library/src",
   "projectType": "library",
   "targets": {
-    "import-upstream": {
-      "executor": "nx:run-commands",
-      "options": {
-        "command": "node packages/server-exercise-library/scripts/import-upstream.js"
-      }
-    },
     "build-canonical": {
       "executor": "nx:run-commands",
       "options": {
