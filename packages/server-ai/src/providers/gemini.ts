@@ -13,11 +13,8 @@ import type { AiProvider, AiProviderOptions, GenerationResult } from './types';
 import { AiGenerationError } from './types';
 import {
   SYSTEM_PROMPT,
-  INITIAL_GENERATION_INSTRUCTIONS,
   STAGE_ONE_PLANNER_SYSTEM_PROMPT,
-  buildCandidatePoolPromptData,
-  buildPlanningBriefPromptData,
-  buildStageOnePlannerArtifactPromptData,
+  buildInitialGenerationPromptPayload,
   buildStageOnePlannerRequestPayload,
   buildRegenerationMessage,
 } from './prompts';
@@ -203,14 +200,15 @@ export class GeminiProvider implements AiProvider {
         options.stageOneArtifact,
       );
     } else {
-      prompt = `${SYSTEM_PROMPT}\n\n${JSON.stringify({
-        planningBrief: buildPlanningBriefPromptData(options.planningBrief),
-        stageOnePlanner: buildStageOnePlannerArtifactPromptData(
+      prompt = `${SYSTEM_PROMPT}\n\n${JSON.stringify(
+        buildInitialGenerationPromptPayload(
+          request,
+          context,
+          options.planningBrief,
+          options.candidatePool,
           options.stageOneArtifact,
         ),
-        candidatePool: buildCandidatePoolPromptData(options.candidatePool),
-        instructions: INITIAL_GENERATION_INSTRUCTIONS,
-      })}`;
+      )}`;
     }
 
     options.promptRecorder?.({

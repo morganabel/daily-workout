@@ -14,9 +14,8 @@ const betterSqlite3Module = require('better-sqlite3') as {
   default?: DatabaseConstructor;
 } & DatabaseConstructor;
 
-const Database =
-  (betterSqlite3Module.default ??
-    (betterSqlite3Module as DatabaseConstructor)) as DatabaseConstructor;
+const Database = (betterSqlite3Module.default ??
+  (betterSqlite3Module as DatabaseConstructor)) as DatabaseConstructor;
 
 const defaultLibraryUrl = new URL(
   '../../data/generated/exercise-library.sqlite',

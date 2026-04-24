@@ -16,22 +16,37 @@ const reviewDimensionLabels = [
 
 const reviewBatchSchema = z.object({
   reviews: z.array(
-    z.object({
-      runId: z.string(),
-      verdict: z.enum(['accept', 'revise', 'reject']),
-      confidence: z.number().int().min(1).max(5),
-      scores: z.array(
-        z.object({
-          dimension: z.enum(reviewDimensionLabels),
-          score: z.number().int().min(1).max(5),
-          rationale: z.string().min(1).max(220),
-        })
-      ).length(reviewDimensionLabels.length),
-      strengths: z.array(z.string().min(1).max(140)).max(3),
-      issues: z.array(z.string().min(1).max(140)).max(3),
-      suggestedAdjustments: z.array(z.string().min(1).max(160)).max(3),
-      notes: z.string().min(1).max(280),
-    })
+    z
+      .object({
+        runId: z.string(),
+        verdict: z.enum(['accept', 'revise', 'reject']),
+        confidence: z.number().int().min(1).max(5),
+        scores: z
+          .array(
+            z.object({
+              dimension: z.enum(reviewDimensionLabels),
+              score: z.number().int().min(1).max(5),
+              rationale: z.string().min(1).max(220),
+            }),
+          )
+          .length(reviewDimensionLabels.length),
+        strengths: z.array(z.string().min(1).max(140)).max(3),
+        issues: z.array(z.string().min(1).max(140)).max(3),
+        suggestedAdjustments: z.array(z.string().min(1).max(160)).max(3),
+        notes: z.string().min(1).max(280),
+      })
+      .superRefine((review, ctx) => {
+        const dimensions = review.scores.map((score) => score.dimension);
+        const uniqueDimensions = new Set(dimensions);
+
+        if (uniqueDimensions.size !== reviewDimensionLabels.length) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: 'scores must include each review dimension exactly once.',
+            path: ['scores'],
+          });
+        }
+      }),
   ),
 });
 
@@ -59,7 +74,9 @@ function parseArgs(argv) {
     const arg = argv[i];
     const next = argv[i + 1];
     if (arg === '--report' && next) {
-      reportPath = path.isAbsolute(next) ? next : path.join(process.cwd(), next);
+      reportPath = path.isAbsolute(next)
+        ? next
+        : path.join(process.cwd(), next);
       i += 1;
       continue;
     }
@@ -78,14 +95,20 @@ function parseArgs(argv) {
 }
 
 function findLatestReportPath() {
-  const reportsDir = path.join(process.cwd(), 'reports', 'generation-evaluation');
+  const reportsDir = path.join(
+    process.cwd(),
+    'reports',
+    'generation-evaluation',
+  );
+  if (!existsSync(reportsDir)) {
+    throw new Error('No generation evaluation reports found.');
+  }
+
   const subdirs = readdirSync(reportsDir, { withFileTypes: true })
     .filter((entry) => entry.isDirectory())
     .map((entry) => path.join(reportsDir, entry.name, 'report.json'))
     .filter((filePath) => existsSync(filePath))
-    .sort(
-      (a, b) => statSync(b).mtimeMs - statSync(a).mtimeMs
-    );
+    .sort((a, b) => statSync(b).mtimeMs - statSync(a).mtimeMs);
 
   if (subdirs.length === 0) {
     throw new Error('No generation evaluation reports found.');
@@ -123,7 +146,7 @@ function compactEntry(entry) {
           durationMinutes: entry.baselinePlan.durationMinutes,
           summary: entry.baselinePlan.summary,
           exerciseNames: entry.baselinePlan.blocks.flatMap((block) =>
-            block.exercises.map((exercise) => exercise.name)
+            block.exercises.map((exercise) => exercise.name),
           ),
         }
       : undefined,
@@ -190,7 +213,10 @@ async function reviewChunk(client, chunkEntries, model) {
       },
     ],
     text: {
-      format: zodTextFormat(reviewBatchSchema, 'generation_report_review_batch'),
+      format: zodTextFormat(
+        reviewBatchSchema,
+        'generation_report_review_batch',
+      ),
     },
   });
 
@@ -203,7 +229,7 @@ function buildReviewSummary(reviews) {
       acc[review.verdict] = (acc[review.verdict] ?? 0) + 1;
       return acc;
     },
-    { accept: 0, revise: 0, reject: 0 }
+    { accept: 0, revise: 0, reject: 0 },
   );
 
   const dimensionAverages = Object.fromEntries(
@@ -213,17 +239,18 @@ function buildReviewSummary(reviews) {
         average(
           reviews.map(
             (review) =>
-              review.scores.find((score) => score.dimension === dimension)?.score ?? 0
-          )
-        ).toFixed(2)
+              review.scores.find((score) => score.dimension === dimension)
+                ?.score ?? 0,
+          ),
+        ).toFixed(2),
       ),
-    ])
+    ]),
   );
 
   const withOverall = reviews.map((review) => ({
     ...review,
     averageScore: Number(
-      average(review.scores.map((score) => score.score)).toFixed(2)
+      average(review.scores.map((score) => score.score)).toFixed(2),
     ),
   }));
 
@@ -277,7 +304,9 @@ function renderMarkdown(reviewReport) {
     '',
   ];
 
-  for (const [dimension, score] of Object.entries(reviewReport.summary.dimensionAverages)) {
+  for (const [dimension, score] of Object.entries(
+    reviewReport.summary.dimensionAverages,
+  )) {
     lines.push(`- ${dimension}: ${score}`);
   }
 
@@ -298,9 +327,11 @@ function renderMarkdown(reviewReport) {
 
 async function main() {
   loadRepoEnv();
-  const { reportPath: providedReportPath, chunkSize, limit } = parseArgs(
-    process.argv.slice(2)
-  );
+  const {
+    reportPath: providedReportPath,
+    chunkSize,
+    limit,
+  } = parseArgs(process.argv.slice(2));
 
   if (!process.env.OPENAI_API_KEY) {
     throw new Error('OPENAI_API_KEY is required to run AI review.');
@@ -310,7 +341,10 @@ async function main() {
   const report = JSON.parse(readFileSync(reportPath, 'utf8'));
   const entries = limit ? report.entries.slice(0, limit) : report.entries;
   const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-  const model = process.env.OPENAI_REVIEW_MODEL ?? process.env.OPENAI_MODEL ?? 'gpt-5.4-mini';
+  const model =
+    process.env.OPENAI_REVIEW_MODEL ??
+    process.env.OPENAI_MODEL ??
+    'gpt-5.4-mini';
 
   const entryChunks = chunk(entries.map(compactEntry), chunkSize);
   const reviews = [];

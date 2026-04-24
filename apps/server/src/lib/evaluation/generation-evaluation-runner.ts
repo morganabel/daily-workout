@@ -369,6 +369,12 @@ function escapeHtml(value: string): string {
     .replaceAll("'", '&#39;');
 }
 
+function pushUniqueWarning(warnings: string[], warning: string) {
+  if (!warnings.includes(warning)) {
+    warnings.push(warning);
+  }
+}
+
 function buildPlanOverview(entry: GenerationEvaluationReportEntry): string {
   if (!entry.plan) {
     return 'No plan generated';
@@ -1315,12 +1321,19 @@ export async function runGenerationEvaluation(
     }
   });
 
-  const liveEntryCount =
-    scenarios.length *
+  const liveProviders = options.providers.filter(
+    (provider) => provider !== 'mock',
+  );
+  const primingAttemptCount =
+    scenarios.filter((scenario) => scenario.mode === 'regeneration').length *
     options.runs *
-    options.providers.filter((provider) => provider !== 'mock').length;
+    liveProviders.length;
+  const liveEntryCount =
+    scenarios.length * options.runs * liveProviders.length +
+    primingAttemptCount;
   if (liveEntryCount >= 100) {
-    warnings.push(
+    pushUniqueWarning(
+      warnings,
       `This run is configured for ${liveEntryCount} live-provider attempts. Review provider cost and quota implications before sharing results.`,
     );
   }
@@ -1338,39 +1351,48 @@ export async function runGenerationEvaluation(
         let requestBody = buildRequestBody(scenario);
 
         if (scenario.mode === 'regeneration' && provider !== 'mock') {
-          const primingResult = await executeScenarioRequest({
-            bundle,
-            provider,
-            edition: options.edition,
-            token: runId,
-            body: buildPrimingRequest(scenario),
-          });
+          if (!bundle.hasConfiguredAccess && options.edition === 'CE') {
+            pushUniqueWarning(
+              warnings,
+              `Could not prime live regeneration for ${scenario.id} (${provider}); configured access is unavailable.`,
+            );
+          } else {
+            const primingResult = await executeScenarioRequest({
+              bundle,
+              provider,
+              edition: options.edition,
+              token: `${runId}-prime`,
+              body: buildPrimingRequest(scenario),
+            });
 
-          if (
-            primingResult.responseStatus === 200 &&
-            primingResult.executionSource === 'live'
-          ) {
-            const primedPlan =
-              primingResult.payload as GenerationEvaluationReportEntry['plan'];
-            const primedResponseId = primedPlan?.responseId;
+            if (
+              primingResult.responseStatus === 200 &&
+              primingResult.executionSource === 'live'
+            ) {
+              const primedPlan =
+                primingResult.payload as GenerationEvaluationReportEntry['plan'];
+              const primedResponseId = primedPlan?.responseId;
 
-            if (primedResponseId) {
-              effectiveBaselinePlan = primedPlan;
-              requestBody = {
-                ...(scenario.context
-                  ? { ...scenario.request, context: scenario.context }
-                  : scenario.request),
-                previousResponseId: primedResponseId,
-              };
+              if (primedResponseId) {
+                effectiveBaselinePlan = primedPlan;
+                requestBody = {
+                  ...(scenario.context
+                    ? { ...scenario.request, context: scenario.context }
+                    : scenario.request),
+                  previousResponseId: primedResponseId,
+                };
+              } else {
+                pushUniqueWarning(
+                  warnings,
+                  `Could not prime live regeneration for ${scenario.id} (${provider}); the baseline response had no responseId.`,
+                );
+              }
             } else {
-              warnings.push(
-                `Could not prime live regeneration for ${scenario.id}; the baseline response had no responseId.`,
+              pushUniqueWarning(
+                warnings,
+                `Could not prime live regeneration for ${scenario.id} (${provider}); baseline generation was not live.`,
               );
             }
-          } else {
-            warnings.push(
-              `Could not prime live regeneration for ${scenario.id}; baseline generation was not live.`,
-            );
           }
         }
 

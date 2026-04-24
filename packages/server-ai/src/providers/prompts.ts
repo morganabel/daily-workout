@@ -1,5 +1,6 @@
 import {
   isAutoFocus,
+  type GenerationContext,
   type GenerationRequest,
   type RegenerationFeedback,
 } from '@workout-agent/shared';
@@ -13,7 +14,7 @@ export const SYSTEM_PROMPT =
   'You are a concise workout planner. Only reply with valid JSON that matches the schema and never include code fences, explanations, or markdown.';
 
 export const INITIAL_GENERATION_INSTRUCTIONS =
-  "Generate a single workout session with at least one block and one exercise per block. Use realistic exercise names and prescriptions. Prioritize user context (history, preferences, environment) when deciding focus, volume, and equipment. Treat user-supplied injuries and avoid lists as hard constraints. Treat planner-generated avoidances as lower-confidence guidance that should not override the user's explicit constraints. If no focus is specified, choose the most appropriate one based on the user context.";
+  "Generate a single workout session with at least one block and one exercise per block. Use realistic exercise names and prescriptions. Prefer the planning brief when present, otherwise use the request and context as the source of truth for focus, duration, equipment, and constraints. Prefer exercises from the candidate pool when one is provided. Treat user-supplied injuries and avoid lists as hard constraints. Treat planner-generated avoidances as lower-confidence guidance that should not override the user's explicit constraints. If no focus is specified, choose the most appropriate one from the available planning data.";
 
 export const STAGE_ONE_PLANNER_SYSTEM_PROMPT =
   'You are an internal workout planning assistant. Return only valid JSON matching the schema. Resolve ambiguity, preserve hard constraints, and give advisory guidance for a final workout-generation model. Do not assemble the full workout.';
@@ -155,6 +156,35 @@ export function buildStageOnePlannerRequestPayload(
     planningBrief: buildPlanningBriefPromptData(planningBrief),
     candidatePool: buildCandidatePoolPromptData(candidatePool),
     instructions: STAGE_ONE_PLANNER_INSTRUCTIONS,
+  };
+}
+
+export function buildInitialGenerationPromptPayload(
+  request: GenerationRequest,
+  context: GenerationContext,
+  planningBrief?: PlanningBrief,
+  candidatePool?: ExerciseCandidatePool,
+  stageOneArtifact?: StageOnePlannerArtifact,
+) {
+  const payload = {
+    planningBrief: buildPlanningBriefPromptData(planningBrief),
+    stageOnePlanner: buildStageOnePlannerArtifactPromptData(stageOneArtifact),
+    candidatePool: buildCandidatePoolPromptData(candidatePool),
+    instructions: INITIAL_GENERATION_INSTRUCTIONS,
+  };
+
+  if (planningBrief) {
+    return payload;
+  }
+
+  return {
+    ...payload,
+    request: {
+      ...request,
+      // Filter out auto focus so it doesn't anchor the LLM.
+      focus: isAutoFocus(request.focus) ? undefined : request.focus,
+    },
+    context,
   };
 }
 

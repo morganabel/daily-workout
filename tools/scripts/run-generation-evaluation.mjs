@@ -62,6 +62,15 @@ function parseListArg(value) {
     .filter(Boolean);
 }
 
+function parsePositiveInteger(value, flagName) {
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isInteger(parsed) || parsed < 1) {
+    throw new Error(`${flagName} must be an integer >= 1. Received: ${value}`);
+  }
+
+  return parsed;
+}
+
 function expandProviders(values) {
   const expanded = values.flatMap((value) => {
     switch (value) {
@@ -93,7 +102,7 @@ function parseArgs(argv) {
     process.cwd(),
     'reports',
     'generation-evaluation',
-    timestamp
+    timestamp,
   );
   let limit;
   let openReport = false;
@@ -122,7 +131,7 @@ function parseArgs(argv) {
       continue;
     }
     if (arg === '--runs' && next) {
-      runs = Number.parseInt(next, 10);
+      runs = parsePositiveInteger(next, '--runs');
       index += 1;
       continue;
     }
@@ -137,7 +146,7 @@ function parseArgs(argv) {
       continue;
     }
     if (arg === '--limit' && next) {
-      limit = Number.parseInt(next, 10);
+      limit = parsePositiveInteger(next, '--limit');
       index += 1;
       continue;
     }
@@ -147,7 +156,9 @@ function parseArgs(argv) {
   }
 
   return {
-    providers: expandProviders(providerArgs.length > 0 ? providerArgs : ['mock']),
+    providers: expandProviders(
+      providerArgs.length > 0 ? providerArgs : ['mock'],
+    ),
     runs,
     edition,
     outputDir,
@@ -175,8 +186,9 @@ function main() {
     }),
   };
 
-  const command = './node_modules/.bin/nx';
+  const command = process.platform === 'win32' ? 'npx.cmd' : 'npx';
   const args = [
+    'nx',
     'test',
     '@workout-agent-ce/server',
     '--testPathPatterns=src/lib/evaluation/run-generation-evaluation.spec.ts',
@@ -206,7 +218,7 @@ function main() {
     console.log(`Loaded env files: ${loadedEnvFiles.join(', ')}`);
   }
   console.log(
-    `Provider access: openai=${availability.openai} gemini=${availability.gemini}`
+    `Provider access: openai=${availability.openai} gemini=${availability.gemini}`,
   );
 
   if (summary.warnings.length > 0) {
