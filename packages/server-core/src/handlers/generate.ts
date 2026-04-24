@@ -308,7 +308,6 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
         });
       }
     }
-
     const providerRequest = createProviderRequest(
       generationRequest,
       provider,
