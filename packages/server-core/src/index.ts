@@ -7,6 +7,7 @@ export type {
   ExerciseCandidatePool,
   ExerciseCandidateDiagnostics,
   ExerciseCandidateReference,
+  ModelPromptCapture,
   GenerationStore,
   GenerationState,
   TransformationMetadata,
@@ -76,3 +77,8 @@ export {
   type LogLevel,
   type RequestContext,
 } from './utils';
+
+export {
+  runHardChecksForScenario,
+  summarizeHardFailures,
+} from './evaluation/hard-checks';

@@ -187,7 +187,9 @@ describe('GeminiProvider', () => {
 
       expect(GoogleGenAI).toHaveBeenCalledWith(
         expect.objectContaining({
-          baseUrl: 'https://custom-api.example.com',
+          httpOptions: expect.objectContaining({
+            baseUrl: 'https://custom-api.example.com',
+          }),
         }),
       );
     });
@@ -208,7 +210,7 @@ describe('GeminiProvider', () => {
 
       expect(GoogleGenAI).toHaveBeenCalledWith(
         expect.objectContaining({
-          projectId: 'test-project',
+          project: 'test-project',
           location: 'us-central1',
         }),
       );

@@ -13,6 +13,7 @@ export type {
   ExerciseCandidatePool,
   ExerciseCandidateDiagnostics,
   ExerciseCandidateReference,
+  ModelPromptCapture,
   GenerationResult,
   ModelGenerationOptions,
 } from './model-router';

@@ -84,6 +84,23 @@ export class OpenAIProvider implements AiProvider {
           },
         ];
 
+    options.promptRecorder?.({
+      provider: 'openai',
+      model,
+      schemaVersion,
+      isRegeneration,
+      content: JSON.stringify(
+        {
+          input,
+          ...(request.previousResponseId
+            ? { previous_response_id: request.previousResponseId }
+            : {}),
+        },
+        null,
+        2,
+      ),
+    });
+
     let planPayload: unknown = null;
     let responseId = '';
     const started = Date.now();

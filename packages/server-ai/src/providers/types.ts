@@ -1,5 +1,6 @@
 import type {
   ExerciseCandidatePool,
+  ModelPromptCapture,
   PlanningBrief,
 } from '@workout-agent-ce/server-core';
 import type {
@@ -24,6 +25,7 @@ export interface AiProviderOptions {
    * Requires GOOGLE_CLOUD_PROJECT and GOOGLE_CLOUD_LOCATION.
    */
   useVertexAi?: boolean;
+  promptRecorder?: (capture: ModelPromptCapture) => void;
 }
 
 export interface GenerationResult {

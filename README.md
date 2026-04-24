@@ -37,6 +37,8 @@ Workout Agent CE is the open-source community edition of a daily workout planner
 - `npm run dev:server:db` – Start Postgres (Docker) + Next.js with Better Auth enabled
 - `npm run db:migrate` – Apply Drizzle migrations (Better Auth tables) to the local Postgres
 - `npm run db:down` – Stop Postgres
+- `npm run validate:generation-scenarios` – Validate the curated workout-generation scenario corpus
+- `npm run evaluate:generation -- --provider mock --limit 10` – Run the evaluation workflow and write review reports
 
 ## Environment configuration
 
@@ -80,6 +82,28 @@ Use Nx targets to keep the workspace healthy:
 - Unit tests for shared contracts: `npx nx test @workout-agent/shared`
 - Lint the Next.js API: `npx nx lint server`
 - Lint the Expo app: `npx nx lint mobile`
+
+## Workout generation evaluation
+
+Use the scenario-driven evaluator to review many backend inputs quickly:
+
+- Mock/plumbing run: `npm run evaluate:generation -- --provider mock --limit 12`
+- Live OpenAI run: `npm run evaluate:generation -- --provider openai --runs 2 --tag regeneration`
+- Multi-provider comparison: `npm run evaluate:generation -- --provider all --scenario regen-too-hard-bodyweight`
+
+The evaluator writes three report formats to `reports/generation-evaluation/<timestamp>/`:
+
+- `report.html` - the visual review surface for fast founder inspection
+- `report.json` - structured output that is easy to feed into another AI model
+- `report.jsonl` - one-entry-per-line output that is ideal for bulk AI review or downstream scripting
+- `report.md` - a compact text summary for quick sharing or diffing
+
+Notes:
+
+- In `CE`, live providers without configured keys automatically warn and fall back to mock behavior.
+- In `HOSTED`, missing keys warn that runs are expected to fail with BYOK requirements.
+- The evaluator reuses the real generation handler, so request validation, context merging, provider routing, and fallback semantics match the production flow.
+- The report now explicitly calls out mock-only runs vs mixed/live coverage so it is harder to mistake plumbing validation for real model evaluation.
 
 ## API surface
 

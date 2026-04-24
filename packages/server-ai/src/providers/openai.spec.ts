@@ -384,9 +384,10 @@ describe('OpenAIProvider', () => {
       });
 
       expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringContaining('[workouts.generate] model call completed'),
-        expect.stringMatching(/\d+\.\d+s/),
-        '(initial)',
+        expect.stringContaining('"msg":"model call completed"'),
+      );
+      expect(consoleSpy).toHaveBeenCalledWith(
+        expect.stringContaining('"isRegeneration":false'),
       );
 
       consoleSpy.mockRestore();
@@ -410,9 +411,10 @@ describe('OpenAIProvider', () => {
       });
 
       expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringContaining('[workouts.generate] model call completed'),
-        expect.stringMatching(/\d+\.\d+s/),
-        '(regeneration)',
+        expect.stringContaining('"msg":"model call completed"'),
+      );
+      expect(consoleSpy).toHaveBeenCalledWith(
+        expect.stringContaining('"isRegeneration":true'),
       );
 
       consoleSpy.mockRestore();
