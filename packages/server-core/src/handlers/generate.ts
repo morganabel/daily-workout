@@ -3,6 +3,8 @@ import type {
   GenerationState,
   GenerationStore,
   ModelRouter,
+  StageOnePlanner,
+  StageOnePlannerArtifact,
   UsagePolicy,
   MeteringSink,
 } from '../types';
@@ -12,7 +14,10 @@ import {
   type GenerationRequestWithContext,
 } from '../utils/context';
 import { derivePlanningBrief } from '../utils/planning';
-import { buildExerciseCandidatePool } from '../utils/exercise-library';
+import {
+  buildExerciseCandidatePool,
+  rerankExerciseCandidatePool,
+} from '../utils/exercise-library';
 import {
   generationRequestPayloadSchema,
   isAutoFocus,
@@ -66,6 +71,11 @@ export interface GenerateHandlerConfig {
    * Default provider when not specified
    */
   defaultProvider?: 'openai' | 'gemini';
+
+  /**
+   * Enables the optional stage-one planner path.
+   */
+  enableStageOnePlanner?: boolean;
 }
 
 /**
@@ -75,7 +85,9 @@ export interface GenerateHandlerDeps {
   auth: AuthProvider;
   store: GenerationStore;
   router: ModelRouter;
+  planner?: StageOnePlanner;
   exerciseLibrary?: ExerciseLibrary;
+  loadExerciseLibrary?: () => Promise<ExerciseLibrary | undefined>;
   policy?: UsagePolicy;
   metering?: MeteringSink;
   config: GenerateHandlerConfig;
@@ -320,41 +332,87 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
       previousPlan: previousState?.plan,
     });
     let effectivePlanningBrief = planningBrief;
+    let stageOneArtifact: StageOnePlannerArtifact | undefined;
     let candidatePool:
       | ReturnType<typeof buildExerciseCandidatePool>
       | undefined;
 
-    if (deps.exerciseLibrary) {
+    if (
+      (deps.exerciseLibrary || deps.loadExerciseLibrary) &&
+      (apiKey || useVertexAi)
+    ) {
       try {
-        candidatePool = buildExerciseCandidatePool({
-          exerciseLibrary: deps.exerciseLibrary,
-          request: providerRequest,
-          context,
-          planningBrief: effectivePlanningBrief,
-          previousPlan: previousState?.plan,
-        });
-        if (
-          candidatePool.candidateExercises.length === 0 &&
-          candidatePool.diagnostics?.blockerCodes?.length
-        ) {
-          effectivePlanningBrief = {
-            ...effectivePlanningBrief,
-            fallbackReasons: candidatePool.diagnostics.blockerCodes,
-          };
+        const exerciseLibrary =
+          deps.exerciseLibrary ?? (await deps.loadExerciseLibrary?.());
+
+        if (exerciseLibrary) {
+          candidatePool = buildExerciseCandidatePool({
+            exerciseLibrary,
+            request: providerRequest,
+            context,
+            planningBrief: effectivePlanningBrief,
+            previousPlan: previousState?.plan,
+          });
+          if (
+            candidatePool.candidateExercises.length === 0 &&
+            candidatePool.diagnostics?.blockerCodes?.length
+          ) {
+            effectivePlanningBrief = {
+              ...effectivePlanningBrief,
+              fallbackReasons: candidatePool.diagnostics.blockerCodes,
+            };
+          }
+          log.info('exercise candidate pool prepared', {
+            libraryVersion: candidatePool.libraryVersion,
+            totalEligibleCount: candidatePool.totalEligibleCount,
+            candidateCount: candidatePool.candidateExercises.length,
+            baselineExerciseCount: candidatePool.baselineExerciseIds.length,
+            blockerCodes: candidatePool.diagnostics?.blockerCodes,
+            fallbackReasons: effectivePlanningBrief.fallbackReasons,
+            isRegeneration,
+          });
         }
-        log.info('exercise candidate pool prepared', {
-          libraryVersion: candidatePool.libraryVersion,
-          totalEligibleCount: candidatePool.totalEligibleCount,
-          candidateCount: candidatePool.candidateExercises.length,
-          baselineExerciseCount: candidatePool.baselineExerciseIds.length,
-          blockerCodes: candidatePool.diagnostics?.blockerCodes,
-          fallbackReasons: effectivePlanningBrief.fallbackReasons,
-          isRegeneration,
-        });
       } catch (error) {
         log.warn('exercise candidate pool unavailable', {
           message: sanitizeErrorMessage((error as Error).message),
           isRegeneration,
+        });
+      }
+    }
+
+    if (
+      deps.config.enableStageOnePlanner &&
+      deps.planner &&
+      effectivePlanningBrief.stagedPlanning.shouldRun &&
+      (apiKey || useVertexAi)
+    ) {
+      try {
+        stageOneArtifact = await deps.planner.plan(providerRequest, context, {
+          apiKey: useVertexAi ? undefined : (apiKey ?? undefined),
+          candidatePool,
+          planningBrief: effectivePlanningBrief,
+          provider,
+          useVertexAi,
+        });
+        log.info('stage-one planner completed', {
+          provider,
+          confidence: stageOneArtifact.confidence,
+          resolvedFocus: stageOneArtifact.resolvedFocus,
+          noveltyTarget: stageOneArtifact.noveltyTarget,
+          rerankHintCount: stageOneArtifact.rerankHints.length,
+          reasons: effectivePlanningBrief.stagedPlanning.reasons,
+        });
+        if (candidatePool) {
+          candidatePool = rerankExerciseCandidatePool(
+            candidatePool,
+            stageOneArtifact,
+          );
+        }
+      } catch (error) {
+        log.warn('stage-one planner unavailable', {
+          provider,
+          message: sanitizeErrorMessage((error as Error).message),
+          reasons: effectivePlanningBrief.stagedPlanning.reasons,
         });
       }
     }
@@ -368,6 +426,8 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
       focusMode: effectivePlanningBrief.focusMode,
       resolvedFocus: effectivePlanningBrief.resolvedFocus,
       regenerationMode: effectivePlanningBrief.regeneration.mode,
+      stagedPlanningMode: effectivePlanningBrief.stagedPlanning.mode,
+      stagedPlanningReasons: effectivePlanningBrief.stagedPlanning.reasons,
       fallbackReasons: effectivePlanningBrief.fallbackReasons,
       hasFeedback: (generationRequest.feedback?.length ?? 0) > 0,
       feedbackCount: generationRequest.feedback?.length ?? 0,
@@ -390,6 +450,7 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
           apiKey: useVertexAi ? undefined : (apiKey ?? undefined),
           candidatePool,
           planningBrief: effectivePlanningBrief,
+          stageOneArtifact,
           provider,
           useVertexAi,
         });

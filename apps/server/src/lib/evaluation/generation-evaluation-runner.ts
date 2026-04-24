@@ -10,12 +10,21 @@ import {
   type ModelGenerationOptions,
   type ModelPromptCapture,
   type ModelRouter,
+  type StageOnePlanner,
+  type StageOnePlanningOptions,
+  type StageOnePlannerArtifact,
 } from '@workout-agent-ce/server-core';
-import { DefaultModelRouter } from '@workout-agent-ce/server-ai';
+import {
+  DefaultModelRouter,
+  DefaultStageOnePlanner,
+} from '@workout-agent-ce/server-ai';
 import {
   generationEvaluationReportSchema,
+  type GenerationEvaluationAverageLatency,
   type GenerationEvaluationExecutionSource,
+  type GenerationEvaluationLatency,
   type GenerationEvaluationProvider,
+  type GenerationEvaluationPlannerSummary,
   type GenerationEvaluationProviderPrompt,
   type GenerationEvaluationReport,
   type GenerationEvaluationReportEntry,
@@ -55,6 +64,7 @@ type HandlerBundle = {
   store: InMemoryGenerationStore;
   hasConfiguredAccess: boolean;
   router: PromptCapturingRouter;
+  planner: PromptCapturingStageOnePlanner;
 };
 
 type ExecutedScenarioResult = {
@@ -62,12 +72,25 @@ type ExecutedScenarioResult = {
   payload: unknown;
   executionSource: GenerationEvaluationExecutionSource;
   stateHasPlan: boolean;
+  latencyMs: GenerationEvaluationLatency;
+  plannerSummary: GenerationEvaluationPlannerSummary;
   providerPrompt?: GenerationEvaluationProviderPrompt;
+};
+
+type PromptCaptureResult = {
+  prompt?: GenerationEvaluationProviderPrompt;
+  durationMs?: number;
+};
+
+type StageOneCaptureResult = {
+  summary: GenerationEvaluationPlannerSummary;
+  durationMs?: number;
 };
 
 class PromptCapturingRouter implements ModelRouter {
   private readonly inner = new DefaultModelRouter();
   private lastPrompt?: GenerationEvaluationProviderPrompt;
+  private lastDurationMs?: number;
 
   async generate(
     request: GenerationRequest,
@@ -75,14 +98,20 @@ class PromptCapturingRouter implements ModelRouter {
     options: ModelGenerationOptions,
   ) {
     this.lastPrompt = undefined;
+    this.lastDurationMs = undefined;
+    const startedAt = Date.now();
 
-    return this.inner.generate(request, context, {
-      ...options,
-      promptRecorder: (capture: ModelPromptCapture) => {
-        this.lastPrompt = capture;
-        options.promptRecorder?.(capture);
-      },
-    });
+    try {
+      return await this.inner.generate(request, context, {
+        ...options,
+        promptRecorder: (capture: ModelPromptCapture) => {
+          this.lastPrompt = capture;
+          options.promptRecorder?.(capture);
+        },
+      });
+    } finally {
+      this.lastDurationMs = Date.now() - startedAt;
+    }
   }
 
   isSupportedProvider(provider: string): boolean {
@@ -93,10 +122,57 @@ class PromptCapturingRouter implements ModelRouter {
     return this.inner.getDefaultProvider();
   }
 
-  consumeLastPrompt(): GenerationEvaluationProviderPrompt | undefined {
+  consumeLastCapture(): PromptCaptureResult {
     const prompt = this.lastPrompt;
+    const durationMs = this.lastDurationMs;
     this.lastPrompt = undefined;
-    return prompt;
+    this.lastDurationMs = undefined;
+    return { prompt, durationMs };
+  }
+}
+
+class PromptCapturingStageOnePlanner implements StageOnePlanner {
+  private readonly inner = new DefaultStageOnePlanner();
+  private lastPrompt?: GenerationEvaluationProviderPrompt;
+  private lastArtifact?: StageOnePlannerArtifact;
+  private lastDurationMs?: number;
+
+  async plan(
+    request: GenerationRequest,
+    context: GenerationContext,
+    options: StageOnePlanningOptions,
+  ) {
+    this.lastPrompt = undefined;
+    this.lastArtifact = undefined;
+    this.lastDurationMs = undefined;
+    const startedAt = Date.now();
+
+    try {
+      const artifact = await this.inner.plan(request, context, {
+        ...options,
+        promptRecorder: (capture: ModelPromptCapture) => {
+          this.lastPrompt = capture;
+          options.promptRecorder?.(capture);
+        },
+      });
+      this.lastArtifact = artifact;
+      return artifact;
+    } finally {
+      this.lastDurationMs = Date.now() - startedAt;
+    }
+  }
+
+  consumeLastCapture(): StageOneCaptureResult {
+    const summary: GenerationEvaluationPlannerSummary = {
+      usedStageOne: Boolean(this.lastArtifact),
+      artifact: this.lastArtifact,
+      stageOnePrompt: this.lastPrompt,
+    };
+    const durationMs = this.lastDurationMs;
+    this.lastPrompt = undefined;
+    this.lastArtifact = undefined;
+    this.lastDurationMs = undefined;
+    return { summary, durationMs };
   }
 }
 
@@ -132,7 +208,10 @@ function createHandlerBundle(
 ): HandlerBundle {
   const store = new InMemoryGenerationStore();
   const router = new PromptCapturingRouter();
+  const planner = new PromptCapturingStageOnePlanner();
   const useVertexAi = process.env.GOOGLE_GENAI_USE_VERTEXAI === 'true';
+  const enableStageOnePlanner =
+    process.env.ENABLE_STAGE_ONE_PLANNER !== 'false';
   const hasGeminiAccess = Boolean(process.env.GEMINI_API_KEY) || useVertexAi;
   const hasConfiguredAccess =
     provider === 'mock'
@@ -146,6 +225,7 @@ function createHandlerBundle(
       auth: new StubAuthProvider(),
       store,
       router,
+      planner,
       config: {
         edition,
         defaultProvider: provider === 'mock' ? 'openai' : provider,
@@ -156,6 +236,7 @@ function createHandlerBundle(
                 openai: process.env.OPENAI_API_KEY,
                 gemini: process.env.GEMINI_API_KEY,
               },
+        enableStageOnePlanner,
         useVertexAi,
         googleCloudProject: process.env.GOOGLE_CLOUD_PROJECT,
         googleCloudLocation: process.env.GOOGLE_CLOUD_LOCATION,
@@ -163,6 +244,7 @@ function createHandlerBundle(
     }),
     store,
     hasConfiguredAccess,
+    planner,
     router,
   };
 }
@@ -241,16 +323,21 @@ async function executeScenarioRequest(params: {
   token: string;
   body: unknown;
 }): Promise<ExecutedScenarioResult> {
-  params.bundle.router.consumeLastPrompt();
+  params.bundle.router.consumeLastCapture();
+  params.bundle.planner.consumeLastCapture();
   const request = new Request('http://localhost/api/workouts/generate', {
     method: 'POST',
     headers: buildHeaders(params.provider, params.token),
     body: JSON.stringify(params.body),
   });
 
+  const requestStartedAt = Date.now();
   const response = await params.bundle.handler(request);
+  const totalRequestMs = Date.now() - requestStartedAt;
   const payload = await response.json();
   const state = await params.bundle.store.getState(params.token);
+  const plannerCapture = params.bundle.planner.consumeLastCapture();
+  const generationCapture = params.bundle.router.consumeLastCapture();
 
   return {
     responseStatus: response.status,
@@ -263,7 +350,13 @@ async function executeScenarioRequest(params: {
       stateHasPlan: Boolean(state.plan),
     }),
     stateHasPlan: Boolean(state.plan),
-    providerPrompt: params.bundle.router.consumeLastPrompt(),
+    latencyMs: {
+      totalRequestMs,
+      stageOnePlannerMs: plannerCapture.durationMs,
+      stageTwoGenerationMs: generationCapture.durationMs,
+    },
+    plannerSummary: plannerCapture.summary,
+    providerPrompt: generationCapture.prompt,
   };
 }
 
@@ -289,12 +382,130 @@ function buildPlanOverview(entry: GenerationEvaluationReportEntry): string {
   return `${entry.plan.focus} - ${entry.plan.durationMinutes} min - ${entry.plan.equipment.join(', ')}`;
 }
 
+function renderPlanDetailsHtml(entry: GenerationEvaluationReportEntry): string {
+  if (!entry.plan) {
+    return '<p class="muted">No plan available for this run.</p>';
+  }
+
+  const equipment =
+    entry.plan.equipment.length > 0 ? entry.plan.equipment : ['Bodyweight'];
+
+  const blockCards = entry.plan.blocks
+    .map(
+      (block) => `
+        <article class="plan-block">
+          <div class="plan-block-header">
+            <div>
+              <h5>${escapeHtml(block.title)}</h5>
+              <p>${escapeHtml(block.focus)}</p>
+            </div>
+            <span class="plan-block-time">${block.durationMinutes} min</span>
+          </div>
+          <ol class="plan-exercise-list">
+            ${block.exercises
+              .map(
+                (exercise) => `
+                  <li class="plan-exercise-item">
+                    <div class="plan-exercise-name">${escapeHtml(exercise.name)}</div>
+                    <div class="plan-exercise-prescription">${escapeHtml(exercise.prescription)}</div>
+                    ${exercise.detail ? `<div class="plan-exercise-detail">${escapeHtml(exercise.detail)}</div>` : ''}
+                  </li>`,
+              )
+              .join('')}
+          </ol>
+        </article>`,
+    )
+    .join('');
+
+  return `
+    <div class="plan-overview-card">
+      <div class="plan-summary-row">
+        <span class="plan-meta-pill"><strong>Focus:</strong> ${escapeHtml(entry.plan.focus)}</span>
+        <span class="plan-meta-pill"><strong>Duration:</strong> ${entry.plan.durationMinutes} min</span>
+        <span class="plan-meta-pill"><strong>Energy:</strong> ${escapeHtml(entry.plan.energy)}</span>
+      </div>
+      <div class="plan-summary-row">
+        <span class="plan-meta-pill"><strong>Equipment:</strong> ${equipment.map(escapeHtml).join(', ')}</span>
+      </div>
+      <p class="plan-summary-text">${escapeHtml(entry.plan.summary)}</p>
+      <div class="plan-block-grid">${blockCards}</div>
+    </div>`;
+}
+
+function renderPlanDetailsMarkdown(
+  entry: GenerationEvaluationReportEntry,
+): string[] {
+  if (!entry.plan) {
+    return ['No plan available for this run.'];
+  }
+
+  const lines = [
+    `Summary: ${entry.plan.summary}`,
+    `Focus: ${entry.plan.focus}`,
+    `Duration: ${entry.plan.durationMinutes} min`,
+    `Energy: ${entry.plan.energy}`,
+    `Equipment: ${(entry.plan.equipment.length > 0 ? entry.plan.equipment : ['Bodyweight']).join(', ')}`,
+    '',
+  ];
+
+  entry.plan.blocks.forEach((block, blockIndex) => {
+    lines.push(
+      `${blockIndex + 1}. ${block.title} (${block.durationMinutes} min, ${block.focus})`,
+    );
+    block.exercises.forEach((exercise) => {
+      lines.push(`- ${exercise.name}`);
+      lines.push(`Prescription: ${exercise.prescription}`);
+      if (exercise.detail) {
+        lines.push(`Detail: ${exercise.detail}`);
+      }
+    });
+    lines.push('');
+  });
+
+  return lines;
+}
+
 function toPercent(value: number, total: number): string {
   if (total === 0) {
     return '0%';
   }
 
   return `${Math.round((value / total) * 100)}%`;
+}
+
+function formatLatencyMs(value?: number): string {
+  if (value === undefined) {
+    return 'n/a';
+  }
+
+  return `${value.toFixed(0)} ms`;
+}
+
+function average(values: number[]): number | undefined {
+  if (values.length === 0) {
+    return undefined;
+  }
+
+  return values.reduce((sum, value) => sum + value, 0) / values.length;
+}
+
+function buildAverageLatency(
+  entries: Pick<GenerationEvaluationReportEntry, 'latencyMs'>[],
+): GenerationEvaluationAverageLatency {
+  return {
+    totalRequestMs:
+      average(entries.map((entry) => entry.latencyMs.totalRequestMs)) ?? 0,
+    stageOnePlannerMs: average(
+      entries
+        .map((entry) => entry.latencyMs.stageOnePlannerMs)
+        .filter((value): value is number => value !== undefined),
+    ),
+    stageTwoGenerationMs: average(
+      entries
+        .map((entry) => entry.latencyMs.stageTwoGenerationMs)
+        .filter((value): value is number => value !== undefined),
+    ),
+  };
 }
 
 function summarizeEntryHardChecks(entry: GenerationEvaluationReportEntry) {
@@ -487,7 +698,8 @@ function renderHtmlReport(
           item.hardFailEntries,
           item.total,
           'danger',
-        ),
+        ) +
+        `<p class="metric-meta">avg total ${escapeHtml(formatLatencyMs(report.summary.averageLatencyByProvider[item.provider]?.totalRequestMs))} · stage 1 ${escapeHtml(formatLatencyMs(report.summary.averageLatencyByProvider[item.provider]?.stageOnePlannerMs))} · stage 2 ${escapeHtml(formatLatencyMs(report.summary.averageLatencyByProvider[item.provider]?.stageTwoGenerationMs))}</p>`,
     )
     .join('');
 
@@ -572,19 +784,14 @@ function renderHtmlReport(
         (item) => item.status === 'fail',
       );
       const checkSummary = summarizeEntryHardChecks(entry);
-      const planDetails = entry.plan
-        ? `<ul class="plan-list">${entry.plan.blocks
-            .map(
-              (block) =>
-                `<li><strong>${escapeHtml(block.title)}</strong> (${block.durationMinutes} min, ${escapeHtml(block.focus)})<br>${block.exercises
-                  .map((exercise) => escapeHtml(exercise.name))
-                  .join(', ')}</li>`,
-            )
-            .join('')}</ul>`
-        : '<p class="muted">No plan available for this run.</p>';
+      const planDetails = renderPlanDetailsHtml(entry);
+      const plannerDetails = entry.plannerSummary.usedStageOne
+        ? `<p><strong>Stage one:</strong> used</p>${entry.plannerSummary.artifact ? `<pre>${escapeHtml(JSON.stringify(entry.plannerSummary.artifact, null, 2))}</pre>` : '<p class="muted">No stage-one artifact captured.</p>'}${entry.plannerSummary.stageOnePrompt ? `<p><strong>Planner Prompt:</strong> ${escapeHtml(entry.plannerSummary.stageOnePrompt.provider)}${entry.plannerSummary.stageOnePrompt.model ? ` · <strong>Model:</strong> ${escapeHtml(entry.plannerSummary.stageOnePrompt.model)}` : ''}</p><pre>${escapeHtml(entry.plannerSummary.stageOnePrompt.content)}</pre>` : '<p class="muted">Stage-one prompt was not captured.</p>'}`
+        : '<p class="muted">Stage one was not used for this run.</p>';
       const promptDetails = entry.providerPrompt
         ? `<p><strong>Provider:</strong> ${escapeHtml(entry.providerPrompt.provider)}${entry.providerPrompt.model ? ` · <strong>Model:</strong> ${escapeHtml(entry.providerPrompt.model)}` : ''}${entry.providerPrompt.schemaVersion ? ` · <strong>Schema:</strong> ${escapeHtml(entry.providerPrompt.schemaVersion)}` : ''}${entry.providerPrompt.isRegeneration ? ' · <strong>Regeneration</strong>' : ''}</p><pre>${escapeHtml(entry.providerPrompt.content)}</pre>`
         : '<p class="muted">Prompt was not captured for this run.</p>';
+      const latencyDetails = `<p><strong>Total:</strong> ${escapeHtml(formatLatencyMs(entry.latencyMs.totalRequestMs))}</p><p><strong>Stage 1:</strong> ${escapeHtml(formatLatencyMs(entry.latencyMs.stageOnePlannerMs))}</p><p><strong>Stage 2:</strong> ${escapeHtml(formatLatencyMs(entry.latencyMs.stageTwoGenerationMs))}</p>`;
       const filterText = [
         entry.scenarioTitle,
         entry.scenarioDescription,
@@ -642,6 +849,14 @@ function renderHtmlReport(
                   )
                   .join('')}
               </ul>
+            </section>
+            <section>
+              <h4>Latency</h4>
+              ${latencyDetails}
+            </section>
+            <section>
+              <h4>Planner Summary</h4>
+              ${plannerDetails}
             </section>
             <section>
               <h4>Provider Prompt</h4>
@@ -714,7 +929,22 @@ function renderHtmlReport(
       .entry-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; padding: 0 20px 20px; }
       .entry-grid section { border-top: 1px solid var(--border); padding-top: 16px; }
       pre { margin: 0; padding: 12px; overflow: auto; background: #0f172a; color: #d9e5ff; border-radius: 12px; font-size: 12px; }
-      .checks, .plan-list, .warnings ul, .failure-list { margin: 0; padding-left: 18px; }
+      .checks, .warnings ul, .failure-list { margin: 0; padding-left: 18px; }
+      .plan-overview-card { display: grid; gap: 12px; }
+      .plan-summary-row { display: flex; flex-wrap: wrap; gap: 8px; }
+      .plan-meta-pill { display: inline-flex; gap: 6px; align-items: center; padding: 6px 10px; border-radius: 999px; background: var(--panel-alt); border: 1px solid var(--border); font-size: 12px; color: var(--text); }
+      .plan-summary-text { margin: 0; color: var(--text); font-size: 14px; line-height: 1.5; }
+      .plan-block-grid { display: grid; gap: 12px; }
+      .plan-block { background: var(--panel-alt); border: 1px solid var(--border); border-radius: 14px; padding: 14px; }
+      .plan-block-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 10px; }
+      .plan-block-header h5 { margin: 0 0 4px; font-size: 15px; }
+      .plan-block-header p { margin: 0; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
+      .plan-block-time { white-space: nowrap; padding: 4px 8px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); font-weight: 700; font-size: 12px; }
+      .plan-exercise-list { margin: 0; padding-left: 20px; display: grid; gap: 10px; }
+      .plan-exercise-item { padding-left: 2px; }
+      .plan-exercise-name { font-weight: 700; color: var(--text); margin-bottom: 2px; }
+      .plan-exercise-prescription { color: var(--text); font-size: 13px; line-height: 1.45; }
+      .plan-exercise-detail { color: var(--muted); font-size: 12px; line-height: 1.45; margin-top: 3px; }
       .failure-list li { display: flex; justify-content: space-between; gap: 12px; padding: 6px 0; }
       .muted { color: var(--muted); }
       .controls-grid, .insights-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
@@ -771,6 +1001,9 @@ function renderHtmlReport(
           <div class="stat"><strong>${toPercent(derived.entriesWithHardFailures.length, report.summary.totalEntries)}</strong><span>Entries with hard failures</span></div>
           <div class="stat"><strong>${report.summary.liveEntries}</strong><span>Live entries</span></div>
           <div class="stat"><strong>${report.summary.mockEntries}</strong><span>Mock-backed entries</span></div>
+          <div class="stat"><strong>${formatLatencyMs(report.summary.averageLatencyMs.totalRequestMs)}</strong><span>Avg total latency</span></div>
+          <div class="stat"><strong>${formatLatencyMs(report.summary.averageLatencyMs.stageOnePlannerMs)}</strong><span>Avg stage 1 latency</span></div>
+          <div class="stat"><strong>${formatLatencyMs(report.summary.averageLatencyMs.stageTwoGenerationMs)}</strong><span>Avg stage 2 latency</span></div>
         </div>
         <h3 style="margin-top: 20px;">Top hard failures</h3>
         <ul class="failure-list">${failureCounts || '<li><strong>none</strong><span>0</span></li>'}</ul>
@@ -926,6 +1159,9 @@ function renderMarkdownReport(
     `- Failed entries: ${report.summary.failedEntries}`,
     `- Live entries: ${report.summary.liveEntries}`,
     `- Mock-backed entries: ${report.summary.mockEntries}`,
+    `- Avg total latency: ${formatLatencyMs(report.summary.averageLatencyMs.totalRequestMs)}`,
+    `- Avg stage 1 latency: ${formatLatencyMs(report.summary.averageLatencyMs.stageOnePlannerMs)}`,
+    `- Avg stage 2 latency: ${formatLatencyMs(report.summary.averageLatencyMs.stageTwoGenerationMs)}`,
     '',
   ];
 
@@ -960,9 +1196,45 @@ function renderMarkdownReport(
     lines.push(
       `- Hard failures: ${failedChecks.length > 0 ? failedChecks.map((item) => item.name).join(', ') : 'none'}`,
     );
+    lines.push(
+      `- Stage one used: ${entry.plannerSummary.usedStageOne ? 'yes' : 'no'}`,
+    );
+    lines.push(
+      `- Total latency: ${formatLatencyMs(entry.latencyMs.totalRequestMs)}`,
+    );
+    lines.push(
+      `- Stage 1 latency: ${formatLatencyMs(entry.latencyMs.stageOnePlannerMs)}`,
+    );
+    lines.push(
+      `- Stage 2 latency: ${formatLatencyMs(entry.latencyMs.stageTwoGenerationMs)}`,
+    );
     lines.push(`- Prompt captured: ${entry.providerPrompt ? 'yes' : 'no'}`);
     if (entry.errorMessage) {
       lines.push(`- Error: ${entry.errorMessage}`);
+    }
+    lines.push('', '#### Plan Details', '');
+    lines.push(...renderPlanDetailsMarkdown(entry));
+    if (entry.plannerSummary.artifact) {
+      lines.push(
+        '',
+        '#### Planner Artifact',
+        '',
+        '```json',
+        JSON.stringify(entry.plannerSummary.artifact, null, 2),
+        '```',
+        '',
+      );
+    }
+    if (entry.plannerSummary.stageOnePrompt) {
+      lines.push(
+        '',
+        '#### Stage-One Prompt',
+        '',
+        '```text',
+        entry.plannerSummary.stageOnePrompt.content,
+        '```',
+        '',
+      );
     }
     if (entry.providerPrompt) {
       lines.push(
@@ -1148,6 +1420,8 @@ export async function runGenerationEvaluation(
             request: scenario.request,
             context: scenario.context,
             baselinePlan: effectiveBaselinePlan,
+            latencyMs: executed.latencyMs,
+            plannerSummary: executed.plannerSummary,
             providerPrompt: executed.providerPrompt,
             hardChecks: runHardChecksForScenario(
               {
@@ -1173,6 +1447,8 @@ export async function runGenerationEvaluation(
             request: scenario.request,
             context: scenario.context,
             baselinePlan: effectiveBaselinePlan,
+            latencyMs: executed.latencyMs,
+            plannerSummary: executed.plannerSummary,
             providerPrompt: executed.providerPrompt,
             hardChecks: runHardChecksForScenario({
               ...scenario,
@@ -1211,6 +1487,19 @@ export async function runGenerationEvaluation(
     },
     {},
   );
+  const averageLatencyMs = buildAverageLatency(entries);
+  const entriesByProvider = entries.reduce<
+    Record<string, GenerationEvaluationReportEntry[]>
+  >((acc, entry) => {
+    (acc[entry.provider] ??= []).push(entry);
+    return acc;
+  }, {});
+  const averageLatencyByProvider = Object.fromEntries(
+    Object.entries(entriesByProvider).map(([provider, providerEntries]) => [
+      provider,
+      buildAverageLatency(providerEntries),
+    ]),
+  ) as Record<string, GenerationEvaluationAverageLatency>;
 
   const report = generationEvaluationReportSchema.parse({
     corpusVersion: workoutGenerationEvaluationCorpus.version,
@@ -1224,6 +1513,8 @@ export async function runGenerationEvaluation(
       mockEntries,
       executionSourceCounts,
       hardFailureCounts,
+      averageLatencyMs,
+      averageLatencyByProvider,
     },
     entries,
   });

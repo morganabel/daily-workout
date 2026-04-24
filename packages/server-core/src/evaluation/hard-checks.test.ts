@@ -8,7 +8,7 @@ import { runHardChecksForScenario, summarizeHardFailures } from './hard-checks';
 describe('runHardChecksForScenario', () => {
   it('passes a straightforward beginner scenario', () => {
     const scenario = workoutGenerationEvaluationScenarios.find(
-      (item) => item.id === 'beginner-bodyweight-easy-15'
+      (item) => item.id === 'beginner-bodyweight-easy-15',
     );
 
     expect(scenario).toBeDefined();
@@ -21,20 +21,20 @@ describe('runHardChecksForScenario', () => {
 
     const results = runHardChecksForScenario(scenario!, plan);
 
-    expect(results.find((item) => item.name === 'schema-validity')?.status).toBe(
-      'pass'
-    );
+    expect(
+      results.find((item) => item.name === 'schema-validity')?.status,
+    ).toBe('pass');
     expect(results.find((item) => item.name === 'duration-fit')?.status).toBe(
-      'pass'
+      'pass',
     );
     expect(results.find((item) => item.name === 'equipment-fit')?.status).toBe(
-      'pass'
+      'pass',
     );
   });
 
   it('fails equipment-fit when unavailable equipment appears in the plan', () => {
     const scenario = workoutGenerationEvaluationScenarios.find(
-      (item) => item.id === 'beginner-bodyweight-easy-15'
+      (item) => item.id === 'beginner-bodyweight-easy-15',
     );
 
     const plan = createTodayPlanMock({
@@ -46,13 +46,69 @@ describe('runHardChecksForScenario', () => {
     const results = runHardChecksForScenario(scenario!, plan);
 
     expect(results.find((item) => item.name === 'equipment-fit')?.status).toBe(
-      'fail'
+      'fail',
+    );
+  });
+
+  it('passes equipment-fit for implicit accessories and normalized band aliases', () => {
+    const scenario = workoutGenerationEvaluationScenarios.find(
+      (item) => item.id === 'pre-race-run-taper',
+    );
+
+    const plan = createTodayPlanMock({
+      focus: 'Mobility & Recovery',
+      durationMinutes: 25,
+      equipment: ['Mat', 'Resistance Band'],
+    });
+
+    const results = runHardChecksForScenario(scenario!, plan);
+
+    expect(results.find((item) => item.name === 'equipment-fit')?.status).toBe(
+      'pass',
+    );
+  });
+
+  it('passes equipment-fit for wall in indoor settings', () => {
+    const scenario = workoutGenerationEvaluationScenarios.find(
+      (item) => item.id === 'notes-quiet-apartment',
+    );
+
+    const plan = createTodayPlanMock({
+      focus: 'Mobility & Recovery',
+      durationMinutes: 20,
+      equipment: ['Wall'],
+    });
+
+    const results = runHardChecksForScenario(scenario!, plan);
+
+    expect(results.find((item) => item.name === 'equipment-fit')?.status).toBe(
+      'pass',
+    );
+  });
+
+  it('fails equipment-fit for wall in outdoor settings', () => {
+    const outdoorScenario = workoutGenerationEvaluationScenarios.find(
+      (item) => item.id === 'beach-vacation-band-and-towel-35',
+    );
+
+    expect(outdoorScenario).toBeDefined();
+
+    const plan = createTodayPlanMock({
+      focus: 'Mobility & Recovery',
+      durationMinutes: 25,
+      equipment: ['Wall'],
+    });
+
+    const results = runHardChecksForScenario(outdoorScenario!, plan);
+
+    expect(results.find((item) => item.name === 'equipment-fit')?.status).toBe(
+      'fail',
     );
   });
 
   it('fails injury-safety when banned exercise terms are present', () => {
     const scenario = workoutGenerationEvaluationScenarios.find(
-      (item) => item.id === 'shoulder-constraint-bodyweight'
+      (item) => item.id === 'shoulder-constraint-bodyweight',
     );
 
     const plan = createTodayPlanMock({
@@ -80,13 +136,13 @@ describe('runHardChecksForScenario', () => {
     const results = runHardChecksForScenario(scenario!, plan);
 
     expect(results.find((item) => item.name === 'injury-safety')?.status).toBe(
-      'fail'
+      'fail',
     );
   });
 
   it('does not fail avoid-list safety when a banned term appears only in the summary', () => {
     const scenario = workoutGenerationEvaluationScenarios.find(
-      (item) => item.id === 'avoid-burpees-conditioning'
+      (item) => item.id === 'avoid-burpees-conditioning',
     );
 
     const plan = createTodayPlanMock({
@@ -115,13 +171,13 @@ describe('runHardChecksForScenario', () => {
     const results = runHardChecksForScenario(scenario!, plan);
 
     expect(
-      results.find((item) => item.name === 'avoid-list-safety')?.status
+      results.find((item) => item.name === 'avoid-list-safety')?.status,
     ).toBe('pass');
   });
 
   it('fails upcoming-event sensitivity when focus matches a disallowed focus', () => {
     const scenario = workoutGenerationEvaluationScenarios.find(
-      (item) => item.id === 'pre-race-run-taper'
+      (item) => item.id === 'pre-race-run-taper',
     );
 
     const plan = createTodayPlanMock({
@@ -133,13 +189,14 @@ describe('runHardChecksForScenario', () => {
     const results = runHardChecksForScenario(scenario!, plan);
 
     expect(
-      results.find((item) => item.name === 'upcoming-event-sensitivity')?.status
+      results.find((item) => item.name === 'upcoming-event-sensitivity')
+        ?.status,
     ).toBe('fail');
   });
 
   it('passes regeneration-difference when the plan materially changes', () => {
     const scenario = workoutGenerationEvaluationScenarios.find(
-      (item) => item.id === 'regen-focus-change-auto-to-lower'
+      (item) => item.id === 'regen-focus-change-auto-to-lower',
     );
 
     const plan = createTodayPlanMock({
@@ -167,7 +224,7 @@ describe('runHardChecksForScenario', () => {
     const results = runHardChecksForScenario(scenario!, plan);
 
     expect(
-      results.find((item) => item.name === 'regeneration-difference')?.status
+      results.find((item) => item.name === 'regeneration-difference')?.status,
     ).toBe('pass');
   });
 });

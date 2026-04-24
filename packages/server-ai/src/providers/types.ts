@@ -2,6 +2,7 @@ import type {
   ExerciseCandidatePool,
   ModelPromptCapture,
   PlanningBrief,
+  StageOnePlannerArtifact,
 } from '@workout-agent-ce/server-core';
 import type {
   GenerationRequest,
@@ -18,6 +19,7 @@ export interface AiProviderOptions {
   apiBaseUrl?: string;
   candidatePool?: ExerciseCandidatePool;
   planningBrief?: PlanningBrief;
+  stageOneArtifact?: StageOnePlannerArtifact;
   // Optional passthrough client for testing/mocking
   client?: unknown;
   /**
@@ -48,6 +50,12 @@ export interface AiProvider {
     context: GenerationContext,
     options: AiProviderOptions,
   ): Promise<GenerationResult>;
+
+  planStageOne(
+    request: GenerationRequest,
+    context: GenerationContext,
+    options: AiProviderOptions,
+  ): Promise<StageOnePlannerArtifact>;
 }
 
 export class AiGenerationError extends Error {

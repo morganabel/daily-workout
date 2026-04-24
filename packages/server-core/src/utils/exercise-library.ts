@@ -9,7 +9,7 @@ import {
   type TodayPlan,
 } from '@workout-agent/shared';
 import type { ExerciseCandidatePool } from '../types/model-router';
-import type { PlanningBrief } from '../types/planning';
+import type { PlanningBrief, StageOnePlannerArtifact } from '../types/planning';
 import type { GenerationRequestWithContext } from './context';
 
 const DEFAULT_CANDIDATE_LIMIT = 128;
@@ -54,7 +54,25 @@ export function buildExerciseCandidatePool({
   return {
     libraryVersion: result.libraryVersion,
     totalEligibleCount: result.totalEligibleCount,
-    candidateExercises: result.exercises.map(({ id, name }) => ({ id, name })),
+    candidateExercises: result.exercises.map(
+      ({
+        id,
+        name,
+        focusTags,
+        movementTags,
+        styleTags,
+        stressorTags,
+        loadLevel,
+      }) => ({
+        id,
+        name,
+        focusTags,
+        movementTags,
+        styleTags,
+        stressorTags,
+        loadLevel,
+      }),
+    ),
     baselineExerciseIds,
     searchText: query.searchText,
     diagnostics: result.diagnostics
@@ -64,6 +82,40 @@ export function buildExerciseCandidatePool({
         }
       : undefined,
     query,
+  };
+}
+
+export function rerankExerciseCandidatePool(
+  candidatePool: ExerciseCandidatePoolSummary,
+  stageOneArtifact: StageOnePlannerArtifact,
+): ExerciseCandidatePoolSummary {
+  const rescored = candidatePool.candidateExercises
+    .map((candidate, index) => ({
+      candidate,
+      index,
+      score: scoreCandidateForStageOne(candidate, stageOneArtifact),
+    }))
+    .sort((left, right) => {
+      if (right.score !== left.score) {
+        return right.score - left.score;
+      }
+
+      return left.index - right.index;
+    });
+
+  const reranked = rescored.map(({ candidate }) => candidate);
+  const isSameOrder = reranked.every(
+    (candidate, index) =>
+      candidate.id === candidatePool.candidateExercises[index]?.id,
+  );
+
+  if (isSameOrder) {
+    return candidatePool;
+  }
+
+  return {
+    ...candidatePool,
+    candidateExercises: reranked,
   };
 }
 
@@ -120,6 +172,116 @@ function normalizeLoadCeiling(
       return 'moderate';
     case 'high':
       return 'heavy';
+    default:
+      return undefined;
+  }
+}
+
+function scoreCandidateForStageOne(
+  candidate: ExerciseCandidatePool['candidateExercises'][number],
+  artifact: StageOnePlannerArtifact,
+): number {
+  let score = 0;
+  const preferredTags = derivePreferredPlannerTags(artifact);
+  const candidateTags = new Set([
+    ...(candidate.focusTags ?? []),
+    ...(candidate.movementTags ?? []),
+  ]);
+  const styleTags = new Set(candidate.styleTags ?? []);
+  const blockedStressors = new Set([
+    ...artifact.avoidStressors.map(normalizePlannerToken),
+    ...artifact.protectStressors.map(normalizePlannerToken),
+  ]);
+
+  for (const tag of preferredTags) {
+    if (candidateTags.has(tag)) {
+      score += 4;
+    }
+  }
+
+  for (const styleBias of artifact.styleBiases) {
+    if (styleTags.has(normalizePlannerToken(styleBias))) {
+      score += 2;
+    }
+  }
+
+  if (artifact.loadBias) {
+    const desiredLoad = normalizePlannerLoadBias(artifact.loadBias);
+    if (candidate.loadLevel === desiredLoad) {
+      score += 1;
+    }
+  }
+
+  for (const stressor of candidate.stressorTags ?? []) {
+    if (blockedStressors.has(stressor)) {
+      score -= 5;
+    }
+  }
+
+  return score;
+}
+
+function derivePreferredPlannerTags(
+  artifact: StageOnePlannerArtifact,
+): Set<string> {
+  const tags = new Set<string>();
+  const combinedText = [
+    artifact.resolvedFocus,
+    artifact.planningIntent,
+    ...artifact.rerankHints,
+    ...artifact.candidateInstructions,
+  ]
+    .join(' ')
+    .toLowerCase();
+
+  if (combinedText.includes('upper body')) {
+    tags.add('upper_body');
+  }
+  if (combinedText.includes('lower body')) {
+    tags.add('lower_body');
+  }
+  if (combinedText.includes('full body')) {
+    tags.add('full_body');
+  }
+  if (combinedText.includes('core')) {
+    tags.add('core');
+  }
+  if (combinedText.includes('push')) {
+    tags.add('push');
+  }
+  if (combinedText.includes('pull')) {
+    tags.add('pull');
+  }
+  if (combinedText.includes('mobility')) {
+    tags.add('mobility');
+  }
+  if (combinedText.includes('recovery')) {
+    tags.add('recovery');
+  }
+  if (combinedText.includes('conditioning')) {
+    tags.add('conditioning');
+  }
+
+  return tags;
+}
+
+function normalizePlannerToken(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, '_');
+}
+
+function normalizePlannerLoadBias(
+  value: StageOnePlannerArtifact['loadBias'],
+): ExerciseCandidatePool['candidateExercises'][number]['loadLevel'] {
+  switch (value) {
+    case 'low':
+      return 'light';
+    case 'high':
+      return 'heavy';
+    case 'moderate':
+      return 'moderate';
     default:
       return undefined;
   }

@@ -1,7 +1,20 @@
-import type { AiProviderName } from '@workout-agent/shared';
+import type {
+  AiProviderName,
+  PlanningLoadCeiling,
+  PlanningStageOneActivation,
+} from '@workout-agent/shared';
+
+export type {
+  PlanningLoadCeiling,
+  PlanningNoveltyTarget,
+  PlanningStageOneActivation,
+  PlanningStageOneConfidence,
+  PlanningStageOneMode,
+  PlanningStageOneReason,
+  StageOnePlannerArtifact,
+} from '@workout-agent/shared';
 
 export type PlanningFocusMode = 'explicit' | 'smart' | 'unset';
-export type PlanningLoadCeiling = 'low' | 'moderate' | 'high' | 'unknown';
 export type PlanningVariationMode =
   | 'none'
   | 'preserve-intent'
@@ -34,6 +47,11 @@ export interface PlanningRegenerationSummary {
   baselineExerciseCount: number;
 }
 
+export interface PlanningUserConstraints {
+  injuries: string[];
+  avoid: string[];
+}
+
 export interface PlanningBrief {
   provider: AiProviderName;
   planningDateLocal?: string;
@@ -47,6 +65,7 @@ export interface PlanningBrief {
   styleBias?: string;
   primaryGoal?: string;
   priorityNotes?: string;
+  userConstraints: PlanningUserConstraints;
   unknowns: string[];
   disallowedStressors: string[];
   recentStressorsToAvoid: string[];
@@ -56,4 +75,5 @@ export interface PlanningBrief {
   fallbackMode: PlanningFallbackMode;
   fallbackReasons: string[];
   regeneration: PlanningRegenerationSummary;
+  stagedPlanning: PlanningStageOneActivation;
 }

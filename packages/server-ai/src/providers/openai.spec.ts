@@ -113,6 +113,21 @@ describe('OpenAIProvider', () => {
     ],
   };
 
+  const mockStageOneArtifact = {
+    mode: 'llm-assisted' as const,
+    confidence: 'high' as const,
+    planningIntent:
+      'Bias toward upper-body pulling while protecting freshness.',
+    resolvedFocus: 'Upper Body',
+    protectStressors: ['lower_body_overload'],
+    avoidStressors: ['lower_body_fatigue'],
+    styleBiases: ['athletic'],
+    loadBias: 'moderate' as const,
+    noveltyTarget: 'medium' as const,
+    rerankHints: ['prefer vertical pulls'],
+    candidateInstructions: ['keep lower-body fatigue minimal'],
+  };
+
   beforeEach(() => {
     jest.clearAllMocks();
     provider = new OpenAIProvider();
@@ -129,6 +144,29 @@ describe('OpenAIProvider', () => {
   });
 
   describe('generate', () => {
+    it('plans stage one with structured planner output', async () => {
+      mockResponsesParse.mockResolvedValue({
+        id: 'resp-stage-one',
+        output_parsed: mockStageOneArtifact,
+      });
+
+      const result = await provider.planStageOne(mockRequest, mockContext, {
+        apiKey: 'sk-test-key',
+        candidatePool,
+      });
+
+      expect(result).toEqual(mockStageOneArtifact);
+      expect(mockResponsesParse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          model: 'gpt-5.4-nano',
+          input: expect.arrayContaining([
+            expect.objectContaining({ role: 'system' }),
+            expect.objectContaining({ role: 'user' }),
+          ]),
+        }),
+      );
+    });
+
     it('should successfully generate a workout plan', async () => {
       mockResponsesParse.mockResolvedValue({
         id: 'resp-abc123',

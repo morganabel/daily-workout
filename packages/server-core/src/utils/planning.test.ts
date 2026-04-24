@@ -2,7 +2,10 @@ import {
   createTodayPlanMock,
   type GenerationContext,
 } from '@workout-agent/shared';
-import { derivePlanningBrief } from './planning';
+import {
+  derivePlanningBrief,
+  determineStageOnePlanningActivation,
+} from './planning';
 
 const createContext = (
   overrides: Partial<GenerationContext> = {},
@@ -58,6 +61,11 @@ describe('derivePlanningBrief', () => {
         durationMinutes: 45,
       }),
     ]);
+    expect(brief.stagedPlanning).toEqual({
+      mode: 'llm-assisted',
+      shouldRun: true,
+      reasons: ['regeneration-feedback'],
+    });
   });
 
   it('records unknown fields instead of inventing missing context', () => {
@@ -84,6 +92,11 @@ describe('derivePlanningBrief', () => {
     );
     expect(brief.availableEquipment).toEqual(['Bodyweight']);
     expect(brief.regeneration.mode).toBe('initial');
+    expect(brief.stagedPlanning).toEqual({
+      mode: 'single-pass',
+      shouldRun: false,
+      reasons: [],
+    });
   });
 
   it('protects a near-term event when smart focus is requested', () => {
@@ -115,6 +128,13 @@ describe('derivePlanningBrief', () => {
       expect.arrayContaining(['lower_body_overload', 'high_impact']),
     );
     expect(brief.loadCeiling).toBe('low');
+    expect(brief.stagedPlanning).toEqual(
+      expect.objectContaining({
+        mode: 'llm-assisted',
+        shouldRun: true,
+        reasons: ['smart-focus'],
+      }),
+    );
   });
 
   it('shifts smart focus away from repeated recent overload', () => {
@@ -280,5 +300,64 @@ describe('derivePlanningBrief', () => {
     expect(brief.recentStressorsToAvoid).not.toContain('lower_body');
     expect(brief.disallowedStressors).not.toContain('lower_body_fatigue');
     expect(brief.resolvedFocus).toBe('Full Body');
+  });
+});
+
+describe('determineStageOnePlanningActivation', () => {
+  it('skips stage one for low-ambiguity explicit requests', () => {
+    expect(
+      determineStageOnePlanningActivation({
+        request: {
+          focus: 'Upper Body',
+          timeMinutes: 30,
+        },
+        context: createContext(),
+        planningBrief: {
+          focusMode: 'explicit',
+          eventProtection: undefined,
+          recentStressorsToAvoid: [],
+          regeneration: {
+            isRegeneration: false,
+            mode: 'initial',
+            feedback: [],
+            baselineExerciseCount: 0,
+          },
+        },
+      }),
+    ).toEqual({
+      mode: 'single-pass',
+      shouldRun: false,
+      reasons: [],
+    });
+  });
+
+  it('activates stage one for dense notes even with explicit focus', () => {
+    expect(
+      determineStageOnePlanningActivation({
+        request: {
+          focus: 'Upper Body',
+          notes:
+            'Keep it shoulder-friendly, bias unilateral work, avoid long rest, and make it feel athletic rather than bodybuilding because I am also practicing climbing tomorrow morning.',
+        },
+        context: createContext(),
+        planningBrief: {
+          focusMode: 'explicit',
+          eventProtection: undefined,
+          recentStressorsToAvoid: [],
+          regeneration: {
+            isRegeneration: false,
+            mode: 'initial',
+            feedback: [],
+            baselineExerciseCount: 0,
+          },
+          priorityNotes:
+            'Keep it shoulder-friendly, bias unilateral work, avoid long rest, and make it feel athletic rather than bodybuilding because I am also practicing climbing tomorrow morning.',
+        },
+      }),
+    ).toEqual({
+      mode: 'llm-assisted',
+      shouldRun: true,
+      reasons: ['dense-notes'],
+    });
   });
 });

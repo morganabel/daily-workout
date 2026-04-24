@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   Pressable,
   ScrollView,
@@ -205,13 +206,37 @@ const ActivePlanCard = ({
   onStart,
   onPreview,
   onCustomize,
+  isPending,
+  regenerationError,
 }: {
   plan: TodayPlan;
   onStart: () => void;
   onPreview: () => void;
   onCustomize: () => void;
+  isPending: boolean;
+  regenerationError?: string | null;
 }) => (
   <Card style={styles.activePlanCard}>
+    {isPending ? (
+      <View
+        style={styles.activePlanUpdatingRow}
+        accessibilityRole="progressbar"
+        accessibilityLabel="Updating workout"
+      >
+        <ActivityIndicator color={palette.primary} size="small" />
+        <Text style={styles.activePlanUpdatingText}>Updating your workout…</Text>
+      </View>
+    ) : null}
+    {regenerationError && !isPending ? (
+      <View style={styles.activePlanErrorBanner} accessibilityRole="alert">
+        <Ionicons
+          name="alert-circle-outline"
+          size={18}
+          color={palette.destructive}
+        />
+        <Text style={styles.activePlanErrorText}>{regenerationError}</Text>
+      </View>
+    ) : null}
     <View style={styles.activePlanHeader}>
       <Text style={styles.activePlanLabel}>READY TO GO</Text>
     </View>
@@ -224,6 +249,7 @@ const ActivePlanCard = ({
       <Button
         label="Start Workout"
         onPress={onStart}
+        disabled={isPending}
         icon={<Ionicons name="play" size={20} color={palette.textInverse} />}
       />
       <View style={styles.activePlanSecondaryRow}>
@@ -231,12 +257,14 @@ const ActivePlanCard = ({
           label="Preview"
           onPress={onPreview}
           variant="outline"
+          disabled={isPending}
           style={styles.activePlanSecondaryButton}
         />
         <Button
-          label="Customize"
+          label={isPending ? 'Updating…' : 'Customize'}
           onPress={onCustomize}
           variant="outline"
+          disabled={isPending}
           style={styles.activePlanSecondaryButton}
         />
       </View>
@@ -264,6 +292,9 @@ export const HomeScreen = () => {
   const [showCustomizeSheet, setShowCustomizeSheet] = useState(false);
   const [customizeForRegeneration, setCustomizeForRegeneration] = useState(false);
   const [showProfileSetup, setShowProfileSetup] = useState(false);
+  const [pendingPlanSnapshot, setPendingPlanSnapshot] = useState<TodayPlan | null>(
+    null,
+  );
 
   // Load user profile on mount
   useFocusEffect(
@@ -311,6 +342,7 @@ export const HomeScreen = () => {
     if (customizeForRegeneration && plan) {
       // Regeneration mode - generate a new workout
       setShowCustomizeSheet(false);
+      setPendingPlanSnapshot(plan);
       setGenerating(true);
       setGenerationStatus({ state: 'pending', submittedAt: new Date().toISOString() });
 
@@ -328,6 +360,7 @@ export const HomeScreen = () => {
         Alert.alert('Error', apiError.message || 'Failed to regenerate workout');
       } finally {
         setGenerating(false);
+        setPendingPlanSnapshot(null);
         setCustomizeForRegeneration(false);
       }
     } else {
@@ -349,12 +382,20 @@ export const HomeScreen = () => {
   };
 
   const handleCustomize = () => {
+    if (generationStatus.state === 'error') {
+      setGenerationStatus({ state: 'idle', submittedAt: null });
+    }
     setCustomizeForRegeneration(true);
     setShowCustomizeSheet(true);
   };
 
-  const hasActivePlan = status === 'ready' && plan;
+  const displayPlan = plan ?? (generating ? pendingPlanSnapshot : null);
+  const hasActivePlan = Boolean(displayPlan);
   const isPending = generating || generationStatus.state === 'pending';
+  const regenerationError =
+    generationStatus.state === 'error' && generationStatus.message
+      ? generationStatus.message
+      : null;
 
   return (
     <View style={styles.screen}>
@@ -370,12 +411,14 @@ export const HomeScreen = () => {
           <SetupProfileCard onPress={() => navigation.navigate('Settings')} />
         )}
 
-        {hasActivePlan ? (
+        {hasActivePlan && displayPlan ? (
           <ActivePlanCard
-            plan={plan}
-            onStart={() => navigation.navigate('ActiveWorkout', { plan })}
+            plan={displayPlan}
+            onStart={() => navigation.navigate('ActiveWorkout', { plan: displayPlan })}
             onPreview={handlePreview}
             onCustomize={handleCustomize}
+            isPending={isPending}
+            regenerationError={regenerationError}
           />
         ) : (
           <>
@@ -641,6 +684,41 @@ const styles = StyleSheet.create({
   activePlanCard: {
     padding: 24,
     gap: 12,
+  },
+  activePlanUpdatingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    backgroundColor: palette.cardSecondary,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: palette.border,
+  },
+  activePlanUpdatingText: {
+    flex: 1,
+    fontFamily: typography.fontFamilyBold,
+    fontSize: 14,
+    color: palette.textPrimary,
+  },
+  activePlanErrorBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    backgroundColor: palette.destructiveBg,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: palette.destructive,
+  },
+  activePlanErrorText: {
+    flex: 1,
+    fontFamily: typography.fontFamily,
+    fontSize: 13,
+    color: palette.destructive,
+    lineHeight: 18,
   },
   activePlanHeader: {
     flexDirection: 'row',

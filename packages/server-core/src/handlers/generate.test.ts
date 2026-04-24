@@ -16,6 +16,7 @@ import type {
   GenerationState,
   MeteringSink,
   ModelRouter,
+  StageOnePlanner,
   UsagePolicy,
 } from '../types';
 
@@ -93,6 +94,24 @@ function createAuthMock(
   };
 }
 
+function createStageOnePlannerMock(): jest.Mocked<StageOnePlanner> {
+  return {
+    plan: jest.fn().mockResolvedValue({
+      mode: 'llm-assisted',
+      confidence: 'high',
+      planningIntent: 'Bias toward upper-body work while protecting recovery.',
+      resolvedFocus: 'Upper Body',
+      protectStressors: ['lower_body_overload'],
+      avoidStressors: ['lower_body_fatigue'],
+      styleBiases: ['athletic'],
+      loadBias: 'moderate',
+      noveltyTarget: 'medium',
+      rerankHints: ['prefer pulling and core accessories'],
+      candidateInstructions: ['keep lower-body fatigue minimal'],
+    }),
+  };
+}
+
 function createPolicyMock(allowed = true): jest.Mocked<UsagePolicy> {
   return {
     canGenerate: jest
@@ -116,15 +135,18 @@ function createHandler(
     auth?: jest.Mocked<AuthProvider>;
     store?: jest.Mocked<GenerationStore>;
     router?: jest.Mocked<ModelRouter>;
+    planner?: jest.Mocked<StageOnePlanner>;
     policy?: jest.Mocked<UsagePolicy>;
     metering?: jest.Mocked<MeteringSink>;
     exerciseLibrary?: ExerciseLibrary;
+    loadExerciseLibrary?: jest.Mock<Promise<ExerciseLibrary | undefined>>;
     config?: Parameters<typeof createGenerateHandler>[0]['config'];
   } = {},
 ) {
   const auth = overrides.auth ?? createAuthMock();
   const store = overrides.store ?? createStoreMock();
   const router = overrides.router ?? createRouterMock();
+  const planner = overrides.planner;
   const policy = overrides.policy;
   const metering = overrides.metering;
 
@@ -132,9 +154,11 @@ function createHandler(
     auth,
     store,
     router,
+    planner,
     policy,
     metering,
     exerciseLibrary: overrides.exerciseLibrary,
+    loadExerciseLibrary: overrides.loadExerciseLibrary,
     config: {
       edition: 'CE',
       defaultProvider: 'openai',
@@ -147,6 +171,7 @@ function createHandler(
     auth,
     store,
     router,
+    planner,
     policy,
     metering,
   };
@@ -562,13 +587,88 @@ describe('createGenerateHandler', () => {
       expect.anything(),
       expect.objectContaining({
         candidatePool: expect.objectContaining({
-          candidateExercises: [{ id: 'fedb:pushups', name: 'Pushups' }],
+          candidateExercises: [
+            expect.objectContaining({ id: 'fedb:pushups', name: 'Pushups' }),
+          ],
           searchText: expect.any(String),
         }),
       }),
     );
     expect(payload.focus).toBeDefined();
     expect(payload.candidateExercises).toBeUndefined();
+  });
+
+  it('loads the exercise library lazily for AI generation when a loader is provided', async () => {
+    const router = createRouterMock(
+      createTodayPlanMock({ id: 'lazy-candidate-plan' }),
+    );
+    const exerciseLibrary = createExerciseLibrary();
+    const loadExerciseLibrary = jest
+      .fn<Promise<ExerciseLibrary | undefined>, []>()
+      .mockResolvedValue(exerciseLibrary);
+    const { handler } = createHandler({ router, loadExerciseLibrary });
+
+    const response = await handler(createPlanningRequest());
+
+    expect(response.status).toBe(200);
+    expect(loadExerciseLibrary).toHaveBeenCalledTimes(1);
+    expect(exerciseLibrary.listEligibleExercises).toHaveBeenCalledTimes(1);
+    expect(router.generate).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      expect.objectContaining({
+        candidatePool: expect.objectContaining({
+          candidateExercises: [
+            expect.objectContaining({ id: 'fedb:pushups', name: 'Pushups' }),
+          ],
+        }),
+      }),
+    );
+  });
+
+  it('continues generation when lazy exercise-library loading fails', async () => {
+    const router = createRouterMock(
+      createTodayPlanMock({ id: 'lazy-loader-fallback-plan' }),
+    );
+    const loadExerciseLibrary = jest
+      .fn<Promise<ExerciseLibrary | undefined>, []>()
+      .mockRejectedValue(new Error('sqlite bindings unavailable'));
+    const { handler } = createHandler({ router, loadExerciseLibrary });
+
+    const response = await handler(createPlanningRequest());
+
+    expect(response.status).toBe(200);
+    expect(loadExerciseLibrary).toHaveBeenCalledTimes(1);
+    expect(router.generate).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      expect.objectContaining({ candidatePool: undefined }),
+    );
+
+    const loggedWarnings = warnSpy.mock.calls.map((call) => String(call[0]));
+    expect(loggedWarnings.join(' ')).toContain(
+      'exercise candidate pool unavailable',
+    );
+    expect(loggedWarnings.join(' ')).toContain('sqlite bindings unavailable');
+  });
+
+  it('does not lazy-load the exercise library for CE mock fallback requests', async () => {
+    const loadExerciseLibrary = jest
+      .fn<Promise<ExerciseLibrary | undefined>, []>()
+      .mockResolvedValue(createExerciseLibrary());
+    const { handler, router } = createHandler({ loadExerciseLibrary });
+
+    const response = await handler(
+      createRequest({
+        timeMinutes: 20,
+        focus: 'Smart',
+        energy: 'easy',
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(router.generate).not.toHaveBeenCalled();
+    expect(loadExerciseLibrary).not.toHaveBeenCalled();
   });
 
   it('records fallback reasons internally when planner-safe candidates are unavailable', async () => {
@@ -691,6 +791,367 @@ describe('createGenerateHandler', () => {
         },
       }),
       expect.anything(),
+    );
+  });
+
+  it('passes staged-planning activation metadata for ambiguous smart requests', async () => {
+    const router = createRouterMock();
+    const { handler } = createHandler({ router });
+
+    const response = await handler(
+      createPlanningRequest({
+        focus: 'Smart',
+        planningDateLocal: '2026-04-15',
+        notes:
+          'Keep it athletic, avoid grindy overhead work, and make the session fit around a hard climbing session tomorrow morning.',
+        upcomingEvents: [
+          {
+            kind: 'sport',
+            title: 'Climbing Session',
+            localDate: '2026-04-16',
+            intensity: 'high',
+          },
+        ],
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(router.generate).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      expect.objectContaining({
+        planningBrief: expect.objectContaining({
+          stagedPlanning: expect.objectContaining({
+            mode: 'llm-assisted',
+            shouldRun: true,
+            reasons: expect.arrayContaining(['smart-focus']),
+          }),
+        }),
+      }),
+    );
+  });
+
+  it('runs the stage-one planner when enabled for ambiguous requests and passes the artifact to generation', async () => {
+    const router = createRouterMock();
+    const planner = createStageOnePlannerMock();
+    const { handler } = createHandler({
+      router,
+      planner,
+      config: {
+        edition: 'CE',
+        defaultProvider: 'openai',
+        enableStageOnePlanner: true,
+      },
+    });
+
+    const response = await handler(
+      createPlanningRequest({
+        focus: 'Smart',
+        notes:
+          'Keep it shoulder-friendly and make it fit around a lower-body race effort tomorrow.',
+        upcomingEvents: [
+          {
+            kind: 'run',
+            title: 'Tune-Up Race',
+            localDate: '2026-04-16',
+            intensity: 'high',
+          },
+        ],
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(planner.plan).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      expect.objectContaining({
+        provider: 'openai',
+        planningBrief: expect.objectContaining({
+          stagedPlanning: expect.objectContaining({ shouldRun: true }),
+        }),
+      }),
+    );
+    expect(router.generate).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      expect.objectContaining({
+        stageOneArtifact: expect.objectContaining({
+          mode: 'llm-assisted',
+          resolvedFocus: 'Upper Body',
+        }),
+      }),
+    );
+  });
+
+  it('falls back to single-pass generation when the stage-one planner feature flag is disabled', async () => {
+    const router = createRouterMock();
+    const planner = createStageOnePlannerMock();
+    const { handler } = createHandler({
+      router,
+      planner,
+      config: {
+        edition: 'CE',
+        defaultProvider: 'openai',
+        enableStageOnePlanner: false,
+      },
+    });
+
+    const response = await handler(
+      createPlanningRequest({
+        focus: 'Smart',
+        notes:
+          'Keep it athletic, avoid heavy leg fatigue, and make it fit around a hard climbing session tomorrow morning.',
+        upcomingEvents: [
+          {
+            kind: 'sport',
+            title: 'Climbing Session',
+            localDate: '2026-04-16',
+            intensity: 'high',
+          },
+        ],
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(planner.plan).not.toHaveBeenCalled();
+    expect(router.generate).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      expect.objectContaining({
+        stageOneArtifact: undefined,
+        planningBrief: expect.objectContaining({
+          stagedPlanning: expect.objectContaining({
+            shouldRun: true,
+            reasons: expect.arrayContaining(['smart-focus']),
+          }),
+        }),
+      }),
+    );
+  });
+
+  it('passes the stage-one artifact through stateful OpenAI regeneration when provenance matches', async () => {
+    const router = createRouterMock();
+    const planner = createStageOnePlannerMock();
+    const baselineWorkout = createTodayPlanMock({
+      responseId: 'resp-openai',
+      generationProvenance: {
+        provider: 'openai',
+        responseId: 'resp-openai',
+      },
+    });
+    const { handler } = createHandler({
+      router,
+      planner,
+      config: {
+        edition: 'CE',
+        defaultProvider: 'openai',
+        enableStageOnePlanner: true,
+      },
+    });
+
+    const response = await handler(
+      createPlanningRequest({
+        previousResponseId: 'resp-openai',
+        baselineWorkout,
+        feedback: ['different-exercises'],
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(planner.plan).toHaveBeenCalledWith(
+      expect.objectContaining({
+        previousResponseId: 'resp-openai',
+        baselineWorkout,
+      }),
+      expect.anything(),
+      expect.objectContaining({
+        provider: 'openai',
+        planningBrief: expect.objectContaining({
+          regeneration: expect.objectContaining({ mode: 'stateful' }),
+        }),
+      }),
+    );
+    expect(router.generate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        previousResponseId: 'resp-openai',
+        baselineWorkout,
+      }),
+      expect.anything(),
+      expect.objectContaining({
+        provider: 'openai',
+        stageOneArtifact: expect.objectContaining({
+          mode: 'llm-assisted',
+          noveltyTarget: 'medium',
+        }),
+        planningBrief: expect.objectContaining({
+          regeneration: expect.objectContaining({ mode: 'stateful' }),
+        }),
+      }),
+    );
+  });
+
+  it('passes the stage-one artifact through stateless Gemini regeneration when provider continuity is unavailable', async () => {
+    const router = createRouterMock();
+    const planner = createStageOnePlannerMock();
+    const baselineWorkout = createTodayPlanMock({
+      responseId: 'resp-openai',
+      generationProvenance: {
+        provider: 'openai',
+        responseId: 'resp-openai',
+      },
+    });
+    const { handler } = createHandler({
+      router,
+      planner,
+      config: {
+        edition: 'CE',
+        defaultProvider: 'gemini',
+        enableStageOnePlanner: true,
+      },
+    });
+
+    const response = await handler(
+      createPlanningRequest(
+        {
+          previousResponseId: 'resp-openai',
+          baselineWorkout,
+          feedback: ['different-exercises'],
+        },
+        {
+          'x-ai-provider': 'gemini',
+          'x-gemini-key': 'gemini-key',
+          'x-openai-key': '',
+        },
+      ),
+    );
+
+    expect(response.status).toBe(200);
+    expect(planner.plan).toHaveBeenCalledWith(
+      expect.objectContaining({
+        previousResponseId: undefined,
+        baselineWorkout,
+      }),
+      expect.anything(),
+      expect.objectContaining({
+        provider: 'gemini',
+        planningBrief: expect.objectContaining({
+          regeneration: expect.objectContaining({ mode: 'stateless' }),
+        }),
+      }),
+    );
+    expect(router.generate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        previousResponseId: undefined,
+        baselineWorkout,
+      }),
+      expect.anything(),
+      expect.objectContaining({
+        provider: 'gemini',
+        stageOneArtifact: expect.objectContaining({
+          mode: 'llm-assisted',
+          noveltyTarget: 'medium',
+        }),
+        planningBrief: expect.objectContaining({
+          regeneration: expect.objectContaining({ mode: 'stateless' }),
+        }),
+      }),
+    );
+  });
+
+  it('reranks the candidate pool using the stage-one planner artifact before final generation', async () => {
+    const router = createRouterMock();
+    const planner = createStageOnePlannerMock();
+    const exerciseLibrary = createExerciseLibrary();
+    exerciseLibrary.listEligibleExercises = jest.fn(() => ({
+      libraryVersion: 'test-library',
+      totalEligibleCount: 2,
+      exercises: [
+        {
+          id: 'fedb:squat',
+          slug: 'bodyweight-squat',
+          name: 'Bodyweight Squat',
+          aliases: ['squat'],
+          description: 'desc',
+          instructionSteps: ['step'],
+          requiredEquipment: ['bodyweight'],
+          optionalEquipment: [],
+          focusTags: ['lower_body'],
+          movementTags: ['squat'],
+          styleTags: ['strength'],
+          stressorTags: ['lower_body_fatigue'],
+          contraindicationTags: [],
+          avoidTags: [],
+          impactLevel: 'low',
+          noiseLevel: 'quiet',
+          spaceFootprint: 'small',
+          travelFriendly: true,
+          floorRequired: false,
+          experienceLevelMin: 'beginner',
+          loadLevel: 'moderate',
+          allowedRoles: ['main'],
+          metadataCompleteness: 'planner-ready',
+          sortKey: 10,
+          sourceRefs: [],
+        },
+        {
+          id: 'fedb:pushups',
+          slug: 'pushups',
+          name: 'Pushups',
+          aliases: ['push-up'],
+          description: 'desc',
+          instructionSteps: ['step'],
+          requiredEquipment: ['bodyweight'],
+          optionalEquipment: [],
+          focusTags: ['upper_body'],
+          movementTags: ['push'],
+          styleTags: ['strength'],
+          stressorTags: [],
+          contraindicationTags: [],
+          avoidTags: [],
+          impactLevel: 'low',
+          noiseLevel: 'quiet',
+          spaceFootprint: 'small',
+          travelFriendly: true,
+          floorRequired: true,
+          experienceLevelMin: 'beginner',
+          loadLevel: 'moderate',
+          allowedRoles: ['main'],
+          metadataCompleteness: 'planner-ready',
+          sortKey: 11,
+          sourceRefs: [],
+        },
+      ],
+    }));
+    const { handler } = createHandler({
+      router,
+      planner,
+      exerciseLibrary,
+      config: {
+        edition: 'CE',
+        defaultProvider: 'openai',
+        enableStageOnePlanner: true,
+      },
+    });
+
+    const response = await handler(
+      createPlanningRequest({
+        focus: 'Smart',
+        notes: 'Keep it upper-body focused and athletic.',
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(router.generate).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      expect.objectContaining({
+        candidatePool: expect.objectContaining({
+          candidateExercises: [
+            expect.objectContaining({ id: 'fedb:pushups' }),
+            expect.objectContaining({ id: 'fedb:squat' }),
+          ],
+        }),
+      }),
     );
   });
 

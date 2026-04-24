@@ -90,6 +90,21 @@ describe('GeminiProvider', () => {
     ],
   };
 
+  const mockStageOneArtifact = {
+    mode: 'llm-assisted' as const,
+    confidence: 'high' as const,
+    planningIntent:
+      'Bias toward upper-body pushing while protecting freshness.',
+    resolvedFocus: 'Upper Body',
+    protectStressors: ['lower_body_overload'],
+    avoidStressors: ['lower_body_fatigue'],
+    styleBiases: ['athletic'],
+    loadBias: 'moderate' as const,
+    noveltyTarget: 'medium' as const,
+    rerankHints: ['prefer pressing movements'],
+    candidateInstructions: ['keep lower-body fatigue minimal'],
+  };
+
   beforeEach(() => {
     jest.clearAllMocks();
     provider = new GeminiProvider();
@@ -130,6 +145,39 @@ describe('GeminiProvider', () => {
   });
 
   describe('generate', () => {
+    it('plans stage one with structured planner output', async () => {
+      mockGenerateContent.mockResolvedValue({
+        text: JSON.stringify(mockStageOneArtifact),
+      });
+
+      const result = await provider.planStageOne(mockRequest, mockContext, {
+        apiKey: 'test-api-key',
+        candidatePool,
+      });
+
+      expect(result).toEqual(mockStageOneArtifact);
+      expect(mockGenerateContent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          model: 'gemini-3.1-flash-lite-preview',
+          contents: expect.any(String),
+        }),
+      );
+    });
+
+    it('normalizes stage-one planner output when Gemini omits the mode field', async () => {
+      const { mode: _mode, ...artifactWithoutMode } = mockStageOneArtifact;
+      mockGenerateContent.mockResolvedValue({
+        text: JSON.stringify(artifactWithoutMode),
+      });
+
+      const result = await provider.planStageOne(mockRequest, mockContext, {
+        apiKey: 'test-api-key',
+      });
+
+      expect(result.mode).toBe('llm-assisted');
+      expect(result.resolvedFocus).toBe('Upper Body');
+    });
+
     it('should successfully generate a workout plan', async () => {
       mockGenerateContent.mockResolvedValue({
         text: JSON.stringify(mockLlmPlan),

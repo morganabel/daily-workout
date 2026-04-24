@@ -18,15 +18,26 @@ export type {
   ModelGenerationOptions,
 } from './model-router';
 export type {
+  StageOnePlanner,
+  StageOnePlanningOptions,
+} from './stage-one-planner';
+export type {
   PlanningBrief,
   PlanningBlockIntent,
   PlanningEventProtection,
   PlanningFallbackMode,
   PlanningFocusMode,
   PlanningLoadCeiling,
+  PlanningNoveltyTarget,
   PlanningRegenerationMode,
   PlanningRegenerationSummary,
+  PlanningStageOneActivation,
+  PlanningStageOneConfidence,
+  PlanningStageOneMode,
+  PlanningStageOneReason,
+  PlanningUserConstraints,
   PlanningVariationMode,
+  StageOnePlannerArtifact,
 } from './planning';
 export type { UsagePolicy, PolicyResult, Entitlements } from './policy';
 export type { MeteringSink, UsageEvent } from './metering';

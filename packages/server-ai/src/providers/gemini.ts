@@ -5,12 +5,17 @@ import {
   type GenerationRequest,
   type GenerationContext,
 } from '@workout-agent/shared';
-import { createLogger } from '@workout-agent-ce/server-core';
+import {
+  createLogger,
+  type StageOnePlannerArtifact,
+} from '@workout-agent-ce/server-core';
 import type { AiProvider, AiProviderOptions, GenerationResult } from './types';
 import { AiGenerationError } from './types';
 import {
   SYSTEM_PROMPT,
+  STAGE_ONE_PLANNER_SYSTEM_PROMPT,
   buildInitialGenerationPromptPayload,
+  buildStageOnePlannerRequestPayload,
   buildRegenerationMessage,
 } from './prompts';
 import {
@@ -18,8 +23,14 @@ import {
   getDefaultSchemaVersion,
   getSchemaForVersion,
 } from '../llm-transformer';
+import {
+  parseStageOnePlannerArtifact,
+  stageOnePlannerArtifactSchema,
+} from './stage-one-schema';
 
 const DEFAULT_MODEL = process.env.GEMINI_MODEL ?? 'gemini-3-flash-preview';
+const DEFAULT_PLANNER_MODEL =
+  process.env.GEMINI_PLANNER_MODEL ?? 'gemini-3.1-flash-lite-preview';
 const DEFAULT_API_BASE = process.env.GEMINI_API_BASE;
 const getVertexEnvConfig = () => ({
   enabled: process.env.GOOGLE_GENAI_USE_VERTEXAI === 'true',
@@ -29,6 +40,101 @@ const getVertexEnvConfig = () => ({
 
 export class GeminiProvider implements AiProvider {
   private readonly log = createLogger({ route: 'ai.gemini' });
+
+  async planStageOne(
+    request: GenerationRequest,
+    _context: GenerationContext,
+    options: AiProviderOptions,
+  ): Promise<StageOnePlannerArtifact> {
+    const { log } = this;
+    const vertexEnv = getVertexEnvConfig();
+    const useVertex =
+      options.useVertexAi ??
+      Boolean(
+        !options.apiKey &&
+        vertexEnv.enabled &&
+        vertexEnv.projectId &&
+        vertexEnv.location,
+      );
+
+    const clientConfig: GoogleGenAIOptions = {};
+
+    if (useVertex) {
+      clientConfig.vertexai = true;
+      clientConfig.project = vertexEnv.projectId;
+      clientConfig.location = vertexEnv.location;
+    } else {
+      if (!options.apiKey) {
+        throw new AiGenerationError('Missing API key', 'NO_API_KEY');
+      }
+      clientConfig.apiKey = options.apiKey;
+      const baseUrl = options.apiBaseUrl ?? DEFAULT_API_BASE;
+      if (baseUrl) {
+        clientConfig.httpOptions = {
+          ...(clientConfig.httpOptions ?? {}),
+          baseUrl,
+        };
+      }
+    }
+
+    const genAI = new GoogleGenAI(clientConfig);
+    const model = options.model ?? DEFAULT_PLANNER_MODEL;
+    const prompt = `${STAGE_ONE_PLANNER_SYSTEM_PROMPT}\n\n${JSON.stringify(
+      buildStageOnePlannerRequestPayload(
+        request,
+        options.planningBrief,
+        options.candidatePool,
+      ),
+    )}`;
+
+    options.promptRecorder?.({
+      provider: 'gemini',
+      model,
+      isRegeneration: Boolean(
+        request.previousResponseId || request.baselineWorkout,
+      ),
+      phase: 'stage-one-planner',
+      content: prompt,
+    });
+
+    try {
+      const result = await genAI.models.generateContent({
+        model,
+        contents: prompt,
+        config: {
+          responseMimeType: 'application/json',
+          responseSchema: z.toJSONSchema(stageOnePlannerArtifactSchema),
+        },
+      });
+      const text = (result.text ?? '').trim();
+      if (!text) {
+        throw new Error('Empty response from Gemini');
+      }
+
+      const parsed = JSON.parse(text);
+      const artifact = parseStageOnePlannerArtifact(parsed);
+
+      log.info('stage-one planner completed', {
+        provider: 'gemini',
+        model,
+        useVertexAi: useVertex,
+      });
+
+      return artifact;
+    } catch (error) {
+      const originalMessage =
+        error instanceof Error ? error.message : String(error);
+      const status =
+        typeof (error as { status?: number }).status === 'number'
+          ? (error as { status?: number }).status
+          : undefined;
+      throw new AiGenerationError(
+        `Provider request failed${status ? ` (${status})` : ''}: ${originalMessage}`,
+        'REQUEST_FAILED',
+        status,
+      );
+    }
+  }
 
   async generate(
     request: GenerationRequest,
@@ -91,6 +197,7 @@ export class GeminiProvider implements AiProvider {
         request.feedback,
         options.candidatePool,
         options.planningBrief,
+        options.stageOneArtifact,
       );
     } else {
       prompt = `${SYSTEM_PROMPT}\n\n${JSON.stringify(
@@ -99,6 +206,7 @@ export class GeminiProvider implements AiProvider {
           context,
           options.planningBrief,
           options.candidatePool,
+          options.stageOneArtifact,
         ),
       )}`;
     }
@@ -108,6 +216,7 @@ export class GeminiProvider implements AiProvider {
       model,
       schemaVersion,
       isRegeneration,
+      phase: 'stage-two-generation',
       content: prompt,
     });
 

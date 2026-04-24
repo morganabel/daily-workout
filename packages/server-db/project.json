@@ -1,0 +1,16 @@
+{
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "name": "server-db",
+  "sourceRoot": "packages/server-db/src",
+  "projectType": "library",
+  "targets": {
+    "test": {
+      "executor": "nx:run-commands",
+      "dependsOn": ["^build"],
+      "options": {
+        "cwd": "packages/server-db",
+        "command": "jest --passWithNoTests"
+      }
+    }
+  }
+}

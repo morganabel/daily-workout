@@ -5,6 +5,10 @@ import {
   generationRequestSchema,
   todayPlanSchema,
 } from './workouts';
+import {
+  stageOnePlannerArtifactSchema,
+  type StageOnePlannerArtifact,
+} from './staged-planning';
 
 export const MIN_GENERATION_EVALUATION_SCENARIOS = 50;
 
@@ -284,11 +288,49 @@ export const generationEvaluationProviderPromptSchema = z
     model: z.string().min(1).optional(),
     schemaVersion: z.string().min(1).optional(),
     isRegeneration: z.boolean(),
+    phase: z.enum(['stage-one-planner', 'stage-two-generation']).optional(),
     content: z.string().min(1),
   })
   .strict();
 export type GenerationEvaluationProviderPrompt = z.infer<
   typeof generationEvaluationProviderPromptSchema
+>;
+
+export const generationEvaluationPlannerArtifactSchema =
+  stageOnePlannerArtifactSchema;
+export type GenerationEvaluationPlannerArtifact = StageOnePlannerArtifact;
+
+export const generationEvaluationPlannerSummarySchema = z
+  .object({
+    usedStageOne: z.boolean(),
+    artifact: generationEvaluationPlannerArtifactSchema.optional(),
+    stageOnePrompt: generationEvaluationProviderPromptSchema.optional(),
+  })
+  .strict();
+export type GenerationEvaluationPlannerSummary = z.infer<
+  typeof generationEvaluationPlannerSummarySchema
+>;
+
+export const generationEvaluationLatencySchema = z
+  .object({
+    totalRequestMs: z.number().int().nonnegative(),
+    stageOnePlannerMs: z.number().int().nonnegative().optional(),
+    stageTwoGenerationMs: z.number().int().nonnegative().optional(),
+  })
+  .strict();
+export type GenerationEvaluationLatency = z.infer<
+  typeof generationEvaluationLatencySchema
+>;
+
+export const generationEvaluationAverageLatencySchema = z
+  .object({
+    totalRequestMs: z.number().nonnegative(),
+    stageOnePlannerMs: z.number().nonnegative().optional(),
+    stageTwoGenerationMs: z.number().nonnegative().optional(),
+  })
+  .strict();
+export type GenerationEvaluationAverageLatency = z.infer<
+  typeof generationEvaluationAverageLatencySchema
 >;
 
 export const generationEvaluationReportEntrySchema = z
@@ -307,6 +349,8 @@ export const generationEvaluationReportEntrySchema = z
     baselinePlan: todayPlanSchema.optional(),
     hardChecks: z.array(generationEvaluationHardCheckResultSchema),
     softReview: generationEvaluationSoftReviewResultSchema.optional(),
+    latencyMs: generationEvaluationLatencySchema,
+    plannerSummary: generationEvaluationPlannerSummarySchema,
     providerPrompt: generationEvaluationProviderPromptSchema.optional(),
     plan: todayPlanSchema.optional(),
     errorCode: z.string().optional(),
@@ -334,6 +378,11 @@ export const generationEvaluationReportSchema = z
           z.number().int().nonnegative(),
         ),
         hardFailureCounts: z.record(z.string(), z.number().int().nonnegative()),
+        averageLatencyMs: generationEvaluationAverageLatencySchema,
+        averageLatencyByProvider: z.record(
+          z.string(),
+          generationEvaluationAverageLatencySchema,
+        ),
       })
       .strict(),
     entries: z.array(generationEvaluationReportEntrySchema),
