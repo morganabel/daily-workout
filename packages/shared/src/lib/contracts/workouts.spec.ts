@@ -12,6 +12,7 @@ import {
   createSessionDetailMock,
   createWorkoutExerciseLogMock,
   createWorkoutSetLogMock,
+  EQUIPMENT_OPTIONS,
   isAutoFocus,
   todayPlanSchema,
   type GenerationRequest,
@@ -129,6 +130,19 @@ describe('quick action helpers', () => {
       }),
     );
     expect(timeWithDefaultOnly).toEqual({ timeMinutes: 30 });
+  });
+
+  it('exposes Gym as a compact equipment preset', () => {
+    expect(EQUIPMENT_OPTIONS).toContain('Gym');
+
+    const equipmentResult = normalizeQuickActionValue(
+      createPreset({
+        key: 'equipment',
+        stagedValue: 'Gym',
+      }),
+    );
+
+    expect(equipmentResult).toEqual({ equipment: ['Gym'] });
   });
 });
 

@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -404,6 +404,19 @@ export const HomeScreen = () => {
   const [showProfileSetup, setShowProfileSetup] = useState(false);
   const [pendingPlanSnapshot, setPendingPlanSnapshot] =
     useState<TodayPlan | null>(null);
+  const [optimisticPlan, setOptimisticPlan] = useState<TodayPlan | null>(null);
+
+  useEffect(() => {
+    if (!optimisticPlan || !plan) return;
+
+    if (
+      plan.id === optimisticPlan.id ||
+      (Boolean(optimisticPlan.responseId) &&
+        plan.responseId === optimisticPlan.responseId)
+    ) {
+      setOptimisticPlan(null);
+    }
+  }, [optimisticPlan, plan]);
 
   // Load user profile on mount
   useFocusEffect(
@@ -472,7 +485,8 @@ export const HomeScreen = () => {
       });
 
       try {
-        await generateWorkout(request);
+        const newPlan = await generateWorkout(request);
+        setOptimisticPlan(newPlan);
         await refetch();
         setGenerationStatus({ state: 'idle', submittedAt: null });
       } catch (err) {
@@ -514,9 +528,9 @@ export const HomeScreen = () => {
     }
   };
 
-  const handlePreview = () => {
-    if (plan) {
-      navigation.navigate('WorkoutPreview', { plan });
+  const handlePreview = (previewPlan: TodayPlan | null) => {
+    if (previewPlan) {
+      navigation.navigate('WorkoutPreview', { plan: previewPlan });
     }
   };
 
@@ -528,7 +542,8 @@ export const HomeScreen = () => {
     setShowCustomizeSheet(true);
   };
 
-  const displayPlan = plan ?? (generating ? pendingPlanSnapshot : null);
+  const displayPlan =
+    optimisticPlan ?? plan ?? (generating ? pendingPlanSnapshot : null);
   const displayEquipment = resolveEquipmentSelection(
     equipmentOverride,
     quickActions
@@ -563,7 +578,7 @@ export const HomeScreen = () => {
             onStart={() =>
               navigation.navigate('ActiveWorkout', { plan: displayPlan })
             }
-            onPreview={handlePreview}
+            onPreview={() => handlePreview(displayPlan)}
             onCustomize={handleCustomize}
             isPending={isPending}
             regenerationError={regenerationError}

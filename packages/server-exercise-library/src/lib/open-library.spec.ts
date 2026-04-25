@@ -49,6 +49,25 @@ describe('openExerciseLibrary', () => {
     library.close();
   });
 
+  it('expands Gym into loaded gym equipment for candidate queries', () => {
+    const library = openExerciseLibrary();
+    const result = library.listEligibleExercises({
+      availableEquipment: ['Gym'],
+      focusTags: ['upper_body'],
+      blockRole: 'main',
+      styleBias: ['strength'],
+      limit: 20,
+    });
+
+    expect(result.diagnostics?.blockerCodes).toBeUndefined();
+    const exerciseNames = result.exercises.map(
+      (exercise: ExerciseRecord) => exercise.name,
+    );
+    expect(exerciseNames).toContain('Barbell Bench Press');
+
+    library.close();
+  });
+
   it('uses BM25 search text to rank relevant candidates higher inside filtered results', () => {
     const library = openExerciseLibrary();
     const result = library.listEligibleExercises({

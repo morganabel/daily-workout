@@ -58,6 +58,8 @@ export function buildExerciseCandidatePool({
       ({
         id,
         name,
+        requiredEquipment,
+        optionalEquipment,
         focusTags,
         movementTags,
         styleTags,
@@ -66,6 +68,8 @@ export function buildExerciseCandidatePool({
       }) => ({
         id,
         name,
+        requiredEquipment,
+        optionalEquipment,
         focusTags,
         movementTags,
         styleTags,

@@ -611,6 +611,32 @@ describe('createGenerateHandler', () => {
     expect(payload.candidateExercises).toBeUndefined();
   });
 
+  it('normalizes returned equipment to the effective request equipment', async () => {
+    const router = createRouterMock(
+      createTodayPlanMock({
+        id: 'gym-plan',
+        equipment: [
+          'Dumbbells',
+          'Barbell',
+          'Resistance Bands',
+          'Cable Machine',
+        ],
+      }),
+    );
+    const { handler, store } = createHandler({ router });
+
+    const response = await handler(createPlanningRequest({ equipment: ['Gym'] }));
+    const payload = (await response.json()) as TodayPlan;
+
+    expect(response.status).toBe(200);
+    expect(payload.equipment).toEqual(['Gym']);
+    expect(store.persistPlan).toHaveBeenCalledWith(
+      'device-123',
+      expect.objectContaining({ equipment: ['Gym'] }),
+      expect.anything(),
+    );
+  });
+
   it('loads the exercise library lazily for AI generation when a loader is provided', async () => {
     const router = createRouterMock(
       createTodayPlanMock({ id: 'lazy-candidate-plan' }),

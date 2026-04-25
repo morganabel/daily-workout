@@ -18,6 +18,8 @@ import { palette, typography } from './theme';
 import { BottomNavigation } from './components/BottomNavigation';
 import { Chip, Button, SectionHeader } from './components/DesignSystem';
 
+const GYM_EQUIPMENT = 'Gym';
+
 const EXPERIENCE_LEVELS: {
   value: ExperienceLevel;
   label: string;
@@ -70,9 +72,16 @@ export const SettingsScreen = () => {
   const toggleEquipment = useCallback((item: string) => {
     setPreferences((prev) => {
       const current = prev.equipment;
+      if (item === GYM_EQUIPMENT) {
+        return {
+          ...prev,
+          equipment: current.includes(GYM_EQUIPMENT) ? [] : [GYM_EQUIPMENT],
+        };
+      }
+
       const updated = current.includes(item)
         ? current.filter((e) => e !== item)
-        : [...current, item];
+        : [...current.filter((e) => e !== GYM_EQUIPMENT), item];
       return { ...prev, equipment: updated };
     });
     setHasChanges(true);

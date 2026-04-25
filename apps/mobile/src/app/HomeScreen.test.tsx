@@ -225,6 +225,58 @@ describe('HomeScreen', () => {
     );
   });
 
+  it('sends Gym as a compact preset when explicitly selected', async () => {
+    const { generateWorkout } = require('./services/api');
+    generateWorkout.mockResolvedValue(createTodayPlanMock());
+    mockUseHomeData.mockReturnValue(baseHookState);
+
+    const { getByText } = render(<HomeScreen />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    fireEvent.press(getByText('Bodyweight'));
+    fireEvent.press(getByText('Gym'));
+    await act(async () => {
+      fireEvent.press(getByText('Generate workout'));
+    });
+    await act(async () => {
+      fireEvent.press(getByText("Generate today's workout"));
+    });
+
+    expect(generateWorkout).toHaveBeenCalledWith(
+      expect.objectContaining({ equipment: ['Gym'] })
+    );
+  });
+
+  it('keeps Gym mutually exclusive with individual equipment selections', async () => {
+    const { generateWorkout } = require('./services/api');
+    generateWorkout.mockResolvedValue(createTodayPlanMock());
+    mockUseHomeData.mockReturnValue(baseHookState);
+
+    const { getByText } = render(<HomeScreen />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    fireEvent.press(getByText('Bodyweight'));
+    fireEvent.press(getByText('Gym'));
+    fireEvent.press(getByText('Cable Machine'));
+    await act(async () => {
+      fireEvent.press(getByText('Generate workout'));
+    });
+    await act(async () => {
+      fireEvent.press(getByText("Generate today's workout"));
+    });
+
+    expect(generateWorkout).toHaveBeenCalledWith(
+      expect.objectContaining({ equipment: ['Cable Machine'] })
+    );
+    expect(generateWorkout).not.toHaveBeenCalledWith(
+      expect.objectContaining({ equipment: expect.arrayContaining(['Gym']) })
+    );
+  });
+
   it('shows the shared planner equipment options in customize', async () => {
     mockUseHomeData.mockReturnValue(baseHookState);
 
@@ -235,6 +287,7 @@ describe('HomeScreen', () => {
 
     fireEvent.press(getByText('Bodyweight'));
 
+    expect(getByText('Gym')).toBeTruthy();
     expect(getByText('Cable Machine')).toBeTruthy();
     expect(getByText('Squat Rack')).toBeTruthy();
     expect(getByText('Rowing Machine')).toBeTruthy();
@@ -462,6 +515,56 @@ describe('HomeScreen', () => {
 
     expect(queryByText('Updating your workout…')).toBeNull();
     expect(getByText('Customize')).toBeTruthy();
+  });
+
+  it('shows the returned regenerated plan before hook data catches up', async () => {
+    const { generateWorkout } = require('./services/api');
+    const oldPlan = createTodayPlanMock({
+      id: 'old-plan',
+      summary: 'Old workout summary',
+      responseId: 'resp-old',
+      generationProvenance: {
+        provider: 'openai',
+        responseId: 'resp-old',
+      },
+    });
+    const newPlan = createTodayPlanMock({
+      id: 'new-plan',
+      focus: 'Strength',
+      durationMinutes: 60,
+      equipment: ['Gym'],
+      summary: 'New gym strength summary',
+      responseId: 'resp-new',
+      generationProvenance: {
+        provider: 'openai',
+        responseId: 'resp-new',
+      },
+    });
+    generateWorkout.mockResolvedValue(newPlan);
+
+    mockUseHomeData.mockReturnValue({
+      ...baseHookState,
+      plan: oldPlan,
+      refetch: jest.fn().mockResolvedValue(undefined),
+    });
+
+    const { getByText, queryByText } = render(<HomeScreen />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(getByText('Old workout summary')).toBeTruthy();
+
+    fireEvent.press(getByText('Customize'));
+    await act(async () => {
+      fireEvent.press(getByText('Regenerate workout'));
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(getByText('New gym strength summary')).toBeTruthy();
+    expect(queryByText('Old workout summary')).toBeNull();
   });
 
   it('calls setGenerationStatus with error when regeneration fails', async () => {

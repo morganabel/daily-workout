@@ -1,5 +1,8 @@
 import {
+  CLASSIC_STRENGTH_GUIDANCE,
+  GYM_STRENGTH_EQUIPMENT_GUIDANCE,
   buildCandidatePoolPromptData,
+  INITIAL_GENERATION_INSTRUCTIONS,
   buildPlanningBriefPromptData,
   buildStageOnePlannerArtifactPromptData,
   buildStageOnePlannerRequestPayload,
@@ -28,8 +31,12 @@ describe('buildRegenerationMessage', () => {
     searchText: 'upper body strength',
     baselineExerciseIds: ['fedb:pushups'],
     candidateExercises: [
-      { id: 'fedb:pushups', name: 'Pushups' },
-      { id: 'fedb:chin-up', name: 'Chin-Up' },
+      { id: 'fedb:pushups', name: 'Pushups', requiredEquipment: ['bodyweight'] },
+      {
+        id: 'fedb:chin-up',
+        name: 'Chin-Up',
+        requiredEquipment: ['bodyweight', 'pull_up_bar'],
+      },
     ],
   };
 
@@ -80,6 +87,8 @@ describe('buildRegenerationMessage', () => {
       shouldRun: true,
       reasons: ['smart-focus'],
     },
+    styleBias: 'strength',
+    primaryGoal: 'build strength',
   };
 
   const stageOneArtifact: StageOnePlannerArtifact = {
@@ -259,6 +268,7 @@ describe('buildRegenerationMessage', () => {
       expect(message).toContain(
         'Prefer unused exercises from the candidate pool before falling back to any baseline exercise.',
       );
+      expect(message).toContain(CLASSIC_STRENGTH_GUIDANCE);
     });
   });
 
@@ -294,10 +304,30 @@ describe('buildRegenerationMessage', () => {
           totalEligibleCount: 2,
           searchText: 'upper body strength',
           exercises: [
-            { id: 'fedb:pushups', name: 'Pushups' },
-            { id: 'fedb:chin-up', name: 'Chin-Up' },
+            {
+              id: 'fedb:pushups',
+              name: 'Pushups',
+              requiredEquipment: ['bodyweight'],
+            },
+            {
+              id: 'fedb:chin-up',
+              name: 'Chin-Up',
+              requiredEquipment: ['bodyweight', 'pull_up_bar'],
+            },
           ],
         }),
+      );
+      expect(buildCandidatePoolPromptData(candidatePool)?.instructions).toContain(
+        'The list is ranked',
+      );
+    });
+
+    it('includes classic strength guidance in initial instructions', () => {
+      expect(INITIAL_GENERATION_INSTRUCTIONS).toContain(
+        CLASSIC_STRENGTH_GUIDANCE,
+      );
+      expect(INITIAL_GENERATION_INSTRUCTIONS).toContain(
+        GYM_STRENGTH_EQUIPMENT_GUIDANCE,
       );
     });
 
@@ -325,6 +355,8 @@ describe('buildRegenerationMessage', () => {
             injuries: ['left shoulder irritation'],
             avoid: ['overhead pressing'],
           }),
+          styleBias: 'strength',
+          primaryGoal: 'build strength',
           plannerAvoidances: ['lower_body_overload'],
           stagedPlanning: expect.objectContaining({
             mode: 'llm-assisted',

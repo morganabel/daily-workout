@@ -13,14 +13,20 @@ import type {
 export const SYSTEM_PROMPT =
   'You are a concise workout planner. Only reply with valid JSON that matches the schema and never include code fences, explanations, or markdown.';
 
+export const CLASSIC_STRENGTH_GUIDANCE =
+  'For strength-oriented sessions, bias toward classic, broadly recognized strength movements before novelty variations: squat, hinge/deadlift, bench or push-up, overhead press, row, pull-up/chin-up, lunge, carry, and simple accessory curls/extensions. Use exotic or highly specialized exercise variants only when they clearly solve a constraint, equipment limitation, or explicit user request.';
+
+export const GYM_STRENGTH_EQUIPMENT_GUIDANCE =
+  'When Gym is available for strength work, prioritize barbell, dumbbell, cable/machine, bench/rack, and bodyweight compound movements. Use resistance-band exercises sparingly, mainly for warm-up, assistance, or prehab, not as the backbone of the session.';
+
 export const INITIAL_GENERATION_INSTRUCTIONS =
-  "Generate a single workout session with at least one block and one exercise per block. Use realistic exercise names and prescriptions. Prefer the planning brief when present, otherwise use the request and context as the source of truth for focus, duration, equipment, and constraints. Prefer exercises from the candidate pool when one is provided. Treat user-supplied injuries and avoid lists as hard constraints. Treat planner-generated avoidances as lower-confidence guidance that should not override the user's explicit constraints. If no focus is specified, choose the most appropriate one from the available planning data.";
+  `Generate a single workout session with at least one block and one exercise per block. Use realistic exercise names and prescriptions. Prefer the planning brief when present, otherwise use the request and context as the source of truth for focus, duration, equipment, and constraints. Prefer exercises from the candidate pool when one is provided. ${CLASSIC_STRENGTH_GUIDANCE} ${GYM_STRENGTH_EQUIPMENT_GUIDANCE} Treat user-supplied injuries and avoid lists as hard constraints. Treat planner-generated avoidances as lower-confidence guidance that should not override the user's explicit constraints. If no focus is specified, choose the most appropriate one from the available planning data.`;
 
 export const STAGE_ONE_PLANNER_SYSTEM_PROMPT =
   'You are an internal workout planning assistant. Return only valid JSON matching the schema. Resolve ambiguity, preserve hard constraints, and give advisory guidance for a final workout-generation model. Do not assemble the full workout.';
 
 export const STAGE_ONE_PLANNER_INSTRUCTIONS =
-  'Interpret the request and context, resolve the most likely session intent, note stressors to protect or avoid, and produce concise rerank/prompt guidance for the final workout model. Treat user-supplied injuries and avoid lists as hard constraints. Keep hard constraints server-owned and treat your output as advisory.';
+  'Interpret the request and context, resolve the most likely session intent, note stressors to protect or avoid, and produce concise rerank/prompt guidance for the final workout model. For strength-oriented sessions, steer the final model toward classic, broadly recognized strength exercises over novelty variants. For gym strength, avoid making bands the main training tool unless the user asks for that. Treat user-supplied injuries and avoid lists as hard constraints. Keep hard constraints server-owned and treat your output as advisory.';
 
 const MAX_PROMPT_CANDIDATE_EXERCISES = 64;
 
@@ -32,7 +38,11 @@ export function buildCandidatePoolPromptData(
       totalEligibleCount: number;
       searchText?: string;
       baselineExerciseIds: string[];
-      exercises: Array<{ id: string; name: string }>;
+      exercises: Array<{
+        id: string;
+        name: string;
+        requiredEquipment?: string[];
+      }>;
       instructions: string;
     }
   | undefined {
@@ -42,7 +52,11 @@ export function buildCandidatePoolPromptData(
 
   const exercises = candidatePool.candidateExercises
     .slice(0, MAX_PROMPT_CANDIDATE_EXERCISES)
-    .map(({ id, name }) => ({ id, name }));
+    .map(({ id, name, requiredEquipment }) => ({
+      id,
+      name,
+      ...(requiredEquipment?.length ? { requiredEquipment } : {}),
+    }));
 
   return {
     libraryVersion: candidatePool.libraryVersion,
@@ -51,7 +65,7 @@ export function buildCandidatePoolPromptData(
     baselineExerciseIds: candidatePool.baselineExerciseIds,
     exercises,
     instructions:
-      'Prefer exercises from this candidate pool unless there is a strong reason not to. Treat the list as a bounded high-confidence set chosen from the exercise library after applying hard constraints. Do not mention the candidate pool in the final response.',
+      'Prefer exercises from this candidate pool unless there is a strong reason not to. Treat the list as a bounded high-confidence set chosen from the exercise library after applying hard constraints. The list is ranked; for strength work, prefer earlier classic compound and simple accessory exercises over obscure variations. For gym strength, avoid overusing resistance-band candidates when loaded gym alternatives are available. Do not mention the candidate pool in the final response.',
   };
 }
 
@@ -62,6 +76,8 @@ export function buildPlanningBriefPromptData(planningBrief?: PlanningBrief):
       durationMinutes: number;
       loadCeiling: PlanningBrief['loadCeiling'];
       availableEquipment: string[];
+      styleBias?: PlanningBrief['styleBias'];
+      primaryGoal?: PlanningBrief['primaryGoal'];
       userConstraints: PlanningBrief['userConstraints'];
       plannerAvoidances: string[];
       recentStressorsToAvoid: string[];
@@ -83,6 +99,8 @@ export function buildPlanningBriefPromptData(planningBrief?: PlanningBrief):
     durationMinutes: planningBrief.durationMinutes,
     loadCeiling: planningBrief.loadCeiling,
     availableEquipment: planningBrief.availableEquipment,
+    styleBias: planningBrief.styleBias,
+    primaryGoal: planningBrief.primaryGoal,
     userConstraints: planningBrief.userConstraints,
     plannerAvoidances: planningBrief.disallowedStressors,
     recentStressorsToAvoid: planningBrief.recentStressorsToAvoid,
@@ -371,8 +389,17 @@ export function buildRegenerationMessage(
 
   const promptData = buildCandidatePoolPromptData(candidatePool);
   if (promptData) {
+    const formattedExercises = promptData.exercises
+      .map((exercise) => {
+        if (!exercise.requiredEquipment?.length) {
+          return exercise.name;
+        }
+        return `${exercise.name} (${exercise.requiredEquipment.join(', ')})`;
+      })
+      .join(', ');
+
     parts.push(
-      `Candidate pool from exercise library v${promptData.libraryVersion}: ${promptData.exercises.map((exercise) => exercise.name).join(', ')}. ${promptData.instructions}`,
+      `Candidate pool from exercise library v${promptData.libraryVersion}: ${formattedExercises}. ${promptData.instructions}`,
     );
     if (promptData.baselineExerciseIds.length > 0) {
       parts.push(
@@ -391,6 +418,9 @@ export function buildRegenerationMessage(
       );
     }
   }
+
+  parts.push(CLASSIC_STRENGTH_GUIDANCE);
+  parts.push(GYM_STRENGTH_EQUIPMENT_GUIDANCE);
 
   parts.push('Please generate a new workout that addresses these preferences.');
 

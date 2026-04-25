@@ -42,6 +42,7 @@ const FEEDBACK_OPTIONS: { value: RegenerationFeedback; label: string }[] = [
   { value: 'different-exercises', label: 'Different exercises' },
   { value: 'just-try-again', label: 'Just try again' },
 ];
+const GYM_EQUIPMENT = 'Gym';
 
 // ... (Helpers remain the same)
 const getQuickActionValue = (
@@ -198,11 +199,15 @@ export const CustomizeSheet = ({
 
   const toggleEquipment = (value: string) => {
     setEquipment((prev) => {
+      if (value === GYM_EQUIPMENT) {
+        return prev.includes(GYM_EQUIPMENT) ? ['Bodyweight'] : [GYM_EQUIPMENT];
+      }
+
       if (prev.includes(value)) {
         const next = prev.filter((e) => e !== value);
         return next.length > 0 ? next : ['Bodyweight'];
       }
-      return [...prev, value];
+      return [...prev.filter((e) => e !== GYM_EQUIPMENT), value];
     });
   };
 

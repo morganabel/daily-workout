@@ -104,7 +104,7 @@ export function derivePlanningBrief({
     availableEquipment,
     energy,
     loadCeiling,
-    styleBias: context.userProfile.preferredStyle,
+    styleBias: deriveStyleBias(context, resolvedFocus),
     primaryGoal: context.userProfile.primaryGoal,
     priorityNotes: request.notes ?? context.notes,
     userConstraints: {
@@ -233,6 +233,41 @@ function deriveLoadCeiling(
   }
 
   return loadCeiling;
+}
+
+function deriveStyleBias(
+  context: GenerationContext,
+  resolvedFocus: string,
+): string | undefined {
+  if (context.userProfile.preferredStyle) {
+    return context.userProfile.preferredStyle;
+  }
+
+  const strengthClues = [
+    resolvedFocus,
+    context.userProfile.primaryGoal,
+    ...(context.preferences.focusBias ?? []),
+    context.notes,
+  ]
+    .filter(Boolean)
+    .map((value) => normalizeText(value as string));
+
+  if (
+    strengthClues.some(
+      (value) =>
+        value.includes('strength') ||
+        value.includes('muscle') ||
+        value.includes('hypertrophy') ||
+        value.includes('size') ||
+        value.includes('lifting') ||
+        value.includes('powerlifting') ||
+        value.includes('bodybuilding'),
+    )
+  ) {
+    return 'strength';
+  }
+
+  return undefined;
 }
 
 function resolveFocus(params: {

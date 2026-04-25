@@ -487,6 +487,7 @@ export type UserPreferences = z.infer<typeof userPreferencesSchema>;
  * Predefined equipment options for the profile selector
  */
 export const EQUIPMENT_OPTIONS = [
+  'Gym',
   'Bodyweight',
   'Dumbbells',
   'Barbell',
