@@ -295,10 +295,6 @@ function deriveSearchText(
 ): string | undefined {
   const tokens = new Set<string>();
 
-  for (const equipment of selectAvailableEquipment(request, context)) {
-    tokens.add(normalizeEquipmentSearchToken(equipment));
-  }
-
   for (const tag of focusTags ?? []) {
     tokens.add(tag.replace(/_/g, ' '));
   }
@@ -344,10 +340,6 @@ function deriveSearchText(
     .trim();
 
   return searchText || undefined;
-}
-
-function normalizeEquipmentSearchToken(value: string): string {
-  return value.toLowerCase().replace(/pull-up/g, 'pull up');
 }
 
 function selectAvailableEquipment(

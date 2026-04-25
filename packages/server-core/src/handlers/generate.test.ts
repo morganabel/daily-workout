@@ -574,13 +574,26 @@ describe('createGenerateHandler', () => {
     const exerciseLibrary = createExerciseLibrary();
     const { handler } = createHandler({ router, exerciseLibrary });
 
-    const response = await handler(createPlanningRequest());
+    const response = await handler(
+      createPlanningRequest({ equipment: ['Dumbbells', 'Resistance Bands'] }),
+    );
     const payload = (await response.json()) as TodayPlan & {
       candidateExercises?: unknown;
     };
 
     expect(response.status).toBe(200);
     expect(exerciseLibrary.listEligibleExercises).toHaveBeenCalledTimes(1);
+    expect(exerciseLibrary.listEligibleExercises).toHaveBeenCalledWith(
+      expect.objectContaining({
+        availableEquipment: ['Dumbbells', 'Resistance Bands'],
+        searchText: expect.not.stringContaining('Dumbbells'),
+      }),
+    );
+    expect(exerciseLibrary.listEligibleExercises).toHaveBeenCalledWith(
+      expect.objectContaining({
+        searchText: expect.not.stringContaining('Resistance Bands'),
+      }),
+    );
     expect(exerciseLibrary.listVariationCandidates).not.toHaveBeenCalled();
     expect(router.generate).toHaveBeenCalledWith(
       expect.anything(),

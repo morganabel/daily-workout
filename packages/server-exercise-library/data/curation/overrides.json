@@ -1,5 +1,6 @@
 {
   "ex:00013": {
+    "metadataCompleteness": "planner-ready",
     "aliases": [
       "Kettlebell Swings"
     ]
@@ -1294,7 +1295,7 @@
     ]
   },
   "fedb:barbell-curl": {
-    "metadataCompleteness": "curated"
+    "metadataCompleteness": "planner-ready"
   },
   "fedb:barbell-deadlift": {
     "metadataCompleteness": "planner-ready",
@@ -1303,10 +1304,10 @@
     ]
   },
   "fedb:barbell-full-squat": {
-    "metadataCompleteness": "curated"
+    "metadataCompleteness": "planner-ready"
   },
   "fedb:barbell-glute-bridge": {
-    "metadataCompleteness": "curated"
+    "metadataCompleteness": "planner-ready"
   },
   "fedb:barbell-guillotine-bench-press": {
     "metadataCompleteness": "curated"
@@ -1318,25 +1319,28 @@
     ]
   },
   "fedb:barbell-hip-thrust": {
-    "metadataCompleteness": "curated"
+    "metadataCompleteness": "planner-ready"
+  },
+  "fedb:barbell-incline-bench-press-medium-grip": {
+    "metadataCompleteness": "planner-ready"
   },
   "fedb:barbell-incline-shoulder-raise": {
     "metadataCompleteness": "curated"
   },
   "fedb:barbell-lunge": {
-    "metadataCompleteness": "curated"
+    "metadataCompleteness": "planner-ready"
   },
   "fedb:barbell-rear-delt-row": {
-    "metadataCompleteness": "curated"
+    "metadataCompleteness": "planner-ready"
   },
   "fedb:barbell-shoulder-press": {
     "aliases": [
       "Shoulder Press, Barbell"
     ],
-    "metadataCompleteness": "curated"
+    "metadataCompleteness": "planner-ready"
   },
   "fedb:barbell-shrug": {
-    "metadataCompleteness": "curated",
+    "metadataCompleteness": "planner-ready",
     "aliases": [
       "Shrugs, Barbells"
     ]
@@ -1371,7 +1375,7 @@
     "aliases": [
       "Barbell Bent Over Row"
     ],
-    "metadataCompleteness": "curated"
+    "metadataCompleteness": "planner-ready"
   },
   "fedb:bosu-ball-cable-crunch-with-side-bends": {
     "aliases": [
@@ -1409,7 +1413,7 @@
     "aliases": [
       "Barbell Close-Grip Bench Press"
     ],
-    "metadataCompleteness": "curated"
+    "metadataCompleteness": "planner-ready"
   },
   "fedb:close-grip-standing-barbell-curl": {
     "aliases": [
@@ -1427,7 +1431,7 @@
       "Decline Bench Press Barbell",
       "Barbell Decline Bench Press"
     ],
-    "metadataCompleteness": "curated"
+    "metadataCompleteness": "planner-ready"
   },
   "fedb:decline-dumbbell-bench-press": {
     "aliases": [
@@ -1546,7 +1550,10 @@
     "aliases": [
       "Barbell Front Squat"
     ],
-    "metadataCompleteness": "curated"
+    "metadataCompleteness": "planner-ready"
+  },
+  "fedb:goblet-squat": {
+    "metadataCompleteness": "planner-ready"
   },
   "fedb:front-cable-raise": {
     "aliases": [
@@ -1604,13 +1611,13 @@
     "metadataCompleteness": "curated"
   },
   "fedb:kettlebell-one-legged-deadlift": {
-    "metadataCompleteness": "curated"
+    "metadataCompleteness": "planner-ready"
   },
   "fedb:kettlebell-pistol-squat": {
     "metadataCompleteness": "curated"
   },
   "fedb:kettlebell-seated-press": {
-    "metadataCompleteness": "curated"
+    "metadataCompleteness": "planner-ready"
   },
   "fedb:kettlebell-seesaw-press": {
     "metadataCompleteness": "curated"
@@ -1643,7 +1650,7 @@
     "aliases": [
       "Mixed Grip Chin-Up"
     ],
-    "metadataCompleteness": "curated"
+    "metadataCompleteness": "planner-ready"
   },
   "fedb:oblique-crunches": {
     "aliases": [
@@ -1662,7 +1669,7 @@
     "aliases": [
       "Kettlebell One Arm Floor Press"
     ],
-    "metadataCompleteness": "curated"
+    "metadataCompleteness": "planner-ready"
   },
   "fedb:one-arm-kettlebell-jerk": {
     "aliases": [
@@ -1685,7 +1692,7 @@
     "aliases": [
       "Kettlebell One Arm Row"
     ],
-    "metadataCompleteness": "curated"
+    "metadataCompleteness": "planner-ready"
   },
   "fedb:one-arm-kettlebell-snatch": {
     "aliases": [
@@ -1744,7 +1751,7 @@
     ]
   },
   "fedb:scapular-pull-up": {
-    "metadataCompleteness": "curated"
+    "metadataCompleteness": "planner-ready"
   },
   "fedb:scissors-jump": {
     "aliases": [
@@ -1817,7 +1824,7 @@
     "aliases": [
       "Barbell Standing Calf Raise"
     ],
-    "metadataCompleteness": "curated"
+    "metadataCompleteness": "planner-ready"
   },
   "fedb:standing-bent-over-one-arm-dumbbell-triceps-extension": {
     "aliases": [
@@ -1883,13 +1890,13 @@
     "aliases": [
       "Kettlebell Two Arm Military Press"
     ],
-    "metadataCompleteness": "curated"
+    "metadataCompleteness": "planner-ready"
   },
   "fedb:two-arm-kettlebell-row": {
     "aliases": [
       "Kettlebell Two Arm Row"
     ],
-    "metadataCompleteness": "curated"
+    "metadataCompleteness": "planner-ready"
   },
   "fedb:underhand-cable-pulldowns": {
     "aliases": [
@@ -1914,12 +1921,12 @@
     "metadataCompleteness": "curated"
   },
   "fedb:wide-grip-rear-pull-up": {
-    "metadataCompleteness": "curated"
+    "metadataCompleteness": "planner-ready"
   },
   "fedb:wide-grip-standing-barbell-curl": {
     "aliases": [
       "Barbell Standing Wide-Grip Curl"
     ],
-    "metadataCompleteness": "curated"
+    "metadataCompleteness": "planner-ready"
   }
 }
