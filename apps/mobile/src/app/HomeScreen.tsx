@@ -49,12 +49,12 @@ const getQuickActionValue = (
   return action?.stagedValue ?? action?.value ?? action?.description;
 };
 
-const hasStagedQuickActionValue = (
+const getQuickActionBaseValue = (
   quickActions: QuickActionPreset[],
   key: QuickActionPreset['key']
-): boolean => {
+): string | undefined => {
   const action = quickActions.find((item) => item.key === key);
-  return Boolean(action?.stagedValue?.trim());
+  return action?.value ?? action?.description;
 };
 
 const parseEquipmentSelection = (value: string | undefined): string[] => {
@@ -63,6 +63,42 @@ const parseEquipmentSelection = (value: string | undefined): string[] => {
     .split(',')
     .map((token) => token.trim())
     .filter(Boolean);
+};
+
+const normalizeEquipmentForComparison = (equipment: string[]): string[] =>
+  equipment.map((item) => item.trim().toLowerCase()).filter(Boolean).sort();
+
+const equipmentSelectionsEqual = (left: string[], right: string[]): boolean => {
+  const normalizedLeft = normalizeEquipmentForComparison(left);
+  const normalizedRight = normalizeEquipmentForComparison(right);
+
+  return (
+    normalizedLeft.length === normalizedRight.length &&
+    normalizedLeft.every((item, index) => item === normalizedRight[index])
+  );
+};
+
+const resolveBaseEquipmentSelection = (
+  quickActions: QuickActionPreset[]
+): string[] => {
+  const quickActionEquipment = parseEquipmentSelection(
+    getQuickActionBaseValue(quickActions, 'equipment')
+  );
+  return quickActionEquipment.length ? quickActionEquipment : ['Bodyweight'];
+};
+
+const hasChangedStagedEquipment = (
+  quickActions: QuickActionPreset[]
+): boolean => {
+  const action = quickActions.find((item) => item.key === 'equipment');
+  if (!action?.stagedValue?.trim()) {
+    return false;
+  }
+
+  return !equipmentSelectionsEqual(
+    parseEquipmentSelection(action.stagedValue),
+    resolveBaseEquipmentSelection(quickActions)
+  );
 };
 
 const resolveEquipmentSelection = (
@@ -392,8 +428,7 @@ export const HomeScreen = () => {
       quickActions
     );
     const shouldSendEquipment =
-      Boolean(equipmentOverride) ||
-      hasStagedQuickActionValue(quickActions, 'equipment');
+      Boolean(equipmentOverride) || hasChangedStagedEquipment(quickActions);
 
     try {
       const request: GenerationRequest = {
@@ -459,7 +494,16 @@ export const HomeScreen = () => {
     } else {
       // Initial customization - just update local state
       if (request.timeMinutes) setDuration(request.timeMinutes);
-      if (request.equipment) setEquipmentOverride(request.equipment);
+      if (request.equipment) {
+        setEquipmentOverride(
+          equipmentSelectionsEqual(
+            request.equipment,
+            resolveBaseEquipmentSelection(quickActions)
+          )
+            ? null
+            : request.equipment
+        );
+      }
       if (request.energy) {
         setIntensity(
           request.energy.charAt(0).toUpperCase() + request.energy.slice(1)

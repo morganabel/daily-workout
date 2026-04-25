@@ -72,13 +72,16 @@ const baseHookState = {
   setGenerationStatus: jest.fn(),
 };
 
-const createQuickActions = (equipmentValue: string): QuickActionPreset[] => [
+const createQuickActions = (
+  equipmentValue: string,
+  stagedValue: string | null = null
+): QuickActionPreset[] => [
   {
     key: 'equipment',
     label: 'Equipment',
     value: equipmentValue,
     description: equipmentValue,
-    stagedValue: null,
+    stagedValue,
   },
 ];
 
@@ -139,6 +142,58 @@ describe('HomeScreen', () => {
       fireEvent.press(getByText("Generate today's workout"));
     });
 
+    expect(generateWorkout).toHaveBeenCalledWith(
+      expect.not.objectContaining({ equipment: expect.anything() })
+    );
+  });
+
+  it('does not send equipment when staged equipment matches profile equipment', async () => {
+    const { generateWorkout } = require('./services/api');
+    generateWorkout.mockResolvedValue(createTodayPlanMock());
+    mockUseHomeData.mockReturnValue({
+      ...baseHookState,
+      quickActions: createQuickActions('Dumbbells, Bench', 'Dumbbells, Bench'),
+    });
+
+    const { getByText } = render(<HomeScreen />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    await act(async () => {
+      fireEvent.press(getByText("Generate today's workout"));
+    });
+
+    expect(generateWorkout).toHaveBeenCalledWith(
+      expect.not.objectContaining({ equipment: expect.anything() })
+    );
+  });
+
+  it('keeps profile equipment as fallback after duration-only customization', async () => {
+    const { generateWorkout } = require('./services/api');
+    generateWorkout.mockResolvedValue(createTodayPlanMock());
+    mockUseHomeData.mockReturnValue({
+      ...baseHookState,
+      quickActions: createQuickActions('Dumbbells, Bench'),
+    });
+
+    const { getByText } = render(<HomeScreen />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    fireEvent.press(getByText('Dumbbells, Bench'));
+    fireEvent.press(getByText('45'));
+    await act(async () => {
+      fireEvent.press(getByText('Generate workout'));
+    });
+    await act(async () => {
+      fireEvent.press(getByText("Generate today's workout"));
+    });
+
+    expect(generateWorkout).toHaveBeenCalledWith(
+      expect.objectContaining({ timeMinutes: 45 })
+    );
     expect(generateWorkout).toHaveBeenCalledWith(
       expect.not.objectContaining({ equipment: expect.anything() })
     );

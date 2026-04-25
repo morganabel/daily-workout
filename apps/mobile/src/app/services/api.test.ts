@@ -13,7 +13,6 @@ import {
 import { workoutRepository } from '../db/repositories/WorkoutRepository';
 import { userRepository } from '../db/repositories/UserRepository';
 import { plannedEventRepository } from '../db/repositories/PlannedEventRepository';
-import { formatLocalDate } from '../utils/date';
 
 // Mock auth-client to avoid ESM import issues (jest.mock is hoisted)
 jest.mock('./auth-client', () => ({
@@ -200,26 +199,32 @@ describe('generateWorkout', () => {
   });
 
   it('sends device-local planning date and effective profile equipment for default generation', async () => {
-    const generatedPlan = createTodayPlanMock({ id: 'plan-default' });
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date('2026-04-24T10:00:00'));
+    try {
+      const generatedPlan = createTodayPlanMock({ id: 'plan-default' });
 
-    (global.fetch as jest.Mock).mockResolvedValue({
-      ok: true,
-      json: jest.fn().mockResolvedValue(generatedPlan),
-    });
+      (global.fetch as jest.Mock).mockResolvedValue({
+        ok: true,
+        json: jest.fn().mockResolvedValue(generatedPlan),
+      });
 
-    await generateWorkout({
-      timeMinutes: 30,
-      focus: 'Smart',
-      energy: 'moderate',
-    });
+      await generateWorkout({
+        timeMinutes: 30,
+        focus: 'Smart',
+        energy: 'moderate',
+      });
 
-    expect(global.fetch).toHaveBeenCalledTimes(1);
-    const [, requestInit] = (global.fetch as jest.Mock).mock.calls[0];
-    const payload = JSON.parse(requestInit.body as string);
+      expect(global.fetch).toHaveBeenCalledTimes(1);
+      const [, requestInit] = (global.fetch as jest.Mock).mock.calls[0];
+      const payload = JSON.parse(requestInit.body as string);
 
-    expect(payload.planningDateLocal).toBe(formatLocalDate(new Date()));
-    expect(payload.equipment).toBeUndefined();
-    expect(payload.context.environment.equipment).toEqual(['Dumbbells']);
+      expect(payload.planningDateLocal).toBe('2026-04-24');
+      expect(payload.equipment).toBeUndefined();
+      expect(payload.context.environment.equipment).toEqual(['Dumbbells']);
+    } finally {
+      jest.useRealTimers();
+    }
   });
 });
 
