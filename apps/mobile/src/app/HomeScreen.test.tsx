@@ -57,6 +57,7 @@ const mockUseHomeData = useHomeData as jest.MockedFunction<typeof useHomeData>;
 const baseHookState = {
   status: 'ready' as const,
   plan: null, // Empty state by default for new tests
+  planVersions: [],
   recentSessions: [],
   quickActions: [],
   offlineHint: { offline: false, requiresApiKey: false },
@@ -67,6 +68,7 @@ const baseHookState = {
     submittedAt: null,
   },
   refetch: jest.fn(),
+  selectWorkoutVersion: jest.fn(),
   updateStagedValue: jest.fn(),
   clearStagedValues: jest.fn(),
   setGenerationStatus: jest.fn(),
@@ -274,6 +276,37 @@ describe('HomeScreen', () => {
     );
     expect(generateWorkout).not.toHaveBeenCalledWith(
       expect.objectContaining({ equipment: expect.arrayContaining(['Gym']) })
+    );
+  });
+
+  it('normalizes mixed Gym equipment from an existing plan during regeneration', async () => {
+    const { generateWorkout } = require('./services/api');
+    generateWorkout.mockResolvedValue(createTodayPlanMock());
+    const plan = createTodayPlanMock({
+      equipment: ['Gym', 'Dumbbells'],
+      responseId: 'resp-mixed-gym',
+      generationProvenance: {
+        provider: 'openai',
+        responseId: 'resp-mixed-gym',
+      },
+    });
+    mockUseHomeData.mockReturnValue({
+      ...baseHookState,
+      plan,
+    });
+
+    const { getByText } = render(<HomeScreen />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    fireEvent.press(getByText('Customize'));
+    await act(async () => {
+      fireEvent.press(getByText('Regenerate workout'));
+    });
+
+    expect(generateWorkout).toHaveBeenCalledWith(
+      expect.objectContaining({ equipment: ['Gym'] })
     );
   });
 
@@ -565,6 +598,89 @@ describe('HomeScreen', () => {
 
     expect(getByText('New gym strength summary')).toBeTruthy();
     expect(queryByText('Old workout summary')).toBeNull();
+  });
+
+  it('uses the optimistic regenerated plan as the next regeneration baseline', async () => {
+    const { generateWorkout } = require('./services/api');
+    const oldPlan = createTodayPlanMock({
+      id: 'old-plan',
+      responseId: 'resp-old',
+      generationProvenance: {
+        provider: 'openai',
+        responseId: 'resp-old',
+      },
+    });
+    const newPlan = createTodayPlanMock({
+      id: 'new-plan',
+      focus: 'Strength',
+      responseId: 'resp-new',
+      generationProvenance: {
+        provider: 'openai',
+        responseId: 'resp-new',
+      },
+    });
+    generateWorkout.mockResolvedValueOnce(newPlan).mockResolvedValueOnce(
+      createTodayPlanMock({ id: 'newer-plan' })
+    );
+
+    mockUseHomeData.mockReturnValue({
+      ...baseHookState,
+      plan: oldPlan,
+      refetch: jest.fn().mockResolvedValue(undefined),
+    });
+
+    const { getByText } = render(<HomeScreen />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    fireEvent.press(getByText('Customize'));
+    await act(async () => {
+      fireEvent.press(getByText('Regenerate workout'));
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    fireEvent.press(getByText('Customize'));
+    await act(async () => {
+      fireEvent.press(getByText('Regenerate workout'));
+    });
+
+    expect(generateWorkout).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        previousResponseId: 'resp-new',
+        baselineWorkout: expect.objectContaining({ id: 'new-plan' }),
+      })
+    );
+  });
+
+  it('selects saved workout versions from the active card', async () => {
+    const selectedPlan = createTodayPlanMock({
+      id: 'version-2',
+      summary: 'Selected version',
+    });
+    const olderPlan = createTodayPlanMock({
+      id: 'version-1',
+      summary: 'Older version',
+    });
+    const selectWorkoutVersion = jest.fn().mockResolvedValue(undefined);
+    mockUseHomeData.mockReturnValue({
+      ...baseHookState,
+      plan: selectedPlan,
+      planVersions: [olderPlan, selectedPlan],
+      selectWorkoutVersion,
+    });
+
+    const { getByText } = render(<HomeScreen />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(getByText('Workout options')).toBeTruthy();
+    fireEvent.press(getByText('1'));
+
+    expect(selectWorkoutVersion).toHaveBeenCalledWith('version-1');
   });
 
   it('calls setGenerationStatus with error when regeneration fails', async () => {

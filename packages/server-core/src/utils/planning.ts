@@ -1,4 +1,8 @@
-import { isAutoFocus, type GenerationContext } from '@workout-agent/shared';
+import {
+  isAutoFocus,
+  normalizeEquipmentSelection,
+  type GenerationContext,
+} from '@workout-agent/shared';
 import type { GenerationRequestWithContext } from './context';
 import type {
   PlanningBrief,
@@ -47,11 +51,10 @@ export function derivePlanningBrief({
       ? 'smart'
       : 'explicit'
     : 'unset';
-  const availableEquipment = request.equipment?.length
-    ? request.equipment
-    : context.environment.equipment.length
-      ? context.environment.equipment
-      : DEFAULT_EQUIPMENT;
+  const availableEquipment = normalizeEquipmentSelection(
+    request.equipment?.length ? request.equipment : context.environment.equipment,
+    DEFAULT_EQUIPMENT,
+  );
   const planningDateLocal =
     request.planningDateLocal ?? formatLocalDate(new Date());
   const eventProtection = selectEventProtection(

@@ -12,13 +12,13 @@ import { userRepository } from './db/repositories/UserRepository';
 import {
   UserPreferences,
   EQUIPMENT_OPTIONS,
+  GYM_EQUIPMENT,
   ExperienceLevel,
+  normalizeEquipmentSelection,
 } from '@workout-agent/shared';
 import { palette, typography } from './theme';
 import { BottomNavigation } from './components/BottomNavigation';
 import { Chip, Button, SectionHeader } from './components/DesignSystem';
-
-const GYM_EQUIPMENT = 'Gym';
 
 const EXPERIENCE_LEVELS: {
   value: ExperienceLevel;
@@ -56,7 +56,10 @@ export const SettingsScreen = () => {
   useEffect(() => {
     const loadPreferences = async () => {
       const prefs = await userRepository.getPreferences();
-      setPreferences(prefs);
+      setPreferences({
+        ...prefs,
+        equipment: normalizeEquipmentSelection(prefs.equipment),
+      });
     };
     loadPreferences();
   }, []);
@@ -82,7 +85,7 @@ export const SettingsScreen = () => {
       const updated = current.includes(item)
         ? current.filter((e) => e !== item)
         : [...current.filter((e) => e !== GYM_EQUIPMENT), item];
-      return { ...prev, equipment: updated };
+      return { ...prev, equipment: normalizeEquipmentSelection(updated) };
     });
     setHasChanges(true);
   }, []);

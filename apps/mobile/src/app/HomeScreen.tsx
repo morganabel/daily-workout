@@ -16,6 +16,7 @@ import {
   type GenerationRequest,
   type QuickActionPreset,
   type WorkoutEnergy,
+  normalizeEquipmentSelection,
 } from '@workout-agent/shared';
 import { useHomeData } from './hooks/useHomeData';
 import { generateWorkout, type ApiError } from './services/api';
@@ -59,10 +60,7 @@ const getQuickActionBaseValue = (
 
 const parseEquipmentSelection = (value: string | undefined): string[] => {
   if (!value) return [];
-  return value
-    .split(',')
-    .map((token) => token.trim())
-    .filter(Boolean);
+  return normalizeEquipmentSelection(value.split(','));
 };
 
 const normalizeEquipmentForComparison = (equipment: string[]): string[] =>
@@ -77,6 +75,13 @@ const equipmentSelectionsEqual = (left: string[], right: string[]): boolean => {
     normalizedLeft.every((item, index) => item === normalizedRight[index])
   );
 };
+
+const plansMatchDisplayedContent = (left: TodayPlan, right: TodayPlan): boolean =>
+  left.responseId === right.responseId ||
+  (left.focus === right.focus &&
+    left.durationMinutes === right.durationMinutes &&
+    left.summary === right.summary &&
+    equipmentSelectionsEqual(left.equipment, right.equipment));
 
 const resolveBaseEquipmentSelection = (
   quickActions: QuickActionPreset[]
@@ -310,6 +315,8 @@ const ActivePlanCard = ({
   onCustomize,
   isPending,
   regenerationError,
+  planVersions = [],
+  onSelectVersion,
 }: {
   plan: TodayPlan;
   onStart: () => void;
@@ -317,6 +324,8 @@ const ActivePlanCard = ({
   onCustomize: () => void;
   isPending: boolean;
   regenerationError?: string | null;
+  planVersions?: TodayPlan[];
+  onSelectVersion?: (planId: string) => void;
 }) => (
   <Card style={styles.activePlanCard}>
     {isPending ? (
@@ -351,6 +360,41 @@ const ActivePlanCard = ({
     <Text style={styles.activePlanDesc} numberOfLines={2}>
       {plan.summary}
     </Text>
+    {planVersions.length > 1 && onSelectVersion ? (
+      <View style={styles.versionStack}>
+        <Text style={styles.versionStackLabel}>Workout options</Text>
+        <View style={styles.versionPillRow}>
+          {planVersions.map((version, index) => {
+            const selected = version.id === plan.id;
+            return (
+              <Pressable
+                key={version.id}
+                accessibilityRole="button"
+                accessibilityLabel={`Show option ${index + 1}`}
+                accessibilityState={{ selected, disabled: isPending }}
+                disabled={isPending}
+                onPress={() => onSelectVersion(version.id)}
+                style={({ pressed }) => [
+                  styles.versionPill,
+                  selected && styles.versionPillSelected,
+                  pressed && styles.versionPillPressed,
+                  isPending && styles.versionPillDisabled,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.versionPillText,
+                    selected && styles.versionPillTextSelected,
+                  ]}
+                >
+                  {index + 1}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      </View>
+    ) : null}
     <View style={styles.activePlanActions}>
       <Button
         label="Start Workout"
@@ -382,9 +426,11 @@ export const HomeScreen = () => {
   const navigation = useNavigation<HomeScreenNavigation>();
   const {
     plan,
+    planVersions,
     quickActions,
     isOffline,
     refetch,
+    selectWorkoutVersion,
     generationStatus,
     updateStagedValue,
     setGenerationStatus,
@@ -409,14 +455,12 @@ export const HomeScreen = () => {
   useEffect(() => {
     if (!optimisticPlan || !plan) return;
 
-    if (
-      plan.id === optimisticPlan.id ||
-      (Boolean(optimisticPlan.responseId) &&
-        plan.responseId === optimisticPlan.responseId)
-    ) {
+    if (plansMatchDisplayedContent(plan, optimisticPlan)) {
       setOptimisticPlan(null);
     }
   }, [optimisticPlan, plan]);
+
+  const regenerationPlan = optimisticPlan ?? plan;
 
   // Load user profile on mount
   useFocusEffect(
@@ -474,10 +518,10 @@ export const HomeScreen = () => {
   };
 
   const handleCustomizeSubmit = async (request: GenerationRequest) => {
-    if (customizeForRegeneration && plan) {
+    if (customizeForRegeneration && regenerationPlan) {
       // Regeneration mode - generate a new workout
       setShowCustomizeSheet(false);
-      setPendingPlanSnapshot(plan);
+      setPendingPlanSnapshot(regenerationPlan);
       setGenerating(true);
       setGenerationStatus({
         state: 'pending',
@@ -542,8 +586,8 @@ export const HomeScreen = () => {
     setShowCustomizeSheet(true);
   };
 
-  const displayPlan =
-    optimisticPlan ?? plan ?? (generating ? pendingPlanSnapshot : null);
+  const displayPlan = regenerationPlan ?? (generating ? pendingPlanSnapshot : null);
+  const displayPlanVersions = optimisticPlan ? [] : planVersions;
   const displayEquipment = resolveEquipmentSelection(
     equipmentOverride,
     quickActions
@@ -582,6 +626,11 @@ export const HomeScreen = () => {
             onCustomize={handleCustomize}
             isPending={isPending}
             regenerationError={regenerationError}
+            planVersions={displayPlanVersions}
+            onSelectVersion={(planId) => {
+              setOptimisticPlan(null);
+              void selectWorkoutVersion(planId);
+            }}
           />
         ) : (
           <>
@@ -626,7 +675,7 @@ export const HomeScreen = () => {
 
       <CustomizeSheet
         visible={showCustomizeSheet}
-        currentPlan={customizeForRegeneration ? plan : null}
+        currentPlan={customizeForRegeneration ? regenerationPlan : null}
         loading={generating}
         initialDuration={duration}
         initialEquipment={displayEquipment}
@@ -922,6 +971,48 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: palette.textSecondary,
     lineHeight: 20,
+  },
+  versionStack: {
+    gap: 8,
+  },
+  versionStackLabel: {
+    fontFamily: typography.fontFamilyBold,
+    fontSize: 12,
+    color: palette.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+  },
+  versionPillRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  versionPill: {
+    minWidth: 36,
+    minHeight: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: palette.cardSecondary,
+    borderWidth: 1,
+    borderColor: palette.border,
+  },
+  versionPillSelected: {
+    backgroundColor: palette.primary,
+    borderColor: palette.primary,
+  },
+  versionPillPressed: {
+    opacity: 0.82,
+  },
+  versionPillDisabled: {
+    opacity: 0.5,
+  },
+  versionPillText: {
+    fontFamily: typography.fontFamilyBold,
+    fontSize: 13,
+    color: palette.textSecondary,
+  },
+  versionPillTextSelected: {
+    color: palette.textInverse,
   },
   activePlanActions: {
     gap: 12,

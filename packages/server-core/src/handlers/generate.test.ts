@@ -625,7 +625,9 @@ describe('createGenerateHandler', () => {
     );
     const { handler, store } = createHandler({ router });
 
-    const response = await handler(createPlanningRequest({ equipment: ['Gym'] }));
+    const response = await handler(
+      createPlanningRequest({ equipment: ['Gym', 'Dumbbells'] }),
+    );
     const payload = (await response.json()) as TodayPlan;
 
     expect(response.status).toBe(200);

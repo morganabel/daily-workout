@@ -5,6 +5,7 @@ import type {
 } from '@workout-agent-ce/server-exercise-library';
 import {
   isAutoFocus,
+  normalizeEquipmentSelection,
   type GenerationContext,
   type TodayPlan,
 } from '@workout-agent/shared';
@@ -351,11 +352,14 @@ function selectAvailableEquipment(
   context: GenerationContext,
 ): string[] {
   if (request.equipment?.length) {
-    return request.equipment;
+    return normalizeEquipmentSelection(request.equipment, DEFAULT_EQUIPMENT);
   }
 
   if (context.environment.equipment.length) {
-    return context.environment.equipment;
+    return normalizeEquipmentSelection(
+      context.environment.equipment,
+      DEFAULT_EQUIPMENT,
+    );
   }
 
   return DEFAULT_EQUIPMENT;

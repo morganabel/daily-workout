@@ -12,6 +12,7 @@ import type {
   GenerationContext,
   UserPreferences,
 } from '@workout-agent/shared';
+import { normalizeEquipmentSelection } from '@workout-agent/shared';
 import { getDeviceToken } from '../storage/deviceToken';
 import { getByokApiKey, getByokConfig } from '../storage/byokKey';
 import { userRepository } from '../db/repositories/UserRepository';
@@ -190,7 +191,9 @@ export async function buildGenerationContext(
 
   // Determine equipment: quick action override > profile default > fallback
   const equipment = request.equipment ?? prefs.equipment ?? [];
-  const effectiveEquipment = equipment.length > 0 ? equipment : ['Bodyweight'];
+  const effectiveEquipment = normalizeEquipmentSelection(equipment, [
+    'Bodyweight',
+  ]);
 
   // Build the context
   const context: GenerationContext = {
@@ -273,6 +276,7 @@ export async function generateWorkout(
 
   await workoutRepository.saveGeneratedPlan(plan, {
     scheduledDate: options?.scheduledDate,
+    baselineWorkoutId: requestWithPlanningDate.baselineWorkout?.id,
   });
   return plan;
 }

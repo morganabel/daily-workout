@@ -30,6 +30,11 @@ const getDayBounds = (timestamp: number) => {
   };
 };
 
+const getTimestamp = (value: number | Date | undefined | null): number => {
+  if (value instanceof Date) return value.getTime();
+  return value ?? 0;
+};
+
 const normalizeExerciseName = (name: string): string =>
   name
     .toLowerCase()
@@ -99,13 +104,32 @@ export class WorkoutRepository {
       Q.where('status', 'planned'),
       Q.where('archived_at', null),
       Q.where('scheduled_date', Q.between(start, end)),
+      Q.or(Q.where('is_selected', true), Q.where('is_selected', null)),
       Q.sortBy('scheduled_date', Q.desc),
       Q.take(1),
     );
   }
 
+  private buildPlannedVersionsQueryForDate(timestamp: number) {
+    const { start, end } = getDayBounds(timestamp);
+    return this.workouts.query(
+      Q.where('status', 'planned'),
+      Q.where('archived_at', null),
+      Q.where('scheduled_date', Q.between(start, end)),
+      Q.sortBy('created_at', Q.asc),
+    );
+  }
+
+  private getWorkoutGenerationGroupId(workout: Workout): string {
+    return workout.generationGroupId || workout.id;
+  }
+
   observeTodayWorkout() {
     return this.buildPlannedWorkoutQueryForDate(Date.now()).observe();
+  }
+
+  observeTodayWorkoutVersions() {
+    return this.buildPlannedVersionsQueryForDate(Date.now()).observe();
   }
 
   observeRecentSessions(limit = 3, options?: { includeArchived?: boolean }) {
@@ -176,9 +200,29 @@ export class WorkoutRepository {
     return workouts.length > 0 ? workouts[0] : null;
   }
 
+  async listPlannedWorkoutVersionsForDate(timestamp: number): Promise<Workout[]> {
+    const workouts = await this.buildPlannedVersionsQueryForDate(
+      timestamp,
+    ).fetch();
+    const selected =
+      workouts.find((workout) => workout.isSelected === true) ??
+      workouts.find((workout) => workout.isSelected !== false);
+    const selectedGroupId = selected
+      ? this.getWorkoutGenerationGroupId(selected)
+      : undefined;
+
+    if (!selectedGroupId) {
+      return [];
+    }
+
+    return workouts.filter(
+      (workout) => this.getWorkoutGenerationGroupId(workout) === selectedGroupId,
+    );
+  }
+
   async saveGeneratedPlan(
     plan: TodayPlan,
-    options?: { scheduledDate?: number },
+    options?: { scheduledDate?: number; baselineWorkoutId?: string },
   ) {
     const now = Date.now();
     const payload = planToPersistence(plan, now);
@@ -187,16 +231,56 @@ export class WorkoutRepository {
 
     await database.write(async () => {
       const { start, end } = getDayBounds(scheduledDate);
-      const existing = await this.workouts
+      const plannedForDay = await this.workouts
         .query(
           Q.where('status', 'planned'),
           Q.where('archived_at', null),
           Q.where('scheduled_date', Q.between(start, end)),
         )
         .fetch();
-      await Promise.all(
-        existing.map((workout) => workout.destroyPermanently()),
+
+      let baselineWorkout: Workout | null = null;
+      if (options?.baselineWorkoutId) {
+        try {
+          baselineWorkout = await this.workouts.find(options.baselineWorkoutId);
+        } catch {
+          const matches = await this.workouts
+            .query(Q.where('remote_id', options.baselineWorkoutId), Q.take(1))
+            .fetch();
+          baselineWorkout = matches[0] ?? null;
+        }
+      }
+
+      const generationGroupId = baselineWorkout
+        ? this.getWorkoutGenerationGroupId(baselineWorkout)
+        : (payload.workout.remoteId ?? plan.id);
+      const versionsInGroup = plannedForDay.filter(
+        (workout) => this.getWorkoutGenerationGroupId(workout) === generationGroupId,
       );
+      const generationVersion = baselineWorkout
+        ? Math.max(
+            1,
+            ...versionsInGroup.map(
+              (workout) => workout.generationVersion ?? 1,
+            ),
+          ) + 1
+        : 1;
+
+      if (baselineWorkout) {
+        await Promise.all(
+          versionsInGroup.map((workout) =>
+            workout.update((record) => {
+              record.isSelected = false;
+              record.generationGroupId = generationGroupId;
+              record.generationVersion = record.generationVersion ?? 1;
+            }),
+          ),
+        );
+      } else {
+        await Promise.all(
+          plannedForDay.map((workout) => workout.destroyPermanently()),
+        );
+      }
 
       const workout = await this.workouts.create((w) => {
         w.name = payload.workout.name;
@@ -214,6 +298,9 @@ export class WorkoutRepository {
         w.completedAt = payload.workout.completedAt ?? undefined;
         w.durationSeconds = payload.workout.durationSeconds ?? undefined;
         w.archivedAt = undefined;
+        w.generationGroupId = generationGroupId;
+        w.generationVersion = generationVersion;
+        w.isSelected = true;
         // Store provider response ID for continuity-aware regeneration.
         w.responseId = payload.workout.responseId ?? undefined;
       });
@@ -233,6 +320,34 @@ export class WorkoutRepository {
           e.detail = exercisePayload.detail ?? undefined;
         });
       }
+    });
+  }
+
+  async selectWorkoutVersion(workoutId: string): Promise<void> {
+    const selectedWorkout = await this.workouts.find(workoutId);
+    const groupId = this.getWorkoutGenerationGroupId(selectedWorkout);
+    const scheduledDate = getTimestamp(selectedWorkout.scheduledDate);
+    const { start, end } = getDayBounds(scheduledDate || Date.now());
+    const versions = await this.workouts
+      .query(
+        Q.where('status', 'planned'),
+        Q.where('archived_at', null),
+        Q.where('scheduled_date', Q.between(start, end)),
+      )
+      .fetch();
+
+    await database.write(async () => {
+      await Promise.all(
+        versions
+          .filter((workout) => this.getWorkoutGenerationGroupId(workout) === groupId)
+          .map((workout) =>
+            workout.update((record) => {
+              record.generationGroupId = groupId;
+              record.generationVersion = record.generationVersion ?? 1;
+              record.isSelected = workout.id === selectedWorkout.id;
+            }),
+          ),
+      );
     });
   }
 

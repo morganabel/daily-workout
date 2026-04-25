@@ -27,6 +27,9 @@ export default class Workout extends Model {
   @field('duration_seconds') durationSeconds?: number;
   @date('archived_at') archivedAt?: number;
   @field('is_favorite') isFavorite?: boolean;
+  @field('generation_group_id') generationGroupId?: string;
+  @field('generation_version') generationVersion?: number;
+  @field('is_selected') isSelected?: boolean;
   // Provider response ID for continuity-aware regeneration.
   @field('response_id') responseId?: string;
   @readonly @date('created_at') createdAt: number;

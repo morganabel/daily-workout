@@ -132,6 +132,7 @@ const createBaseQuickActions = (): QuickActionPreset[] => [
 const baseHookState = {
   status: 'ready' as const,
   plan: createTodayPlanMock(),
+  planVersions: [],
   recentSessions: [],
   quickActions: createBaseQuickActions(),
   offlineHint: { offline: false, requiresApiKey: false },
@@ -142,6 +143,7 @@ const baseHookState = {
     submittedAt: null,
   },
   refetch: jest.fn(),
+  selectWorkoutVersion: jest.fn(),
   updateStagedValue: jest.fn(),
   clearStagedValues: jest.fn(),
   setGenerationStatus: jest.fn(),

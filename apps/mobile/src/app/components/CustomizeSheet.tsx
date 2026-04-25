@@ -11,6 +11,8 @@ import {
 } from 'react-native';
 import {
   EQUIPMENT_OPTIONS,
+  GYM_EQUIPMENT,
+  normalizeEquipmentSelection,
   type TodayPlan,
   type GenerationRequest,
   type RegenerationFeedback,
@@ -42,7 +44,6 @@ const FEEDBACK_OPTIONS: { value: RegenerationFeedback; label: string }[] = [
   { value: 'different-exercises', label: 'Different exercises' },
   { value: 'just-try-again', label: 'Just try again' },
 ];
-const GYM_EQUIPMENT = 'Gym';
 
 // ... (Helpers remain the same)
 const getQuickActionValue = (
@@ -165,9 +166,12 @@ export const CustomizeSheet = ({
       normalizeFocusSelection(focusValue) ??
       initialFocus ??
       FOCUS_OPTIONS[0].id;
-    const nextEquipment = currentPlan?.equipment ??
-      (equipmentValue ? parseEquipmentSelection(equipmentValue) : null) ??
-      initialEquipment ?? ['Bodyweight'];
+    const nextEquipment = normalizeEquipmentSelection(
+      currentPlan?.equipment ??
+        (equipmentValue ? parseEquipmentSelection(equipmentValue) : null) ??
+        initialEquipment ?? [],
+      ['Bodyweight'],
+    );
     const nextEnergy =
       currentPlan?.energy ??
       (energyValue ? normalizeEnergySelection(energyValue) : null) ??
@@ -205,17 +209,23 @@ export const CustomizeSheet = ({
 
       if (prev.includes(value)) {
         const next = prev.filter((e) => e !== value);
-        return next.length > 0 ? next : ['Bodyweight'];
+        return normalizeEquipmentSelection(next, ['Bodyweight']);
       }
-      return [...prev.filter((e) => e !== GYM_EQUIPMENT), value];
+      return normalizeEquipmentSelection(
+        [...prev.filter((e) => e !== GYM_EQUIPMENT), value],
+        ['Bodyweight'],
+      );
     });
   };
 
   const applyStagedValues = () => {
     if (!onUpdateStagedValue) return;
+    const normalizedEquipment = normalizeEquipmentSelection(equipment, [
+      'Bodyweight',
+    ]);
     onUpdateStagedValue('time', String(duration));
     onUpdateStagedValue('focus', focus);
-    onUpdateStagedValue('equipment', equipment.join(', '));
+    onUpdateStagedValue('equipment', normalizedEquipment.join(', '));
     onUpdateStagedValue('energy', energy);
   };
 
@@ -231,6 +241,9 @@ export const CustomizeSheet = ({
   const handleSubmit = () => {
     const normalizedNotes = notes.trim() || undefined;
     const normalizedFocus = focus;
+    const normalizedEquipment = normalizeEquipmentSelection(equipment, [
+      'Bodyweight',
+    ]);
 
     if (canStageValues) {
       applyStagedValues();
@@ -247,7 +260,7 @@ export const CustomizeSheet = ({
 
     const request: GenerationRequest = {
       timeMinutes: duration,
-      equipment,
+      equipment: normalizedEquipment,
       energy,
     };
 

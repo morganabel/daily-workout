@@ -66,6 +66,7 @@ const FALLBACK_QUICK_ACTIONS = buildQuickActionsFromPreferences({
 export type HomeDataState = {
   status: 'loading' | 'ready' | 'error';
   plan: TodayPlan | null;
+  planVersions: TodayPlan[];
   recentSessions: HomeSnapshot['recentSessions'];
   quickActions: HomeSnapshot['quickActions'];
   offlineHint: HomeSnapshot['offlineHint'];
@@ -79,6 +80,7 @@ export type HomeDataState = {
  */
 export function useHomeData(): HomeDataState & {
   refetch: () => Promise<void>;
+  selectWorkoutVersion: (workoutId: string) => Promise<void>;
   updateStagedValue: (actionKey: QuickActionKey, stagedValue: string | null) => void;
   clearStagedValues: () => void;
   setGenerationStatus: (status: GenerationStatus) => void;
@@ -91,6 +93,7 @@ export function useHomeData(): HomeDataState & {
   const [state, setState] = useState<HomeDataState>({
     status: 'loading',
     plan: null,
+    planVersions: [],
     recentSessions: [],
     quickActions: FALLBACK_QUICK_ACTIONS,
     offlineHint: {
@@ -149,12 +152,47 @@ export function useHomeData(): HomeDataState & {
     [],
   );
 
+  const hydrateWorkoutVersions = useCallback(async (workouts: Workout[]) => {
+    if (!isMountedRef.current) return;
+
+    const selectedWorkout =
+      workouts.find((workout) => workout.isSelected === true) ??
+      workouts.find((workout) => workout.isSelected !== false);
+    const selectedGroupId = selectedWorkout
+      ? selectedWorkout.generationGroupId || selectedWorkout.id
+      : undefined;
+
+    if (!selectedGroupId) {
+      setState((prev) => ({ ...prev, planVersions: [] }));
+      return;
+    }
+
+    const versionWorkouts = workouts.filter(
+      (workout) => (workout.generationGroupId || workout.id) === selectedGroupId,
+    );
+    const plans = await Promise.all(
+      versionWorkouts.map((workout) => workoutRepository.mapWorkoutToPlan(workout)),
+    );
+
+    if (!isMountedRef.current) return;
+    setState((prev) => ({
+      ...prev,
+      planVersions: plans,
+    }));
+  }, []);
+
   // Observe today's workout from DB
   useEffect(() => {
     const subscription = workoutRepository.observeTodayWorkout().subscribe((workouts) => {
       const workout = workouts.length > 0 ? workouts[0] : null;
       void hydrateWorkoutPlan(workout);
     });
+
+    const versionSubscription = workoutRepository
+      .observeTodayWorkoutVersions()
+      .subscribe((workouts) => {
+        void hydrateWorkoutVersions(workouts);
+      });
 
     const recentSubscription = workoutRepository
       .observeRecentSessions()
@@ -171,9 +209,10 @@ export function useHomeData(): HomeDataState & {
 
     return () => {
       subscription.unsubscribe();
+      versionSubscription.unsubscribe();
       recentSubscription.unsubscribe();
     };
-  }, [hydrateWorkoutPlan]);
+  }, [hydrateWorkoutPlan, hydrateWorkoutVersions]);
 
   // Offline detection
   useEffect(() => {
@@ -235,6 +274,10 @@ export function useHomeData(): HomeDataState & {
     try {
       const workout = await workoutRepository.getTodayWorkout();
       await hydrateWorkoutPlan(workout);
+      const versions = await workoutRepository.listPlannedWorkoutVersionsForDate(
+        Date.now(),
+      );
+      await hydrateWorkoutVersions(versions);
     } catch (error) {
       if (!isMountedRef.current) return;
       setState((prev) => ({
@@ -243,7 +286,11 @@ export function useHomeData(): HomeDataState & {
         error,
       }));
     }
-  }, [hydrateWorkoutPlan]);
+  }, [hydrateWorkoutPlan, hydrateWorkoutVersions]);
+
+  const selectWorkoutVersion = useCallback(async (workoutId: string) => {
+    await workoutRepository.selectWorkoutVersion(workoutId);
+  }, []);
 
   const clearStagedValues = useCallback(() => {
     setStagedValues({});
@@ -285,6 +332,7 @@ export function useHomeData(): HomeDataState & {
     ...state,
     quickActions: quickActionsWithStaged,
     refetch: fetchData,
+    selectWorkoutVersion,
     updateStagedValue,
     clearStagedValues,
     setGenerationStatus,

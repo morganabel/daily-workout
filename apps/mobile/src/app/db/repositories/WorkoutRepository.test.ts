@@ -132,6 +132,97 @@ describe('WorkoutRepository', () => {
     });
   });
 
+  describe('generated workout versions', () => {
+    it('appends regeneration versions without deleting the previous suggestion', async () => {
+      const firstPlan = createTodayPlanMock({
+        id: 'plan-v1',
+        summary: 'First suggestion',
+      });
+      const secondPlan = createTodayPlanMock({
+        id: 'plan-v2',
+        summary: 'Second suggestion',
+      });
+
+      await workoutRepository.saveGeneratedPlan(firstPlan);
+      const firstWorkout = await workoutRepository.getTodayWorkout();
+      expect(firstWorkout).toBeTruthy();
+
+      await workoutRepository.saveGeneratedPlan(secondPlan, {
+        baselineWorkoutId: firstWorkout!.id,
+      });
+
+      const workouts = await database.collections
+        .get<any>('workouts')
+        .query()
+        .fetch();
+      const selectedWorkout = await workoutRepository.getTodayWorkout();
+      const versions = await workoutRepository.listPlannedWorkoutVersionsForDate(
+        Date.now(),
+      );
+
+      expect(workouts).toHaveLength(2);
+      expect(selectedWorkout?.summary).toBe('Second suggestion');
+      expect(selectedWorkout?.generationVersion).toBe(2);
+      expect(versions.map((workout) => workout.summary)).toEqual([
+        'First suggestion',
+        'Second suggestion',
+      ]);
+      expect(versions.map((workout) => workout.isSelected)).toEqual([
+        false,
+        true,
+      ]);
+    });
+
+    it('selects an older generated version without deleting newer options', async () => {
+      await workoutRepository.saveGeneratedPlan(
+        createTodayPlanMock({ id: 'plan-v1', summary: 'First suggestion' }),
+      );
+      const firstWorkout = await workoutRepository.getTodayWorkout();
+      expect(firstWorkout).toBeTruthy();
+
+      await workoutRepository.saveGeneratedPlan(
+        createTodayPlanMock({ id: 'plan-v2', summary: 'Second suggestion' }),
+        { baselineWorkoutId: firstWorkout!.id },
+      );
+
+      await workoutRepository.selectWorkoutVersion(firstWorkout!.id);
+
+      const selectedWorkout = await workoutRepository.getTodayWorkout();
+      const versions = await workoutRepository.listPlannedWorkoutVersionsForDate(
+        Date.now(),
+      );
+
+      expect(selectedWorkout?.id).toBe(firstWorkout!.id);
+      expect(selectedWorkout?.summary).toBe('First suggestion');
+      expect(versions).toHaveLength(2);
+      expect(versions.map((workout) => workout.isSelected)).toEqual([
+        true,
+        false,
+      ]);
+    });
+
+    it('can append a version when the baseline id is the remote plan id', async () => {
+      await workoutRepository.saveGeneratedPlan(
+        createTodayPlanMock({ id: 'remote-plan-v1', summary: 'First' }),
+      );
+
+      await workoutRepository.saveGeneratedPlan(
+        createTodayPlanMock({ id: 'remote-plan-v2', summary: 'Second' }),
+        { baselineWorkoutId: 'remote-plan-v1' },
+      );
+
+      const versions = await workoutRepository.listPlannedWorkoutVersionsForDate(
+        Date.now(),
+      );
+
+      expect(versions).toHaveLength(2);
+      expect(versions.map((workout) => workout.summary)).toEqual([
+        'First',
+        'Second',
+      ]);
+    });
+  });
+
   describe('set logging', () => {
     it('seeds default sets from prescriptions', async () => {
       const plan = createTodayPlanMock({
