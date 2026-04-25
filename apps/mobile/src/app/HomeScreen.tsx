@@ -14,13 +14,11 @@ import { Ionicons } from '@expo/vector-icons';
 import {
   type TodayPlan,
   type GenerationRequest,
+  type QuickActionPreset,
   type WorkoutEnergy,
 } from '@workout-agent/shared';
 import { useHomeData } from './hooks/useHomeData';
-import {
-  generateWorkout,
-  type ApiError,
-} from './services/api';
+import { generateWorkout, type ApiError } from './services/api';
 import { RootStackParamList } from './navigation';
 import { userRepository } from './db/repositories/UserRepository';
 import { palette, typography } from './theme';
@@ -31,15 +29,62 @@ import { CustomizeSheet } from './components/CustomizeSheet';
 // --- Constants ---
 
 const FOCUS_OPTIONS = [
-  { id: 'Smart', label: 'Auto', sub: 'Smart', desc: 'Picks the best focus based on your recent training.', icon: 'sparkles-outline' },
+  {
+    id: 'Smart',
+    label: 'Auto',
+    sub: 'Smart',
+    desc: 'Picks the best focus based on your recent training.',
+    icon: 'sparkles-outline',
+  },
   { id: 'Full Body', label: 'Full Body', icon: 'body-outline' },
   { id: 'Upper Body', label: 'Upper Body', icon: 'arrow-up-outline' },
   { id: 'Lower Body', label: 'Lower Body', icon: 'arrow-down-outline' },
 ];
 
+const getQuickActionValue = (
+  quickActions: QuickActionPreset[],
+  key: QuickActionPreset['key']
+): string | undefined => {
+  const action = quickActions.find((item) => item.key === key);
+  return action?.stagedValue ?? action?.value ?? action?.description;
+};
+
+const hasStagedQuickActionValue = (
+  quickActions: QuickActionPreset[],
+  key: QuickActionPreset['key']
+): boolean => {
+  const action = quickActions.find((item) => item.key === key);
+  return Boolean(action?.stagedValue?.trim());
+};
+
+const parseEquipmentSelection = (value: string | undefined): string[] => {
+  if (!value) return [];
+  return value
+    .split(',')
+    .map((token) => token.trim())
+    .filter(Boolean);
+};
+
+const resolveEquipmentSelection = (
+  equipmentOverride: string[] | null,
+  quickActions: QuickActionPreset[]
+): string[] => {
+  if (equipmentOverride) {
+    return equipmentOverride;
+  }
+
+  const quickActionEquipment = parseEquipmentSelection(
+    getQuickActionValue(quickActions, 'equipment')
+  );
+  return quickActionEquipment.length ? quickActionEquipment : ['Bodyweight'];
+};
+
 // --- Types ---
 
-type HomeScreenNavigation = NativeStackNavigationProp<RootStackParamList, 'Home'>;
+type HomeScreenNavigation = NativeStackNavigationProp<
+  RootStackParamList,
+  'Home'
+>;
 
 // --- Components ---
 
@@ -69,23 +114,37 @@ const SetupSummaryRow = ({
   intensity: string;
   onPress: () => void;
 }) => {
-  const equipmentText = equipment.length > 0 ? equipment.join(', ') : 'Bodyweight';
-  const truncatedEquipment = equipmentText.length > 20
-    ? equipmentText.substring(0, 20) + '...'
-    : equipmentText;
+  const equipmentText =
+    equipment.length > 0 ? equipment.join(', ') : 'Bodyweight';
+  const truncatedEquipment =
+    equipmentText.length > 20
+      ? equipmentText.substring(0, 20) + '...'
+      : equipmentText;
 
   return (
     <Pressable style={styles.summaryRow} onPress={onPress}>
       <View style={styles.summaryContent}>
         <View style={styles.summaryLine}>
-          <Ionicons name="time-outline" size={16} color={palette.textSecondary} />
+          <Ionicons
+            name="time-outline"
+            size={16}
+            color={palette.textSecondary}
+          />
           <Text style={styles.summaryText}>{duration} min</Text>
           <Text style={styles.summaryDot}>•</Text>
-          <Ionicons name="barbell-outline" size={16} color={palette.textSecondary} />
+          <Ionicons
+            name="barbell-outline"
+            size={16}
+            color={palette.textSecondary}
+          />
           <Text style={styles.summaryText}>{truncatedEquipment}</Text>
         </View>
         <View style={styles.summaryLine}>
-          <Ionicons name="speedometer-outline" size={16} color={palette.textSecondary} />
+          <Ionicons
+            name="speedometer-outline"
+            size={16}
+            color={palette.textSecondary}
+          />
           <Text style={styles.summaryText}>{intensity} intensity</Text>
         </View>
       </View>
@@ -126,22 +185,30 @@ const FocusSelector = ({
                 size={20}
                 color={isAutoSelected ? palette.textInverse : palette.primary}
               />
-              <Text style={[
-                styles.focusCardTitle,
-                isAutoSelected && styles.focusCardTitleSelected,
-              ]}>Auto</Text>
+              <Text
+                style={[
+                  styles.focusCardTitle,
+                  isAutoSelected && styles.focusCardTitleSelected,
+                ]}
+              >
+                Auto
+              </Text>
             </View>
-            <View style={[
-              styles.smartBadge,
-              isAutoSelected && styles.smartBadgeSelected,
-            ]}>
+            <View
+              style={[
+                styles.smartBadge,
+                isAutoSelected && styles.smartBadgeSelected,
+              ]}
+            >
               <Text style={styles.smartBadgeText}>SMART</Text>
             </View>
           </View>
-          <Text style={[
-            styles.focusCardDesc,
-            isAutoSelected && styles.focusCardDescSelected,
-          ]}>
+          <Text
+            style={[
+              styles.focusCardDesc,
+              isAutoSelected && styles.focusCardDescSelected,
+            ]}
+          >
             Picks the best focus based on your recent training.
           </Text>
         </Pressable>
@@ -162,7 +229,9 @@ const FocusSelector = ({
                 <Ionicons
                   name={opt.icon as any}
                   size={20}
-                  color={isSelected ? palette.textInverse : palette.textSecondary}
+                  color={
+                    isSelected ? palette.textInverse : palette.textSecondary
+                  }
                 />
                 <Text
                   style={[
@@ -184,10 +253,7 @@ const FocusSelector = ({
             );
           })}
           {/* More button */}
-          <Pressable
-            style={styles.focusCardSmall}
-            onPress={onMore}
-          >
+          <Pressable style={styles.focusCardSmall} onPress={onMore}>
             <Ionicons
               name="ellipsis-horizontal"
               size={20}
@@ -224,7 +290,9 @@ const ActivePlanCard = ({
         accessibilityLabel="Updating workout"
       >
         <ActivityIndicator color={palette.primary} size="small" />
-        <Text style={styles.activePlanUpdatingText}>Updating your workout…</Text>
+        <Text style={styles.activePlanUpdatingText}>
+          Updating your workout…
+        </Text>
       </View>
     ) : null}
     {regenerationError && !isPending ? (
@@ -244,7 +312,9 @@ const ActivePlanCard = ({
     <Text style={styles.activePlanSubtitle}>
       {plan.durationMinutes} min • {plan.equipment.join(', ') || 'Bodyweight'}
     </Text>
-    <Text style={styles.activePlanDesc} numberOfLines={2}>{plan.summary}</Text>
+    <Text style={styles.activePlanDesc} numberOfLines={2}>
+      {plan.summary}
+    </Text>
     <View style={styles.activePlanActions}>
       <Button
         label="Start Workout"
@@ -275,26 +345,29 @@ const ActivePlanCard = ({
 export const HomeScreen = () => {
   const navigation = useNavigation<HomeScreenNavigation>();
   const {
-    status,
     plan,
+    quickActions,
     isOffline,
     refetch,
     generationStatus,
+    updateStagedValue,
     setGenerationStatus,
   } = useHomeData();
 
   // State for setup
   const [duration, setDuration] = useState(30);
-  const [equipment, setEquipment] = useState<string[]>(['Bodyweight']);
+  const [equipmentOverride, setEquipmentOverride] = useState<string[] | null>(
+    null
+  );
   const [focus, setFocus] = useState('Smart');
   const [intensity, setIntensity] = useState('Moderate');
   const [generating, setGenerating] = useState(false);
   const [showCustomizeSheet, setShowCustomizeSheet] = useState(false);
-  const [customizeForRegeneration, setCustomizeForRegeneration] = useState(false);
+  const [customizeForRegeneration, setCustomizeForRegeneration] =
+    useState(false);
   const [showProfileSetup, setShowProfileSetup] = useState(false);
-  const [pendingPlanSnapshot, setPendingPlanSnapshot] = useState<TodayPlan | null>(
-    null,
-  );
+  const [pendingPlanSnapshot, setPendingPlanSnapshot] =
+    useState<TodayPlan | null>(null);
 
   // Load user profile on mount
   useFocusEffect(
@@ -309,15 +382,29 @@ export const HomeScreen = () => {
     if (generating || isOffline) return;
 
     setGenerating(true);
-    setGenerationStatus({ state: 'pending', submittedAt: new Date().toISOString() });
+    setGenerationStatus({
+      state: 'pending',
+      submittedAt: new Date().toISOString(),
+    });
+
+    const equipment = resolveEquipmentSelection(
+      equipmentOverride,
+      quickActions
+    );
+    const shouldSendEquipment =
+      Boolean(equipmentOverride) ||
+      hasStagedQuickActionValue(quickActions, 'equipment');
 
     try {
       const request: GenerationRequest = {
         timeMinutes: duration,
-        equipment,
         energy: intensity.toLowerCase() as WorkoutEnergy,
         focus,
       };
+
+      if (shouldSendEquipment) {
+        request.equipment = equipment;
+      }
 
       console.log('Generating workout:', request);
       await generateWorkout(request);
@@ -344,7 +431,10 @@ export const HomeScreen = () => {
       setShowCustomizeSheet(false);
       setPendingPlanSnapshot(plan);
       setGenerating(true);
-      setGenerationStatus({ state: 'pending', submittedAt: new Date().toISOString() });
+      setGenerationStatus({
+        state: 'pending',
+        submittedAt: new Date().toISOString(),
+      });
 
       try {
         await generateWorkout(request);
@@ -357,7 +447,10 @@ export const HomeScreen = () => {
           submittedAt: new Date().toISOString(),
           message: apiError.message,
         });
-        Alert.alert('Error', apiError.message || 'Failed to regenerate workout');
+        Alert.alert(
+          'Error',
+          apiError.message || 'Failed to regenerate workout'
+        );
       } finally {
         setGenerating(false);
         setPendingPlanSnapshot(null);
@@ -366,9 +459,11 @@ export const HomeScreen = () => {
     } else {
       // Initial customization - just update local state
       if (request.timeMinutes) setDuration(request.timeMinutes);
-      if (request.equipment) setEquipment(request.equipment);
+      if (request.equipment) setEquipmentOverride(request.equipment);
       if (request.energy) {
-        setIntensity(request.energy.charAt(0).toUpperCase() + request.energy.slice(1));
+        setIntensity(
+          request.energy.charAt(0).toUpperCase() + request.energy.slice(1)
+        );
       }
       setFocus(request.focus ?? 'Smart');
       setShowCustomizeSheet(false);
@@ -390,6 +485,10 @@ export const HomeScreen = () => {
   };
 
   const displayPlan = plan ?? (generating ? pendingPlanSnapshot : null);
+  const displayEquipment = resolveEquipmentSelection(
+    equipmentOverride,
+    quickActions
+  );
   const hasActivePlan = Boolean(displayPlan);
   const isPending = generating || generationStatus.state === 'pending';
   const regenerationError =
@@ -406,7 +505,10 @@ export const HomeScreen = () => {
         </View>
       </View>
 
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+      >
         {showProfileSetup && (
           <SetupProfileCard onPress={() => navigation.navigate('Settings')} />
         )}
@@ -414,7 +516,9 @@ export const HomeScreen = () => {
         {hasActivePlan && displayPlan ? (
           <ActivePlanCard
             plan={displayPlan}
-            onStart={() => navigation.navigate('ActiveWorkout', { plan: displayPlan })}
+            onStart={() =>
+              navigation.navigate('ActiveWorkout', { plan: displayPlan })
+            }
             onPreview={handlePreview}
             onCustomize={handleCustomize}
             isPending={isPending}
@@ -424,7 +528,7 @@ export const HomeScreen = () => {
           <>
             <SetupSummaryRow
               duration={duration}
-              equipment={equipment}
+              equipment={displayEquipment}
               intensity={intensity}
               onPress={() => setShowCustomizeSheet(true)}
             />
@@ -437,10 +541,18 @@ export const HomeScreen = () => {
 
             <View style={styles.actionContainer}>
               <Button
-                label={isPending ? "Generating..." : "Generate today's workout"}
+                label={isPending ? 'Generating...' : "Generate today's workout"}
                 onPress={handleGenerate}
                 loading={isPending}
-                icon={!isPending && <Ionicons name="flash" size={20} color={palette.textInverse} />}
+                icon={
+                  !isPending && (
+                    <Ionicons
+                      name="flash"
+                      size={20}
+                      color={palette.textInverse}
+                    />
+                  )
+                }
                 style={styles.generateButton}
               />
             </View>
@@ -458,9 +570,15 @@ export const HomeScreen = () => {
         currentPlan={customizeForRegeneration ? plan : null}
         loading={generating}
         initialDuration={duration}
-        initialEquipment={equipment}
-        initialEnergy={intensity.toLowerCase() as 'easy' | 'moderate' | 'intense'}
+        initialEquipment={displayEquipment}
+        initialEnergy={
+          intensity.toLowerCase() as 'easy' | 'moderate' | 'intense'
+        }
         initialFocus={focus}
+        quickActions={customizeForRegeneration ? undefined : quickActions}
+        onUpdateStagedValue={
+          customizeForRegeneration ? undefined : updateStagedValue
+        }
         onSubmit={handleCustomizeSubmit}
         onClose={() => {
           setShowCustomizeSheet(false);
