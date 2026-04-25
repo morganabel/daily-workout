@@ -197,6 +197,35 @@ describe('generateWorkout', () => {
       { scheduledDate: new Date('2026-04-15T12:00:00Z').getTime() },
     );
   });
+
+  it('sends device-local planning date and effective profile equipment for default generation', async () => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date('2026-04-24T10:00:00'));
+    try {
+      const generatedPlan = createTodayPlanMock({ id: 'plan-default' });
+
+      (global.fetch as jest.Mock).mockResolvedValue({
+        ok: true,
+        json: jest.fn().mockResolvedValue(generatedPlan),
+      });
+
+      await generateWorkout({
+        timeMinutes: 30,
+        focus: 'Smart',
+        energy: 'moderate',
+      });
+
+      expect(global.fetch).toHaveBeenCalledTimes(1);
+      const [, requestInit] = (global.fetch as jest.Mock).mock.calls[0];
+      const payload = JSON.parse(requestInit.body as string);
+
+      expect(payload.planningDateLocal).toBe('2026-04-24');
+      expect(payload.equipment).toBeUndefined();
+      expect(payload.context.environment.equipment).toEqual(['Dumbbells']);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
 });
 
 describe('workout archive/delete mutations', () => {

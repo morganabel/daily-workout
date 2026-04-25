@@ -72,6 +72,19 @@ const baseHookState = {
   setGenerationStatus: jest.fn(),
 };
 
+const createQuickActions = (
+  equipmentValue: string,
+  stagedValue: string | null = null
+): QuickActionPreset[] => [
+  {
+    key: 'equipment',
+    label: 'Equipment',
+    value: equipmentValue,
+    description: equipmentValue,
+    stagedValue,
+  },
+];
+
 describe('HomeScreen', () => {
   beforeEach(() => {
     jest.useFakeTimers();
@@ -98,10 +111,141 @@ describe('HomeScreen', () => {
     expect(getByText("Generate today's workout")).toBeTruthy();
   });
 
+  it('shows profile equipment from quick actions in setup', async () => {
+    mockUseHomeData.mockReturnValue({
+      ...baseHookState,
+      quickActions: createQuickActions('Dumbbells, Bench'),
+    });
+
+    const { getByText } = render(<HomeScreen />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(getByText('Dumbbells, Bench')).toBeTruthy();
+  });
+
+  it('does not send profile equipment as a request override on default generation', async () => {
+    const { generateWorkout } = require('./services/api');
+    generateWorkout.mockResolvedValue(createTodayPlanMock());
+    mockUseHomeData.mockReturnValue({
+      ...baseHookState,
+      quickActions: createQuickActions('Dumbbells, Bench'),
+    });
+
+    const { getByText } = render(<HomeScreen />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    await act(async () => {
+      fireEvent.press(getByText("Generate today's workout"));
+    });
+
+    expect(generateWorkout).toHaveBeenCalledWith(
+      expect.not.objectContaining({ equipment: expect.anything() })
+    );
+  });
+
+  it('does not send equipment when staged equipment matches profile equipment', async () => {
+    const { generateWorkout } = require('./services/api');
+    generateWorkout.mockResolvedValue(createTodayPlanMock());
+    mockUseHomeData.mockReturnValue({
+      ...baseHookState,
+      quickActions: createQuickActions('Dumbbells, Bench', 'Dumbbells, Bench'),
+    });
+
+    const { getByText } = render(<HomeScreen />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    await act(async () => {
+      fireEvent.press(getByText("Generate today's workout"));
+    });
+
+    expect(generateWorkout).toHaveBeenCalledWith(
+      expect.not.objectContaining({ equipment: expect.anything() })
+    );
+  });
+
+  it('keeps profile equipment as fallback after duration-only customization', async () => {
+    const { generateWorkout } = require('./services/api');
+    generateWorkout.mockResolvedValue(createTodayPlanMock());
+    mockUseHomeData.mockReturnValue({
+      ...baseHookState,
+      quickActions: createQuickActions('Dumbbells, Bench'),
+    });
+
+    const { getByText } = render(<HomeScreen />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    fireEvent.press(getByText('Dumbbells, Bench'));
+    fireEvent.press(getByText('45'));
+    await act(async () => {
+      fireEvent.press(getByText('Generate workout'));
+    });
+    await act(async () => {
+      fireEvent.press(getByText("Generate today's workout"));
+    });
+
+    expect(generateWorkout).toHaveBeenCalledWith(
+      expect.objectContaining({ timeMinutes: 45 })
+    );
+    expect(generateWorkout).toHaveBeenCalledWith(
+      expect.not.objectContaining({ equipment: expect.anything() })
+    );
+  });
+
+  it('sends equipment when the setup selection is explicitly customized', async () => {
+    const { generateWorkout } = require('./services/api');
+    generateWorkout.mockResolvedValue(createTodayPlanMock());
+    mockUseHomeData.mockReturnValue(baseHookState);
+
+    const { getByText } = render(<HomeScreen />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    fireEvent.press(getByText('Bodyweight'));
+    fireEvent.press(getByText('Cable Machine'));
+    await act(async () => {
+      fireEvent.press(getByText('Generate workout'));
+    });
+    await act(async () => {
+      fireEvent.press(getByText("Generate today's workout"));
+    });
+
+    expect(generateWorkout).toHaveBeenCalledWith(
+      expect.objectContaining({
+        equipment: ['Bodyweight', 'Cable Machine'],
+      })
+    );
+  });
+
+  it('shows the shared planner equipment options in customize', async () => {
+    mockUseHomeData.mockReturnValue(baseHookState);
+
+    const { getByText } = render(<HomeScreen />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    fireEvent.press(getByText('Bodyweight'));
+
+    expect(getByText('Cable Machine')).toBeTruthy();
+    expect(getByText('Squat Rack')).toBeTruthy();
+    expect(getByText('Rowing Machine')).toBeTruthy();
+  });
+
   it('shows generating state when button is pressed', async () => {
     const { generateWorkout } = require('./services/api');
     // Delays resolution to allow checking loading state
-    generateWorkout.mockImplementation(() => new Promise((resolve) => setTimeout(resolve, 100)));
+    generateWorkout.mockImplementation(
+      () => new Promise((resolve) => setTimeout(resolve, 100))
+    );
 
     mockUseHomeData.mockReturnValue(baseHookState);
 
@@ -177,7 +321,7 @@ describe('HomeScreen', () => {
   it('shows updating indicator on home while regeneration is in progress', async () => {
     const { generateWorkout } = require('./services/api');
     generateWorkout.mockImplementation(
-      () => new Promise<void>((resolve) => setTimeout(resolve, 200)),
+      () => new Promise<void>((resolve) => setTimeout(resolve, 200))
     );
 
     const plan = createTodayPlanMock({
@@ -212,7 +356,7 @@ describe('HomeScreen', () => {
   it('keeps rendering prior plan while regeneration is pending and observed plan is temporarily null', async () => {
     const { generateWorkout } = require('./services/api');
     generateWorkout.mockImplementation(
-      () => new Promise<void>((resolve) => setTimeout(resolve, 300)),
+      () => new Promise<void>((resolve) => setTimeout(resolve, 300))
     );
 
     const seededPlan = createTodayPlanMock({
@@ -252,7 +396,7 @@ describe('HomeScreen', () => {
   it('disables Start and Preview while regeneration is pending', async () => {
     const { generateWorkout } = require('./services/api');
     generateWorkout.mockImplementation(
-      () => new Promise<void>((resolve) => setTimeout(resolve, 500)),
+      () => new Promise<void>((resolve) => setTimeout(resolve, 500))
     );
 
     const plan = createTodayPlanMock({
@@ -288,7 +432,7 @@ describe('HomeScreen', () => {
   it('clears updating state after regeneration completes', async () => {
     const { generateWorkout } = require('./services/api');
     generateWorkout.mockImplementation(
-      () => new Promise<void>((resolve) => setTimeout(resolve, 100)),
+      () => new Promise<void>((resolve) => setTimeout(resolve, 100))
     );
 
     const plan = createTodayPlanMock({
@@ -321,7 +465,9 @@ describe('HomeScreen', () => {
   });
 
   it('calls setGenerationStatus with error when regeneration fails', async () => {
-    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    const alertSpy = jest
+      .spyOn(Alert, 'alert')
+      .mockImplementation(() => undefined);
     const { generateWorkout } = require('./services/api');
     generateWorkout.mockRejectedValue({ message: 'Regen failed' });
 
@@ -356,7 +502,7 @@ describe('HomeScreen', () => {
       expect.objectContaining({
         state: 'error',
         message: 'Regen failed',
-      }),
+      })
     );
     expect(alertSpy).toHaveBeenCalled();
     alertSpy.mockRestore();

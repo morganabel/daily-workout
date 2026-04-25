@@ -17,7 +17,7 @@ import { getByokApiKey, getByokConfig } from '../storage/byokKey';
 import { userRepository } from '../db/repositories/UserRepository';
 import { workoutRepository } from '../db/repositories/WorkoutRepository';
 import { plannedEventRepository } from '../db/repositories/PlannedEventRepository';
-import { getLocalDateFromTimestamp } from '../utils/date';
+import { formatLocalDate, getLocalDateFromTimestamp } from '../utils/date';
 import {
   getSessionCookie,
   getSessionToken,
@@ -237,10 +237,8 @@ export async function generateWorkout(
     requestWithEvents.planningDateLocal ??
     (options?.scheduledDate
       ? getLocalDateFromTimestamp(options.scheduledDate)
-      : undefined);
-  const requestWithPlanningDate = planningDateLocal
-    ? { ...requestWithEvents, planningDateLocal }
-    : requestWithEvents;
+      : formatLocalDate(new Date()));
+  const requestWithPlanningDate = { ...requestWithEvents, planningDateLocal };
 
   const isRegeneration = Boolean(requestWithPlanningDate.previousResponseId);
   const context = await buildGenerationContext(requestWithPlanningDate);
@@ -261,7 +259,8 @@ export async function generateWorkout(
       feedback: requestWithPlanningDate.feedback,
       timeMinutes: requestWithPlanningDate.timeMinutes,
       focus: requestWithPlanningDate.focus,
-      equipment: requestWithPlanningDate.equipment,
+      equipmentOverride: requestWithPlanningDate.equipment,
+      effectiveEquipment: context.environment.equipment,
       energy: requestWithPlanningDate.energy,
       upcomingEvents: requestWithPlanningDate.upcomingEvents?.length ?? 0,
     },
