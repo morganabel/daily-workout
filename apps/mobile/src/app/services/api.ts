@@ -96,7 +96,7 @@ async function getAuthHeaders(): Promise<{
  */
 async function apiRequest<T>(
   endpoint: string,
-  options: RequestInit = {},
+  options: RequestInit = {}
 ): Promise<T> {
   const auth = await getAuthHeaders();
   const byokConfig = await getByokConfig();
@@ -176,7 +176,7 @@ export async function fetchHomeSnapshot(): Promise<HomeSnapshot> {
  * This replaces the mock context with real user data.
  */
 export async function buildGenerationContext(
-  request: GenerationRequest,
+  request: GenerationRequest
 ): Promise<GenerationContext> {
   // Get user preferences from local DB
   const prefs: UserPreferences = await userRepository.getPreferences();
@@ -186,7 +186,7 @@ export async function buildGenerationContext(
     includeArchived: false,
   });
   const recentSessions = recentWorkouts.map((w) =>
-    workoutRepository.toSessionSummary(w),
+    workoutRepository.toSessionSummary(w)
   );
 
   // Determine equipment: quick action override > profile default > fallback
@@ -227,7 +227,7 @@ export async function buildGenerationContext(
  */
 export async function generateWorkout(
   request: GenerationRequest,
-  options?: { scheduledDate?: number },
+  options?: { scheduledDate?: number }
 ): Promise<TodayPlan> {
   const upcomingEvents =
     request.upcomingEvents ??
@@ -266,7 +266,7 @@ export async function generateWorkout(
       effectiveEquipment: context.environment.equipment,
       energy: requestWithPlanningDate.energy,
       upcomingEvents: requestWithPlanningDate.upcomingEvents?.length ?? 0,
-    },
+    }
   );
 
   const plan = await apiRequest<TodayPlan>('/api/workouts/generate', {
@@ -277,7 +277,9 @@ export async function generateWorkout(
   await workoutRepository.saveGeneratedPlan(plan, {
     scheduledDate: options?.scheduledDate,
     baselineWorkoutId: requestWithPlanningDate.baselineWorkout?.id,
+    generationRequest: requestWithPlanningDate,
   });
+  await workoutRepository.pruneRejectedWorkoutVersions();
   return plan;
 }
 
@@ -286,7 +288,7 @@ export async function generateWorkout(
  */
 export async function logWorkout(
   planId: string,
-  payload?: WorkoutLogPayload,
+  payload?: WorkoutLogPayload
 ): Promise<WorkoutSessionSummary> {
   return apiRequest<WorkoutSessionSummary>(`/api/workouts/${planId}/log`, {
     method: 'POST',
@@ -305,7 +307,7 @@ export async function archiveWorkoutSession(workoutId: string): Promise<void> {
  * Unarchive a previously archived workout session.
  */
 export async function unarchiveWorkoutSession(
-  workoutId: string,
+  workoutId: string
 ): Promise<void> {
   await workoutRepository.unarchiveWorkoutById(workoutId);
 }

@@ -30,6 +30,12 @@ export default class Workout extends Model {
   @field('generation_group_id') generationGroupId?: string;
   @field('generation_version') generationVersion?: number;
   @field('is_selected') isSelected?: boolean;
+  @field('parent_workout_id') parentWorkoutId?: string;
+  @field('generation_request_json') generationRequestJson?: string;
+  @field('regeneration_feedback_json') regenerationFeedbackJson?: string;
+  @field('regeneration_notes') regenerationNotes?: string;
+  @field('requested_changes_json') requestedChangesJson?: string;
+  @field('change_label') changeLabel?: string;
   // Provider response ID for continuity-aware regeneration.
   @field('response_id') responseId?: string;
   @readonly @date('created_at') createdAt: number;

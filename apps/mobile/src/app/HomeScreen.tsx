@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -64,7 +65,10 @@ const parseEquipmentSelection = (value: string | undefined): string[] => {
 };
 
 const normalizeEquipmentForComparison = (equipment: string[]): string[] =>
-  equipment.map((item) => item.trim().toLowerCase()).filter(Boolean).sort();
+  equipment
+    .map((item) => item.trim().toLowerCase())
+    .filter(Boolean)
+    .sort();
 
 const equipmentSelectionsEqual = (left: string[], right: string[]): boolean => {
   const normalizedLeft = normalizeEquipmentForComparison(left);
@@ -76,12 +80,42 @@ const equipmentSelectionsEqual = (left: string[], right: string[]): boolean => {
   );
 };
 
-const plansMatchDisplayedContent = (left: TodayPlan, right: TodayPlan): boolean =>
-  left.responseId === right.responseId ||
+const plansMatchDisplayedContent = (
+  left: TodayPlan,
+  right: TodayPlan
+): boolean =>
+  (Boolean(left.responseId) && left.responseId === right.responseId) ||
   (left.focus === right.focus &&
     left.durationMinutes === right.durationMinutes &&
     left.summary === right.summary &&
     equipmentSelectionsEqual(left.equipment, right.equipment));
+
+const formatEquipment = (equipment: string[]): string =>
+  equipment.length > 0 ? equipment.join(', ') : 'Bodyweight';
+
+const getExerciseCount = (plan: TodayPlan): number =>
+  plan.blocks.reduce((count, block) => count + block.exercises.length, 0);
+
+const getVersionLabel = (
+  version: TodayPlan,
+  selectedPlan: TodayPlan,
+  index: number,
+  total: number
+): string => {
+  if (version.id === selectedPlan.id) return 'Current';
+  const changeLabel = getPlanVersionMetadata(version)?.changeLabel;
+  if (changeLabel) return changeLabel;
+  if (index === 0) return 'Original';
+  if (index === total - 1) return 'Latest';
+  return `Option ${index + 1}`;
+};
+
+const getVersionHighlights = (plan: TodayPlan): string => {
+  const names = plan.blocks.flatMap((block) =>
+    block.exercises.map((exercise) => exercise.name)
+  );
+  return names.slice(0, 3).join(' • ');
+};
 
 const resolveBaseEquipmentSelection = (
   quickActions: QuickActionPreset[]
@@ -126,6 +160,19 @@ type HomeScreenNavigation = NativeStackNavigationProp<
   RootStackParamList,
   'Home'
 >;
+
+type PlanVersionMetadata = {
+  changeLabel?: string;
+};
+
+type PlanWithVersionMetadata = TodayPlan & {
+  versionMetadata?: PlanVersionMetadata;
+};
+
+const getPlanVersionMetadata = (
+  plan: TodayPlan
+): PlanVersionMetadata | undefined =>
+  (plan as PlanWithVersionMetadata).versionMetadata;
 
 // --- Components ---
 
@@ -311,7 +358,6 @@ const FocusSelector = ({
 const ActivePlanCard = ({
   plan,
   onStart,
-  onPreview,
   onCustomize,
   isPending,
   regenerationError,
@@ -320,107 +366,312 @@ const ActivePlanCard = ({
 }: {
   plan: TodayPlan;
   onStart: () => void;
-  onPreview: () => void;
   onCustomize: () => void;
   isPending: boolean;
   regenerationError?: string | null;
   planVersions?: TodayPlan[];
-  onSelectVersion?: (planId: string) => void;
-}) => (
-  <Card style={styles.activePlanCard}>
-    {isPending ? (
-      <View
-        style={styles.activePlanUpdatingRow}
-        accessibilityRole="progressbar"
-        accessibilityLabel="Updating workout"
-      >
-        <ActivityIndicator color={palette.primary} size="small" />
-        <Text style={styles.activePlanUpdatingText}>
-          Updating your workout…
-        </Text>
-      </View>
-    ) : null}
-    {regenerationError && !isPending ? (
-      <View style={styles.activePlanErrorBanner} accessibilityRole="alert">
-        <Ionicons
-          name="alert-circle-outline"
-          size={18}
-          color={palette.destructive}
-        />
-        <Text style={styles.activePlanErrorText}>{regenerationError}</Text>
-      </View>
-    ) : null}
-    <View style={styles.activePlanHeader}>
-      <Text style={styles.activePlanLabel}>READY TO GO</Text>
-    </View>
-    <Text style={styles.activePlanTitle}>{plan.focus}</Text>
-    <Text style={styles.activePlanSubtitle}>
-      {plan.durationMinutes} min • {plan.equipment.join(', ') || 'Bodyweight'}
-    </Text>
-    <Text style={styles.activePlanDesc} numberOfLines={2}>
-      {plan.summary}
-    </Text>
-    {planVersions.length > 1 && onSelectVersion ? (
-      <View style={styles.versionStack}>
-        <Text style={styles.versionStackLabel}>Workout options</Text>
-        <View style={styles.versionPillRow}>
-          {planVersions.map((version, index) => {
-            const selected = version.id === plan.id;
-            return (
-              <Pressable
-                key={version.id}
-                accessibilityRole="button"
-                accessibilityLabel={`Show option ${index + 1}`}
-                accessibilityState={{ selected, disabled: isPending }}
-                disabled={isPending}
-                onPress={() => onSelectVersion(version.id)}
-                style={({ pressed }) => [
-                  styles.versionPill,
-                  selected && styles.versionPillSelected,
-                  pressed && styles.versionPillPressed,
-                  isPending && styles.versionPillDisabled,
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.versionPillText,
-                    selected && styles.versionPillTextSelected,
-                  ]}
-                >
-                  {index + 1}
+  onSelectVersion?: (version: TodayPlan) => void;
+}) => {
+  const [showVersions, setShowVersions] = useState(false);
+  const canShowOptions = planVersions.length > 1 && Boolean(onSelectVersion);
+  const currentVersionIndex = planVersions.findIndex(
+    (version) => version.id === plan.id
+  );
+  const hasOriginalUndo =
+    canShowOptions && currentVersionIndex > 0 && Boolean(planVersions[0]);
+
+  return (
+    <View style={styles.activePlanStack}>
+      <Card style={styles.activePlanCard}>
+        {isPending ? (
+          <View
+            style={styles.activePlanUpdatingRow}
+            accessibilityRole="progressbar"
+            accessibilityLabel="Updating workout"
+          >
+            <ActivityIndicator color={palette.primary} size="small" />
+            <Text style={styles.activePlanUpdatingText}>
+              Updating your workout…
+            </Text>
+          </View>
+        ) : null}
+        {regenerationError && !isPending ? (
+          <View style={styles.activePlanErrorBanner} accessibilityRole="alert">
+            <Ionicons
+              name="alert-circle-outline"
+              size={18}
+              color={palette.destructive}
+            />
+            <Text style={styles.activePlanErrorText}>{regenerationError}</Text>
+          </View>
+        ) : null}
+
+        <View style={styles.activePlanHeader}>
+          <View>
+            <Text style={styles.activePlanLabel}>TODAY'S WORKOUT</Text>
+            <Text style={styles.activePlanTitle}>{plan.focus}</Text>
+          </View>
+          {canShowOptions ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Workout versions"
+              accessibilityState={{ disabled: isPending }}
+              disabled={isPending}
+              onPress={() => setShowVersions(true)}
+              style={({ pressed }) => [
+                styles.versionSummaryButton,
+                pressed && styles.versionSummaryButtonPressed,
+                isPending && styles.versionSummaryButtonDisabled,
+              ]}
+            >
+              <Ionicons
+                name="albums-outline"
+                size={16}
+                color={palette.primary}
+              />
+              <Text style={styles.versionSummaryButtonText}>
+                {planVersions.length} versions
+              </Text>
+            </Pressable>
+          ) : null}
+        </View>
+
+        <Text style={styles.activePlanDesc}>{plan.summary}</Text>
+
+        <View style={styles.planPillRow}>
+          <View style={styles.planInfoPill}>
+            <Ionicons name="time-outline" size={15} color={palette.primary} />
+            <Text style={styles.planInfoPillText}>
+              {plan.durationMinutes} min
+            </Text>
+          </View>
+          <View style={styles.planInfoPill}>
+            <Ionicons name="flame-outline" size={15} color={palette.primary} />
+            <Text style={styles.planInfoPillText}>{plan.energy}</Text>
+          </View>
+          <View style={styles.planInfoPillWide}>
+            <Ionicons
+              name="barbell-outline"
+              size={15}
+              color={palette.primary}
+            />
+            <Text style={styles.planInfoPillText} numberOfLines={1}>
+              {formatEquipment(plan.equipment)}
+            </Text>
+          </View>
+        </View>
+
+        {hasOriginalUndo && onSelectVersion ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Undo to original workout"
+            accessibilityState={{ disabled: isPending }}
+            disabled={isPending}
+            onPress={() => onSelectVersion(planVersions[0])}
+            style={({ pressed }) => [
+              styles.undoCard,
+              pressed && styles.versionSummaryButtonPressed,
+              isPending && styles.versionSummaryButtonDisabled,
+            ]}
+          >
+            <View style={styles.undoIcon}>
+              <Ionicons
+                name="return-up-back"
+                size={16}
+                color={palette.primary}
+              />
+            </View>
+            <View style={styles.undoCopy}>
+              <Text style={styles.undoTitle}>Prefer the first draft?</Text>
+              <Text style={styles.undoText}>
+                Switch back to the original version.
+              </Text>
+            </View>
+            <Ionicons
+              name="chevron-forward"
+              size={18}
+              color={palette.textMuted}
+            />
+          </Pressable>
+        ) : null}
+      </Card>
+
+      <View style={styles.workoutDetailSection}>
+        <View style={styles.workoutDetailHeader}>
+          <Text style={styles.sectionLabel}>THE PLAN</Text>
+          <Text style={styles.exerciseCountText}>
+            {getExerciseCount(plan)} exercises
+          </Text>
+        </View>
+
+        {plan.blocks.map((block) => (
+          <View key={block.id} style={styles.workoutBlockCard}>
+            <View style={styles.workoutBlockHeader}>
+              <View style={styles.workoutBlockTitleGroup}>
+                <Text style={styles.workoutBlockTitle}>{block.title}</Text>
+                <Text style={styles.workoutBlockFocus}>{block.focus}</Text>
+              </View>
+              <View style={styles.workoutBlockDurationPill}>
+                <Text style={styles.workoutBlockDurationText}>
+                  {block.durationMinutes} min
                 </Text>
-              </Pressable>
-            );
-          })}
+              </View>
+            </View>
+
+            <View style={styles.exerciseList}>
+              {block.exercises.map((exercise, index) => (
+                <View key={exercise.id} style={styles.exerciseRow}>
+                  <View style={styles.exerciseIndexCircle}>
+                    <Text style={styles.exerciseIndexText}>{index + 1}</Text>
+                  </View>
+                  <View style={styles.exerciseBody}>
+                    <Text style={styles.exerciseName}>{exercise.name}</Text>
+                    <Text style={styles.exercisePrescription}>
+                      {exercise.prescription}
+                    </Text>
+                    {exercise.detail ? (
+                      <Text style={styles.exerciseDetail}>
+                        {exercise.detail}
+                      </Text>
+                    ) : null}
+                  </View>
+                </View>
+              ))}
+            </View>
+          </View>
+        ))}
+      </View>
+
+      <View style={styles.activePlanActions}>
+        <Button
+          label="Start Workout"
+          onPress={onStart}
+          disabled={isPending}
+          icon={<Ionicons name="play" size={20} color={palette.textInverse} />}
+        />
+        <View style={styles.activePlanSecondaryRow}>
+          <Button
+            label={isPending ? 'Updating…' : 'Customize'}
+            onPress={onCustomize}
+            variant="outline"
+            disabled={isPending}
+            style={styles.activePlanSecondaryButton}
+          />
+          {canShowOptions ? (
+            <Button
+              label="Versions"
+              onPress={() => setShowVersions(true)}
+              variant="outline"
+              disabled={isPending}
+              style={styles.activePlanSecondaryButton}
+            />
+          ) : null}
         </View>
       </View>
-    ) : null}
-    <View style={styles.activePlanActions}>
-      <Button
-        label="Start Workout"
-        onPress={onStart}
-        disabled={isPending}
-        icon={<Ionicons name="play" size={20} color={palette.textInverse} />}
-      />
-      <View style={styles.activePlanSecondaryRow}>
-        <Button
-          label="Preview"
-          onPress={onPreview}
-          variant="outline"
-          disabled={isPending}
-          style={styles.activePlanSecondaryButton}
-        />
-        <Button
-          label={isPending ? 'Updating…' : 'Customize'}
-          onPress={onCustomize}
-          variant="outline"
-          disabled={isPending}
-          style={styles.activePlanSecondaryButton}
-        />
-      </View>
+
+      {canShowOptions && onSelectVersion ? (
+        <Modal
+          visible={showVersions}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setShowVersions(false)}
+        >
+          <View style={styles.optionsOverlay}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Close workout versions"
+              style={StyleSheet.absoluteFill}
+              onPress={() => setShowVersions(false)}
+            />
+            <View style={styles.optionsSheet}>
+              <View style={styles.optionsHandle} />
+              <View style={styles.optionsHeader}>
+                <View>
+                  <Text style={styles.optionsTitle}>Workout versions</Text>
+                  <Text style={styles.optionsSubtitle}>
+                    Pick the version that feels right today.
+                  </Text>
+                </View>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Close workout versions"
+                  onPress={() => setShowVersions(false)}
+                  style={styles.optionsCloseButton}
+                >
+                  <Ionicons
+                    name="close"
+                    size={20}
+                    color={palette.textPrimary}
+                  />
+                </Pressable>
+              </View>
+
+              <ScrollView
+                style={styles.optionsList}
+                contentContainerStyle={styles.optionsListContent}
+                showsVerticalScrollIndicator={false}
+              >
+                {planVersions.map((version, index) => {
+                  const selected = version.id === plan.id;
+                  const label = getVersionLabel(
+                    version,
+                    plan,
+                    index,
+                    planVersions.length
+                  );
+
+                  return (
+                    <Pressable
+                      key={version.id}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Use ${label} workout version`}
+                      accessibilityState={{ selected, disabled: isPending }}
+                      disabled={isPending}
+                      onPress={() => {
+                        setShowVersions(false);
+                        onSelectVersion(version);
+                      }}
+                      style={({ pressed }) => [
+                        styles.optionCard,
+                        selected && styles.optionCardSelected,
+                        pressed && styles.optionCardPressed,
+                        isPending && styles.versionSummaryButtonDisabled,
+                      ]}
+                    >
+                      <View style={styles.optionCardHeader}>
+                        <View style={styles.optionLabelPill}>
+                          <Text style={styles.optionLabelText}>{label}</Text>
+                        </View>
+                        {selected ? (
+                          <Ionicons
+                            name="checkmark-circle"
+                            size={20}
+                            color={palette.primary}
+                          />
+                        ) : null}
+                      </View>
+                      <Text style={styles.optionTitle}>{version.focus}</Text>
+                      <Text style={styles.optionMeta}>
+                        {version.durationMinutes} min •{' '}
+                        {formatEquipment(version.equipment)}
+                      </Text>
+                      <Text style={styles.optionSummary} numberOfLines={2}>
+                        {version.summary}
+                      </Text>
+                      <Text style={styles.optionHighlights} numberOfLines={1}>
+                        {getVersionHighlights(version)}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
+      ) : null}
     </View>
-  </Card>
-);
+  );
+};
 
 export const HomeScreen = () => {
   const navigation = useNavigation<HomeScreenNavigation>();
@@ -451,6 +702,8 @@ export const HomeScreen = () => {
   const [pendingPlanSnapshot, setPendingPlanSnapshot] =
     useState<TodayPlan | null>(null);
   const [optimisticPlan, setOptimisticPlan] = useState<TodayPlan | null>(null);
+  const [selectedVersionPlan, setSelectedVersionPlan] =
+    useState<TodayPlan | null>(null);
 
   useEffect(() => {
     if (!optimisticPlan || !plan) return;
@@ -460,7 +713,16 @@ export const HomeScreen = () => {
     }
   }, [optimisticPlan, plan]);
 
+  useEffect(() => {
+    if (!selectedVersionPlan || !plan) return;
+
+    if (plansMatchDisplayedContent(plan, selectedVersionPlan)) {
+      setSelectedVersionPlan(null);
+    }
+  }, [selectedVersionPlan, plan]);
+
   const regenerationPlan = optimisticPlan ?? plan;
+  const activePlan = selectedVersionPlan ?? regenerationPlan;
 
   // Load user profile on mount
   useFocusEffect(
@@ -488,6 +750,7 @@ export const HomeScreen = () => {
       Boolean(equipmentOverride) || hasChangedStagedEquipment(quickActions);
 
     try {
+      setSelectedVersionPlan(null);
       const request: GenerationRequest = {
         timeMinutes: duration,
         energy: intensity.toLowerCase() as WorkoutEnergy,
@@ -518,10 +781,10 @@ export const HomeScreen = () => {
   };
 
   const handleCustomizeSubmit = async (request: GenerationRequest) => {
-    if (customizeForRegeneration && regenerationPlan) {
+    if (customizeForRegeneration && activePlan) {
       // Regeneration mode - generate a new workout
       setShowCustomizeSheet(false);
-      setPendingPlanSnapshot(regenerationPlan);
+      setPendingPlanSnapshot(activePlan);
       setGenerating(true);
       setGenerationStatus({
         state: 'pending',
@@ -529,6 +792,7 @@ export const HomeScreen = () => {
       });
 
       try {
+        setSelectedVersionPlan(null);
         const newPlan = await generateWorkout(request);
         setOptimisticPlan(newPlan);
         await refetch();
@@ -572,12 +836,6 @@ export const HomeScreen = () => {
     }
   };
 
-  const handlePreview = (previewPlan: TodayPlan | null) => {
-    if (previewPlan) {
-      navigation.navigate('WorkoutPreview', { plan: previewPlan });
-    }
-  };
-
   const handleCustomize = () => {
     if (generationStatus.state === 'error') {
       setGenerationStatus({ state: 'idle', submittedAt: null });
@@ -586,7 +844,7 @@ export const HomeScreen = () => {
     setShowCustomizeSheet(true);
   };
 
-  const displayPlan = regenerationPlan ?? (generating ? pendingPlanSnapshot : null);
+  const displayPlan = activePlan ?? (generating ? pendingPlanSnapshot : null);
   const displayPlanVersions = optimisticPlan ? [] : planVersions;
   const displayEquipment = resolveEquipmentSelection(
     equipmentOverride,
@@ -603,8 +861,14 @@ export const HomeScreen = () => {
     <View style={styles.screen}>
       <View style={styles.topBar}>
         <View>
-          <Text style={styles.headerTitle}>Today's Setup</Text>
-          <Text style={styles.headerSubtitle}>Personalize your session.</Text>
+          <Text style={styles.headerTitle}>
+            {hasActivePlan ? "Today's Workout" : "Today's Setup"}
+          </Text>
+          <Text style={styles.headerSubtitle}>
+            {hasActivePlan
+              ? 'Review the plan, then start.'
+              : 'Personalize your session.'}
+          </Text>
         </View>
       </View>
 
@@ -622,14 +886,14 @@ export const HomeScreen = () => {
             onStart={() =>
               navigation.navigate('ActiveWorkout', { plan: displayPlan })
             }
-            onPreview={() => handlePreview(displayPlan)}
             onCustomize={handleCustomize}
             isPending={isPending}
             regenerationError={regenerationError}
             planVersions={displayPlanVersions}
-            onSelectVersion={(planId) => {
+            onSelectVersion={(version) => {
+              setSelectedVersionPlan(version);
               setOptimisticPlan(null);
-              void selectWorkoutVersion(planId);
+              void selectWorkoutVersion(version.id);
             }}
           />
         ) : (
@@ -675,7 +939,7 @@ export const HomeScreen = () => {
 
       <CustomizeSheet
         visible={showCustomizeSheet}
-        currentPlan={customizeForRegeneration ? regenerationPlan : null}
+        currentPlan={customizeForRegeneration ? activePlan : null}
         loading={generating}
         initialDuration={duration}
         initialEquipment={displayEquipment}
@@ -907,9 +1171,13 @@ const styles = StyleSheet.create({
   },
 
   // Active Plan
+  activePlanStack: {
+    gap: 18,
+  },
   activePlanCard: {
-    padding: 24,
-    gap: 12,
+    padding: 22,
+    gap: 16,
+    borderRadius: 24,
   },
   activePlanUpdatingRow: {
     flexDirection: 'row',
@@ -949,6 +1217,8 @@ const styles = StyleSheet.create({
   activePlanHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: 16,
   },
   activePlanLabel: {
     fontFamily: typography.fontFamilyBold,
@@ -958,65 +1228,204 @@ const styles = StyleSheet.create({
   },
   activePlanTitle: {
     fontFamily: typography.fontFamilyExtraBold,
-    fontSize: 24,
+    fontSize: 30,
     color: palette.textPrimary,
-  },
-  activePlanSubtitle: {
-    fontFamily: typography.fontFamilyBold,
-    fontSize: 15,
-    color: palette.primary,
+    marginTop: 4,
   },
   activePlanDesc: {
     fontFamily: typography.fontFamily,
-    fontSize: 14,
+    fontSize: 15,
     color: palette.textSecondary,
-    lineHeight: 20,
+    lineHeight: 22,
   },
-  versionStack: {
+  versionSummaryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderRadius: 999,
+    backgroundColor: palette.cardSecondary,
+    borderWidth: 1,
+    borderColor: palette.border,
+  },
+  versionSummaryButtonPressed: {
+    opacity: 0.78,
+  },
+  versionSummaryButtonDisabled: {
+    opacity: 0.5,
+  },
+  versionSummaryButtonText: {
+    fontFamily: typography.fontFamilyBold,
+    fontSize: 12,
+    color: palette.primary,
+  },
+  planPillRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 8,
   },
-  versionStackLabel: {
+  planInfoPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingVertical: 7,
+    paddingHorizontal: 10,
+    borderRadius: 999,
+    backgroundColor: palette.cardSecondary,
+    borderWidth: 1,
+    borderColor: palette.border,
+  },
+  planInfoPillWide: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexShrink: 1,
+    gap: 5,
+    paddingVertical: 7,
+    paddingHorizontal: 10,
+    borderRadius: 999,
+    backgroundColor: palette.cardSecondary,
+    borderWidth: 1,
+    borderColor: palette.border,
+  },
+  planInfoPillText: {
+    fontFamily: typography.fontFamilyBold,
+    fontSize: 12,
+    color: palette.textPrimary,
+    textTransform: 'capitalize',
+  },
+  undoCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 18,
+    backgroundColor: '#EFF6FF',
+    borderWidth: 1,
+    borderColor: '#BAE6FD',
+    gap: 10,
+  },
+  undoIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: palette.card,
+  },
+  undoCopy: {
+    flex: 1,
+    gap: 2,
+  },
+  undoTitle: {
+    fontFamily: typography.fontFamilyBold,
+    fontSize: 13,
+    color: palette.textPrimary,
+  },
+  undoText: {
+    fontFamily: typography.fontFamily,
+    fontSize: 12,
+    color: palette.textSecondary,
+  },
+  workoutDetailSection: {
+    gap: 8,
+  },
+  workoutDetailHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 2,
+  },
+  exerciseCountText: {
     fontFamily: typography.fontFamilyBold,
     fontSize: 12,
     color: palette.textMuted,
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
   },
-  versionPillRow: {
+  workoutBlockCard: {
+    backgroundColor: palette.card,
+    borderRadius: 22,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: palette.border,
+    gap: 14,
+  },
+  workoutBlockHeader: {
     flexDirection: 'row',
-    gap: 8,
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: 12,
   },
-  versionPill: {
-    minWidth: 36,
-    minHeight: 36,
-    borderRadius: 18,
+  workoutBlockTitleGroup: {
+    flex: 1,
+    gap: 3,
+  },
+  workoutBlockTitle: {
+    fontFamily: typography.fontFamilyExtraBold,
+    fontSize: 18,
+    color: palette.textPrimary,
+  },
+  workoutBlockFocus: {
+    fontFamily: typography.fontFamily,
+    fontSize: 13,
+    color: palette.textSecondary,
+  },
+  workoutBlockDurationPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: palette.primary,
+  },
+  workoutBlockDurationText: {
+    fontFamily: typography.fontFamilyBold,
+    fontSize: 12,
+    color: palette.textInverse,
+  },
+  exerciseList: {
+    gap: 12,
+  },
+  exerciseRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  exerciseIndexCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: palette.cardSecondary,
     borderWidth: 1,
     borderColor: palette.border,
+    marginTop: 1,
   },
-  versionPillSelected: {
-    backgroundColor: palette.primary,
-    borderColor: palette.primary,
-  },
-  versionPillPressed: {
-    opacity: 0.82,
-  },
-  versionPillDisabled: {
-    opacity: 0.5,
-  },
-  versionPillText: {
+  exerciseIndexText: {
     fontFamily: typography.fontFamilyBold,
-    fontSize: 13,
+    fontSize: 12,
     color: palette.textSecondary,
   },
-  versionPillTextSelected: {
-    color: palette.textInverse,
+  exerciseBody: {
+    flex: 1,
+    gap: 3,
+  },
+  exerciseName: {
+    fontFamily: typography.fontFamilyBold,
+    fontSize: 15,
+    color: palette.textPrimary,
+  },
+  exercisePrescription: {
+    fontFamily: typography.fontFamilyBold,
+    fontSize: 13,
+    color: palette.primary,
+  },
+  exerciseDetail: {
+    fontFamily: typography.fontFamily,
+    fontSize: 13,
+    color: palette.textSecondary,
+    lineHeight: 18,
   },
   activePlanActions: {
     gap: 12,
-    marginTop: 8,
+    paddingTop: 2,
   },
   activePlanSecondaryRow: {
     flexDirection: 'row',
@@ -1024,5 +1433,120 @@ const styles = StyleSheet.create({
   },
   activePlanSecondaryButton: {
     flex: 1,
+  },
+  optionsOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(15, 23, 42, 0.35)',
+  },
+  optionsSheet: {
+    maxHeight: '78%',
+    paddingTop: 10,
+    paddingHorizontal: 20,
+    paddingBottom: 28,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    backgroundColor: palette.background,
+    borderWidth: 1,
+    borderColor: palette.border,
+  },
+  optionsHandle: {
+    alignSelf: 'center',
+    width: 44,
+    height: 5,
+    borderRadius: 999,
+    backgroundColor: palette.borderDark,
+    marginBottom: 16,
+  },
+  optionsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: 16,
+    marginBottom: 16,
+  },
+  optionsTitle: {
+    fontFamily: typography.fontFamilyExtraBold,
+    fontSize: 24,
+    color: palette.textPrimary,
+  },
+  optionsSubtitle: {
+    fontFamily: typography.fontFamily,
+    fontSize: 14,
+    color: palette.textSecondary,
+    marginTop: 3,
+  },
+  optionsCloseButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: palette.card,
+    borderWidth: 1,
+    borderColor: palette.border,
+  },
+  optionsList: {
+    marginHorizontal: -2,
+  },
+  optionsListContent: {
+    gap: 10,
+    paddingHorizontal: 2,
+    paddingBottom: 8,
+  },
+  optionCard: {
+    padding: 16,
+    borderRadius: 20,
+    backgroundColor: palette.card,
+    borderWidth: 1,
+    borderColor: palette.border,
+    gap: 8,
+  },
+  optionCardSelected: {
+    borderColor: palette.primary,
+    backgroundColor: '#F0F9FF',
+  },
+  optionCardPressed: {
+    transform: [{ scale: 0.99 }],
+  },
+  optionCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  optionLabelPill: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 999,
+    backgroundColor: palette.cardSecondary,
+  },
+  optionLabelText: {
+    fontFamily: typography.fontFamilyBold,
+    fontSize: 11,
+    color: palette.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  optionTitle: {
+    fontFamily: typography.fontFamilyExtraBold,
+    fontSize: 18,
+    color: palette.textPrimary,
+  },
+  optionMeta: {
+    fontFamily: typography.fontFamilyBold,
+    fontSize: 13,
+    color: palette.primary,
+  },
+  optionSummary: {
+    fontFamily: typography.fontFamily,
+    fontSize: 13,
+    color: palette.textSecondary,
+    lineHeight: 18,
+  },
+  optionHighlights: {
+    fontFamily: typography.fontFamilyBold,
+    fontSize: 12,
+    color: palette.textMuted,
   },
 });

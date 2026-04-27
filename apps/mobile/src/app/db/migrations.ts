@@ -83,5 +83,33 @@ export const migrations = schemaMigrations({
         }),
       ],
     },
+    {
+      toVersion: 8,
+      steps: [
+        addColumns({
+          table: 'workouts',
+          columns: [
+            { name: 'parent_workout_id', type: 'string', isOptional: true },
+            {
+              name: 'generation_request_json',
+              type: 'string',
+              isOptional: true,
+            },
+            {
+              name: 'regeneration_feedback_json',
+              type: 'string',
+              isOptional: true,
+            },
+            { name: 'regeneration_notes', type: 'string', isOptional: true },
+            {
+              name: 'requested_changes_json',
+              type: 'string',
+              isOptional: true,
+            },
+            { name: 'change_label', type: 'string', isOptional: true },
+          ],
+        }),
+      ],
+    },
   ],
 });

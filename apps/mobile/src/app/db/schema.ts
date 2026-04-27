@@ -1,7 +1,7 @@
 import { appSchema, tableSchema } from '@nozbe/watermelondb';
 
 export const schema = appSchema({
-  version: 7,
+  version: 8,
   tables: [
     tableSchema({
       name: 'users',
@@ -31,6 +31,16 @@ export const schema = appSchema({
         { name: 'generation_group_id', type: 'string', isOptional: true },
         { name: 'generation_version', type: 'number', isOptional: true },
         { name: 'is_selected', type: 'boolean', isOptional: true },
+        { name: 'parent_workout_id', type: 'string', isOptional: true },
+        { name: 'generation_request_json', type: 'string', isOptional: true },
+        {
+          name: 'regeneration_feedback_json',
+          type: 'string',
+          isOptional: true,
+        },
+        { name: 'regeneration_notes', type: 'string', isOptional: true },
+        { name: 'requested_changes_json', type: 'string', isOptional: true },
+        { name: 'change_label', type: 'string', isOptional: true },
         // Provider response ID for continuity-aware regeneration.
         { name: 'response_id', type: 'string', isOptional: true },
         { name: 'created_at', type: 'number' },
