@@ -279,7 +279,11 @@ export async function generateWorkout(
     baselineWorkoutId: requestWithPlanningDate.baselineWorkout?.id,
     generationRequest: requestWithPlanningDate,
   });
-  await workoutRepository.pruneRejectedWorkoutVersions();
+  void Promise.resolve(workoutRepository.pruneRejectedWorkoutVersions()).catch(
+    (error) => {
+      console.error('Failed to prune rejected workout versions', error);
+    }
+  );
   return plan;
 }
 

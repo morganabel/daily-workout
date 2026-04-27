@@ -379,9 +379,9 @@ export class WorkoutRepository {
           )
         );
       } else {
-        await Promise.all(
-          plannedForDay.map((workout) => workout.destroyPermanently())
-        );
+        for (const workout of plannedForDay) {
+          await this.destroyWorkoutGraph(workout);
+        }
       }
 
       const workout = await this.workouts.create((w) => {
@@ -439,15 +439,14 @@ export class WorkoutRepository {
       options?.olderThanDays ?? DEFAULT_REJECTED_VERSION_RETENTION_DAYS;
     const now = options?.now ?? Date.now();
     const cutoff = now - olderThanDays * 24 * 60 * 60 * 1000;
-    const allActiveWorkouts = await this.workouts
-      .query(Q.where('archived_at', null))
+    const protectedParentWorkouts = await this.workouts
+      .query(
+        Q.where('archived_at', null),
+        Q.or(Q.where('status', 'completed'), Q.where('is_selected', true))
+      )
       .fetch();
     const protectedParentIds = new globalThis.Set(
-      allActiveWorkouts
-        .filter(
-          (workout) =>
-            workout.status === 'completed' || workout.isSelected === true
-        )
+      protectedParentWorkouts
         .map((workout) => workout.parentWorkoutId)
         .filter((id): id is string => Boolean(id))
     );

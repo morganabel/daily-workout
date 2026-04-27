@@ -714,12 +714,24 @@ export const HomeScreen = () => {
   }, [optimisticPlan, plan]);
 
   useEffect(() => {
-    if (!selectedVersionPlan || !plan) return;
+    if (!selectedVersionPlan) return;
+
+    if (!plan) {
+      setSelectedVersionPlan(null);
+      return;
+    }
+
+    if (
+      !planVersions.some((version) => version.id === selectedVersionPlan.id)
+    ) {
+      setSelectedVersionPlan(null);
+      return;
+    }
 
     if (plansMatchDisplayedContent(plan, selectedVersionPlan)) {
       setSelectedVersionPlan(null);
     }
-  }, [selectedVersionPlan, plan]);
+  }, [selectedVersionPlan, plan, planVersions]);
 
   const regenerationPlan = optimisticPlan ?? plan;
   const activePlan = selectedVersionPlan ?? regenerationPlan;

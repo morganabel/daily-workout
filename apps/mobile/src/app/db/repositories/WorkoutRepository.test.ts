@@ -1,6 +1,7 @@
 import { workoutRepository } from './WorkoutRepository';
 import { database } from '../index';
 import { createTodayPlanMock } from '@workout-agent/shared';
+import { Q } from '@nozbe/watermelondb';
 
 // Helper to get timestamp from WatermelonDB date field (can be Date object or number)
 const getTimestamp = (value: number | Date | undefined | null): number => {
@@ -217,6 +218,41 @@ describe('WorkoutRepository', () => {
         'First',
         'Second',
       ]);
+    });
+
+    it('deletes exercises and sets when replacing a planned workout', async () => {
+      await workoutRepository.saveGeneratedPlan(
+        createTodayPlanMock({ id: 'replace-plan-v1', summary: 'First' })
+      );
+      const firstWorkout = await workoutRepository.getTodayWorkout();
+      expect(firstWorkout).toBeTruthy();
+
+      await workoutRepository.ensureSetsForWorkout(firstWorkout!.id);
+      const firstExercises = await database.collections
+        .get<any>('exercises')
+        .query(Q.where('workout_id', firstWorkout!.id))
+        .fetch();
+      const seededSets = await database.collections
+        .get<any>('sets')
+        .query()
+        .fetch();
+      expect(firstExercises.length).toBeGreaterThan(0);
+      expect(seededSets.length).toBeGreaterThan(0);
+
+      await workoutRepository.saveGeneratedPlan(
+        createTodayPlanMock({ id: 'replace-plan-v2', summary: 'Second' })
+      );
+
+      const orphanedExercises = await database.collections
+        .get<any>('exercises')
+        .query(Q.where('workout_id', firstWorkout!.id))
+        .fetch();
+      const remainingSets = await database.collections
+        .get<any>('sets')
+        .query()
+        .fetch();
+      expect(orphanedExercises).toHaveLength(0);
+      expect(remainingSets).toHaveLength(0);
     });
 
     it('stores regeneration lineage and request metadata', async () => {

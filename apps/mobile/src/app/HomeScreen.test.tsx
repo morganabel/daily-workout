@@ -697,6 +697,49 @@ describe('HomeScreen', () => {
     expect(queryByText('Selected focus')).toBeNull();
   });
 
+  it('clears selected version override when the current plan disappears', async () => {
+    const selectedPlan = createTodayPlanMock({
+      id: 'version-2',
+      focus: 'Selected focus',
+      summary: 'Selected version',
+    });
+    const olderPlan = createTodayPlanMock({
+      id: 'version-1',
+      focus: 'Original focus',
+      summary: 'Older version',
+    });
+    const selectWorkoutVersion = jest.fn().mockResolvedValue(undefined);
+    let hookState = {
+      ...baseHookState,
+      plan: selectedPlan,
+      planVersions: [olderPlan, selectedPlan],
+      selectWorkoutVersion,
+    };
+    mockUseHomeData.mockImplementation(() => hookState);
+
+    const { getByText, queryByText, rerender } = render(<HomeScreen />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    fireEvent.press(getByText('Versions'));
+    fireEvent.press(getByText('Original'));
+    expect(getByText('Original focus')).toBeTruthy();
+
+    hookState = {
+      ...hookState,
+      plan: null,
+      planVersions: [],
+    };
+    await act(async () => {
+      rerender(<HomeScreen />);
+      await Promise.resolve();
+    });
+
+    expect(queryByText('Original focus')).toBeNull();
+    expect(getByText("Generate today's workout")).toBeTruthy();
+  });
+
   it('calls setGenerationStatus with error when regeneration fails', async () => {
     const alertSpy = jest
       .spyOn(Alert, 'alert')

@@ -242,6 +242,36 @@ describe('generateWorkout', () => {
       jest.useRealTimers();
     }
   });
+
+  it('still resolves when rejected-version pruning fails after save', async () => {
+    const consoleSpy = jest
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    const generatedPlan = createTodayPlanMock({ id: 'plan-prune-error' });
+    mockWorkoutRepository.pruneRejectedWorkoutVersions.mockRejectedValueOnce(
+      new Error('prune failed')
+    );
+    (global.fetch as jest.Mock).mockResolvedValue({
+      ok: true,
+      json: jest.fn().mockResolvedValue(generatedPlan),
+    });
+
+    const result = await generateWorkout({
+      timeMinutes: 30,
+      focus: 'Smart',
+      energy: 'moderate',
+    });
+    await Promise.resolve();
+
+    expect(result).toBe(generatedPlan);
+    expect(mockWorkoutRepository.saveGeneratedPlan).toHaveBeenCalled();
+    expect(consoleSpy).toHaveBeenCalledWith(
+      'Failed to prune rejected workout versions',
+      expect.any(Error)
+    );
+
+    consoleSpy.mockRestore();
+  });
 });
 
 describe('workout archive/delete mutations', () => {
