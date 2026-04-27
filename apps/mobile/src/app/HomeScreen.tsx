@@ -377,6 +377,9 @@ const ActivePlanCard = ({
   const currentVersionIndex = planVersions.findIndex(
     (version) => version.id === plan.id
   );
+  const displayedPlanVersions = planVersions
+    .map((version, index) => ({ version, index }))
+    .reverse();
   const hasOriginalUndo =
     canShowOptions && currentVersionIndex > 0 && Boolean(planVersions[0]);
 
@@ -611,7 +614,7 @@ const ActivePlanCard = ({
                 contentContainerStyle={styles.optionsListContent}
                 showsVerticalScrollIndicator={false}
               >
-                {planVersions.map((version, index) => {
+                {displayedPlanVersions.map(({ version, index }) => {
                   const selected = version.id === plan.id;
                   const label = getVersionLabel(
                     version,
