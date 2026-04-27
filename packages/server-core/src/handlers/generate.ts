@@ -485,6 +485,11 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
       plan = mockPlan();
     }
 
+    plan = {
+      ...plan,
+      equipment: effectivePlanningBrief.availableEquipment,
+    };
+
     const validated = todayPlanSchema.parse(plan);
 
     if (!encounteredProviderError) {

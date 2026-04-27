@@ -12,7 +12,10 @@ import {
   createSessionDetailMock,
   createWorkoutExerciseLogMock,
   createWorkoutSetLogMock,
+  EQUIPMENT_OPTIONS,
+  GYM_EQUIPMENT,
   isAutoFocus,
+  normalizeEquipmentSelection,
   todayPlanSchema,
   type GenerationRequest,
   type QuickActionPreset,
@@ -129,6 +132,29 @@ describe('quick action helpers', () => {
       }),
     );
     expect(timeWithDefaultOnly).toEqual({ timeMinutes: 30 });
+  });
+
+  it('exposes Gym as a compact equipment preset', () => {
+    expect(EQUIPMENT_OPTIONS).toContain('Gym');
+
+    const equipmentResult = normalizeQuickActionValue(
+      createPreset({
+        key: 'equipment',
+        stagedValue: 'Gym',
+      }),
+    );
+
+    expect(equipmentResult).toEqual({ equipment: ['Gym'] });
+  });
+
+  it('normalizes Gym as mutually exclusive equipment', () => {
+    expect(
+      normalizeEquipmentSelection(['Gym', 'Dumbbells', 'Resistance Bands']),
+    ).toEqual([GYM_EQUIPMENT]);
+    expect(normalizeEquipmentSelection(['  Dumbbells ', 'Bench'])).toEqual([
+      'Dumbbells',
+      'Bench',
+    ]);
   });
 });
 

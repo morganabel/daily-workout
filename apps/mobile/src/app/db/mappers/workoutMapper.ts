@@ -19,6 +19,9 @@ export type WorkoutRowLike = {
   completedAt?: number | null;
   durationSeconds?: number | null;
   archivedAt?: number | null;
+  generationGroupId?: string | null;
+  generationVersion?: number | null;
+  isSelected?: boolean | null;
   // Provider response ID for continuity-aware regeneration.
   responseId?: string | null;
   createdAt?: number | null;
@@ -167,6 +170,9 @@ export const planToPersistence = (
     scheduledDate: timestamp,
     durationSeconds: plan.durationMinutes * 60,
     archivedAt: null,
+    generationGroupId: null,
+    generationVersion: 1,
+    isSelected: true,
     // Store provider response ID for continuity-aware regeneration.
     responseId: plan.responseId,
     createdAt: timestamp,

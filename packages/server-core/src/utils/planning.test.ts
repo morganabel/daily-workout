@@ -99,6 +99,21 @@ describe('derivePlanningBrief', () => {
     });
   });
 
+  it('infers strength style bias from strength-oriented goals', () => {
+    const brief = derivePlanningBrief({
+      request: { focus: 'Smart' },
+      context: createContext({
+        userProfile: {
+          preferredStyle: undefined,
+          primaryGoal: 'build muscle and strength',
+        },
+      }),
+      provider: 'openai',
+    });
+
+    expect(brief.styleBias).toBe('strength');
+  });
+
   it('protects a near-term event when smart focus is requested', () => {
     const brief = derivePlanningBrief({
       request: {

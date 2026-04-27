@@ -12,7 +12,9 @@ import { userRepository } from './db/repositories/UserRepository';
 import {
   UserPreferences,
   EQUIPMENT_OPTIONS,
+  GYM_EQUIPMENT,
   ExperienceLevel,
+  normalizeEquipmentSelection,
 } from '@workout-agent/shared';
 import { palette, typography } from './theme';
 import { BottomNavigation } from './components/BottomNavigation';
@@ -54,7 +56,10 @@ export const SettingsScreen = () => {
   useEffect(() => {
     const loadPreferences = async () => {
       const prefs = await userRepository.getPreferences();
-      setPreferences(prefs);
+      setPreferences({
+        ...prefs,
+        equipment: normalizeEquipmentSelection(prefs.equipment),
+      });
     };
     loadPreferences();
   }, []);
@@ -70,10 +75,17 @@ export const SettingsScreen = () => {
   const toggleEquipment = useCallback((item: string) => {
     setPreferences((prev) => {
       const current = prev.equipment;
+      if (item === GYM_EQUIPMENT) {
+        return {
+          ...prev,
+          equipment: current.includes(GYM_EQUIPMENT) ? [] : [GYM_EQUIPMENT],
+        };
+      }
+
       const updated = current.includes(item)
         ? current.filter((e) => e !== item)
-        : [...current, item];
-      return { ...prev, equipment: updated };
+        : [...current.filter((e) => e !== GYM_EQUIPMENT), item];
+      return { ...prev, equipment: normalizeEquipmentSelection(updated) };
     });
     setHasChanges(true);
   }, []);

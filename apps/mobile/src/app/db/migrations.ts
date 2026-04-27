@@ -70,5 +70,18 @@ export const migrations = schemaMigrations({
         }),
       ],
     },
+    {
+      toVersion: 7,
+      steps: [
+        addColumns({
+          table: 'workouts',
+          columns: [
+            { name: 'generation_group_id', type: 'string', isOptional: true },
+            { name: 'generation_version', type: 'number', isOptional: true },
+            { name: 'is_selected', type: 'boolean', isOptional: true },
+          ],
+        }),
+      ],
+    },
   ],
 });

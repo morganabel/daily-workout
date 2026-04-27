@@ -194,7 +194,10 @@ describe('generateWorkout', () => {
     expect(payload.upcomingEvents).toHaveLength(1);
     expect(mockWorkoutRepository.saveGeneratedPlan).toHaveBeenCalledWith(
       generatedPlan,
-      { scheduledDate: new Date('2026-04-15T12:00:00Z').getTime() },
+      {
+        scheduledDate: new Date('2026-04-15T12:00:00Z').getTime(),
+        baselineWorkoutId: 'plan-existing',
+      },
     );
   });
 

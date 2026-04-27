@@ -8,20 +8,26 @@ import type Workout from '../db/models/Workout';
 
 jest.mock('../db/repositories/WorkoutRepository', () => {
   const observeTodayWorkout = jest.fn();
+  const observeTodayWorkoutVersions = jest.fn();
   const observeRecentSessions = jest.fn();
   const getTodayWorkout = jest.fn();
+  const listPlannedWorkoutVersionsForDate = jest.fn();
   const listRecentSessions = jest.fn();
   const mapWorkoutToPlan = jest.fn();
   const toSessionSummary = jest.fn();
+  const selectWorkoutVersion = jest.fn();
 
   return {
     workoutRepository: {
       observeTodayWorkout,
+      observeTodayWorkoutVersions,
       observeRecentSessions,
       getTodayWorkout,
+      listPlannedWorkoutVersionsForDate,
       listRecentSessions,
       mapWorkoutToPlan,
       toSessionSummary,
+      selectWorkoutVersion,
       archiveWorkoutById: jest.fn(),
       unarchiveWorkoutById: jest.fn(),
       deleteWorkoutById: jest.fn(),
@@ -62,6 +68,7 @@ const createObservableMock = <T,>() => {
 
 describe('useHomeData', () => {
   let planStream: ReturnType<typeof createObservableMock<Workout[]>>;
+  let versionStream: ReturnType<typeof createObservableMock<Workout[]>>;
   let sessionStream: ReturnType<typeof createObservableMock<Workout[]>>;
   let mockPlan: ReturnType<typeof createTodayPlanMock>;
   let userStream: ReturnType<typeof createObservableMock<unknown>>;
@@ -69,13 +76,16 @@ describe('useHomeData', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     planStream = createObservableMock<Workout[]>();
+    versionStream = createObservableMock<Workout[]>();
     sessionStream = createObservableMock<Workout[]>();
     userStream = createObservableMock<unknown>();
     mockPlan = createTodayPlanMock({ id: 'server-plan' });
 
     mockWorkoutRepository.observeTodayWorkout.mockReturnValue(planStream.observable as any);
+    mockWorkoutRepository.observeTodayWorkoutVersions.mockReturnValue(versionStream.observable as any);
     mockWorkoutRepository.observeRecentSessions.mockReturnValue(sessionStream.observable as any);
     mockWorkoutRepository.getTodayWorkout.mockResolvedValue(null);
+    mockWorkoutRepository.listPlannedWorkoutVersionsForDate.mockResolvedValue([]);
     mockWorkoutRepository.mapWorkoutToPlan.mockResolvedValue(mockPlan);
     mockWorkoutRepository.toSessionSummary.mockImplementation((workout) =>
       createSessionSummaryMock({ id: workout.id, name: workout.name || 'Workout' }),
@@ -126,8 +136,42 @@ describe('useHomeData', () => {
     expect(mockWorkoutRepository.toSessionSummary).toHaveBeenCalledTimes(2);
   });
 
+  it('hydrates planned workout versions from the selected group', async () => {
+    const selectedPlan = createTodayPlanMock({ id: 'selected-version' });
+    const oldPlan = createTodayPlanMock({ id: 'old-version' });
+    mockWorkoutRepository.mapWorkoutToPlan
+      .mockResolvedValueOnce(selectedPlan)
+      .mockResolvedValueOnce(oldPlan);
+
+    const { result } = renderHook(() => useHomeData());
+
+    await act(async () => {
+      versionStream.emit([
+        {
+          id: 'selected-version',
+          generationGroupId: 'group-1',
+          isSelected: true,
+        } as unknown as Workout,
+        {
+          id: 'old-version',
+          generationGroupId: 'group-1',
+          isSelected: false,
+        } as unknown as Workout,
+      ]);
+    });
+
+    await waitFor(() => {
+      expect(result.current.planVersions).toHaveLength(2);
+    });
+    expect(result.current.planVersions.map((plan) => plan.id)).toEqual([
+      'selected-version',
+      'old-version',
+    ]);
+  });
+
   it('supports manual refetch by querying the repository', async () => {
     mockWorkoutRepository.getTodayWorkout.mockResolvedValueOnce({ id: 'refetch' } as unknown as Workout);
+    mockWorkoutRepository.listPlannedWorkoutVersionsForDate.mockResolvedValueOnce([]);
     mockWorkoutRepository.mapWorkoutToPlan.mockResolvedValueOnce(
       createTodayPlanMock({ id: 'refetched-plan', focus: 'Refetched' }),
     );
@@ -140,6 +184,18 @@ describe('useHomeData', () => {
 
     expect(mockWorkoutRepository.getTodayWorkout).toHaveBeenCalled();
     expect(result.current.plan?.focus).toBe('Refetched');
+  });
+
+  it('delegates workout version selection to the repository', async () => {
+    const { result } = renderHook(() => useHomeData());
+
+    await act(async () => {
+      await result.current.selectWorkoutVersion('version-2');
+    });
+
+    expect(mockWorkoutRepository.selectWorkoutVersion).toHaveBeenCalledWith(
+      'version-2',
+    );
   });
 
   it('tracks staged quick action values', async () => {

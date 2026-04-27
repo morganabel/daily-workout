@@ -1,4 +1,8 @@
-import { isAutoFocus, type GenerationContext } from '@workout-agent/shared';
+import {
+  isAutoFocus,
+  normalizeEquipmentSelection,
+  type GenerationContext,
+} from '@workout-agent/shared';
 import type { GenerationRequestWithContext } from './context';
 import type {
   PlanningBrief,
@@ -47,11 +51,10 @@ export function derivePlanningBrief({
       ? 'smart'
       : 'explicit'
     : 'unset';
-  const availableEquipment = request.equipment?.length
-    ? request.equipment
-    : context.environment.equipment.length
-      ? context.environment.equipment
-      : DEFAULT_EQUIPMENT;
+  const availableEquipment = normalizeEquipmentSelection(
+    request.equipment?.length ? request.equipment : context.environment.equipment,
+    DEFAULT_EQUIPMENT,
+  );
   const planningDateLocal =
     request.planningDateLocal ?? formatLocalDate(new Date());
   const eventProtection = selectEventProtection(
@@ -104,7 +107,7 @@ export function derivePlanningBrief({
     availableEquipment,
     energy,
     loadCeiling,
-    styleBias: context.userProfile.preferredStyle,
+    styleBias: deriveStyleBias(context, resolvedFocus),
     primaryGoal: context.userProfile.primaryGoal,
     priorityNotes: request.notes ?? context.notes,
     userConstraints: {
@@ -233,6 +236,41 @@ function deriveLoadCeiling(
   }
 
   return loadCeiling;
+}
+
+function deriveStyleBias(
+  context: GenerationContext,
+  resolvedFocus: string,
+): string | undefined {
+  if (context.userProfile.preferredStyle) {
+    return context.userProfile.preferredStyle;
+  }
+
+  const strengthClues = [
+    resolvedFocus,
+    context.userProfile.primaryGoal,
+    ...(context.preferences.focusBias ?? []),
+    context.notes,
+  ]
+    .filter(Boolean)
+    .map((value) => normalizeText(value as string));
+
+  if (
+    strengthClues.some(
+      (value) =>
+        value.includes('strength') ||
+        value.includes('muscle') ||
+        value.includes('hypertrophy') ||
+        value.includes('size') ||
+        value.includes('lifting') ||
+        value.includes('powerlifting') ||
+        value.includes('bodybuilding'),
+    )
+  ) {
+    return 'strength';
+  }
+
+  return undefined;
 }
 
 function resolveFocus(params: {

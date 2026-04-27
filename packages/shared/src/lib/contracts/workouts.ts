@@ -285,6 +285,22 @@ const WORKOUT_ENERGY_VALUES = new Set(workoutEnergySchema.options);
 const BACKFILL_TRUE_VALUES = new Set(['true', 'yes', '1', 'y']);
 const BACKFILL_FALSE_VALUES = new Set(['false', 'no', '0', 'n']);
 const MAX_FOCUS_LENGTH = 80;
+export const GYM_EQUIPMENT = 'Gym';
+
+export function normalizeEquipmentSelection(
+  equipment: string[],
+  fallback: string[] = [],
+): string[] {
+  const normalized = [
+    ...new Set(equipment.map((item) => item.trim()).filter(Boolean)),
+  ];
+
+  if (normalized.some((item) => item.toLowerCase() === 'gym')) {
+    return [GYM_EQUIPMENT];
+  }
+
+  return normalized.length ? normalized : fallback;
+}
 
 const clampTimeMinutes = (value: number): number | undefined => {
   const valid = QUICK_ACTION_TIME_MINUTES.find((option) => option === value);
@@ -324,7 +340,7 @@ const sanitizeEquipmentList = (value: string): string[] | undefined => {
   if (!tokens.length) {
     return undefined;
   }
-  return tokens;
+  return normalizeEquipmentSelection(tokens);
 };
 
 const sanitizeEnergy = (value: string): WorkoutEnergy | undefined => {
@@ -487,6 +503,7 @@ export type UserPreferences = z.infer<typeof userPreferencesSchema>;
  * Predefined equipment options for the profile selector
  */
 export const EQUIPMENT_OPTIONS = [
+  GYM_EQUIPMENT,
   'Bodyweight',
   'Dumbbells',
   'Barbell',

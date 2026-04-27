@@ -8,6 +8,8 @@ import type { PlanningBrief, StageOnePlannerArtifact } from './planning';
 export interface ExerciseCandidateReference {
   id: string;
   name: string;
+  requiredEquipment?: string[];
+  optionalEquipment?: string[];
   focusTags?: string[];
   movementTags?: string[];
   styleTags?: string[];
