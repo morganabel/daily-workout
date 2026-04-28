@@ -16,6 +16,7 @@ import { RootStackParamList } from './navigation';
 import { SetRow } from './components/SetRow';
 import { palette, typography, layout } from './theme';
 import { Button } from './components/DesignSystem';
+import { setDebugActiveWorkoutUiState } from './debug/debugState';
 
 type ActiveWorkoutNavigation = NativeStackNavigationProp<
   RootStackParamList,
@@ -79,6 +80,44 @@ export const ActiveWorkoutScreen = () => {
   useEffect(() => {
     isSubmittingRef.current = isSubmitting;
   }, [isSubmitting]);
+
+  useEffect(
+    () => () => {
+      setDebugActiveWorkoutUiState(null);
+    },
+    []
+  );
+
+  useEffect(() => {
+    const setCount = exerciseLogs.reduce(
+      (total, exercise) => total + exercise.sets.length,
+      0
+    );
+    const completedSetCount = exerciseLogs.reduce(
+      (total, exercise) =>
+        total + exercise.sets.filter((setLog) => setLog.completed).length,
+      0
+    );
+
+    setDebugActiveWorkoutUiState({
+      workoutId,
+      durationSeconds,
+      loading,
+      isSubmitting,
+      exerciseCount: exerciseLogs.length,
+      setCount,
+      completedSetCount,
+      expandedExerciseCount: Object.values(expandedExercises).filter(Boolean)
+        .length,
+    });
+  }, [
+    durationSeconds,
+    expandedExercises,
+    exerciseLogs,
+    isSubmitting,
+    loading,
+    workoutId,
+  ]);
 
   useEffect(() => {
     const timer = setInterval(() => {

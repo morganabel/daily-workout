@@ -24,10 +24,10 @@
 
 ## 4. Debug State Publishing
 
-- [ ] 4.1 Add a dev-only debug state store for current route, bridge connection status, last generation trace, Home UI snapshot, and Active Workout UI snapshot.
-- [ ] 4.2 Add a React Navigation ref/route observer so debug tools can read the current route and bounded navigation tools can navigate safely.
-- [ ] 4.3 Publish Home screen ephemeral state such as staged quick actions, selected duration/focus/intensity/equipment override, generation status, and visible modal state.
-- [ ] 4.4 Publish Active Workout ephemeral state such as current workout ID, elapsed seconds, exercise/set completion summary, and submit state without moving that state into production stores.
+- [x] 4.1 Add a dev-only debug state store for current route, bridge connection status, last generation trace, Home UI snapshot, and Active Workout UI snapshot.
+- [x] 4.2 Add a React Navigation ref/route observer so debug tools can read the current route and bounded navigation tools can navigate safely.
+- [x] 4.3 Publish Home screen ephemeral state such as staged quick actions, selected duration/focus/intensity/equipment override, generation status, and visible modal state.
+- [x] 4.4 Publish Active Workout ephemeral state such as current workout ID, elapsed seconds, exercise/set completion summary, and submit state without moving that state into production stores.
 
 ## 5. Read-Only Debug Tools
 

@@ -7,6 +7,7 @@ import {
   getDebugMcpToken,
   isDebugMcpBridgeEnabled,
 } from './debugMcpConfig';
+import { setDebugBridgeState } from './debugState';
 import { dispatchDebugTool } from './debugToolRegistry';
 
 const RECONNECT_DELAY_MS = 2_000;
@@ -34,11 +35,13 @@ export const DebugMcpBridge = () => {
     let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
     let disposed = false;
     const sessionId = createDebugMcpSessionId();
+    setDebugBridgeState({ enabled: true, connected: false, sessionId });
 
     const connect = () => {
       if (disposed) return;
 
       const sidecarUrl = getDebugMcpSidecarUrl();
+      setDebugBridgeState({ sidecarUrl });
       socket = new WebSocket(sidecarUrl);
 
       socket.onopen = () => {
@@ -66,6 +69,7 @@ export const DebugMcpBridge = () => {
               'type' in message &&
               message.type === 'registered'
             ) {
+              setDebugBridgeState({ connected: true });
               return;
             }
 
@@ -91,6 +95,7 @@ export const DebugMcpBridge = () => {
 
       socket.onclose = () => {
         socket = null;
+        setDebugBridgeState({ connected: false });
         if (!disposed) {
           reconnectTimer = setTimeout(connect, RECONNECT_DELAY_MS);
         }
@@ -109,6 +114,7 @@ export const DebugMcpBridge = () => {
         clearTimeout(reconnectTimer);
       }
       socket?.close();
+      setDebugBridgeState({ enabled: false, connected: false });
     };
   }, []);
 

@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -27,6 +27,7 @@ import { palette, typography } from './theme';
 import { BottomNavigation } from './components/BottomNavigation';
 import { Button, Card } from './components/DesignSystem';
 import { CustomizeSheet } from './components/CustomizeSheet';
+import { setDebugHomeUiState, setDebugSelectedPlan } from './debug/debugState';
 
 // --- Constants ---
 
@@ -880,6 +881,44 @@ export const HomeScreen = () => {
     generationStatus.state === 'error' && generationStatus.message
       ? generationStatus.message
       : null;
+
+  useEffect(
+    () => () => {
+      setDebugHomeUiState(null);
+      setDebugSelectedPlan(null);
+    },
+    []
+  );
+
+  useEffect(() => {
+    setDebugHomeUiState({
+      duration,
+      focus,
+      intensity,
+      equipmentOverride,
+      quickActions,
+      generationStatus,
+      generating,
+      showCustomizeSheet,
+      customizeForRegeneration,
+      showProfileSetup,
+      hasActivePlan,
+    });
+    setDebugSelectedPlan(displayPlan);
+  }, [
+    customizeForRegeneration,
+    displayPlan,
+    duration,
+    equipmentOverride,
+    focus,
+    generating,
+    generationStatus,
+    hasActivePlan,
+    intensity,
+    quickActions,
+    showCustomizeSheet,
+    showProfileSetup,
+  ]);
 
   return (
     <View style={styles.screen}>

@@ -2,13 +2,7 @@ import { Platform } from 'react-native';
 
 const DEFAULT_PORT = '8765';
 
-type DebugMcpEnv = {
-  EXPO_PUBLIC_ENABLE_DEBUG_MCP?: string;
-  EXPO_PUBLIC_DEBUG_MCP_URL?: string;
-  EXPO_PUBLIC_DEBUG_MCP_HOST?: string;
-  EXPO_PUBLIC_DEBUG_MCP_PORT?: string;
-  EXPO_PUBLIC_DEBUG_MCP_TOKEN?: string;
-};
+type DebugMcpEnv = Record<string, string | undefined>;
 
 const getDefaultHost = (): string => {
   if (Platform.OS === 'android') {
