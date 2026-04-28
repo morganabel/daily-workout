@@ -26,16 +26,20 @@ jest.mock('@react-navigation/native', () => ({
   }),
   NavigationContainer: ({ children }: { children: React.ReactNode }) =>
     children,
+  createNavigationContainerRef: jest.fn(() => ({
+    isReady: jest.fn(() => true),
+    getCurrentRoute: jest.fn(() => ({ name: 'Home' })),
+    navigate: jest.fn(),
+  })),
 }));
 jest.mock('@react-navigation/native-stack', () => {
   const React = require('react');
-  const MockNavigator = ({ children }: { children: React.ReactNode }) => (
-    <>{children}</>
-  );
+  const MockNavigator = ({ children }: { children: React.ReactNode }) =>
+    children;
   const MockScreen = ({
     component: Component,
   }: {
-    component: React.ComponentType<any>;
+    component: React.ComponentType<Record<string, never>>;
   }) => (Component ? <Component /> : null);
   return {
     createNativeStackNavigator: jest.fn(() => ({
@@ -58,6 +62,20 @@ jest.mock('./db/repositories/UserRepository', () => ({
 }));
 jest.mock('./services/api', () => ({
   generateWorkout: jest.fn(),
+}));
+jest.mock('./hooks/useDeviceToken', () => ({
+  useDeviceToken: jest.fn(),
+}));
+jest.mock('./debug/DebugMcpBridge', () => ({
+  DebugMcpBridge: () => null,
+}));
+jest.mock('./debug/debugMcpConfig', () => ({
+  isDebugMcpBridgeEnabled: jest.fn(() => false),
+}));
+jest.mock('./debug/debugState', () => ({
+  setDebugCurrentRoute: jest.fn(),
+  setDebugHomeUiState: jest.fn(),
+  setDebugSelectedPlan: jest.fn(),
 }));
 jest.mock('./SettingsScreen', () => ({
   SettingsScreen: () => null,
@@ -129,10 +147,17 @@ const createBaseQuickActions = (): QuickActionPreset[] => [
   },
 ];
 
+const basePlan = createTodayPlanMock();
+
 const baseHookState = {
   status: 'ready' as const,
-  plan: createTodayPlanMock(),
+  planningDateLocal: '2026-04-28',
+  planningDateTimestamp: 1777334400000,
+  plan: basePlan,
+  activePlan: basePlan,
   planVersions: [],
+  activePlanVersions: [basePlan],
+  pendingPlanSnapshot: null,
   recentSessions: [],
   quickActions: createBaseQuickActions(),
   offlineHint: { offline: false, requiresApiKey: false },
@@ -144,6 +169,11 @@ const baseHookState = {
   },
   refetch: jest.fn(),
   selectWorkoutVersion: jest.fn(),
+  selectWorkoutVersionPlan: jest.fn(),
+  setOptimisticPlanForDate: jest.fn(),
+  setPendingPlanSnapshot: jest.fn(),
+  clearTransientPlanState: jest.fn(),
+  refreshPlanningDate: jest.fn(),
   updateStagedValue: jest.fn(),
   clearStagedValues: jest.fn(),
   setGenerationStatus: jest.fn(),
@@ -157,9 +187,8 @@ describe('App', () => {
   it('renders the home screen with active plan', async () => {
     const { findByText } = render(<App />);
 
-    await findByText(/Today's Setup/i);
-    await findByText(/READY TO GO/i);
-    // The mock plan focus might vary but let's check for standard text
+    await findByText("Today's Workout");
+    await findByText("TODAY'S WORKOUT");
     await findByText(/Start Workout/i);
   });
 });

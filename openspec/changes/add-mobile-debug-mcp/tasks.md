@@ -66,5 +66,5 @@
 - [x] 9.2 Document the available tools, expected inputs, redaction behavior, and destructive reset confirmation.
 - [x] 9.3 Run mobile unit tests for debug bridge/tool modules with `nx test @workout-agent-ce/mobile` or targeted Nx test commands.
 - [x] 9.4 Run shared package tests if shared debug contracts are added with `nx test @workout-agent/shared` or the correct Nx project name.
-- [ ] 9.5 Run lint/typecheck targets for touched projects via Nx and resolve failures.
-- [ ] 9.6 Manually verify a debug app connects to the sidecar and at least `get_app_state`, `get_home_state`, `set_profile_preferences`, `seed_planned_events`, `generate_workout`, and `get_last_generation_trace` work end-to-end.
+- [x] 9.5 Run lint/typecheck targets for touched projects via Nx and resolve failures.
+- [x] 9.6 Manually verify a debug app connects to the sidecar and at least `get_app_state`, `get_home_state`, `set_profile_preferences`, `seed_planned_events`, `generate_workout`, and `get_last_generation_trace` work end-to-end.

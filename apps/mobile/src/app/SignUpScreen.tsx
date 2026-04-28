@@ -12,7 +12,6 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -66,10 +65,12 @@ export const SignUpScreen: React.FC = () => {
     setError(null);
 
     try {
+      const trimmedEmail = email.trim();
+      const trimmedName = name.trim();
       const result = await authClient.signUp.email({
-        email: email.trim(),
+        email: trimmedEmail,
         password,
-        name: name.trim() || undefined,
+        name: trimmedName || trimmedEmail.split('@')[0] || trimmedEmail,
       });
 
       if (result.error) {
@@ -83,7 +84,7 @@ export const SignUpScreen: React.FC = () => {
 
       // Navigate back to home on success
       navigation.navigate('Home');
-    } catch (err) {
+    } catch {
       setError('Registration failed. Please try again.');
     } finally {
       setIsLoading(false);
