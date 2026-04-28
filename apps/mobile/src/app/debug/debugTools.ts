@@ -2,12 +2,19 @@ import NetInfo from '@react-native-community/netinfo';
 import { Platform } from 'react-native';
 import {
   mobileDebugCalendarQuerySchema,
+  mobileDebugCompleteWorkoutInputSchema,
   mobileDebugGenerationInputSchema,
   mobileDebugHistoryQuerySchema,
+  mobileDebugQuickLogInputSchema,
+  mobileDebugResetInputSchema,
+  mobileDebugSeedHistoryInputSchema,
+  mobileDebugSeedPlannedEventsInputSchema,
+  mobileDebugSetProfilePreferencesInputSchema,
   redactSecret,
 } from '@workout-agent/shared';
 import { database } from '../db';
 import { plannedEventRepository } from '../db/repositories/PlannedEventRepository';
+import { userRepository } from '../db/repositories/UserRepository';
 import { workoutRepository } from '../db/repositories/WorkoutRepository';
 import { getDeviceToken } from '../storage/deviceToken';
 import { getByokConfig } from '../storage/byokKey';
@@ -18,7 +25,7 @@ import {
   getSessionToken,
   isAuthEnabled,
 } from '../services/auth-client';
-import { buildGenerationContext } from '../services/api';
+import { buildGenerationContext, quickLogWorkout } from '../services/api';
 import { getLocalDateFromTimestamp } from '../utils/date';
 import { getDebugMcpSidecarUrl } from './debugMcpConfig';
 import { getDebugStateSnapshot } from './debugState';
@@ -176,6 +183,82 @@ const getGenerationContext = async (input: unknown) => {
   };
 };
 
+const setProfilePreferences = async (input: unknown) => {
+  const parsed = mobileDebugSetProfilePreferencesInputSchema.parse(input);
+  await userRepository.updatePreferences(parsed.preferences);
+
+  return {
+    preferences: await userRepository.getPreferences(),
+  };
+};
+
+const seedHistory = async (input: unknown) => {
+  const parsed = mobileDebugSeedHistoryInputSchema.parse(input);
+  const sessions = [];
+
+  for (const session of parsed.sessions) {
+    const workout = await workoutRepository.quickLogManualSession(session);
+    sessions.push(workoutRepository.toSessionSummary(workout));
+  }
+
+  return { sessions };
+};
+
+const seedPlannedEvents = async (input: unknown) => {
+  const parsed = mobileDebugSeedPlannedEventsInputSchema.parse(input);
+  const events = [];
+
+  for (const event of parsed.events) {
+    events.push(await plannedEventRepository.createPlannedEvent(event));
+  }
+
+  return { events };
+};
+
+const quickLogWorkoutTool = async (input: unknown) => {
+  const parsed = mobileDebugQuickLogInputSchema.parse(input);
+  const session = await quickLogWorkout(parsed);
+
+  return { session };
+};
+
+const completeWorkout = async (input: unknown) => {
+  const parsed = mobileDebugCompleteWorkoutInputSchema.parse(input);
+  await workoutRepository.completeWorkoutById(
+    parsed.workoutId,
+    parsed.durationSeconds,
+  );
+
+  return {
+    session: await workoutRepository.getSessionDetailById(parsed.workoutId),
+  };
+};
+
+const resetCollection = async (name: string): Promise<number> => {
+  const collection = database.collections.get(name);
+  const records = await collection.query().fetch();
+
+  for (const record of records) {
+    await record.destroyPermanently();
+  }
+
+  return records.length;
+};
+
+const resetDebugData = async (input: unknown) => {
+  mobileDebugResetInputSchema.parse(input);
+
+  const removed = await database.write(async () => ({
+    sets: await resetCollection('sets'),
+    exercises: await resetCollection('exercises'),
+    workouts: await resetCollection('workouts'),
+    plannedEvents: await resetCollection('planned_events'),
+    users: await resetCollection('users'),
+  }));
+
+  return { removed };
+};
+
 export function registerDebugTools(): void {
   if (registered) {
     return;
@@ -187,4 +270,10 @@ export function registerDebugTools(): void {
   registerDebugTool('list_history', listHistory);
   registerDebugTool('list_calendar', listCalendar);
   registerDebugTool('get_generation_context', getGenerationContext);
+  registerDebugTool('set_profile_preferences', setProfilePreferences);
+  registerDebugTool('seed_history', seedHistory);
+  registerDebugTool('seed_planned_events', seedPlannedEvents);
+  registerDebugTool('quick_log_workout', quickLogWorkoutTool);
+  registerDebugTool('complete_workout', completeWorkout);
+  registerDebugTool('reset_debug_data', resetDebugData);
 }

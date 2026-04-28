@@ -39,12 +39,12 @@
 
 ## 6. Mutation and Seeding Tools
 
-- [ ] 6.1 Implement `set_profile_preferences` using the existing user repository and shared profile validation.
-- [ ] 6.2 Implement `seed_history` for valid completed workout session inputs, using existing repository paths where possible and explicit debug-only helpers only where necessary.
-- [ ] 6.3 Implement `seed_planned_events` using the existing planned event repository.
-- [ ] 6.4 Implement `quick_log_workout` through the existing mobile quick-log service.
-- [ ] 6.5 Implement `complete_workout` through the existing workout completion repository path.
-- [ ] 6.6 Implement `reset_debug_data` with a required confirmation value and a returned count of removed records.
+- [x] 6.1 Implement `set_profile_preferences` using the existing user repository and shared profile validation.
+- [x] 6.2 Implement `seed_history` for valid completed workout session inputs, using existing repository paths where possible and explicit debug-only helpers only where necessary.
+- [x] 6.3 Implement `seed_planned_events` using the existing planned event repository.
+- [x] 6.4 Implement `quick_log_workout` through the existing mobile quick-log service.
+- [x] 6.5 Implement `complete_workout` through the existing workout completion repository path.
+- [x] 6.6 Implement `reset_debug_data` with a required confirmation value and a returned count of removed records.
 
 ## 7. Generation and Trace Tools
 
