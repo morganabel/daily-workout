@@ -364,7 +364,7 @@ describe('HomeScreen', () => {
       await Promise.resolve();
     });
 
-    expect(getByText('READY TO GO')).toBeTruthy();
+    expect(getByText("TODAY'S WORKOUT")).toBeTruthy();
     expect(getByText('Start Workout')).toBeTruthy();
   });
 
@@ -380,7 +380,7 @@ describe('HomeScreen', () => {
       await Promise.resolve();
     });
 
-    expect(getByText('READY TO GO')).toBeTruthy();
+    expect(getByText("TODAY'S WORKOUT")).toBeTruthy();
     expect(queryByText("Generate today's workout")).toBeNull();
   });
 
@@ -471,7 +471,7 @@ describe('HomeScreen', () => {
     currentPlan = null;
     rerender(<HomeScreen />);
 
-    expect(getByText('READY TO GO')).toBeTruthy();
+    expect(getByText("TODAY'S WORKOUT")).toBeTruthy();
     expect(queryByText("Generate today's workout")).toBeNull();
 
     await act(async () => {
@@ -479,7 +479,7 @@ describe('HomeScreen', () => {
     });
   });
 
-  it('disables Start and Preview while regeneration is pending', async () => {
+  it('disables Start and Customize while regeneration is pending', async () => {
     const { generateWorkout } = require('./services/api');
     generateWorkout.mockImplementation(
       () => new Promise<void>((resolve) => setTimeout(resolve, 500))
@@ -506,9 +506,9 @@ describe('HomeScreen', () => {
     fireEvent.press(getByText('Regenerate workout'));
 
     const start = getByLabelText('Start Workout');
-    const preview = getByLabelText('Preview');
+    const customize = getByLabelText('Updating…');
     expect(start.props.accessibilityState?.disabled).toBe(true);
-    expect(preview.props.accessibilityState?.disabled).toBe(true);
+    expect(customize.props.accessibilityState?.disabled).toBe(true);
 
     await act(async () => {
       jest.advanceTimersByTime(500);
@@ -619,9 +619,9 @@ describe('HomeScreen', () => {
         responseId: 'resp-new',
       },
     });
-    generateWorkout.mockResolvedValueOnce(newPlan).mockResolvedValueOnce(
-      createTodayPlanMock({ id: 'newer-plan' })
-    );
+    generateWorkout
+      .mockResolvedValueOnce(newPlan)
+      .mockResolvedValueOnce(createTodayPlanMock({ id: 'newer-plan' }));
 
     mockUseHomeData.mockReturnValue({
       ...baseHookState,
@@ -658,29 +658,86 @@ describe('HomeScreen', () => {
   it('selects saved workout versions from the active card', async () => {
     const selectedPlan = createTodayPlanMock({
       id: 'version-2',
+      focus: 'Selected focus',
       summary: 'Selected version',
     });
     const olderPlan = createTodayPlanMock({
       id: 'version-1',
+      focus: 'Original focus',
       summary: 'Older version',
     });
+    const easierPlan = {
+      ...createTodayPlanMock({
+        id: 'version-easy',
+        focus: 'Easier focus',
+        summary: 'Easier version',
+      }),
+      versionMetadata: { changeLabel: 'Easier' },
+    };
     const selectWorkoutVersion = jest.fn().mockResolvedValue(undefined);
     mockUseHomeData.mockReturnValue({
       ...baseHookState,
       plan: selectedPlan,
-      planVersions: [olderPlan, selectedPlan],
+      planVersions: [olderPlan, easierPlan, selectedPlan],
       selectWorkoutVersion,
     });
 
-    const { getByText } = render(<HomeScreen />);
+    const { getByText, queryByText } = render(<HomeScreen />);
     await act(async () => {
       await Promise.resolve();
     });
 
-    expect(getByText('Workout options')).toBeTruthy();
-    fireEvent.press(getByText('1'));
+    expect(getByText('Selected focus')).toBeTruthy();
+    fireEvent.press(getByText('Versions'));
+    expect(getByText('Workout versions')).toBeTruthy();
+    fireEvent.press(getByText('Easier'));
 
-    expect(selectWorkoutVersion).toHaveBeenCalledWith('version-1');
+    expect(selectWorkoutVersion).toHaveBeenCalledWith('version-easy');
+    expect(getByText('Easier focus')).toBeTruthy();
+    expect(queryByText('Selected focus')).toBeNull();
+  });
+
+  it('clears selected version override when the current plan disappears', async () => {
+    const selectedPlan = createTodayPlanMock({
+      id: 'version-2',
+      focus: 'Selected focus',
+      summary: 'Selected version',
+    });
+    const olderPlan = createTodayPlanMock({
+      id: 'version-1',
+      focus: 'Original focus',
+      summary: 'Older version',
+    });
+    const selectWorkoutVersion = jest.fn().mockResolvedValue(undefined);
+    let hookState = {
+      ...baseHookState,
+      plan: selectedPlan,
+      planVersions: [olderPlan, selectedPlan],
+      selectWorkoutVersion,
+    };
+    mockUseHomeData.mockImplementation(() => hookState);
+
+    const { getByText, queryByText, rerender } = render(<HomeScreen />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    fireEvent.press(getByText('Versions'));
+    fireEvent.press(getByText('Original'));
+    expect(getByText('Original focus')).toBeTruthy();
+
+    hookState = {
+      ...hookState,
+      plan: null,
+      planVersions: [],
+    };
+    await act(async () => {
+      rerender(<HomeScreen />);
+      await Promise.resolve();
+    });
+
+    expect(queryByText('Original focus')).toBeNull();
+    expect(getByText("Generate today's workout")).toBeTruthy();
   });
 
   it('calls setGenerationStatus with error when regeneration fails', async () => {

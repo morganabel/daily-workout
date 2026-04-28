@@ -1,5 +1,7 @@
 import { Q } from '@nozbe/watermelondb';
 import type {
+  GenerationRequest,
+  RegenerationFeedback,
   TodayPlan,
   WorkoutExerciseLog,
   WorkoutSessionDetail,
@@ -21,6 +23,76 @@ import {
 } from '../mappers/workoutMapper';
 
 const DEFAULT_SET_COUNT = 3;
+const DEFAULT_REJECTED_VERSION_RETENTION_DAYS = 90;
+
+type PersistedGenerationRequest = Partial<
+  Pick<
+    GenerationRequest,
+    'timeMinutes' | 'focus' | 'equipment' | 'energy' | 'notes'
+  >
+> & {
+  feedback?: RegenerationFeedback[];
+};
+
+const stringifyJson = (value: unknown): string | undefined => {
+  if (value === undefined || value === null) return undefined;
+  return JSON.stringify(value);
+};
+
+const sanitizeGenerationRequest = (
+  request: GenerationRequest | undefined
+): PersistedGenerationRequest | undefined => {
+  if (!request) return undefined;
+
+  const sanitized: PersistedGenerationRequest = {};
+  if (request.timeMinutes !== undefined)
+    sanitized.timeMinutes = request.timeMinutes;
+  if (request.focus !== undefined) sanitized.focus = request.focus;
+  if (request.equipment !== undefined) sanitized.equipment = request.equipment;
+  if (request.energy !== undefined) sanitized.energy = request.energy;
+  if (request.notes?.trim()) sanitized.notes = request.notes.trim();
+  if (request.feedback?.length) sanitized.feedback = request.feedback;
+
+  return Object.keys(sanitized).length > 0 ? sanitized : undefined;
+};
+
+const buildRequestedChanges = (
+  request: PersistedGenerationRequest | undefined
+): Record<string, unknown> | undefined => {
+  if (!request) return undefined;
+
+  const changes: Record<string, unknown> = {};
+  if (request.timeMinutes !== undefined)
+    changes.timeMinutes = request.timeMinutes;
+  if (request.focus !== undefined) changes.focus = request.focus;
+  if (request.equipment !== undefined) changes.equipment = request.equipment;
+  if (request.energy !== undefined) changes.energy = request.energy;
+  if (request.notes !== undefined) changes.notes = request.notes;
+  if (request.feedback?.length) changes.feedback = request.feedback;
+
+  return Object.keys(changes).length > 0 ? changes : undefined;
+};
+
+const deriveChangeLabel = (
+  request: PersistedGenerationRequest | undefined,
+  isRegeneration: boolean
+): string | undefined => {
+  if (!request || !isRegeneration) return undefined;
+
+  if (request.feedback?.includes('too-hard')) return 'Easier';
+  if (request.feedback?.includes('too-easy')) return 'Harder';
+  if (request.feedback?.includes('different-exercises')) {
+    return 'Different exercises';
+  }
+  if (request.feedback?.includes('just-try-again')) return 'Retry';
+  if (request.timeMinutes !== undefined) return `${request.timeMinutes} min`;
+  if (request.focus && request.focus !== 'Smart') return request.focus;
+  if (request.equipment?.length) return 'Equipment change';
+  if (request.energy) return `${request.energy} energy`;
+  if (request.notes) return 'Custom request';
+
+  return undefined;
+};
 
 const getDayBounds = (timestamp: number) => {
   const date = new Date(timestamp);
@@ -62,7 +134,7 @@ const buildSetLog = (set: Set): WorkoutSetLog => ({
 
 const buildExerciseLog = (
   exercise: Exercise,
-  sets: Set[],
+  sets: Set[]
 ): WorkoutExerciseLog => ({
   id: exercise.id,
   name: exercise.name,
@@ -106,7 +178,7 @@ export class WorkoutRepository {
       Q.where('scheduled_date', Q.between(start, end)),
       Q.or(Q.where('is_selected', true), Q.where('is_selected', null)),
       Q.sortBy('scheduled_date', Q.desc),
-      Q.take(1),
+      Q.take(1)
     );
   }
 
@@ -116,12 +188,28 @@ export class WorkoutRepository {
       Q.where('status', 'planned'),
       Q.where('archived_at', null),
       Q.where('scheduled_date', Q.between(start, end)),
-      Q.sortBy('created_at', Q.asc),
+      Q.sortBy('created_at', Q.asc)
     );
   }
 
   private getWorkoutGenerationGroupId(workout: Workout): string {
     return workout.generationGroupId || workout.id;
+  }
+
+  private async destroyWorkoutGraph(workout: Workout): Promise<void> {
+    const exercises = await this.exercises
+      .query(Q.where('workout_id', workout.id))
+      .fetch();
+
+    for (const exercise of exercises) {
+      const sets = await this.sets
+        .query(Q.where('exercise_id', exercise.id))
+        .fetch();
+      await Promise.all(sets.map((set) => set.destroyPermanently()));
+      await exercise.destroyPermanently();
+    }
+
+    await workout.destroyPermanently();
   }
 
   observeTodayWorkout() {
@@ -135,14 +223,14 @@ export class WorkoutRepository {
   observeRecentSessions(limit = 3, options?: { includeArchived?: boolean }) {
     return this.buildCompletedQuery(
       limit,
-      Boolean(options?.includeArchived),
+      Boolean(options?.includeArchived)
     ).observe();
   }
 
   observeCompletedSessionsByDateRange(
     start: number,
     end: number,
-    options?: { includeArchived?: boolean },
+    options?: { includeArchived?: boolean }
   ) {
     const conditions: Array<
       ReturnType<typeof Q.where> | ReturnType<typeof Q.sortBy>
@@ -162,7 +250,7 @@ export class WorkoutRepository {
   async listRecentSessions(limit = 5, options?: { includeArchived?: boolean }) {
     const query = this.buildCompletedQuery(
       limit,
-      Boolean(options?.includeArchived),
+      Boolean(options?.includeArchived)
     );
     return query.fetch();
   }
@@ -170,7 +258,7 @@ export class WorkoutRepository {
   async listCompletedSessionsByDateRange(
     start: number,
     end: number,
-    options?: { includeArchived?: boolean },
+    options?: { includeArchived?: boolean }
   ) {
     const conditions: Array<
       ReturnType<typeof Q.where> | ReturnType<typeof Q.sortBy>
@@ -189,20 +277,23 @@ export class WorkoutRepository {
 
   async getTodayWorkout(): Promise<Workout | null> {
     const workouts = await this.buildPlannedWorkoutQueryForDate(
-      Date.now(),
+      Date.now()
     ).fetch();
     return workouts.length > 0 ? workouts[0] : null;
   }
 
   async getPlannedWorkoutForDate(timestamp: number): Promise<Workout | null> {
-    const workouts =
-      await this.buildPlannedWorkoutQueryForDate(timestamp).fetch();
+    const workouts = await this.buildPlannedWorkoutQueryForDate(
+      timestamp
+    ).fetch();
     return workouts.length > 0 ? workouts[0] : null;
   }
 
-  async listPlannedWorkoutVersionsForDate(timestamp: number): Promise<Workout[]> {
+  async listPlannedWorkoutVersionsForDate(
+    timestamp: number
+  ): Promise<Workout[]> {
     const workouts = await this.buildPlannedVersionsQueryForDate(
-      timestamp,
+      timestamp
     ).fetch();
     const selected =
       workouts.find((workout) => workout.isSelected === true) ??
@@ -216,17 +307,25 @@ export class WorkoutRepository {
     }
 
     return workouts.filter(
-      (workout) => this.getWorkoutGenerationGroupId(workout) === selectedGroupId,
+      (workout) => this.getWorkoutGenerationGroupId(workout) === selectedGroupId
     );
   }
 
   async saveGeneratedPlan(
     plan: TodayPlan,
-    options?: { scheduledDate?: number; baselineWorkoutId?: string },
+    options?: {
+      scheduledDate?: number;
+      baselineWorkoutId?: string;
+      generationRequest?: GenerationRequest;
+    }
   ) {
     const now = Date.now();
     const payload = planToPersistence(plan, now);
     const scheduledDate = options?.scheduledDate ?? now;
+    const generationRequest = sanitizeGenerationRequest(
+      options?.generationRequest
+    );
+    const requestedChanges = buildRequestedChanges(generationRequest);
     payload.workout.scheduledDate = scheduledDate;
 
     await database.write(async () => {
@@ -235,7 +334,7 @@ export class WorkoutRepository {
         .query(
           Q.where('status', 'planned'),
           Q.where('archived_at', null),
-          Q.where('scheduled_date', Q.between(start, end)),
+          Q.where('scheduled_date', Q.between(start, end))
         )
         .fetch();
 
@@ -253,18 +352,21 @@ export class WorkoutRepository {
 
       const generationGroupId = baselineWorkout
         ? this.getWorkoutGenerationGroupId(baselineWorkout)
-        : (payload.workout.remoteId ?? plan.id);
+        : payload.workout.remoteId ?? plan.id;
       const versionsInGroup = plannedForDay.filter(
-        (workout) => this.getWorkoutGenerationGroupId(workout) === generationGroupId,
+        (workout) =>
+          this.getWorkoutGenerationGroupId(workout) === generationGroupId
       );
       const generationVersion = baselineWorkout
         ? Math.max(
             1,
-            ...versionsInGroup.map(
-              (workout) => workout.generationVersion ?? 1,
-            ),
+            ...versionsInGroup.map((workout) => workout.generationVersion ?? 1)
           ) + 1
         : 1;
+      const changeLabel = deriveChangeLabel(
+        generationRequest,
+        Boolean(baselineWorkout)
+      );
 
       if (baselineWorkout) {
         await Promise.all(
@@ -273,13 +375,13 @@ export class WorkoutRepository {
               record.isSelected = false;
               record.generationGroupId = generationGroupId;
               record.generationVersion = record.generationVersion ?? 1;
-            }),
-          ),
+            })
+          )
         );
       } else {
-        await Promise.all(
-          plannedForDay.map((workout) => workout.destroyPermanently()),
-        );
+        for (const workout of plannedForDay) {
+          await this.destroyWorkoutGraph(workout);
+        }
       }
 
       const workout = await this.workouts.create((w) => {
@@ -301,6 +403,12 @@ export class WorkoutRepository {
         w.generationGroupId = generationGroupId;
         w.generationVersion = generationVersion;
         w.isSelected = true;
+        w.parentWorkoutId = baselineWorkout?.id ?? undefined;
+        w.generationRequestJson = stringifyJson(generationRequest);
+        w.regenerationFeedbackJson = stringifyJson(generationRequest?.feedback);
+        w.regenerationNotes = generationRequest?.notes;
+        w.requestedChangesJson = stringifyJson(requestedChanges);
+        w.changeLabel = changeLabel;
         // Store provider response ID for continuity-aware regeneration.
         w.responseId = payload.workout.responseId ?? undefined;
       });
@@ -323,6 +431,46 @@ export class WorkoutRepository {
     });
   }
 
+  async pruneRejectedWorkoutVersions(options?: {
+    olderThanDays?: number;
+    now?: number;
+  }): Promise<number> {
+    const olderThanDays =
+      options?.olderThanDays ?? DEFAULT_REJECTED_VERSION_RETENTION_DAYS;
+    const now = options?.now ?? Date.now();
+    const cutoff = now - olderThanDays * 24 * 60 * 60 * 1000;
+    const protectedParentWorkouts = await this.workouts
+      .query(
+        Q.where('archived_at', null),
+        Q.or(Q.where('status', 'completed'), Q.where('is_selected', true))
+      )
+      .fetch();
+    const protectedParentIds = new globalThis.Set(
+      protectedParentWorkouts
+        .map((workout) => workout.parentWorkoutId)
+        .filter((id): id is string => Boolean(id))
+    );
+    const candidates = await this.workouts
+      .query(
+        Q.where('status', 'planned'),
+        Q.where('archived_at', null),
+        Q.where('is_selected', false),
+        Q.where('scheduled_date', Q.lt(cutoff))
+      )
+      .fetch();
+    const prunable = candidates.filter(
+      (workout) => !workout.isFavorite && !protectedParentIds.has(workout.id)
+    );
+
+    await database.write(async () => {
+      for (const workout of prunable) {
+        await this.destroyWorkoutGraph(workout);
+      }
+    });
+
+    return prunable.length;
+  }
+
   async selectWorkoutVersion(workoutId: string): Promise<void> {
     const selectedWorkout = await this.workouts.find(workoutId);
     const groupId = this.getWorkoutGenerationGroupId(selectedWorkout);
@@ -332,21 +480,23 @@ export class WorkoutRepository {
       .query(
         Q.where('status', 'planned'),
         Q.where('archived_at', null),
-        Q.where('scheduled_date', Q.between(start, end)),
+        Q.where('scheduled_date', Q.between(start, end))
       )
       .fetch();
 
     await database.write(async () => {
       await Promise.all(
         versions
-          .filter((workout) => this.getWorkoutGenerationGroupId(workout) === groupId)
+          .filter(
+            (workout) => this.getWorkoutGenerationGroupId(workout) === groupId
+          )
           .map((workout) =>
             workout.update((record) => {
               record.generationGroupId = groupId;
               record.generationVersion = record.generationVersion ?? 1;
               record.isSelected = workout.id === selectedWorkout.id;
-            }),
-          ),
+            })
+          )
       );
     });
   }
@@ -358,7 +508,7 @@ export class WorkoutRepository {
 
     return rowsToPlan(
       workout as unknown as WorkoutRowLike,
-      exercises as ExerciseRowLike[],
+      exercises as ExerciseRowLike[]
     );
   }
 
@@ -404,13 +554,13 @@ export class WorkoutRepository {
   }
 
   async listExerciseLogsByWorkoutId(
-    workoutId: string,
+    workoutId: string
   ): Promise<WorkoutExerciseLog[]> {
     const exercises = await this.exercises
       .query(
         Q.where('workout_id', workoutId),
         Q.sortBy('block_order', Q.asc),
-        Q.sortBy('order', Q.asc),
+        Q.sortBy('order', Q.asc)
       )
       .fetch();
 
@@ -420,7 +570,7 @@ export class WorkoutRepository {
           .query(Q.where('exercise_id', exercise.id))
           .fetch();
         return buildExerciseLog(exercise, sets);
-      }),
+      })
     );
 
     return logs;
@@ -446,7 +596,7 @@ export class WorkoutRepository {
    * Use this for Active Workout and explicit edit mode.
    */
   async getSessionDetailForEditing(
-    workoutId: string,
+    workoutId: string
   ): Promise<WorkoutSessionDetail> {
     await this.ensureSetsForWorkout(workoutId);
     return this.getSessionDetailById(workoutId);
@@ -461,7 +611,7 @@ export class WorkoutRepository {
       rpe?: number | null;
       completed?: boolean;
       order?: number;
-    },
+    }
   ): Promise<WorkoutSetLog> {
     const set = await this.sets.find(setId);
 
@@ -503,7 +653,7 @@ export class WorkoutRepository {
         set.exercise.set(exercise);
         set.order = nextOrder;
         set.completed = false;
-      }),
+      })
     );
 
     return buildSetLog(newSet);
@@ -524,15 +674,15 @@ export class WorkoutRepository {
         remainingSets.map((remaining, index) =>
           remaining.update((record) => {
             record.order = index;
-          }),
-        ),
+          })
+        )
       );
     });
   }
 
   async getLastExercisePerformance(
     exerciseName: string,
-    options?: { excludeWorkoutId?: string },
+    options?: { excludeWorkoutId?: string }
   ): Promise<{ completedAt: string; sets: WorkoutSetLog[] } | null> {
     const normalizedTarget = normalizeExerciseName(exerciseName);
     const workouts = await this.buildCompletedQuery(12, false).fetch();
@@ -550,7 +700,7 @@ export class WorkoutRepository {
         .fetch();
 
       const match = exercises.find(
-        (exercise) => normalizeExerciseName(exercise.name) === normalizedTarget,
+        (exercise) => normalizeExerciseName(exercise.name) === normalizedTarget
       );
       if (!match) {
         continue;
@@ -657,19 +807,7 @@ export class WorkoutRepository {
     try {
       const workout = await this.workouts.find(workoutId);
       await database.write(async () => {
-        const exercises = await this.exercises
-          .query(Q.where('workout_id', workout.id))
-          .fetch();
-
-        for (const exercise of exercises) {
-          const sets = await this.sets
-            .query(Q.where('exercise_id', exercise.id))
-            .fetch();
-          await Promise.all(sets.map((set) => set.destroyPermanently()));
-          await exercise.destroyPermanently();
-        }
-
-        await workout.destroyPermanently();
+        await this.destroyWorkoutGraph(workout);
       });
     } catch (error) {
       console.error('Failed to delete workout', error);

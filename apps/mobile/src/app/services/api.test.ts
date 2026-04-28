@@ -35,6 +35,7 @@ jest.mock('../db/repositories/WorkoutRepository', () => ({
     listRecentSessions: jest.fn(),
     toSessionSummary: jest.fn(),
     saveGeneratedPlan: jest.fn(),
+    pruneRejectedWorkoutVersions: jest.fn(),
     archiveWorkoutById: jest.fn(),
     unarchiveWorkoutById: jest.fn(),
     deleteWorkoutById: jest.fn(),
@@ -173,7 +174,7 @@ describe('generateWorkout', () => {
         baselineWorkout,
         feedback: ['different-exercises'],
       },
-      { scheduledDate: new Date('2026-04-15T12:00:00Z').getTime() },
+      { scheduledDate: new Date('2026-04-15T12:00:00Z').getTime() }
     );
 
     expect(global.fetch).toHaveBeenCalledTimes(1);
@@ -189,7 +190,7 @@ describe('generateWorkout', () => {
         environment: expect.objectContaining({
           timeAvailableMinutes: 45,
         }),
-      }),
+      })
     );
     expect(payload.upcomingEvents).toHaveLength(1);
     expect(mockWorkoutRepository.saveGeneratedPlan).toHaveBeenCalledWith(
@@ -197,8 +198,20 @@ describe('generateWorkout', () => {
       {
         scheduledDate: new Date('2026-04-15T12:00:00Z').getTime(),
         baselineWorkoutId: 'plan-existing',
-      },
+        generationRequest: expect.objectContaining({
+          timeMinutes: 45,
+          focus: 'Smart',
+          energy: 'moderate',
+          previousResponseId: 'resp-baseline',
+          baselineWorkout,
+          feedback: ['different-exercises'],
+          planningDateLocal: '2026-04-15',
+        }),
+      }
     );
+    expect(
+      mockWorkoutRepository.pruneRejectedWorkoutVersions
+    ).toHaveBeenCalledTimes(1);
   });
 
   it('sends device-local planning date and effective profile equipment for default generation', async () => {
@@ -229,6 +242,36 @@ describe('generateWorkout', () => {
       jest.useRealTimers();
     }
   });
+
+  it('still resolves when rejected-version pruning fails after save', async () => {
+    const consoleSpy = jest
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    const generatedPlan = createTodayPlanMock({ id: 'plan-prune-error' });
+    mockWorkoutRepository.pruneRejectedWorkoutVersions.mockRejectedValueOnce(
+      new Error('prune failed')
+    );
+    (global.fetch as jest.Mock).mockResolvedValue({
+      ok: true,
+      json: jest.fn().mockResolvedValue(generatedPlan),
+    });
+
+    const result = await generateWorkout({
+      timeMinutes: 30,
+      focus: 'Smart',
+      energy: 'moderate',
+    });
+    await Promise.resolve();
+
+    expect(result).toBe(generatedPlan);
+    expect(mockWorkoutRepository.saveGeneratedPlan).toHaveBeenCalled();
+    expect(consoleSpy).toHaveBeenCalledWith(
+      'Failed to prune rejected workout versions',
+      expect.any(Error)
+    );
+
+    consoleSpy.mockRestore();
+  });
 });
 
 describe('workout archive/delete mutations', () => {
@@ -243,7 +286,7 @@ describe('workout archive/delete mutations', () => {
 
     expect(mockWorkoutRepository.archiveWorkoutById).toHaveBeenCalledWith('w1');
     expect(mockWorkoutRepository.unarchiveWorkoutById).toHaveBeenCalledWith(
-      'w2',
+      'w2'
     );
     expect(mockWorkoutRepository.deleteWorkoutById).toHaveBeenCalledWith('w3');
   });
@@ -266,7 +309,7 @@ describe('quickLogWorkout', () => {
     };
 
     mockWorkoutRepository.quickLogManualSession.mockResolvedValue(
-      mockWorkout as any,
+      mockWorkout as any
     );
     mockWorkoutRepository.toSessionSummary.mockReturnValue(mockSummary);
 
@@ -282,7 +325,7 @@ describe('quickLogWorkout', () => {
       durationMinutes: 30,
     });
     expect(mockWorkoutRepository.toSessionSummary).toHaveBeenCalledWith(
-      mockWorkout,
+      mockWorkout
     );
     expect(result).toEqual(mockSummary);
   });
@@ -300,7 +343,7 @@ describe('quickLogWorkout', () => {
     const completedAt = Date.now() - 2 * 60 * 60 * 1000;
 
     mockWorkoutRepository.quickLogManualSession.mockResolvedValue(
-      mockWorkout as any,
+      mockWorkout as any
     );
     mockWorkoutRepository.toSessionSummary.mockReturnValue(mockSummary);
 

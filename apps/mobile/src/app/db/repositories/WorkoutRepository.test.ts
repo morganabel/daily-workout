@@ -1,6 +1,7 @@
 import { workoutRepository } from './WorkoutRepository';
 import { database } from '../index';
 import { createTodayPlanMock } from '@workout-agent/shared';
+import { Q } from '@nozbe/watermelondb';
 
 // Helper to get timestamp from WatermelonDB date field (can be Date object or number)
 const getTimestamp = (value: number | Date | undefined | null): number => {
@@ -156,9 +157,8 @@ describe('WorkoutRepository', () => {
         .query()
         .fetch();
       const selectedWorkout = await workoutRepository.getTodayWorkout();
-      const versions = await workoutRepository.listPlannedWorkoutVersionsForDate(
-        Date.now(),
-      );
+      const versions =
+        await workoutRepository.listPlannedWorkoutVersionsForDate(Date.now());
 
       expect(workouts).toHaveLength(2);
       expect(selectedWorkout?.summary).toBe('Second suggestion');
@@ -175,22 +175,21 @@ describe('WorkoutRepository', () => {
 
     it('selects an older generated version without deleting newer options', async () => {
       await workoutRepository.saveGeneratedPlan(
-        createTodayPlanMock({ id: 'plan-v1', summary: 'First suggestion' }),
+        createTodayPlanMock({ id: 'plan-v1', summary: 'First suggestion' })
       );
       const firstWorkout = await workoutRepository.getTodayWorkout();
       expect(firstWorkout).toBeTruthy();
 
       await workoutRepository.saveGeneratedPlan(
         createTodayPlanMock({ id: 'plan-v2', summary: 'Second suggestion' }),
-        { baselineWorkoutId: firstWorkout!.id },
+        { baselineWorkoutId: firstWorkout!.id }
       );
 
       await workoutRepository.selectWorkoutVersion(firstWorkout!.id);
 
       const selectedWorkout = await workoutRepository.getTodayWorkout();
-      const versions = await workoutRepository.listPlannedWorkoutVersionsForDate(
-        Date.now(),
-      );
+      const versions =
+        await workoutRepository.listPlannedWorkoutVersionsForDate(Date.now());
 
       expect(selectedWorkout?.id).toBe(firstWorkout!.id);
       expect(selectedWorkout?.summary).toBe('First suggestion');
@@ -203,22 +202,157 @@ describe('WorkoutRepository', () => {
 
     it('can append a version when the baseline id is the remote plan id', async () => {
       await workoutRepository.saveGeneratedPlan(
-        createTodayPlanMock({ id: 'remote-plan-v1', summary: 'First' }),
+        createTodayPlanMock({ id: 'remote-plan-v1', summary: 'First' })
       );
 
       await workoutRepository.saveGeneratedPlan(
         createTodayPlanMock({ id: 'remote-plan-v2', summary: 'Second' }),
-        { baselineWorkoutId: 'remote-plan-v1' },
+        { baselineWorkoutId: 'remote-plan-v1' }
       );
 
-      const versions = await workoutRepository.listPlannedWorkoutVersionsForDate(
-        Date.now(),
-      );
+      const versions =
+        await workoutRepository.listPlannedWorkoutVersionsForDate(Date.now());
 
       expect(versions).toHaveLength(2);
       expect(versions.map((workout) => workout.summary)).toEqual([
         'First',
         'Second',
+      ]);
+    });
+
+    it('deletes exercises and sets when replacing a planned workout', async () => {
+      await workoutRepository.saveGeneratedPlan(
+        createTodayPlanMock({ id: 'replace-plan-v1', summary: 'First' })
+      );
+      const firstWorkout = await workoutRepository.getTodayWorkout();
+      expect(firstWorkout).toBeTruthy();
+
+      await workoutRepository.ensureSetsForWorkout(firstWorkout!.id);
+      const firstExercises = await database.collections
+        .get<any>('exercises')
+        .query(Q.where('workout_id', firstWorkout!.id))
+        .fetch();
+      const seededSets = await database.collections
+        .get<any>('sets')
+        .query()
+        .fetch();
+      expect(firstExercises.length).toBeGreaterThan(0);
+      expect(seededSets.length).toBeGreaterThan(0);
+
+      await workoutRepository.saveGeneratedPlan(
+        createTodayPlanMock({ id: 'replace-plan-v2', summary: 'Second' })
+      );
+
+      const orphanedExercises = await database.collections
+        .get<any>('exercises')
+        .query(Q.where('workout_id', firstWorkout!.id))
+        .fetch();
+      const remainingSets = await database.collections
+        .get<any>('sets')
+        .query()
+        .fetch();
+      expect(orphanedExercises).toHaveLength(0);
+      expect(remainingSets).toHaveLength(0);
+    });
+
+    it('stores regeneration lineage and request metadata', async () => {
+      await workoutRepository.saveGeneratedPlan(
+        createTodayPlanMock({ id: 'plan-v1', summary: 'First' })
+      );
+      const firstWorkout = await workoutRepository.getTodayWorkout();
+      expect(firstWorkout).toBeTruthy();
+
+      await workoutRepository.saveGeneratedPlan(
+        createTodayPlanMock({ id: 'plan-v2', summary: 'Second' }),
+        {
+          baselineWorkoutId: firstWorkout!.id,
+          generationRequest: {
+            timeMinutes: 20,
+            focus: 'Upper Body',
+            energy: 'easy',
+            notes: 'No overhead pressing today',
+            feedback: ['different-exercises'],
+            baselineWorkout: createTodayPlanMock({ id: firstWorkout!.id }),
+            previousResponseId: 'resp-original',
+          },
+        }
+      );
+
+      const versions =
+        await workoutRepository.listPlannedWorkoutVersionsForDate(Date.now());
+      const secondWorkout = versions.find(
+        (workout) => workout.remoteId === 'plan-v2'
+      );
+      expect(secondWorkout?.parentWorkoutId).toBe(firstWorkout!.id);
+      expect(secondWorkout?.changeLabel).toBe('Different exercises');
+      expect(JSON.parse(secondWorkout?.generationRequestJson ?? '{}')).toEqual({
+        timeMinutes: 20,
+        focus: 'Upper Body',
+        energy: 'easy',
+        notes: 'No overhead pressing today',
+        feedback: ['different-exercises'],
+      });
+      expect(
+        JSON.parse(secondWorkout?.regenerationFeedbackJson ?? '[]')
+      ).toEqual(['different-exercises']);
+
+      const plan = await workoutRepository.mapWorkoutToPlan(secondWorkout!);
+      expect((plan as any).versionMetadata).toEqual(
+        expect.objectContaining({
+          parentWorkoutId: firstWorkout!.id,
+          changeLabel: 'Different exercises',
+        })
+      );
+    });
+
+    it('prunes old unselected versions while keeping direct parents of selected versions', async () => {
+      const now = new Date('2026-04-27T12:00:00Z').getTime();
+      const oldScheduledDate = now - 100 * 24 * 60 * 60 * 1000;
+
+      await workoutRepository.saveGeneratedPlan(
+        createTodayPlanMock({ id: 'old-plan-v1', summary: 'First' }),
+        { scheduledDate: oldScheduledDate }
+      );
+      const firstWorkout = await workoutRepository.getPlannedWorkoutForDate(
+        oldScheduledDate
+      );
+      expect(firstWorkout).toBeTruthy();
+
+      await workoutRepository.saveGeneratedPlan(
+        createTodayPlanMock({ id: 'old-plan-v2', summary: 'Second' }),
+        {
+          scheduledDate: oldScheduledDate,
+          baselineWorkoutId: firstWorkout!.id,
+          generationRequest: { feedback: ['too-hard'] },
+        }
+      );
+      const secondWorkout = await workoutRepository.getPlannedWorkoutForDate(
+        oldScheduledDate
+      );
+      expect(secondWorkout).toBeTruthy();
+
+      await workoutRepository.saveGeneratedPlan(
+        createTodayPlanMock({ id: 'old-plan-v3', summary: 'Third' }),
+        {
+          scheduledDate: oldScheduledDate,
+          baselineWorkoutId: secondWorkout!.id,
+          generationRequest: { feedback: ['just-try-again'] },
+        }
+      );
+
+      const pruned = await workoutRepository.pruneRejectedWorkoutVersions({
+        olderThanDays: 90,
+        now,
+      });
+      const remaining =
+        await workoutRepository.listPlannedWorkoutVersionsForDate(
+          oldScheduledDate
+        );
+
+      expect(pruned).toBe(1);
+      expect(remaining.map((workout) => workout.remoteId)).toEqual([
+        'old-plan-v2',
+        'old-plan-v3',
       ]);
     });
   });

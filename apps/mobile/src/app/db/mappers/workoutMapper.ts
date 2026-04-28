@@ -22,10 +22,29 @@ export type WorkoutRowLike = {
   generationGroupId?: string | null;
   generationVersion?: number | null;
   isSelected?: boolean | null;
+  parentWorkoutId?: string | null;
+  generationRequestJson?: string | null;
+  regenerationFeedbackJson?: string | null;
+  regenerationNotes?: string | null;
+  requestedChangesJson?: string | null;
+  changeLabel?: string | null;
   // Provider response ID for continuity-aware regeneration.
   responseId?: string | null;
   createdAt?: number | null;
   updatedAt?: number | null;
+};
+
+export type WorkoutVersionMetadata = {
+  parentWorkoutId?: string;
+  generationRequest?: Record<string, unknown>;
+  regenerationFeedback?: string[];
+  regenerationNotes?: string;
+  requestedChanges?: Record<string, unknown>;
+  changeLabel?: string;
+};
+
+export type TodayPlanWithVersionMetadata = TodayPlan & {
+  versionMetadata?: WorkoutVersionMetadata;
 };
 
 export type ExerciseRowLike = {
@@ -70,7 +89,7 @@ const parseJson = <T>(json: string | null | undefined): T | null => {
 
 const buildBlocksFromExercises = (
   workout: WorkoutRowLike,
-  exercises: ExerciseRowLike[],
+  exercises: ExerciseRowLike[]
 ): WorkoutBlock[] => {
   if (!exercises.length) {
     return [
@@ -123,7 +142,9 @@ const buildBlocksFromExercises = (
           block: {
             id:
               exercise.blockId ??
-              `${workout.id ?? workout.remoteId ?? 'workout'}-block-${blockKey}`,
+              `${
+                workout.id ?? workout.remoteId ?? 'workout'
+              }-block-${blockKey}`,
             title: exercise.blockTitle,
             focus: exercise.blockFocus,
             duration: exercise.blockDuration,
@@ -153,9 +174,37 @@ const buildBlocksFromExercises = (
     }));
 };
 
+const buildVersionMetadata = (
+  workout: WorkoutRowLike
+): WorkoutVersionMetadata | undefined => {
+  const metadata: WorkoutVersionMetadata = {};
+  const generationRequest = parseJson<Record<string, unknown>>(
+    workout.generationRequestJson
+  );
+  const regenerationFeedback = parseJson<string[]>(
+    workout.regenerationFeedbackJson
+  );
+  const requestedChanges = parseJson<Record<string, unknown>>(
+    workout.requestedChangesJson
+  );
+
+  if (workout.parentWorkoutId)
+    metadata.parentWorkoutId = workout.parentWorkoutId;
+  if (generationRequest) metadata.generationRequest = generationRequest;
+  if (regenerationFeedback)
+    metadata.regenerationFeedback = regenerationFeedback;
+  if (workout.regenerationNotes) {
+    metadata.regenerationNotes = workout.regenerationNotes;
+  }
+  if (requestedChanges) metadata.requestedChanges = requestedChanges;
+  if (workout.changeLabel) metadata.changeLabel = workout.changeLabel;
+
+  return Object.keys(metadata).length > 0 ? metadata : undefined;
+};
+
 export const planToPersistence = (
   plan: TodayPlan,
-  timestamp: number = Date.now(),
+  timestamp: number = Date.now()
 ): PersistableWorkout => {
   const workout: WorkoutRowLike = {
     name: plan.focus,
@@ -205,16 +254,17 @@ export const planToPersistence = (
 
 export const rowsToPlan = (
   workout: WorkoutRowLike,
-  exercises: ExerciseRowLike[],
+  exercises: ExerciseRowLike[]
 ): TodayPlan => {
   const parsedPlan = parseJson<TodayPlan>(workout.planJson ?? undefined);
   const equipment =
     parseJson<string[]>(workout.equipmentJson ?? undefined) ?? [];
   const durationMinutes = deriveDurationMinutes(workout);
   const fallbackBlocks = buildBlocksFromExercises(workout, exercises);
+  const versionMetadata = buildVersionMetadata(workout);
 
   if (parsedPlan) {
-    return {
+    const plan: TodayPlanWithVersionMetadata = {
       ...parsedPlan,
       id: workout.id ?? parsedPlan.id ?? workout.remoteId ?? 'workout',
       focus: parsedPlan.focus ?? workout.focus ?? workout.name,
@@ -236,9 +286,11 @@ export const rowsToPlan = (
       // Preserve provider response ID for continuity-aware regeneration.
       responseId: parsedPlan.responseId ?? workout.responseId ?? undefined,
     };
+    if (versionMetadata) plan.versionMetadata = versionMetadata;
+    return plan;
   }
 
-  return {
+  const plan: TodayPlanWithVersionMetadata = {
     id: workout.id ?? workout.remoteId ?? 'workout',
     focus: workout.focus ?? workout.name,
     durationMinutes,
@@ -250,4 +302,6 @@ export const rowsToPlan = (
     // Preserve provider response ID for continuity-aware regeneration.
     responseId: workout.responseId ?? undefined,
   };
+  if (versionMetadata) plan.versionMetadata = versionMetadata;
+  return plan;
 };
