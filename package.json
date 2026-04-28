@@ -8,6 +8,7 @@
     "dev:server": "nx run @workout-agent-ce/server:build-deps && nx run @workout-agent-ce/server:dev",
     "dev:server:db": "DATABASE_URL=postgres://user:password@localhost:5432/workout_agent BETTER_AUTH_SECRET=dev-secret-dev-secret-dev-secret-dev-secret BETTER_AUTH_URL=http://localhost:3000 sh -c 'npm run db:up && npm run db:wait && npm run db:migrate && nx run @workout-agent-ce/server:build-deps && nx run @workout-agent-ce/server:dev'",
     "dev:mobile": "nx start mobile",
+    "debug:mcp:mobile": "node ./tools/mobile-debug-mcp/server.mjs",
     "db:up": "docker compose up -d db",
     "db:wait": "sh -c 'until docker compose exec -T db pg_isready -U user -d workout_agent >/dev/null 2>&1; do sleep 0.5; done'",
     "db:migrate": "sh -c 'cd packages/server-db && npx drizzle-kit migrate'",
@@ -68,6 +69,7 @@
     "@eslint/eslintrc": "^2.1.1",
     "@eslint/js": "^9.8.0",
     "@expo/cli": "~0.24.14",
+    "@modelcontextprotocol/sdk": "^1.29.0",
     "@next/eslint-plugin-next": "^15.2.4",
     "@nx/devkit": "22.0.2",
     "@nx/eslint": "22.0.2",
@@ -92,6 +94,7 @@
     "@types/pg": "^8.11.6",
     "@types/react": "^19.2.2",
     "@types/react-dom": "^19.2.2",
+    "@types/ws": "^8.18.1",
     "autoprefixer": "10.4.13",
     "babel-jest": "^30.0.2",
     "babel-preset-expo": "~13.2.0",
@@ -121,7 +124,8 @@
     "ts-node": "10.9.1",
     "tslib": "^2.3.0",
     "typescript": "~5.9.2",
-    "typescript-eslint": "^8.40.0"
+    "typescript-eslint": "^8.40.0",
+    "ws": "^8.20.0"
   },
   "overrides": {
     "react-test-renderer": "19.0.0"

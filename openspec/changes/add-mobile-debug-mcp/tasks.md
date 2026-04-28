@@ -7,12 +7,12 @@
 
 ## 2. Local MCP Sidecar
 
-- [ ] 2.1 Add a local Node MCP sidecar under `tools/` that registers the mobile debug tools with the MCP SDK/runtime used by the project environment.
-- [ ] 2.2 Add a WebSocket server inside the sidecar for React Native app sessions, including hello/registration, ping/pong or heartbeat, request/response correlation, and disconnect handling.
-- [ ] 2.3 Implement pairing-token validation for app sessions and reject missing or invalid tokens before registering a session.
-- [ ] 2.4 Implement connected-session tracking with platform/app metadata and require `sessionId` when multiple app sessions are connected.
-- [ ] 2.5 Implement sidecar error handling for no connected app, disconnected app during request, request timeout, invalid app response, and multiple sessions without `sessionId`.
-- [ ] 2.6 Add a script or documented command for starting the sidecar from the repo root.
+- [x] 2.1 Add a local Node MCP sidecar under `tools/` that registers the mobile debug tools with the MCP SDK/runtime used by the project environment.
+- [x] 2.2 Add a WebSocket server inside the sidecar for React Native app sessions, including hello/registration, ping/pong or heartbeat, request/response correlation, and disconnect handling.
+- [x] 2.3 Implement pairing-token validation for app sessions and reject missing or invalid tokens before registering a session.
+- [x] 2.4 Implement connected-session tracking with platform/app metadata and require `sessionId` when multiple sessions are connected.
+- [x] 2.5 Implement sidecar error handling for no connected app, disconnected app during request, request timeout, invalid app response, and multiple sessions without `sessionId`.
+- [x] 2.6 Add a script or documented command for starting the sidecar from the repo root.
 
 ## 3. React Native Debug Bridge
 
