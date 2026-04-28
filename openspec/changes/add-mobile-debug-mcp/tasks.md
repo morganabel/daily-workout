@@ -1,9 +1,9 @@
 ## 1. Shared Contracts and Tool Inventory
 
-- [ ] 1.1 Define the initial debug MCP tool inventory and stable tool names in code comments or documentation so the sidecar and app registry stay aligned.
-- [ ] 1.2 Add Zod schemas/types for cross-boundary debug envelopes, session metadata, app/home state summaries, seed inputs, generation tool inputs, generation trace outputs, and destructive confirmation inputs where reuse is needed.
-- [ ] 1.3 Add redaction helpers that sanitize BYOK keys, auth cookies, bearer tokens, device tokens, secret-like headers, and error strings before values leave the app or sidecar.
-- [ ] 1.4 Add unit tests for validation and redaction helpers, including BYOK, auth cookie, bearer token, device token, and `x-*-key` cases.
+- [x] 1.1 Define the initial debug MCP tool inventory and stable tool names in code comments or documentation so the sidecar and app registry stay aligned.
+- [x] 1.2 Add Zod schemas/types for cross-boundary debug envelopes, session metadata, app/home state summaries, seed inputs, generation tool inputs, generation trace outputs, and destructive confirmation inputs where reuse is needed.
+- [x] 1.3 Add redaction helpers that sanitize BYOK keys, auth cookies, bearer tokens, device tokens, secret-like headers, and error strings before values leave the app or sidecar.
+- [x] 1.4 Add unit tests for validation and redaction helpers, including BYOK, auth cookie, bearer token, device token, and `x-*-key` cases.
 
 ## 2. Local MCP Sidecar
 
