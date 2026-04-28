@@ -1,0 +1,116 @@
+import { useEffect } from 'react';
+import { Platform } from 'react-native';
+import { MOBILE_DEBUG_MCP_PROTOCOL_VERSION } from '@workout-agent/shared';
+import {
+  createDebugMcpSessionId,
+  getDebugMcpSidecarUrl,
+  getDebugMcpToken,
+  isDebugMcpBridgeEnabled,
+} from './debugMcpConfig';
+import { dispatchDebugTool } from './debugToolRegistry';
+
+const RECONNECT_DELAY_MS = 2_000;
+
+const parseMessage = (data: unknown): unknown => {
+  if (typeof data === 'string') {
+    return JSON.parse(data);
+  }
+  return JSON.parse(String(data));
+};
+
+export const DebugMcpBridge = () => {
+  useEffect(() => {
+    if (!isDebugMcpBridgeEnabled()) {
+      return;
+    }
+
+    const token = getDebugMcpToken();
+    if (!token) {
+      console.warn('[debug-mcp] EXPO_PUBLIC_DEBUG_MCP_TOKEN is required.');
+      return;
+    }
+
+    let socket: WebSocket | null = null;
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+    let disposed = false;
+    const sessionId = createDebugMcpSessionId();
+
+    const connect = () => {
+      if (disposed) return;
+
+      const sidecarUrl = getDebugMcpSidecarUrl();
+      socket = new WebSocket(sidecarUrl);
+
+      socket.onopen = () => {
+        socket?.send(
+          JSON.stringify({
+            type: 'hello',
+            token,
+            session: {
+              sessionId,
+              protocolVersion: MOBILE_DEBUG_MCP_PROTOCOL_VERSION,
+              appName: 'Workout Agent Mobile',
+              platform: Platform.OS,
+            },
+          }),
+        );
+      };
+
+      socket.onmessage = (event) => {
+        void (async () => {
+          try {
+            const message = parseMessage(event.data);
+            if (
+              message &&
+              typeof message === 'object' &&
+              'type' in message &&
+              message.type === 'registered'
+            ) {
+              return;
+            }
+
+            const response = await dispatchDebugTool(message);
+            socket?.send(JSON.stringify(response));
+          } catch (error) {
+            socket?.send(
+              JSON.stringify({
+                id: 'invalid-message',
+                ok: false,
+                error: {
+                  code: 'INVALID_MESSAGE',
+                  message:
+                    error instanceof Error
+                      ? error.message
+                      : 'Invalid debug MCP message',
+                },
+              }),
+            );
+          }
+        })();
+      };
+
+      socket.onclose = () => {
+        socket = null;
+        if (!disposed) {
+          reconnectTimer = setTimeout(connect, RECONNECT_DELAY_MS);
+        }
+      };
+
+      socket.onerror = () => {
+        socket?.close();
+      };
+    };
+
+    connect();
+
+    return () => {
+      disposed = true;
+      if (reconnectTimer) {
+        clearTimeout(reconnectTimer);
+      }
+      socket?.close();
+    };
+  }, []);
+
+  return null;
+};

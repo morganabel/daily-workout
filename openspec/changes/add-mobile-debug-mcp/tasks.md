@@ -16,11 +16,11 @@
 
 ## 3. React Native Debug Bridge
 
-- [ ] 3.1 Add `DebugMcpBridge` to the mobile app and mount it only when both debug/development mode and `EXPO_PUBLIC_ENABLE_DEBUG_MCP=true` are active.
-- [ ] 3.2 Add configurable sidecar URL handling for iOS simulator, Android emulator, `adb reverse`, and physical-device LAN workflows.
-- [ ] 3.3 Implement outbound WebSocket connection setup, hello payload, pairing-token presentation, reconnect/backoff behavior, request dispatch, response serialization, and shutdown cleanup.
-- [ ] 3.4 Add a debug tool registry in the app that validates inputs, invokes async handlers, catches errors, and applies redaction to outputs.
-- [ ] 3.5 Add tests or testable module coverage showing the bridge remains disabled when debug gates are absent.
+- [x] 3.1 Add `DebugMcpBridge` to the mobile app and mount it only when both debug/development mode and `EXPO_PUBLIC_ENABLE_DEBUG_MCP=true` are active.
+- [x] 3.2 Add configurable sidecar URL handling for iOS simulator, Android emulator, `adb reverse`, and physical-device LAN workflows.
+- [x] 3.3 Implement outbound WebSocket connection setup, hello payload, pairing-token presentation, reconnect/backoff behavior, request dispatch, response serialization, and shutdown cleanup.
+- [x] 3.4 Add a debug tool registry in the app that validates inputs, invokes async handlers, catches errors, and applies redaction to outputs.
+- [x] 3.5 Add tests or testable module coverage showing the bridge remains disabled when debug gates are absent.
 
 ## 4. Debug State Publishing
 

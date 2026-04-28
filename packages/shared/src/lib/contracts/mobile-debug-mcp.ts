@@ -5,7 +5,6 @@ import {
   plannedEventInputSchema,
   todayPlanSchema,
   userPreferencesSchema,
-  workoutSessionSummarySchema,
 } from './workouts';
 import { homeSnapshotSchema } from './home-snapshot';
 

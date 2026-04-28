@@ -15,6 +15,8 @@ import { SettingsScreen } from './SettingsScreen';
 import { SignInScreen } from './SignInScreen';
 import { SignUpScreen } from './SignUpScreen';
 import { useDeviceToken } from './hooks/useDeviceToken';
+import { DebugMcpBridge } from './debug/DebugMcpBridge';
+import { isDebugMcpBridgeEnabled } from './debug/debugMcpConfig';
 import {
   useFonts,
   Manrope_600SemiBold,
@@ -41,8 +43,11 @@ export const App = () => {
     return null;
   }
 
+  const showDebugMcpBridge = isDebugMcpBridgeEnabled();
+
   return (
     <RootSiblingParent>
+      {showDebugMcpBridge ? <DebugMcpBridge /> : null}
       <StatusBar barStyle="dark-content" backgroundColor={backgroundColor} />
       <NavigationContainer>
         <SafeAreaView style={{ flex: 1, backgroundColor }}>
