@@ -31,11 +31,11 @@
 
 ## 5. Read-Only Debug Tools
 
-- [ ] 5.1 Implement `get_app_state` with platform/session metadata, route, backend URL, server capabilities, network state, launch state, redacted auth/BYOK state, local DB counts, and bridge status.
-- [ ] 5.2 Implement `get_home_state` with today's plan, plan versions, recent sessions, quick actions, offline hint, generation status, and published Home UI state.
-- [ ] 5.3 Implement `list_history` with limit/date-range filters and optional archive inclusion.
-- [ ] 5.4 Implement `list_calendar` with planned events and completed workout calendar items for a requested date range.
-- [ ] 5.5 Implement `get_generation_context` using the existing mobile context builder and return a sanitized context summary/result.
+- [x] 5.1 Implement `get_app_state` with platform/session metadata, route, backend URL, server capabilities, network state, launch state, redacted auth/BYOK state, local DB counts, and bridge status.
+- [x] 5.2 Implement `get_home_state` with today's plan, plan versions, recent sessions, quick actions, offline hint, generation status, and published Home UI state.
+- [x] 5.3 Implement `list_history` with limit/date-range filters and optional archive inclusion.
+- [x] 5.4 Implement `list_calendar` with planned events and completed workout calendar items for a requested date range.
+- [x] 5.5 Implement `get_generation_context` using the existing mobile context builder and return a sanitized context summary/result.
 
 ## 6. Mutation and Seeding Tools
 

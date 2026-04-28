@@ -8,6 +8,7 @@ import {
   isDebugMcpBridgeEnabled,
 } from './debugMcpConfig';
 import { setDebugBridgeState } from './debugState';
+import { registerDebugTools } from './debugTools';
 import { dispatchDebugTool } from './debugToolRegistry';
 
 const RECONNECT_DELAY_MS = 2_000;
@@ -36,6 +37,7 @@ export const DebugMcpBridge = () => {
     let disposed = false;
     const sessionId = createDebugMcpSessionId();
     setDebugBridgeState({ enabled: true, connected: false, sessionId });
+    registerDebugTools();
 
     const connect = () => {
       if (disposed) return;
