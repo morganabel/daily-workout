@@ -31,6 +31,7 @@ import {
   generateWorkout,
   quickLogWorkout,
 } from '../services/api';
+import { navigationRef } from '../navigation';
 import { getLocalDateFromTimestamp } from '../utils/date';
 import { getDebugMcpSidecarUrl } from './debugMcpConfig';
 import { getDebugStateSnapshot } from './debugState';
@@ -315,6 +316,50 @@ const resetDebugData = async (input: unknown) => {
   return { removed };
 };
 
+const assertNavigationReady = () => {
+  if (!navigationRef.isReady()) {
+    throw new Error('Navigation is not ready');
+  }
+};
+
+const openKnownRoute = (route: 'Home' | 'History' | 'Settings') => {
+  assertNavigationReady();
+  navigationRef.navigate(route);
+  return { route };
+};
+
+const resolveSelectedPlan = async () => {
+  const debugPlan = getDebugStateSnapshot().selectedPlan;
+  if (debugPlan) {
+    return debugPlan;
+  }
+
+  const workout = await workoutRepository.getTodayWorkout();
+  return workout ? workoutRepository.mapWorkoutToPlan(workout) : null;
+};
+
+const openCurrentWorkoutPreview = async () => {
+  assertNavigationReady();
+  const plan = await resolveSelectedPlan();
+  if (!plan) {
+    throw new Error('No selected workout plan is available');
+  }
+
+  navigationRef.navigate('WorkoutPreview', { plan });
+  return { route: 'WorkoutPreview', planId: plan.id };
+};
+
+const startCurrentWorkout = async () => {
+  assertNavigationReady();
+  const plan = await resolveSelectedPlan();
+  if (!plan) {
+    throw new Error('No selected workout plan is available');
+  }
+
+  navigationRef.navigate('ActiveWorkout', { plan });
+  return { route: 'ActiveWorkout', planId: plan.id };
+};
+
 export function registerDebugTools(): void {
   if (registered) {
     return;
@@ -335,4 +380,9 @@ export function registerDebugTools(): void {
   registerDebugTool('quick_log_workout', quickLogWorkoutTool);
   registerDebugTool('complete_workout', completeWorkout);
   registerDebugTool('reset_debug_data', resetDebugData);
+  registerDebugTool('open_home', () => openKnownRoute('Home'));
+  registerDebugTool('open_history', () => openKnownRoute('History'));
+  registerDebugTool('open_settings', () => openKnownRoute('Settings'));
+  registerDebugTool('open_current_workout_preview', openCurrentWorkoutPreview);
+  registerDebugTool('start_current_workout', startCurrentWorkout);
 }

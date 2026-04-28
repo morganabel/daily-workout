@@ -56,9 +56,9 @@
 
 ## 8. Bounded Navigation Tools
 
-- [ ] 8.1 Implement safe navigation helpers for `open_home`, `open_history`, and `open_settings`.
-- [ ] 8.2 Implement `open_current_workout_preview` only when a selected plan exists.
-- [ ] 8.3 Implement `start_current_workout` only when a selected plan exists and reject invalid preconditions with clear errors.
+- [x] 8.1 Implement safe navigation helpers for `open_home`, `open_history`, and `open_settings`.
+- [x] 8.2 Implement `open_current_workout_preview` only when a selected plan exists.
+- [x] 8.3 Implement `start_current_workout` only when a selected plan exists and reject invalid preconditions with clear errors.
 
 ## 9. Documentation and Validation
 
