@@ -48,11 +48,11 @@
 
 ## 7. Generation and Trace Tools
 
-- [ ] 7.1 Wrap the mobile generation service with debug trace capture for sanitized request fields, context summary, provider, scheduled date, counts, response/provenance, saved workout metadata, source/error/fallback, and duration.
-- [ ] 7.2 Implement `generate_workout` through the normal mobile generation service so auth, BYOK, hosted, quota, and provider behavior are preserved.
-- [ ] 7.3 Implement `regenerate_workout` by resolving a baseline plan/provenance, applying feedback, calling the normal generation service, and returning a version group summary.
-- [ ] 7.4 Implement `get_last_generation_trace` with redaction and clear empty-state behavior.
-- [ ] 7.5 Add tests for generation debug behavior using mocked API/provider paths and verify hosted/quota errors are surfaced rather than bypassed.
+- [x] 7.1 Wrap the mobile generation service with debug trace capture for sanitized request fields, context summary, provider, scheduled date, counts, response/provenance, saved workout metadata, source/error/fallback, and duration.
+- [x] 7.2 Implement `generate_workout` through the normal mobile generation service so auth, BYOK, hosted, quota, and provider behavior are preserved.
+- [x] 7.3 Implement `regenerate_workout` by resolving a baseline plan/provenance, applying feedback, calling the normal generation service, and returning a version group summary.
+- [x] 7.4 Implement `get_last_generation_trace` with redaction and clear empty-state behavior.
+- [x] 7.5 Add tests for generation debug behavior using mocked API/provider paths and verify hosted/quota errors are surfaced rather than bypassed.
 
 ## 8. Bounded Navigation Tools
 

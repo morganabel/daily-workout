@@ -6,6 +6,7 @@ import {
   mobileDebugGenerationInputSchema,
   mobileDebugHistoryQuerySchema,
   mobileDebugQuickLogInputSchema,
+  mobileDebugRegenerationInputSchema,
   mobileDebugResetInputSchema,
   mobileDebugSeedHistoryInputSchema,
   mobileDebugSeedPlannedEventsInputSchema,
@@ -25,7 +26,11 @@ import {
   getSessionToken,
   isAuthEnabled,
 } from '../services/auth-client';
-import { buildGenerationContext, quickLogWorkout } from '../services/api';
+import {
+  buildGenerationContext,
+  generateWorkout,
+  quickLogWorkout,
+} from '../services/api';
 import { getLocalDateFromTimestamp } from '../utils/date';
 import { getDebugMcpSidecarUrl } from './debugMcpConfig';
 import { getDebugStateSnapshot } from './debugState';
@@ -183,6 +188,57 @@ const getGenerationContext = async (input: unknown) => {
   };
 };
 
+const generateWorkoutTool = async (input: unknown) => {
+  const parsed = mobileDebugGenerationInputSchema.parse(input);
+  const plan = await generateWorkout(parsed.request, {
+    scheduledDate: parsed.scheduledDate,
+  });
+  const savedWorkout = await workoutRepository.getWorkoutByPlanId(plan.id);
+
+  return {
+    plan,
+    savedWorkoutId: savedWorkout?.id,
+    trace: getDebugStateSnapshot().lastGenerationTrace,
+  };
+};
+
+const regenerateWorkoutTool = async (input: unknown) => {
+  const parsed = mobileDebugRegenerationInputSchema.parse(input);
+  const baselineWorkout = await workoutRepository.getWorkoutByPlanId(
+    parsed.workoutId,
+  );
+  if (!baselineWorkout) {
+    throw new Error(`No workout found for '${parsed.workoutId}'`);
+  }
+
+  const baselinePlan = await workoutRepository.mapWorkoutToPlan(baselineWorkout);
+  const request = {
+    ...parsed.request,
+    previousResponseId:
+      parsed.request.previousResponseId ?? baselinePlan.responseId,
+    baselineWorkout: parsed.request.baselineWorkout ?? baselinePlan,
+  };
+  const plan = await generateWorkout(request, {
+    scheduledDate: parsed.scheduledDate,
+  });
+  const versions = await workoutRepository.listPlannedWorkoutVersionsForDate(
+    parsed.scheduledDate ?? Date.now(),
+  );
+  const planVersions = await Promise.all(
+    versions.map((item) => workoutRepository.mapWorkoutToPlan(item)),
+  );
+
+  return {
+    plan,
+    planVersions,
+    trace: getDebugStateSnapshot().lastGenerationTrace,
+  };
+};
+
+const getLastGenerationTrace = () => ({
+  trace: getDebugStateSnapshot().lastGenerationTrace,
+});
+
 const setProfilePreferences = async (input: unknown) => {
   const parsed = mobileDebugSetProfilePreferencesInputSchema.parse(input);
   await userRepository.updatePreferences(parsed.preferences);
@@ -270,6 +326,9 @@ export function registerDebugTools(): void {
   registerDebugTool('list_history', listHistory);
   registerDebugTool('list_calendar', listCalendar);
   registerDebugTool('get_generation_context', getGenerationContext);
+  registerDebugTool('generate_workout', generateWorkoutTool);
+  registerDebugTool('regenerate_workout', regenerateWorkoutTool);
+  registerDebugTool('get_last_generation_trace', getLastGenerationTrace);
   registerDebugTool('set_profile_preferences', setProfilePreferences);
   registerDebugTool('seed_history', seedHistory);
   registerDebugTool('seed_planned_events', seedPlannedEvents);

@@ -20,6 +20,10 @@ import { workoutRepository } from '../db/repositories/WorkoutRepository';
 import { plannedEventRepository } from '../db/repositories/PlannedEventRepository';
 import { formatLocalDate, getLocalDateFromTimestamp } from '../utils/date';
 import {
+  setDebugLastGenerationTrace,
+  type DebugGenerationTrace,
+} from '../debug/debugState';
+import {
   getSessionCookie,
   getSessionToken,
   isAuthEnabled,
@@ -219,6 +223,32 @@ export async function buildGenerationContext(
   return context;
 }
 
+const sanitizeGenerationRequestForTrace = (
+  request: GenerationRequest
+): Record<string, unknown> => {
+  const sanitized: Record<string, unknown> = { ...request };
+  if (request.notes) {
+    sanitized.notes = '[REDACTED]';
+  }
+  return sanitized;
+};
+
+const getErrorCode = (error: unknown): string | undefined => {
+  if (error && typeof error === 'object' && 'code' in error) {
+    const code = (error as { code?: unknown }).code;
+    return typeof code === 'string' ? code : undefined;
+  }
+  return undefined;
+};
+
+const getErrorMessage = (error: unknown): string => {
+  if (error && typeof error === 'object' && 'message' in error) {
+    const message = (error as { message?: unknown }).message;
+    return typeof message === 'string' ? message : 'Unknown generation error';
+  }
+  return error instanceof Error ? error.message : String(error);
+};
+
 /**
  * Generate a workout plan.
  *
@@ -269,22 +299,70 @@ export async function generateWorkout(
     }
   );
 
-  const plan = await apiRequest<TodayPlan>('/api/workouts/generate', {
-    method: 'POST',
-    body: JSON.stringify(enrichedRequest),
-  });
-
-  await workoutRepository.saveGeneratedPlan(plan, {
+  const startedAt = Date.now();
+  const byokConfig = await getByokConfig();
+  const traceBase: Omit<
+    DebugGenerationTrace,
+    'completedAt' | 'durationMs' | 'status' | 'result' | 'error'
+  > = {
+    id: `generation-${startedAt}`,
+    startedAt: new Date(startedAt).toISOString(),
+    operation: isRegeneration ? 'regenerate' : 'generate',
+    provider: byokConfig?.provider,
+    request: sanitizeGenerationRequestForTrace(requestWithPlanningDate),
     scheduledDate: options?.scheduledDate,
-    baselineWorkoutId: requestWithPlanningDate.baselineWorkout?.id,
-    generationRequest: requestWithPlanningDate,
-  });
-  void Promise.resolve(workoutRepository.pruneRejectedWorkoutVersions()).catch(
-    (error) => {
-      console.error('Failed to prune rejected workout versions', error);
-    }
-  );
-  return plan;
+    contextSummary: {
+      equipment: context.environment.equipment,
+      recentSessionCount: context.recentSessions.length,
+      upcomingEventCount: requestWithPlanningDate.upcomingEvents?.length ?? 0,
+      hasNotes: Boolean(context.notes || requestWithPlanningDate.notes),
+    },
+  };
+
+  try {
+    const plan = await apiRequest<TodayPlan>('/api/workouts/generate', {
+      method: 'POST',
+      body: JSON.stringify(enrichedRequest),
+    });
+
+    await workoutRepository.saveGeneratedPlan(plan, {
+      scheduledDate: options?.scheduledDate,
+      baselineWorkoutId: requestWithPlanningDate.baselineWorkout?.id,
+      generationRequest: requestWithPlanningDate,
+    });
+    const savedWorkout = await workoutRepository.getWorkoutByPlanId(plan.id);
+    setDebugLastGenerationTrace({
+      ...traceBase,
+      status: 'success',
+      completedAt: new Date().toISOString(),
+      durationMs: Date.now() - startedAt,
+      result: {
+        planId: plan.id,
+        savedWorkoutId: savedWorkout?.id,
+        responseId: plan.responseId ?? plan.generationProvenance?.responseId,
+        source: plan.source,
+      },
+    });
+
+    void Promise.resolve(workoutRepository.pruneRejectedWorkoutVersions()).catch(
+      (error) => {
+        console.error('Failed to prune rejected workout versions', error);
+      }
+    );
+    return plan;
+  } catch (error) {
+    setDebugLastGenerationTrace({
+      ...traceBase,
+      status: 'error',
+      completedAt: new Date().toISOString(),
+      durationMs: Date.now() - startedAt,
+      error: {
+        code: getErrorCode(error),
+        message: getErrorMessage(error),
+      },
+    });
+    throw error;
+  }
 }
 
 /**
