@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -80,16 +80,6 @@ const equipmentSelectionsEqual = (left: string[], right: string[]): boolean => {
   );
 };
 
-const plansMatchDisplayedContent = (
-  left: TodayPlan,
-  right: TodayPlan
-): boolean =>
-  (Boolean(left.responseId) && left.responseId === right.responseId) ||
-  (left.focus === right.focus &&
-    left.durationMinutes === right.durationMinutes &&
-    left.summary === right.summary &&
-    equipmentSelectionsEqual(left.equipment, right.equipment));
-
 const formatEquipment = (equipment: string[]): string =>
   equipment.length > 0 ? equipment.join(', ') : 'Bodyweight';
 
@@ -108,6 +98,17 @@ const getVersionLabel = (
   if (index === 0) return 'Original';
   if (index === total - 1) return 'Latest';
   return `Option ${index + 1}`;
+};
+
+const getVersionSummaryLabel = (
+  currentVersionIndex: number,
+  totalVersions: number
+): string => {
+  if (currentVersionIndex === totalVersions - 1 || currentVersionIndex < 0) {
+    return 'Latest version';
+  }
+
+  return `Version ${currentVersionIndex + 1}/${totalVersions}`;
 };
 
 const getVersionHighlights = (plan: TodayPlan): string => {
@@ -377,6 +378,10 @@ const ActivePlanCard = ({
   const currentVersionIndex = planVersions.findIndex(
     (version) => version.id === plan.id
   );
+  const versionSummaryLabel = getVersionSummaryLabel(
+    currentVersionIndex,
+    planVersions.length
+  );
   const displayedPlanVersions = planVersions
     .map((version, index) => ({ version, index }))
     .reverse();
@@ -433,7 +438,7 @@ const ActivePlanCard = ({
                 color={palette.primary}
               />
               <Text style={styles.versionSummaryButtonText}>
-                {planVersions.length} versions
+                {versionSummaryLabel}
               </Text>
             </Pressable>
           ) : null}
@@ -678,13 +683,21 @@ const ActivePlanCard = ({
 
 export const HomeScreen = () => {
   const navigation = useNavigation<HomeScreenNavigation>();
+  const contentScrollRef = useRef<ScrollView | null>(null);
   const {
-    plan,
-    planVersions,
+    activePlan,
+    activePlanVersions,
+    pendingPlanSnapshot,
+    planningDateLocal,
+    planningDateTimestamp,
     quickActions,
     isOffline,
     refetch,
-    selectWorkoutVersion,
+    selectWorkoutVersionPlan,
+    setOptimisticPlanForDate,
+    setPendingPlanSnapshot,
+    clearTransientPlanState,
+    refreshPlanningDate,
     generationStatus,
     updateStagedValue,
     setGenerationStatus,
@@ -701,43 +714,11 @@ export const HomeScreen = () => {
   const [showCustomizeSheet, setShowCustomizeSheet] = useState(false);
   const [customizeForRegeneration, setCustomizeForRegeneration] =
     useState(false);
+  const [customizeTargetDate, setCustomizeTargetDate] = useState<{
+    local: string;
+    timestamp: number;
+  } | null>(null);
   const [showProfileSetup, setShowProfileSetup] = useState(false);
-  const [pendingPlanSnapshot, setPendingPlanSnapshot] =
-    useState<TodayPlan | null>(null);
-  const [optimisticPlan, setOptimisticPlan] = useState<TodayPlan | null>(null);
-  const [selectedVersionPlan, setSelectedVersionPlan] =
-    useState<TodayPlan | null>(null);
-
-  useEffect(() => {
-    if (!optimisticPlan || !plan) return;
-
-    if (plansMatchDisplayedContent(plan, optimisticPlan)) {
-      setOptimisticPlan(null);
-    }
-  }, [optimisticPlan, plan]);
-
-  useEffect(() => {
-    if (!selectedVersionPlan) return;
-
-    if (!plan) {
-      setSelectedVersionPlan(null);
-      return;
-    }
-
-    if (
-      !planVersions.some((version) => version.id === selectedVersionPlan.id)
-    ) {
-      setSelectedVersionPlan(null);
-      return;
-    }
-
-    if (plansMatchDisplayedContent(plan, selectedVersionPlan)) {
-      setSelectedVersionPlan(null);
-    }
-  }, [selectedVersionPlan, plan, planVersions]);
-
-  const regenerationPlan = optimisticPlan ?? plan;
-  const activePlan = selectedVersionPlan ?? regenerationPlan;
 
   // Load user profile on mount
   useFocusEffect(
@@ -750,6 +731,7 @@ export const HomeScreen = () => {
 
   const handleGenerate = async () => {
     if (generating || isOffline) return;
+    if (refreshPlanningDate()) return;
 
     setGenerating(true);
     setGenerationStatus({
@@ -765,7 +747,8 @@ export const HomeScreen = () => {
       Boolean(equipmentOverride) || hasChangedStagedEquipment(quickActions);
 
     try {
-      setSelectedVersionPlan(null);
+      const targetTimestamp = planningDateTimestamp;
+      clearTransientPlanState();
       const request: GenerationRequest = {
         timeMinutes: duration,
         energy: intensity.toLowerCase() as WorkoutEnergy,
@@ -777,7 +760,7 @@ export const HomeScreen = () => {
       }
 
       console.log('Generating workout:', request);
-      await generateWorkout(request);
+      await generateWorkout(request, { scheduledDate: targetTimestamp });
       await refetch();
 
       setGenerationStatus({ state: 'idle', submittedAt: null });
@@ -797,6 +780,9 @@ export const HomeScreen = () => {
 
   const handleCustomizeSubmit = async (request: GenerationRequest) => {
     if (customizeForRegeneration && activePlan) {
+      const targetDateLocal = customizeTargetDate?.local ?? planningDateLocal;
+      const targetTimestamp =
+        customizeTargetDate?.timestamp ?? planningDateTimestamp;
       // Regeneration mode - generate a new workout
       setShowCustomizeSheet(false);
       setPendingPlanSnapshot(activePlan);
@@ -807,9 +793,11 @@ export const HomeScreen = () => {
       });
 
       try {
-        setSelectedVersionPlan(null);
-        const newPlan = await generateWorkout(request);
-        setOptimisticPlan(newPlan);
+        clearTransientPlanState();
+        const newPlan = await generateWorkout(request, {
+          scheduledDate: targetTimestamp,
+        });
+        setOptimisticPlanForDate(newPlan, targetDateLocal);
         await refetch();
         setGenerationStatus({ state: 'idle', submittedAt: null });
       } catch (err) {
@@ -827,6 +815,7 @@ export const HomeScreen = () => {
         setGenerating(false);
         setPendingPlanSnapshot(null);
         setCustomizeForRegeneration(false);
+        setCustomizeTargetDate(null);
       }
     } else {
       // Initial customization - just update local state
@@ -848,19 +837,39 @@ export const HomeScreen = () => {
       }
       setFocus(request.focus ?? 'Smart');
       setShowCustomizeSheet(false);
+      setCustomizeTargetDate(null);
     }
   };
 
   const handleCustomize = () => {
+    if (refreshPlanningDate()) return;
     if (generationStatus.state === 'error') {
       setGenerationStatus({ state: 'idle', submittedAt: null });
     }
+    setCustomizeTargetDate({
+      local: planningDateLocal,
+      timestamp: planningDateTimestamp,
+    });
     setCustomizeForRegeneration(true);
     setShowCustomizeSheet(true);
   };
 
+  const handleOpenSetupCustomize = () => {
+    if (refreshPlanningDate()) return;
+    setCustomizeTargetDate({
+      local: planningDateLocal,
+      timestamp: planningDateTimestamp,
+    });
+    setShowCustomizeSheet(true);
+  };
+
+  const handleSelectVersion = (version: TodayPlan) => {
+    contentScrollRef.current?.scrollTo({ y: 0, animated: true });
+    void selectWorkoutVersionPlan(version);
+  };
+
   const displayPlan = activePlan ?? (generating ? pendingPlanSnapshot : null);
-  const displayPlanVersions = optimisticPlan ? [] : planVersions;
+  const displayPlanVersions = activePlanVersions;
   const displayEquipment = resolveEquipmentSelection(
     equipmentOverride,
     quickActions
@@ -888,6 +897,7 @@ export const HomeScreen = () => {
       </View>
 
       <ScrollView
+        ref={contentScrollRef}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
@@ -905,11 +915,7 @@ export const HomeScreen = () => {
             isPending={isPending}
             regenerationError={regenerationError}
             planVersions={displayPlanVersions}
-            onSelectVersion={(version) => {
-              setSelectedVersionPlan(version);
-              setOptimisticPlan(null);
-              void selectWorkoutVersion(version.id);
-            }}
+            onSelectVersion={handleSelectVersion}
           />
         ) : (
           <>
@@ -917,13 +923,13 @@ export const HomeScreen = () => {
               duration={duration}
               equipment={displayEquipment}
               intensity={intensity}
-              onPress={() => setShowCustomizeSheet(true)}
+              onPress={handleOpenSetupCustomize}
             />
 
             <FocusSelector
               value={focus}
               onChange={setFocus}
-              onMore={() => setShowCustomizeSheet(true)}
+              onMore={handleOpenSetupCustomize}
             />
 
             <View style={styles.actionContainer}>
@@ -970,6 +976,7 @@ export const HomeScreen = () => {
         onClose={() => {
           setShowCustomizeSheet(false);
           setCustomizeForRegeneration(false);
+          setCustomizeTargetDate(null);
         }}
       />
     </View>

@@ -6,6 +6,7 @@ import { useHomeData } from './hooks/useHomeData';
 import {
   createTodayPlanMock,
   type QuickActionPreset,
+  type TodayPlan,
 } from '@workout-agent/shared';
 
 jest.mock('./hooks/useHomeData', () => ({
@@ -57,7 +58,12 @@ const mockUseHomeData = useHomeData as jest.MockedFunction<typeof useHomeData>;
 const baseHookState = {
   status: 'ready' as const,
   plan: null, // Empty state by default for new tests
+  activePlan: null,
   planVersions: [],
+  activePlanVersions: [],
+  pendingPlanSnapshot: null,
+  planningDateLocal: '2026-04-27',
+  planningDateTimestamp: new Date('2026-04-27T00:00:00').getTime(),
   recentSessions: [],
   quickActions: [],
   offlineHint: { offline: false, requiresApiKey: false },
@@ -69,6 +75,11 @@ const baseHookState = {
   },
   refetch: jest.fn(),
   selectWorkoutVersion: jest.fn(),
+  selectWorkoutVersionPlan: jest.fn(),
+  setOptimisticPlanForDate: jest.fn(),
+  setPendingPlanSnapshot: jest.fn(),
+  clearTransientPlanState: jest.fn(),
+  refreshPlanningDate: jest.fn(() => false),
   updateStagedValue: jest.fn(),
   clearStagedValues: jest.fn(),
   setGenerationStatus: jest.fn(),
@@ -145,7 +156,10 @@ describe('HomeScreen', () => {
     });
 
     expect(generateWorkout).toHaveBeenCalledWith(
-      expect.not.objectContaining({ equipment: expect.anything() })
+      expect.not.objectContaining({ equipment: expect.anything() }),
+      expect.objectContaining({
+        scheduledDate: baseHookState.planningDateTimestamp,
+      })
     );
   });
 
@@ -167,7 +181,10 @@ describe('HomeScreen', () => {
     });
 
     expect(generateWorkout).toHaveBeenCalledWith(
-      expect.not.objectContaining({ equipment: expect.anything() })
+      expect.not.objectContaining({ equipment: expect.anything() }),
+      expect.objectContaining({
+        scheduledDate: baseHookState.planningDateTimestamp,
+      })
     );
   });
 
@@ -194,10 +211,16 @@ describe('HomeScreen', () => {
     });
 
     expect(generateWorkout).toHaveBeenCalledWith(
-      expect.objectContaining({ timeMinutes: 45 })
+      expect.objectContaining({ timeMinutes: 45 }),
+      expect.objectContaining({
+        scheduledDate: baseHookState.planningDateTimestamp,
+      })
     );
     expect(generateWorkout).toHaveBeenCalledWith(
-      expect.not.objectContaining({ equipment: expect.anything() })
+      expect.not.objectContaining({ equipment: expect.anything() }),
+      expect.objectContaining({
+        scheduledDate: baseHookState.planningDateTimestamp,
+      })
     );
   });
 
@@ -223,6 +246,9 @@ describe('HomeScreen', () => {
     expect(generateWorkout).toHaveBeenCalledWith(
       expect.objectContaining({
         equipment: ['Bodyweight', 'Cable Machine'],
+      }),
+      expect.objectContaining({
+        scheduledDate: baseHookState.planningDateTimestamp,
       })
     );
   });
@@ -247,7 +273,10 @@ describe('HomeScreen', () => {
     });
 
     expect(generateWorkout).toHaveBeenCalledWith(
-      expect.objectContaining({ equipment: ['Gym'] })
+      expect.objectContaining({ equipment: ['Gym'] }),
+      expect.objectContaining({
+        scheduledDate: baseHookState.planningDateTimestamp,
+      })
     );
   });
 
@@ -272,10 +301,14 @@ describe('HomeScreen', () => {
     });
 
     expect(generateWorkout).toHaveBeenCalledWith(
-      expect.objectContaining({ equipment: ['Cable Machine'] })
+      expect.objectContaining({ equipment: ['Cable Machine'] }),
+      expect.objectContaining({
+        scheduledDate: baseHookState.planningDateTimestamp,
+      })
     );
     expect(generateWorkout).not.toHaveBeenCalledWith(
-      expect.objectContaining({ equipment: expect.arrayContaining(['Gym']) })
+      expect.objectContaining({ equipment: expect.arrayContaining(['Gym']) }),
+      expect.anything()
     );
   });
 
@@ -293,6 +326,9 @@ describe('HomeScreen', () => {
     mockUseHomeData.mockReturnValue({
       ...baseHookState,
       plan,
+      activePlan: plan,
+      planVersions: [plan],
+      activePlanVersions: [plan],
     });
 
     const { getByText } = render(<HomeScreen />);
@@ -306,7 +342,10 @@ describe('HomeScreen', () => {
     });
 
     expect(generateWorkout).toHaveBeenCalledWith(
-      expect.objectContaining({ equipment: ['Gym'] })
+      expect.objectContaining({ equipment: ['Gym'] }),
+      expect.objectContaining({
+        scheduledDate: baseHookState.planningDateTimestamp,
+      })
     );
   });
 
@@ -354,9 +393,13 @@ describe('HomeScreen', () => {
   });
 
   it('renders active plan view when plan exists', async () => {
+    const plan = createTodayPlanMock();
     mockUseHomeData.mockReturnValue({
       ...baseHookState,
-      plan: createTodayPlanMock(),
+      plan,
+      activePlan: plan,
+      planVersions: [plan],
+      activePlanVersions: [plan],
     });
 
     const { getByText } = render(<HomeScreen />);
@@ -369,10 +412,14 @@ describe('HomeScreen', () => {
   });
 
   it('keeps active plan card visible while status is loading', async () => {
+    const plan = createTodayPlanMock();
     mockUseHomeData.mockReturnValue({
       ...baseHookState,
       status: 'loading',
-      plan: createTodayPlanMock(),
+      plan,
+      activePlan: plan,
+      planVersions: [plan],
+      activePlanVersions: [plan],
     });
 
     const { getByText, queryByText } = render(<HomeScreen />);
@@ -389,6 +436,9 @@ describe('HomeScreen', () => {
     mockUseHomeData.mockReturnValue({
       ...baseHookState,
       plan,
+      activePlan: plan,
+      planVersions: [plan],
+      activePlanVersions: [plan],
     });
 
     const { getByText } = render(<HomeScreen />);
@@ -420,6 +470,9 @@ describe('HomeScreen', () => {
     mockUseHomeData.mockReturnValue({
       ...baseHookState,
       plan,
+      activePlan: plan,
+      planVersions: [plan],
+      activePlanVersions: [plan],
     });
 
     const { getByText, getByLabelText } = render(<HomeScreen />);
@@ -454,9 +507,18 @@ describe('HomeScreen', () => {
     });
 
     let currentPlan: ReturnType<typeof createTodayPlanMock> | null = seededPlan;
+    let currentPendingPlan: ReturnType<typeof createTodayPlanMock> | null =
+      null;
     mockUseHomeData.mockImplementation(() => ({
       ...baseHookState,
       plan: currentPlan,
+      activePlan: currentPlan,
+      pendingPlanSnapshot: currentPendingPlan,
+      planVersions: currentPlan ? [currentPlan] : [],
+      activePlanVersions: currentPlan ? [currentPlan] : [],
+      setPendingPlanSnapshot: jest.fn((plan) => {
+        currentPendingPlan = plan;
+      }),
     }));
 
     const { getByText, queryByText, rerender } = render(<HomeScreen />);
@@ -495,6 +557,9 @@ describe('HomeScreen', () => {
     mockUseHomeData.mockReturnValue({
       ...baseHookState,
       plan,
+      activePlan: plan,
+      planVersions: [plan],
+      activePlanVersions: [plan],
     });
 
     const { getByText, getByLabelText } = render(<HomeScreen />);
@@ -531,6 +596,9 @@ describe('HomeScreen', () => {
     mockUseHomeData.mockReturnValue({
       ...baseHookState,
       plan,
+      activePlan: plan,
+      planVersions: [plan],
+      activePlanVersions: [plan],
     });
 
     const { getByText, queryByText } = render(<HomeScreen />);
@@ -578,6 +646,9 @@ describe('HomeScreen', () => {
     mockUseHomeData.mockReturnValue({
       ...baseHookState,
       plan: oldPlan,
+      activePlan: oldPlan,
+      planVersions: [oldPlan],
+      activePlanVersions: [oldPlan],
       refetch: jest.fn().mockResolvedValue(undefined),
     });
 
@@ -596,8 +667,11 @@ describe('HomeScreen', () => {
       await Promise.resolve();
     });
 
-    expect(getByText('New gym strength summary')).toBeTruthy();
-    expect(queryByText('Old workout summary')).toBeNull();
+    expect(baseHookState.setOptimisticPlanForDate).toHaveBeenCalledWith(
+      newPlan,
+      baseHookState.planningDateLocal
+    );
+    expect(queryByText('Old workout summary')).toBeTruthy();
   });
 
   it('uses the optimistic regenerated plan as the next regeneration baseline', async () => {
@@ -623,16 +697,26 @@ describe('HomeScreen', () => {
       .mockResolvedValueOnce(newPlan)
       .mockResolvedValueOnce(createTodayPlanMock({ id: 'newer-plan' }));
 
-    mockUseHomeData.mockReturnValue({
-      ...baseHookState,
-      plan: oldPlan,
-      refetch: jest.fn().mockResolvedValue(undefined),
+    let currentPlan = oldPlan;
+    const setOptimisticPlanForDate = jest.fn((plan) => {
+      currentPlan = plan;
     });
+    mockUseHomeData.mockImplementation(() => ({
+      ...baseHookState,
+      plan: currentPlan,
+      activePlan: currentPlan,
+      planVersions: [currentPlan],
+      activePlanVersions: [currentPlan],
+      setOptimisticPlanForDate,
+      refetch: jest.fn().mockResolvedValue(undefined),
+    }));
 
-    const { getByText } = render(<HomeScreen />);
+    const { getByText, rerender } = render(<HomeScreen />);
     await act(async () => {
       await Promise.resolve();
     });
+
+    rerender(<HomeScreen />);
 
     fireEvent.press(getByText('Customize'));
     await act(async () => {
@@ -651,6 +735,9 @@ describe('HomeScreen', () => {
       expect.objectContaining({
         previousResponseId: 'resp-new',
         baselineWorkout: expect.objectContaining({ id: 'new-plan' }),
+      }),
+      expect.objectContaining({
+        scheduledDate: baseHookState.planningDateTimestamp,
       })
     );
   });
@@ -674,12 +761,14 @@ describe('HomeScreen', () => {
       }),
       versionMetadata: { changeLabel: 'Easier' },
     };
-    const selectWorkoutVersion = jest.fn().mockResolvedValue(undefined);
+    const selectWorkoutVersionPlan = jest.fn().mockResolvedValue(undefined);
     mockUseHomeData.mockReturnValue({
       ...baseHookState,
       plan: selectedPlan,
+      activePlan: selectedPlan,
       planVersions: [olderPlan, easierPlan, selectedPlan],
-      selectWorkoutVersion,
+      activePlanVersions: [olderPlan, easierPlan, selectedPlan],
+      selectWorkoutVersionPlan,
     });
 
     const { getByText, queryByText } = render(<HomeScreen />);
@@ -688,13 +777,46 @@ describe('HomeScreen', () => {
     });
 
     expect(getByText('Selected focus')).toBeTruthy();
+    expect(getByText('Latest version')).toBeTruthy();
     fireEvent.press(getByText('Versions'));
     expect(getByText('Workout versions')).toBeTruthy();
     fireEvent.press(getByText('Easier'));
 
-    expect(selectWorkoutVersion).toHaveBeenCalledWith('version-easy');
-    expect(getByText('Easier focus')).toBeTruthy();
-    expect(queryByText('Selected focus')).toBeNull();
+    expect(selectWorkoutVersionPlan).toHaveBeenCalledWith(easierPlan);
+    expect(queryByText('Selected focus')).toBeTruthy();
+  });
+
+  it('shows the active saved version position when it is not latest', async () => {
+    const olderPlan = createTodayPlanMock({
+      id: 'version-1',
+      focus: 'Original focus',
+      summary: 'Older version',
+    });
+    const middlePlan = createTodayPlanMock({
+      id: 'version-2',
+      focus: 'Middle focus',
+      summary: 'Middle version',
+    });
+    const latestPlan = createTodayPlanMock({
+      id: 'version-3',
+      focus: 'Latest focus',
+      summary: 'Latest version',
+    });
+
+    mockUseHomeData.mockReturnValue({
+      ...baseHookState,
+      plan: middlePlan,
+      activePlan: middlePlan,
+      planVersions: [olderPlan, middlePlan, latestPlan],
+      activePlanVersions: [olderPlan, middlePlan, latestPlan],
+    });
+
+    const { getByText } = render(<HomeScreen />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(getByText('Version 2/3')).toBeTruthy();
   });
 
   it('clears selected version override when the current plan disappears', async () => {
@@ -708,12 +830,22 @@ describe('HomeScreen', () => {
       focus: 'Original focus',
       summary: 'Older version',
     });
-    const selectWorkoutVersion = jest.fn().mockResolvedValue(undefined);
-    let hookState = {
+    let hookState: ReturnType<typeof useHomeData>;
+    const selectWorkoutVersionPlan = jest
+      .fn()
+      .mockImplementation(async (version: TodayPlan) => {
+        hookState = {
+          ...hookState,
+          activePlan: version,
+        };
+      });
+    hookState = {
       ...baseHookState,
       plan: selectedPlan,
+      activePlan: selectedPlan,
       planVersions: [olderPlan, selectedPlan],
-      selectWorkoutVersion,
+      activePlanVersions: [olderPlan, selectedPlan],
+      selectWorkoutVersionPlan,
     };
     mockUseHomeData.mockImplementation(() => hookState);
 
@@ -723,13 +855,19 @@ describe('HomeScreen', () => {
     });
 
     fireEvent.press(getByText('Versions'));
-    fireEvent.press(getByText('Original'));
+    await act(async () => {
+      fireEvent.press(getByText('Original'));
+      await Promise.resolve();
+    });
+    rerender(<HomeScreen />);
     expect(getByText('Original focus')).toBeTruthy();
 
     hookState = {
       ...hookState,
       plan: null,
+      activePlan: null,
       planVersions: [],
+      activePlanVersions: [],
     };
     await act(async () => {
       rerender(<HomeScreen />);
@@ -758,6 +896,9 @@ describe('HomeScreen', () => {
     mockUseHomeData.mockReturnValue({
       ...baseHookState,
       plan,
+      activePlan: plan,
+      planVersions: [plan],
+      activePlanVersions: [plan],
       setGenerationStatus,
     });
 
@@ -795,6 +936,9 @@ describe('HomeScreen', () => {
     mockUseHomeData.mockReturnValue({
       ...baseHookState,
       plan,
+      activePlan: plan,
+      planVersions: [plan],
+      activePlanVersions: [plan],
       generationStatus: {
         state: 'error',
         submittedAt: new Date().toISOString(),

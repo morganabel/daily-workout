@@ -9,7 +9,7 @@ import type {
   WorkoutSetLog,
   WeightUnit,
 } from '@workout-agent/shared';
-import { endOfDay, startOfDay } from '../../utils/date';
+import { endOfDay, parseLocalDate, startOfDay } from '../../utils/date';
 import { database } from '../index';
 import Workout from '../models/Workout';
 import Exercise from '../models/Exercise';
@@ -101,6 +101,9 @@ const getDayBounds = (timestamp: number) => {
     end: endOfDay(date).getTime(),
   };
 };
+
+const getTimestampForLocalDate = (localDate: string): number =>
+  parseLocalDate(localDate).getTime();
 
 const getTimestamp = (value: number | Date | undefined | null): number => {
   if (value instanceof Date) return value.getTime();
@@ -220,6 +223,12 @@ export class WorkoutRepository {
     return this.buildPlannedVersionsQueryForDate(Date.now()).observe();
   }
 
+  observePlannedWorkoutVersionsForDate(localDate: string) {
+    return this.buildPlannedVersionsQueryForDate(
+      getTimestampForLocalDate(localDate)
+    ).observe();
+  }
+
   observeRecentSessions(limit = 3, options?: { includeArchived?: boolean }) {
     return this.buildCompletedQuery(
       limit,
@@ -287,6 +296,20 @@ export class WorkoutRepository {
       timestamp
     ).fetch();
     return workouts.length > 0 ? workouts[0] : null;
+  }
+
+  async getPlannedWorkoutForLocalDate(
+    localDate: string
+  ): Promise<Workout | null> {
+    return this.getPlannedWorkoutForDate(getTimestampForLocalDate(localDate));
+  }
+
+  async listPlannedWorkoutVersionsForLocalDate(
+    localDate: string
+  ): Promise<Workout[]> {
+    return this.listPlannedWorkoutVersionsForDate(
+      getTimestampForLocalDate(localDate)
+    );
   }
 
   async listPlannedWorkoutVersionsForDate(
