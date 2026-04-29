@@ -26,4 +26,4 @@ Debugging workout generation, personalization, and calendar-aware behavior curre
 - Affected packages: `packages/shared` for reusable Zod schemas/types for debug tool inputs and outputs if needed; existing domain contracts remain unchanged.
 - New tooling: a local Node MCP sidecar under `tools/` that exposes MCP tools to agents and relays requests to connected debug app sessions over WebSocket.
 - No breaking changes to public API contracts, production mobile UX, CE self-hosting behavior, hosted quota enforcement, or BYOK generation flows.
-- Security impact is limited to debug builds when explicitly enabled; secrets must be redacted and destructive tools must require explicit confirmation.
+- Security impact is limited to debug builds; developers can opt out locally, secrets must be redacted, and destructive tools must require explicit confirmation.

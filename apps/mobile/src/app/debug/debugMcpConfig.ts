@@ -1,6 +1,7 @@
 import { Platform } from 'react-native';
 
 const DEFAULT_PORT = '8765';
+const DEFAULT_TOKEN = 'local-debug-token';
 
 type DebugMcpEnv = Record<string, string | undefined>;
 
@@ -15,17 +16,14 @@ const getIsDev = (): boolean =>
   typeof __DEV__ !== 'undefined' ? Boolean(__DEV__) : false;
 
 export function isDebugMcpBridgeEnabled(isDev = getIsDev()): boolean {
-  return (
-    isDev &&
-    process.env.EXPO_PUBLIC_ENABLE_DEBUG_MCP?.toLowerCase() === 'true'
-  );
+  return isDebugMcpBridgeEnabledForEnv(process.env, isDev);
 }
 
 export function isDebugMcpBridgeEnabledForEnv(
   env: DebugMcpEnv,
   isDev = getIsDev(),
 ): boolean {
-  return isDev && env.EXPO_PUBLIC_ENABLE_DEBUG_MCP?.toLowerCase() === 'true';
+  return isDev && env.EXPO_PUBLIC_ENABLE_DEBUG_MCP?.toLowerCase() !== 'false';
 }
 
 export function getDebugMcpSidecarUrl(env: DebugMcpEnv = process.env): string {
@@ -41,7 +39,7 @@ export function getDebugMcpSidecarUrl(env: DebugMcpEnv = process.env): string {
 
 export function getDebugMcpToken(env: DebugMcpEnv = process.env): string | null {
   const token = env.EXPO_PUBLIC_DEBUG_MCP_TOKEN?.trim();
-  return token || null;
+  return token || DEFAULT_TOKEN;
 }
 
 export function createDebugMcpSessionId(): string {

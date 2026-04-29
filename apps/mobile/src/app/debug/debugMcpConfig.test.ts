@@ -5,26 +5,21 @@ import {
 } from './debugMcpConfig';
 
 describe('debugMcpConfig', () => {
-  it('keeps the bridge disabled without the explicit env gate', () => {
-    expect(isDebugMcpBridgeEnabledForEnv({}, true)).toBe(false);
+  it('enables the bridge by default in dev mode', () => {
+    expect(isDebugMcpBridgeEnabledForEnv({}, true)).toBe(true);
   });
 
-  it('keeps the bridge disabled outside dev mode even with the env gate', () => {
-    expect(
-      isDebugMcpBridgeEnabledForEnv(
-        { EXPO_PUBLIC_ENABLE_DEBUG_MCP: 'true' },
-        false,
-      ),
-    ).toBe(false);
+  it('keeps the bridge disabled outside dev mode', () => {
+    expect(isDebugMcpBridgeEnabledForEnv({}, false)).toBe(false);
   });
 
-  it('enables the bridge only when dev mode and env gate are both present', () => {
+  it('allows the dev bridge to be explicitly disabled', () => {
     expect(
       isDebugMcpBridgeEnabledForEnv(
-        { EXPO_PUBLIC_ENABLE_DEBUG_MCP: 'true' },
+        { EXPO_PUBLIC_ENABLE_DEBUG_MCP: 'false' },
         true,
       ),
-    ).toBe(true);
+    ).toBe(false);
   });
 
   it('prefers explicit sidecar URL', () => {
@@ -44,8 +39,8 @@ describe('debugMcpConfig', () => {
     ).toBe('ws://localhost:8766');
   });
 
-  it('returns configured token or null', () => {
-    expect(getDebugMcpToken({})).toBeNull();
+  it('returns the default token unless a token is configured', () => {
+    expect(getDebugMcpToken({})).toBe('local-debug-token');
 
     expect(
       getDebugMcpToken({ EXPO_PUBLIC_DEBUG_MCP_TOKEN: 'debug-token' }),

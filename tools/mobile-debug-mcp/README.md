@@ -4,31 +4,34 @@ This debug-only MCP sidecar lets an AI agent call bounded tools inside a running
 
 ## Start the Sidecar
 
-Set a pairing token and start the sidecar from the repo root:
+Start the sidecar from the repo root:
 
 ```sh
-MOBILE_DEBUG_MCP_TOKEN=local-debug-token npm run debug:mcp:mobile
+npm run debug:mcp:mobile
 ```
 
 Optional sidecar environment:
 
 - `MOBILE_DEBUG_MCP_PORT`: WebSocket port for app sessions. Defaults to `8765`.
+- `MOBILE_DEBUG_MCP_TOKEN`: Pairing token. Defaults to `local-debug-token` for local development.
 - `MOBILE_DEBUG_MCP_REQUEST_TIMEOUT_MS`: App request timeout. Defaults to `15000`.
 
 The sidecar exposes MCP over stdio and listens for app sessions at `ws://localhost:8765` by default.
 
 ## Configure the Mobile App
 
-Run an Expo debug/development build with:
+Run an Expo debug/development build normally:
 
 ```sh
-EXPO_PUBLIC_ENABLE_DEBUG_MCP=true \
-EXPO_PUBLIC_DEBUG_MCP_TOKEN=local-debug-token \
 npm run dev:mobile
 ```
 
+The bridge is enabled by default in debug/development builds. Set `EXPO_PUBLIC_ENABLE_DEBUG_MCP=false` to opt out for a local run.
+
 Optional app environment:
 
+- `EXPO_PUBLIC_ENABLE_DEBUG_MCP`: Set to `false` to disable the bridge in a debug/development build. Any other value, including unset, leaves it enabled in dev mode.
+- `EXPO_PUBLIC_DEBUG_MCP_TOKEN`: Pairing token. Defaults to `local-debug-token` and must match the sidecar token.
 - `EXPO_PUBLIC_DEBUG_MCP_URL`: Full WebSocket URL, such as `ws://192.168.1.5:8765`.
 - `EXPO_PUBLIC_DEBUG_MCP_HOST`: Host when no full URL is set.
 - `EXPO_PUBLIC_DEBUG_MCP_PORT`: Port when no full URL is set. Defaults to `8765`.
@@ -39,7 +42,7 @@ Simulator/device host notes:
 - Android emulator: use `ws://10.0.2.2:8765`, or run `adb reverse tcp:8765 tcp:8765` and use `localhost`.
 - Physical device: use the development machine LAN IP, for example `ws://192.168.1.5:8765`.
 
-The bridge is additionally gated by debug/development mode. Production builds do not mount the bridge.
+The bridge is still gated by debug/development mode. Production builds do not mount the bridge even if debug MCP environment variables are present.
 
 ## Tool Input Shape
 

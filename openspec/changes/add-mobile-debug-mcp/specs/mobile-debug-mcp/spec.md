@@ -2,15 +2,15 @@
 
 ### Requirement: Debug-Only MCP Availability
 
-The system MUST expose the mobile debug MCP bridge only in explicitly enabled debug/development builds. Production builds and debug builds without the required environment gates MUST NOT mount the bridge or accept MCP tool calls.
+The system MUST expose the mobile debug MCP bridge by default in debug/development builds. Production builds and explicitly disabled debug builds MUST NOT mount the bridge or accept MCP tool calls.
 
-#### Scenario: Bridge disabled by default
-- **WHEN** the mobile app starts without `EXPO_PUBLIC_ENABLE_DEBUG_MCP=true`
-- **THEN** the debug MCP bridge is not mounted, no WebSocket connection is opened, and no MCP tool handlers are reachable from the app
-
-#### Scenario: Bridge enabled in debug build
-- **WHEN** the mobile app starts in a debug/development build with `EXPO_PUBLIC_ENABLE_DEBUG_MCP=true` and a valid debug sidecar URL
+#### Scenario: Bridge enabled by default in debug build
+- **WHEN** the mobile app starts in a debug/development build without an explicit debug MCP opt-out
 - **THEN** the app opens an outbound WebSocket connection to the local debug sidecar and registers its app session metadata
+
+#### Scenario: Bridge disabled by explicit opt-out
+- **WHEN** the mobile app starts in a debug/development build with `EXPO_PUBLIC_ENABLE_DEBUG_MCP=false`
+- **THEN** the debug MCP bridge is not mounted, no WebSocket connection is opened, and no MCP tool handlers are reachable from the app
 
 #### Scenario: Production build cannot enable bridge
 - **WHEN** the mobile app runs as a production build
@@ -34,7 +34,7 @@ The system SHALL provide a local Node MCP sidecar that exposes MCP tools to an A
 
 ### Requirement: Pairing and Transport Validation
 
-The bridge and sidecar MUST validate a debug pairing token during connection setup. The app MUST refuse tool execution when the sidecar token is missing or invalid, and the sidecar MUST reject app sessions that do not present the configured token.
+The bridge and sidecar MUST validate a debug pairing token during connection setup. The app and sidecar SHOULD share a local development default token while allowing explicit overrides, and the sidecar MUST reject app sessions that do not present the configured token.
 
 #### Scenario: Valid token registers session
 - **WHEN** the app connects to the sidecar with the expected debug pairing token

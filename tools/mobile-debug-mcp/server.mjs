@@ -9,6 +9,7 @@ import { z } from 'zod';
 
 const PROTOCOL_VERSION = 1;
 const DEFAULT_PORT = 8765;
+const DEFAULT_PAIRING_TOKEN = 'local-debug-token';
 const DEFAULT_REQUEST_TIMEOUT_MS = 15_000;
 const HEARTBEAT_INTERVAL_MS = 30_000;
 
@@ -79,19 +80,12 @@ const port = Number.parseInt(
   process.env.MOBILE_DEBUG_MCP_PORT ?? String(DEFAULT_PORT),
   10,
 );
-const pairingToken = process.env.MOBILE_DEBUG_MCP_TOKEN;
+const pairingToken = process.env.MOBILE_DEBUG_MCP_TOKEN ?? DEFAULT_PAIRING_TOKEN;
 const requestTimeoutMs = Number.parseInt(
   process.env.MOBILE_DEBUG_MCP_REQUEST_TIMEOUT_MS ??
     String(DEFAULT_REQUEST_TIMEOUT_MS),
   10,
 );
-
-if (!pairingToken) {
-  console.error(
-    'MOBILE_DEBUG_MCP_TOKEN is required to start the mobile debug MCP sidecar.',
-  );
-  process.exit(1);
-}
 
 const sessions = new Map();
 
@@ -134,7 +128,7 @@ function resolveSession(sessionId) {
 
   if (sessions.size === 0) {
     throw new Error(
-      'No debug app is connected. Start a debug mobile build with EXPO_PUBLIC_ENABLE_DEBUG_MCP=true.',
+      'No debug app is connected. Start a debug mobile build and ensure EXPO_PUBLIC_ENABLE_DEBUG_MCP is not set to false.',
     );
   }
 

@@ -38,13 +38,13 @@ Alternatives considered:
 - Server-only MCP: useful for generation diagnostics but insufficient because many important inputs live only in the mobile local DB and secure storage.
 - Direct simulator automation only: useful for UI testing but slower and less precise for seeding local domain state.
 
-### Decision: Gate by Both Build Mode and Explicit Environment Flags
+### Decision: Gate by Build Mode with Explicit Local Opt-Out
 
-The bridge will only mount when the app is a debug/dev build and `EXPO_PUBLIC_ENABLE_DEBUG_MCP=true`. The sidecar and app will also use a pairing token configured through debug environment variables. If any gate is missing or invalid, the bridge remains disconnected and no tools are available.
+The bridge will mount by default when the app is a debug/dev build and will be disabled when `EXPO_PUBLIC_ENABLE_DEBUG_MCP=false`. The sidecar and app use a local development default pairing token and allow token overrides through debug environment variables. If the token is invalid, the bridge remains disconnected and no tools are available.
 
 Alternatives considered:
 
-- `__DEV__` only: rejected because internal preview/development builds can be shared more broadly than intended.
+- `__DEV__` only without opt-out or pairing: rejected because local developers still need a way to disable the bridge and connected app sessions must be paired to the intended sidecar.
 - Runtime hidden UI toggle only: rejected because it still ships bridge code enabled unless backed by environment gates.
 
 ### Decision: Keep Tool Semantics Domain-Specific
@@ -82,7 +82,7 @@ Alternatives considered:
 
 ## Risks / Trade-offs
 
-- Debug bridge accidentally enabled outside intended builds -> Require `__DEV__`, explicit env flags, sidecar token pairing, and no production mounting path.
+- Debug bridge accidentally enabled outside intended builds -> Require `__DEV__`, keep an explicit local opt-out, require sidecar token pairing, and keep no production mounting path.
 - Secret leakage through debug responses -> Centralize redaction, return presence/hash/last4-style metadata only, and add tests for BYOK/auth/device-token redaction.
 - Tool calls mutate user data unexpectedly -> Keep mutation tools explicit, require confirmation for resets, and document that the bridge is for debug/dev data only.
 - WebSocket connection differs across iOS simulator, Android emulator, and physical devices -> Allow configurable sidecar URL and document `localhost`, `10.0.2.2`, `adb reverse`, and LAN-IP modes.
@@ -92,11 +92,11 @@ Alternatives considered:
 
 ## Migration Plan
 
-1. Add shared debug contracts and the sidecar without mounting the mobile bridge by default.
-2. Add the mobile bridge behind debug gates and verify it remains disabled without `EXPO_PUBLIC_ENABLE_DEBUG_MCP=true`.
+1. Add shared debug contracts and the sidecar.
+2. Add the mobile bridge behind debug build gating and verify it can be disabled with `EXPO_PUBLIC_ENABLE_DEBUG_MCP=false`.
 3. Add read-only tools first, then mutation tools, then generation/regeneration tools.
 4. Add documentation for running the sidecar with Expo dev builds on iOS simulator, Android emulator, and physical devices.
-5. Rollback by leaving `EXPO_PUBLIC_ENABLE_DEBUG_MCP` unset; production and hosted builds are unaffected because the bridge never mounts.
+5. Rollback by setting `EXPO_PUBLIC_ENABLE_DEBUG_MCP=false`; production and hosted builds are unaffected because the bridge never mounts.
 
 Hosted edition does not require a data migration. Hosted quota, billing, auth, and BYOK enforcement remain in the existing API paths. The MCP bridge is a local debug-only client of those paths and must not bypass quota or auth behavior when it invokes real generation.
 
