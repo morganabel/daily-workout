@@ -6,76 +6,18 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { WebSocketServer } from 'ws';
 import { z } from 'zod';
+import {
+  appResponseSchema,
+  helloSchema,
+  PROTOCOL_VERSION,
+  toolNames,
+} from './contracts.mjs';
 
-const PROTOCOL_VERSION = 1;
 const DEFAULT_HOST = '127.0.0.1';
 const DEFAULT_PORT = 8765;
 const DEFAULT_PAIRING_TOKEN = 'local-debug-token';
 const DEFAULT_REQUEST_TIMEOUT_MS = 15_000;
 const HEARTBEAT_INTERVAL_MS = 30_000;
-
-const toolNames = [
-  'get_app_state',
-  'get_home_state',
-  'set_profile_preferences',
-  'seed_history',
-  'seed_planned_events',
-  'get_generation_context',
-  'generate_workout',
-  'regenerate_workout',
-  'get_last_generation_trace',
-  'list_history',
-  'list_calendar',
-  'quick_log_workout',
-  'complete_workout',
-  'reset_debug_data',
-  'open_home',
-  'open_history',
-  'open_settings',
-  'open_current_workout_preview',
-  'start_current_workout',
-];
-
-const helloSchema = z
-  .object({
-    type: z.literal('hello'),
-    token: z.string().min(1),
-    session: z
-      .object({
-        sessionId: z.string().min(1),
-        protocolVersion: z.literal(PROTOCOL_VERSION),
-        appName: z.string().optional(),
-        appVersion: z.string().optional(),
-        bundleId: z.string().optional(),
-        platform: z.string().min(1),
-        deviceName: z.string().optional(),
-      })
-      .strict(),
-  })
-  .strict();
-
-const appResponseSchema = z.discriminatedUnion('ok', [
-  z
-    .object({
-      id: z.string().min(1),
-      ok: z.literal(true),
-      result: z.unknown(),
-    })
-    .strict(),
-  z
-    .object({
-      id: z.string().min(1),
-      ok: z.literal(false),
-      error: z
-        .object({
-          code: z.string().min(1),
-          message: z.string().min(1),
-          details: z.unknown().optional(),
-        })
-        .strict(),
-    })
-    .strict(),
-]);
 
 const port = Number.parseInt(
   process.env.MOBILE_DEBUG_MCP_PORT ?? String(DEFAULT_PORT),

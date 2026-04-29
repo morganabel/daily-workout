@@ -66,7 +66,7 @@ If multiple app sessions are connected, provide `sessionId`. Use `list_debug_ses
 Read-only tools:
 
 - `get_app_state`: route, bridge state, backend URL, server capabilities, network status, launch state, redacted auth/BYOK state, DB counts, and UI snapshots.
-- `get_home_state`: current plan, plan versions, recent sessions, quick actions, generation status, offline hint, and Home UI state.
+- `get_home_state`: current plan, plan versions, recent sessions, quick actions, generation status, and Home UI state.
 - `list_history`: completed workout summaries by limit or date range.
 - `list_calendar`: planned events and completed sessions by date range.
 - `get_generation_context`: sanitized generation context for a request.
