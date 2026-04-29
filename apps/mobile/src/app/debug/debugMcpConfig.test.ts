@@ -1,6 +1,9 @@
 import {
+  DEBUG_MCP_INITIAL_RECONNECT_DELAY_MS,
+  DEBUG_MCP_MAX_RECONNECT_DELAY_MS,
   getDebugMcpSidecarUrl,
   getDebugMcpToken,
+  getNextDebugMcpReconnectDelay,
   isDebugMcpBridgeEnabledForEnv,
 } from './debugMcpConfig';
 
@@ -45,5 +48,16 @@ describe('debugMcpConfig', () => {
     expect(
       getDebugMcpToken({ EXPO_PUBLIC_DEBUG_MCP_TOKEN: 'debug-token' }),
     ).toBe('debug-token');
+  });
+
+  it('backs off reconnect delays until the maximum delay', () => {
+    expect(
+      getNextDebugMcpReconnectDelay(DEBUG_MCP_INITIAL_RECONNECT_DELAY_MS),
+    ).toBe(4_000);
+
+    expect(getNextDebugMcpReconnectDelay(32_000)).toBe(60_000);
+    expect(
+      getNextDebugMcpReconnectDelay(DEBUG_MCP_MAX_RECONNECT_DELAY_MS),
+    ).toBe(DEBUG_MCP_MAX_RECONNECT_DELAY_MS);
   });
 });

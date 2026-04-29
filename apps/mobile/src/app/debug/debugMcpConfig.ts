@@ -2,6 +2,8 @@ import { Platform } from 'react-native';
 
 const DEFAULT_PORT = '8765';
 const DEFAULT_TOKEN = 'local-debug-token';
+export const DEBUG_MCP_INITIAL_RECONNECT_DELAY_MS = 2_000;
+export const DEBUG_MCP_MAX_RECONNECT_DELAY_MS = 60_000;
 
 type DebugMcpEnv = Record<string, string | undefined>;
 
@@ -40,6 +42,10 @@ export function getDebugMcpSidecarUrl(env: DebugMcpEnv = process.env): string {
 export function getDebugMcpToken(env: DebugMcpEnv = process.env): string | null {
   const token = env.EXPO_PUBLIC_DEBUG_MCP_TOKEN?.trim();
   return token || DEFAULT_TOKEN;
+}
+
+export function getNextDebugMcpReconnectDelay(currentDelayMs: number): number {
+  return Math.min(currentDelayMs * 2, DEBUG_MCP_MAX_RECONNECT_DELAY_MS);
 }
 
 export function createDebugMcpSessionId(): string {

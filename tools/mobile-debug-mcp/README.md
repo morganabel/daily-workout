@@ -27,6 +27,7 @@ npm run dev:mobile
 ```
 
 The bridge is enabled by default in debug/development builds. Set `EXPO_PUBLIC_ENABLE_DEBUG_MCP=false` to opt out for a local run.
+If the sidecar is not running yet, the app keeps working normally and retries the bridge connection with exponential backoff from 2 seconds up to 60 seconds.
 
 Optional app environment:
 

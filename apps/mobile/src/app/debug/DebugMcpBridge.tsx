@@ -3,15 +3,15 @@ import { Platform } from 'react-native';
 import { MOBILE_DEBUG_MCP_PROTOCOL_VERSION } from '@workout-agent/shared';
 import {
   createDebugMcpSessionId,
+  DEBUG_MCP_INITIAL_RECONNECT_DELAY_MS,
   getDebugMcpSidecarUrl,
   getDebugMcpToken,
+  getNextDebugMcpReconnectDelay,
   isDebugMcpBridgeEnabled,
 } from './debugMcpConfig';
 import { setDebugBridgeState } from './debugState';
 import { registerDebugTools } from './debugTools';
 import { dispatchDebugTool } from './debugToolRegistry';
-
-const RECONNECT_DELAY_MS = 2_000;
 
 const parseMessage = (data: unknown): unknown => {
   if (typeof data === 'string') {
@@ -34,6 +34,7 @@ export const DebugMcpBridge = () => {
 
     let socket: WebSocket | null = null;
     let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+    let reconnectDelayMs = DEBUG_MCP_INITIAL_RECONNECT_DELAY_MS;
     let disposed = false;
     const sessionId = createDebugMcpSessionId();
     setDebugBridgeState({ enabled: true, connected: false, sessionId });
@@ -71,6 +72,7 @@ export const DebugMcpBridge = () => {
               'type' in message &&
               message.type === 'registered'
             ) {
+              reconnectDelayMs = DEBUG_MCP_INITIAL_RECONNECT_DELAY_MS;
               setDebugBridgeState({ connected: true });
               return;
             }
@@ -99,7 +101,9 @@ export const DebugMcpBridge = () => {
         socket = null;
         setDebugBridgeState({ connected: false });
         if (!disposed) {
-          reconnectTimer = setTimeout(connect, RECONNECT_DELAY_MS);
+          const delayMs = reconnectDelayMs;
+          reconnectDelayMs = getNextDebugMcpReconnectDelay(reconnectDelayMs);
+          reconnectTimer = setTimeout(connect, delayMs);
         }
       };
 
