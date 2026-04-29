@@ -9,12 +9,15 @@ import { LaunchScreen } from './LaunchScreen';
 import { WorkoutPreviewScreen } from './WorkoutPreviewScreen';
 import { ActiveWorkoutScreen } from './ActiveWorkoutScreen';
 import { WorkoutSessionDetailScreen } from './WorkoutSessionDetailScreen';
-import { RootStackParamList } from './navigation';
+import { navigationRef, RootStackParamList } from './navigation';
 import { HistoryScreen } from './HistoryScreen';
 import { SettingsScreen } from './SettingsScreen';
 import { SignInScreen } from './SignInScreen';
 import { SignUpScreen } from './SignUpScreen';
 import { useDeviceToken } from './hooks/useDeviceToken';
+import { DebugMcpBridge } from './debug/DebugMcpBridge';
+import { isDebugMcpBridgeEnabled } from './debug/debugMcpConfig';
+import { setDebugCurrentRoute } from './debug/debugState';
 import {
   useFonts,
   Manrope_600SemiBold,
@@ -41,10 +44,21 @@ export const App = () => {
     return null;
   }
 
+  const showDebugMcpBridge = isDebugMcpBridgeEnabled();
+
   return (
     <RootSiblingParent>
+      {showDebugMcpBridge ? <DebugMcpBridge /> : null}
       <StatusBar barStyle="dark-content" backgroundColor={backgroundColor} />
-      <NavigationContainer>
+      <NavigationContainer
+        ref={navigationRef}
+        onReady={() => {
+          setDebugCurrentRoute(navigationRef.getCurrentRoute()?.name ?? null);
+        }}
+        onStateChange={() => {
+          setDebugCurrentRoute(navigationRef.getCurrentRoute()?.name ?? null);
+        }}
+      >
         <SafeAreaView style={{ flex: 1, backgroundColor }}>
           <Stack.Navigator
             initialRouteName="Launch"

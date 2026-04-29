@@ -1,3 +1,4 @@
+import { createNavigationContainerRef } from '@react-navigation/native';
 import type { TodayPlan } from '@workout-agent/shared';
 
 export type RootStackParamList = {
@@ -12,3 +13,5 @@ export type RootStackParamList = {
   SignIn: undefined;
   SignUp: undefined;
 };
+
+export const navigationRef = createNavigationContainerRef<RootStackParamList>();

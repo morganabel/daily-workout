@@ -13,6 +13,10 @@ import {
 import { workoutRepository } from '../db/repositories/WorkoutRepository';
 import { userRepository } from '../db/repositories/UserRepository';
 import { plannedEventRepository } from '../db/repositories/PlannedEventRepository';
+import {
+  getDebugStateSnapshot,
+  setDebugLastGenerationTrace,
+} from '../debug/debugState';
 
 // Mock auth-client to avoid ESM import issues (jest.mock is hoisted)
 jest.mock('./auth-client', () => ({
@@ -36,6 +40,7 @@ jest.mock('../db/repositories/WorkoutRepository', () => ({
     toSessionSummary: jest.fn(),
     saveGeneratedPlan: jest.fn(),
     pruneRejectedWorkoutVersions: jest.fn(),
+    getWorkoutByPlanId: jest.fn(),
     archiveWorkoutById: jest.fn(),
     unarchiveWorkoutById: jest.fn(),
     deleteWorkoutById: jest.fn(),
@@ -134,11 +139,16 @@ describe('generateWorkout', () => {
       preferredStyle: 'Hybrid',
     });
     mockWorkoutRepository.listRecentSessions.mockResolvedValue([] as any);
+    mockWorkoutRepository.getWorkoutByPlanId.mockResolvedValue({
+      id: 'saved-workout',
+    } as any);
+    setDebugLastGenerationTrace(null);
     mockPlannedEventRepository.listUpcomingEventContext.mockResolvedValue([
       {
         kind: 'run',
         title: 'Tempo Run',
         localDate: '2026-04-16',
+        notes: 'private event note',
       },
     ]);
   });
@@ -229,6 +239,7 @@ describe('generateWorkout', () => {
         timeMinutes: 30,
         focus: 'Smart',
         energy: 'moderate',
+        notes: 'private request note',
       });
 
       expect(global.fetch).toHaveBeenCalledTimes(1);
@@ -238,6 +249,30 @@ describe('generateWorkout', () => {
       expect(payload.planningDateLocal).toBe('2026-04-24');
       expect(payload.equipment).toBeUndefined();
       expect(payload.context.environment.equipment).toEqual(['Dumbbells']);
+      expect(getDebugStateSnapshot().lastGenerationTrace).toEqual(
+        expect.objectContaining({
+          operation: 'generate',
+          status: 'success',
+          request: expect.objectContaining({
+            focus: 'Smart',
+            notes: 'private request note',
+            upcomingEvents: [
+              expect.objectContaining({
+                notes: 'private event note',
+              }),
+            ],
+          }),
+          contextSummary: expect.objectContaining({
+            equipment: ['Dumbbells'],
+            recentSessionCount: 0,
+            upcomingEventCount: 1,
+          }),
+          result: expect.objectContaining({
+            planId: 'plan-default',
+            savedWorkoutId: 'saved-workout',
+          }),
+        })
+      );
     } finally {
       jest.useRealTimers();
     }
@@ -271,6 +306,45 @@ describe('generateWorkout', () => {
     );
 
     consoleSpy.mockRestore();
+  });
+
+  it('records a failed generation trace without bypassing API errors', async () => {
+    (global.fetch as jest.Mock).mockResolvedValue({
+      ok: false,
+      clone: jest.fn().mockReturnValue({
+        text: jest.fn().mockResolvedValue('BYOK required'),
+      }),
+      json: jest.fn().mockResolvedValue({
+        code: 'BYOK_REQUIRED',
+        message: 'API key required',
+      }),
+    });
+
+    await expect(
+      generateWorkout({
+        timeMinutes: 30,
+        focus: 'Smart',
+        energy: 'moderate',
+        notes: 'private note',
+      })
+    ).rejects.toEqual({
+      code: 'BYOK_REQUIRED',
+      message: 'API key required',
+    });
+
+    expect(getDebugStateSnapshot().lastGenerationTrace).toEqual(
+      expect.objectContaining({
+        operation: 'generate',
+        status: 'error',
+        request: expect.objectContaining({
+          notes: 'private note',
+        }),
+        error: {
+          code: 'BYOK_REQUIRED',
+          message: 'API key required',
+        },
+      })
+    );
   });
 });
 

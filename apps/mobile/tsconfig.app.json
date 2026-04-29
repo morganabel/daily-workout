@@ -33,10 +33,10 @@
     "eslint.config.mjs"
   ],
   "include": [
-    "**/*.ts",
-    "**/*.tsx",
-    "**/*.js",
-    "**/*.jsx",
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "src/**/*.js",
+    "src/**/*.jsx",
     ".expo/types/**/*.ts",
     "expo-env.d.ts"
   ],
