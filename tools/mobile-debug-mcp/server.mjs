@@ -107,9 +107,10 @@ function connectedSessions() {
   return [...sessions.values()].map(publicSession);
 }
 
-function removeSession(sessionId) {
+function removeSession(sessionId, expectedSession) {
   const session = sessions.get(sessionId);
   if (!session) return;
+  if (expectedSession && session !== expectedSession) return;
 
   sessions.delete(sessionId);
   session.pending.forEach(({ reject, timeout }) => {
@@ -117,6 +118,16 @@ function removeSession(sessionId) {
     reject(new Error(`Debug app session disconnected: ${sessionId}`));
   });
   session.pending.clear();
+}
+
+function registerSession(session) {
+  const existingSession = sessions.get(session.id);
+  if (existingSession && existingSession !== session) {
+    removeSession(existingSession.id, existingSession);
+    existingSession.ws.close(1012, 'Debug app session replaced by reconnect');
+  }
+
+  sessions.set(session.id, session);
 }
 
 function resolveSession(sessionId) {
@@ -229,7 +240,7 @@ wss.on('connection', (ws) => {
         pending: new Map(),
         ws,
       };
-      sessions.set(registeredSession.id, registeredSession);
+      registerSession(registeredSession);
       ws.send(
         JSON.stringify({
           type: 'registered',
@@ -254,7 +265,7 @@ wss.on('connection', (ws) => {
   ws.on('close', () => {
     clearInterval(heartbeat);
     if (registeredSession) {
-      removeSession(registeredSession.id);
+      removeSession(registeredSession.id, registeredSession);
     }
   });
 

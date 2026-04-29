@@ -1,6 +1,8 @@
 import NetInfo from '@react-native-community/netinfo';
 import { Platform } from 'react-native';
 import {
+  MOBILE_DEBUG_MCP_PROTOCOL_VERSION,
+  mobileDebugAppStateSchema,
   mobileDebugCalendarQuerySchema,
   mobileDebugCompleteWorkoutInputSchema,
   mobileDebugGenerationInputSchema,
@@ -52,6 +54,19 @@ const getDatabaseCounts = async () => ({
   sets: await countCollection('sets'),
 });
 
+const getDebugPlatform = () => {
+  switch (Platform.OS) {
+    case 'ios':
+    case 'android':
+    case 'web':
+    case 'macos':
+    case 'windows':
+      return Platform.OS;
+    default:
+      return 'unknown';
+  }
+};
+
 const getAppState = async () => {
   const debugState = getDebugStateSnapshot();
   const [network, capabilities, authEnabled, launchCompleted, byok, deviceToken] =
@@ -66,17 +81,19 @@ const getAppState = async () => {
   const sessionCookie = getSessionCookie();
   const sessionToken = await getSessionToken();
 
-  return {
+  return mobileDebugAppStateSchema.parse({
     session: debugState.bridge.sessionId
       ? {
           sessionId: debugState.bridge.sessionId,
-          platform: Platform.OS,
+          protocolVersion: MOBILE_DEBUG_MCP_PROTOCOL_VERSION,
+          platform: getDebugPlatform(),
         }
       : undefined,
     route: debugState.route,
     backendUrl: process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:3000',
     bridge: {
-      ...debugState.bridge,
+      enabled: debugState.bridge.enabled,
+      connected: debugState.bridge.connected,
       sidecarUrl: debugState.bridge.sidecarUrl ?? getDebugMcpSidecarUrl(),
     },
     serverCapabilities: capabilities,
@@ -101,7 +118,7 @@ const getAppState = async () => {
       home: debugState.homeUi,
       activeWorkout: debugState.activeWorkoutUi,
     },
-  };
+  });
 };
 
 const getHomeState = async () => {
