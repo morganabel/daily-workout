@@ -31,6 +31,7 @@
 - Start Next.js API (stub auth): `npm run start`
 - Start Next.js API + Postgres auth: `npm run dev:server:db`
 - Start Expo dev server: `npm run dev:mobile`
+- Start mobile debug MCP sidecar: `npm run debug:mcp:mobile`
 - Run iOS simulator build: `nx run mobile:run-ios`
 - Run Android emulator build: `nx run mobile:run-android`
 
@@ -116,6 +117,17 @@
 - Apply migrations: `npm run db:migrate`
 - Reset DB volume: `npm run db:reset`
 - Regenerate Better Auth schema: `npm run better-auth:generate`
+
+## Mobile Debug MCP
+
+- Use the mobile debug MCP when an agent needs to inspect or manipulate a running Expo app without relying only on simulator taps.
+- Start the sidecar from the repo root with `npm run debug:mcp:mobile`, then run the app with `nx run mobile:run-ios` or `nx run mobile:run-android`.
+- Debug/development mobile builds connect to the sidecar by default; set `EXPO_PUBLIC_ENABLE_DEBUG_MCP=false` to opt out.
+- The default local sidecar/app pairing token is `local-debug-token`; override with `MOBILE_DEBUG_MCP_TOKEN` for the sidecar and `EXPO_PUBLIC_DEBUG_MCP_TOKEN` for the app when needed.
+- If the sidecar is not running, the app continues normally and reconnects with capped exponential backoff. You can start the sidecar later.
+- The MCP exposes bounded app tools for state inspection, local data seeding, generation/regeneration, safe navigation, and destructive debug reset with confirmation.
+- Tool outputs must remain redacted; do not expose BYOK keys, cookies, bearer tokens, device tokens, session tokens, or secret-like headers.
+- See `tools/mobile-debug-mcp/README.md` for tool names, input shape, redaction behavior, and simulator/device URL notes.
 
 ## Tooling Notes
 
