@@ -35,6 +35,7 @@ import { navigationRef } from '../navigation';
 import { getLocalDateFromTimestamp } from '../utils/date';
 import { getDebugMcpSidecarUrl } from './debugMcpConfig';
 import { getDebugStateSnapshot } from './debugState';
+import { redactDebugNotesFields } from './redaction';
 import { registerDebugTool } from './debugToolRegistry';
 
 let registered = false;
@@ -121,15 +122,11 @@ const getHomeState = async () => {
   return {
     snapshot: {
       plan,
-      planVersions,
       recentSessions,
       quickActions: debugState.homeUi?.quickActions,
       generationStatus: debugState.homeUi?.generationStatus,
-      offlineHint: {
-        offline: false,
-        requiresApiKey: false,
-      },
     },
+    planVersions,
     ui: debugState.homeUi,
   };
 };
@@ -178,8 +175,8 @@ const getGenerationContext = async (input: unknown) => {
   const context = await buildGenerationContext(request);
 
   return {
-    request,
-    context,
+    request: redactDebugNotesFields(request),
+    context: redactDebugNotesFields(context),
     summary: {
       equipment: context.environment.equipment,
       recentSessionCount: context.recentSessions.length,

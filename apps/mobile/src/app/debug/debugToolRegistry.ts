@@ -13,7 +13,29 @@ type DebugToolError = Extract<
 
 const handlers = new Map<MobileDebugToolName, DebugToolHandler>();
 
+const hasDebugErrorShape = (
+  error: unknown,
+): error is { code?: unknown; message: string; details?: unknown } =>
+  Boolean(
+    error &&
+      typeof error === 'object' &&
+      'message' in error &&
+      typeof (error as { message?: unknown }).message === 'string',
+  );
+
 const toDebugError = (error: unknown) => {
+  if (hasDebugErrorShape(error)) {
+    const debugError: DebugToolError = {
+      code:
+        typeof error.code === 'string' && error.code ? error.code : 'TOOL_ERROR',
+      message: error.message,
+    };
+    if ('details' in error) {
+      debugError.details = error.details;
+    }
+    return debugError;
+  }
+
   if (error instanceof Error) {
     return {
       code: 'TOOL_ERROR',

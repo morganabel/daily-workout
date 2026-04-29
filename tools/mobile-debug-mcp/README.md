@@ -12,11 +12,12 @@ npm run debug:mcp:mobile
 
 Optional sidecar environment:
 
+- `MOBILE_DEBUG_MCP_HOST`: WebSocket bind host. Defaults to `127.0.0.1`; use `0.0.0.0` or a LAN IP only when a physical device must connect over the network.
 - `MOBILE_DEBUG_MCP_PORT`: WebSocket port for app sessions. Defaults to `8765`.
 - `MOBILE_DEBUG_MCP_TOKEN`: Pairing token. Defaults to `local-debug-token` for local development.
 - `MOBILE_DEBUG_MCP_REQUEST_TIMEOUT_MS`: App request timeout. Defaults to `15000`.
 
-The sidecar exposes MCP over stdio and listens for app sessions at `ws://localhost:8765` by default.
+The sidecar exposes MCP over stdio and listens for app sessions at `ws://127.0.0.1:8765` by default.
 
 ## Configure the Mobile App
 
@@ -41,7 +42,7 @@ Simulator/device host notes:
 
 - iOS simulator: `ws://localhost:8765` usually works.
 - Android emulator: use `ws://10.0.2.2:8765`, or run `adb reverse tcp:8765 tcp:8765` and use `localhost`.
-- Physical device: use the development machine LAN IP, for example `ws://192.168.1.5:8765`.
+- Physical device: bind the sidecar with `MOBILE_DEBUG_MCP_HOST=0.0.0.0` or the development machine LAN IP, then set the app URL to that LAN IP, for example `ws://192.168.1.5:8765`.
 
 The bridge is still gated by debug/development mode. Production builds do not mount the bridge even if debug MCP environment variables are present.
 

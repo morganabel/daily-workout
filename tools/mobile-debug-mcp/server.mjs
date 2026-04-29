@@ -8,6 +8,7 @@ import { WebSocketServer } from 'ws';
 import { z } from 'zod';
 
 const PROTOCOL_VERSION = 1;
+const DEFAULT_HOST = '127.0.0.1';
 const DEFAULT_PORT = 8765;
 const DEFAULT_PAIRING_TOKEN = 'local-debug-token';
 const DEFAULT_REQUEST_TIMEOUT_MS = 15_000;
@@ -80,6 +81,7 @@ const port = Number.parseInt(
   process.env.MOBILE_DEBUG_MCP_PORT ?? String(DEFAULT_PORT),
   10,
 );
+const host = process.env.MOBILE_DEBUG_MCP_HOST ?? DEFAULT_HOST;
 const pairingToken = process.env.MOBILE_DEBUG_MCP_TOKEN ?? DEFAULT_PAIRING_TOKEN;
 const requestTimeoutMs = Number.parseInt(
   process.env.MOBILE_DEBUG_MCP_REQUEST_TIMEOUT_MS ??
@@ -168,7 +170,15 @@ function callAppTool(tool, args) {
 }
 
 function handleAppMessage(session, raw) {
-  const parsed = appResponseSchema.safeParse(parseJsonMessage(raw));
+  let message;
+  try {
+    message = parseJsonMessage(raw);
+  } catch {
+    console.error(`Ignoring invalid JSON app response from ${session.id}.`);
+    return;
+  }
+
+  const parsed = appResponseSchema.safeParse(message);
   if (!parsed.success) {
     console.error(`Ignoring invalid app response from ${session.id}.`);
     return;
@@ -194,7 +204,7 @@ function handleAppMessage(session, raw) {
   }
 }
 
-const wss = new WebSocketServer({ port });
+const wss = new WebSocketServer({ host, port });
 
 wss.on('connection', (ws) => {
   let registeredSession = null;
@@ -242,6 +252,7 @@ wss.on('connection', (ws) => {
   });
 
   ws.on('close', () => {
+    clearInterval(heartbeat);
     if (registeredSession) {
       removeSession(registeredSession.id);
     }
@@ -263,7 +274,9 @@ wss.on('connection', (ws) => {
 });
 
 wss.on('listening', () => {
-  console.error(`Mobile debug MCP sidecar listening for app sessions on ws://localhost:${port}.`);
+  console.error(
+    `Mobile debug MCP sidecar listening for app sessions on ws://${host}:${port}.`,
+  );
 });
 
 const server = new McpServer({

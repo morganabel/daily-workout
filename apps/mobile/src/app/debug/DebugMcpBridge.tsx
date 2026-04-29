@@ -27,10 +27,6 @@ export const DebugMcpBridge = () => {
     }
 
     const token = getDebugMcpToken();
-    if (!token) {
-      console.warn('[debug-mcp] EXPO_PUBLIC_DEBUG_MCP_TOKEN is required.');
-      return;
-    }
 
     let socket: WebSocket | null = null;
     let reconnectTimer: ReturnType<typeof setTimeout> | null = null;

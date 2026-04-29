@@ -148,6 +148,7 @@ describe('generateWorkout', () => {
         kind: 'run',
         title: 'Tempo Run',
         localDate: '2026-04-16',
+        notes: 'private event note',
       },
     ]);
   });
@@ -238,6 +239,7 @@ describe('generateWorkout', () => {
         timeMinutes: 30,
         focus: 'Smart',
         energy: 'moderate',
+        notes: 'private request note',
       });
 
       expect(global.fetch).toHaveBeenCalledTimes(1);
@@ -253,6 +255,12 @@ describe('generateWorkout', () => {
           status: 'success',
           request: expect.objectContaining({
             focus: 'Smart',
+            notes: '[REDACTED]',
+            upcomingEvents: [
+              expect.objectContaining({
+                notes: '[REDACTED]',
+              }),
+            ],
           }),
           contextSummary: expect.objectContaining({
             equipment: ['Dumbbells'],

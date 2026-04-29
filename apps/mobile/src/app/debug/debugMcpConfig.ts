@@ -39,7 +39,7 @@ export function getDebugMcpSidecarUrl(env: DebugMcpEnv = process.env): string {
   return `ws://${host}:${port}`;
 }
 
-export function getDebugMcpToken(env: DebugMcpEnv = process.env): string | null {
+export function getDebugMcpToken(env: DebugMcpEnv = process.env): string {
   const token = env.EXPO_PUBLIC_DEBUG_MCP_TOKEN?.trim();
   return token || DEFAULT_TOKEN;
 }
