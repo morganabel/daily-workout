@@ -255,10 +255,10 @@ describe('generateWorkout', () => {
           status: 'success',
           request: expect.objectContaining({
             focus: 'Smart',
-            notes: '[REDACTED]',
+            notes: 'private request note',
             upcomingEvents: [
               expect.objectContaining({
-                notes: '[REDACTED]',
+                notes: 'private event note',
               }),
             ],
           }),
@@ -337,7 +337,7 @@ describe('generateWorkout', () => {
         operation: 'generate',
         status: 'error',
         request: expect.objectContaining({
-          notes: '[REDACTED]',
+          notes: 'private note',
         }),
         error: {
           code: 'BYOK_REQUIRED',

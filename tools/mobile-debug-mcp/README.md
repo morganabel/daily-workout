@@ -96,6 +96,4 @@ Destructive tool:
 
 ## Redaction
 
-The bridge and shared contracts redact raw secrets before returning debug output. Tool responses must not include raw BYOK keys, cookies, bearer tokens, device tokens, or secret-like headers. Secret state is represented as presence metadata or redacted previews.
-
-Generation traces redact free-form request notes as `[REDACTED]` while preserving structured context counts and metadata needed for debugging.
+The bridge and shared contracts redact raw credentials before returning debug output. Tool responses must not include raw BYOK keys, cookies, bearer tokens, device tokens, session tokens, or secret-like headers. Secret state is represented as presence metadata or redacted previews.

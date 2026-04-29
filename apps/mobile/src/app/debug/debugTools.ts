@@ -35,7 +35,6 @@ import { navigationRef } from '../navigation';
 import { getLocalDateFromTimestamp } from '../utils/date';
 import { getDebugMcpSidecarUrl } from './debugMcpConfig';
 import { getDebugStateSnapshot } from './debugState';
-import { redactDebugNotesFields } from './redaction';
 import { registerDebugTool } from './debugToolRegistry';
 
 let registered = false;
@@ -175,8 +174,8 @@ const getGenerationContext = async (input: unknown) => {
   const context = await buildGenerationContext(request);
 
   return {
-    request: redactDebugNotesFields(request),
-    context: redactDebugNotesFields(context),
+    request,
+    context,
     summary: {
       equipment: context.environment.equipment,
       recentSessionCount: context.recentSessions.length,

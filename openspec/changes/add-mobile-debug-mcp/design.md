@@ -103,5 +103,4 @@ Hosted edition does not require a data migration. Hosted quota, billing, auth, a
 ## Open Questions
 
 - Should the first implementation include optional server-side generation diagnostics, or should that remain a follow-up after the mobile bridge is stable?
-- Should debug traces redact free-form user notes entirely or include shortened, marked-as-redacted previews for troubleshooting?
 - Should seed tools create richer exercises/sets in phase one, or start with completed session summaries and extend later?

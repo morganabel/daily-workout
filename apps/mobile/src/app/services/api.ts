@@ -23,7 +23,6 @@ import {
   setDebugLastGenerationTrace,
   type DebugGenerationTrace,
 } from '../debug/debugState';
-import { redactDebugNotesFields } from '../debug/redaction';
 import {
   getSessionCookie,
   getSessionToken,
@@ -227,7 +226,7 @@ export async function buildGenerationContext(
 const sanitizeGenerationRequestForTrace = (
   request: GenerationRequest
 ): Record<string, unknown> => {
-  return redactDebugNotesFields(request) as Record<string, unknown>;
+  return { ...request };
 };
 
 const getErrorCode = (error: unknown): string | undefined => {
