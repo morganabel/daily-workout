@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -83,6 +83,57 @@ const equipmentSelectionsEqual = (left: string[], right: string[]): boolean => {
 
 const formatEquipment = (equipment: string[]): string =>
   equipment.length > 0 ? equipment.join(', ') : 'Bodyweight';
+
+const formatEnergyLabel = (energy: WorkoutEnergy): string =>
+  energy.charAt(0).toUpperCase() + energy.slice(1);
+
+const parseDurationSelection = (value: string | undefined): number | null => {
+  const parsed = Number.parseInt(value ?? '', 10);
+  return Number.isNaN(parsed) ? null : parsed;
+};
+
+const normalizeFocusSelection = (value: string | undefined): string => {
+  if (!value) return 'Smart';
+  const trimmed = value.trim();
+  if (!trimmed) return 'Smart';
+
+  const normalized = trimmed.toLowerCase();
+  const match = FOCUS_OPTIONS.find(
+    (option) =>
+      option.id.toLowerCase() === normalized ||
+      option.label.toLowerCase() === normalized
+  );
+
+  return match?.id ?? trimmed;
+};
+
+const resolveDurationSelection = (
+  quickActions: QuickActionPreset[],
+  fallback = 30
+): number =>
+  parseDurationSelection(getQuickActionValue(quickActions, 'time')) ?? fallback;
+
+const resolveFocusSelection = (quickActions: QuickActionPreset[]): string =>
+  normalizeFocusSelection(getQuickActionValue(quickActions, 'focus'));
+
+const resolveIntensitySelection = (
+  quickActions: QuickActionPreset[],
+  fallback = 'Moderate'
+): string => {
+  const normalized = getQuickActionValue(quickActions, 'energy')
+    ?.trim()
+    .toLowerCase();
+
+  if (
+    normalized === 'easy' ||
+    normalized === 'moderate' ||
+    normalized === 'intense'
+  ) {
+    return formatEnergyLabel(normalized);
+  }
+
+  return fallback;
+};
 
 const getExerciseCount = (plan: TodayPlan): number =>
   plan.blocks.reduce((count, block) => count + block.exercises.length, 0);
@@ -685,6 +736,7 @@ const ActivePlanCard = ({
 export const HomeScreen = () => {
   const navigation = useNavigation<HomeScreenNavigation>();
   const contentScrollRef = useRef<ScrollView | null>(null);
+  const hasEditedSetupRef = useRef(false);
   const {
     activePlan,
     activePlanVersions,
@@ -705,12 +757,16 @@ export const HomeScreen = () => {
   } = useHomeData();
 
   // State for setup
-  const [duration, setDuration] = useState(30);
+  const [duration, setDuration] = useState(() =>
+    resolveDurationSelection(quickActions)
+  );
   const [equipmentOverride, setEquipmentOverride] = useState<string[] | null>(
     null
   );
-  const [focus, setFocus] = useState('Smart');
-  const [intensity, setIntensity] = useState('Moderate');
+  const [focus, setFocus] = useState(() => resolveFocusSelection(quickActions));
+  const [intensity, setIntensity] = useState(() =>
+    resolveIntensitySelection(quickActions)
+  );
   const [generating, setGenerating] = useState(false);
   const [showCustomizeSheet, setShowCustomizeSheet] = useState(false);
   const [customizeForRegeneration, setCustomizeForRegeneration] =
@@ -820,6 +876,7 @@ export const HomeScreen = () => {
       }
     } else {
       // Initial customization - just update local state
+      hasEditedSetupRef.current = true;
       if (request.timeMinutes) setDuration(request.timeMinutes);
       if (request.equipment) {
         setEquipmentOverride(
@@ -832,15 +889,60 @@ export const HomeScreen = () => {
         );
       }
       if (request.energy) {
-        setIntensity(
-          request.energy.charAt(0).toUpperCase() + request.energy.slice(1)
-        );
+        setIntensity(formatEnergyLabel(request.energy));
       }
       setFocus(request.focus ?? 'Smart');
       setShowCustomizeSheet(false);
       setCustomizeTargetDate(null);
     }
   };
+
+  const handleUpdateSetupStagedValue = useCallback(
+    (key: QuickActionPreset['key'], value: string | null) => {
+      updateStagedValue(key, value);
+      if (!value) return;
+
+      hasEditedSetupRef.current = true;
+
+      if (key === 'time') {
+        const nextDuration = Number.parseInt(value, 10);
+        if (!Number.isNaN(nextDuration)) {
+          setDuration(nextDuration);
+        }
+        return;
+      }
+
+      if (key === 'focus') {
+        setFocus(value);
+        return;
+      }
+
+      if (key === 'equipment') {
+        const nextEquipment = parseEquipmentSelection(value);
+        setEquipmentOverride(
+          equipmentSelectionsEqual(
+            nextEquipment,
+            resolveBaseEquipmentSelection(quickActions)
+          )
+            ? null
+            : nextEquipment
+        );
+        return;
+      }
+
+      if (key === 'energy') {
+        const normalized = value.trim().toLowerCase();
+        if (
+          normalized === 'easy' ||
+          normalized === 'moderate' ||
+          normalized === 'intense'
+        ) {
+          setIntensity(formatEnergyLabel(normalized));
+        }
+      }
+    },
+    [quickActions, updateStagedValue]
+  );
 
   const handleCustomize = () => {
     if (refreshPlanningDate()) return;
@@ -864,6 +966,11 @@ export const HomeScreen = () => {
     setShowCustomizeSheet(true);
   };
 
+  const handleSetupFocusChange = (nextFocus: string) => {
+    hasEditedSetupRef.current = true;
+    setFocus(nextFocus);
+  };
+
   const handleSelectVersion = (version: TodayPlan) => {
     contentScrollRef.current?.scrollTo({ y: 0, animated: true });
     void selectWorkoutVersionPlan(version);
@@ -871,9 +978,9 @@ export const HomeScreen = () => {
 
   const displayPlan = activePlan ?? (generating ? pendingPlanSnapshot : null);
   const displayPlanVersions = activePlanVersions;
-  const displayEquipment = resolveEquipmentSelection(
-    equipmentOverride,
-    quickActions
+  const displayEquipment = useMemo(
+    () => resolveEquipmentSelection(equipmentOverride, quickActions),
+    [equipmentOverride, quickActions]
   );
   const hasActivePlan = Boolean(displayPlan);
   const isPending = generating || generationStatus.state === 'pending';
@@ -881,6 +988,20 @@ export const HomeScreen = () => {
     generationStatus.state === 'error' && generationStatus.message
       ? generationStatus.message
       : null;
+
+  useEffect(() => {
+    if (
+      hasActivePlan ||
+      hasEditedSetupRef.current ||
+      quickActions.length === 0
+    ) {
+      return;
+    }
+
+    setDuration(resolveDurationSelection(quickActions));
+    setFocus(resolveFocusSelection(quickActions));
+    setIntensity(resolveIntensitySelection(quickActions));
+  }, [hasActivePlan, quickActions]);
 
   useEffect(
     () => () => {
@@ -967,7 +1088,7 @@ export const HomeScreen = () => {
 
             <FocusSelector
               value={focus}
-              onChange={setFocus}
+              onChange={handleSetupFocusChange}
               onMore={handleOpenSetupCustomize}
             />
 
@@ -1009,7 +1130,7 @@ export const HomeScreen = () => {
         initialFocus={focus}
         quickActions={customizeForRegeneration ? undefined : quickActions}
         onUpdateStagedValue={
-          customizeForRegeneration ? undefined : updateStagedValue
+          customizeForRegeneration ? undefined : handleUpdateSetupStagedValue
         }
         onSubmit={handleCustomizeSubmit}
         onClose={() => {

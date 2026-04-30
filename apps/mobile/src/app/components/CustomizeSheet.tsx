@@ -158,24 +158,24 @@ export const CustomizeSheet = ({
     const parsedDuration = Number.parseInt(timeValue ?? '', 10);
     const nextDuration =
       currentPlan?.durationMinutes ??
-      (!Number.isNaN(parsedDuration) ? parsedDuration : null) ??
       initialDuration ??
+      (!Number.isNaN(parsedDuration) ? parsedDuration : null) ??
       DURATION_OPTIONS[2];
     const nextFocus =
       normalizeFocusSelection(currentPlan?.focus) ??
-      normalizeFocusSelection(focusValue) ??
       initialFocus ??
+      normalizeFocusSelection(focusValue) ??
       FOCUS_OPTIONS[0].id;
     const nextEquipment = normalizeEquipmentSelection(
       currentPlan?.equipment ??
-        (equipmentValue ? parseEquipmentSelection(equipmentValue) : null) ??
-        initialEquipment ?? [],
+        initialEquipment ??
+        (equipmentValue ? parseEquipmentSelection(equipmentValue) : null) ?? [],
       ['Bodyweight'],
     );
     const nextEnergy =
       currentPlan?.energy ??
-      (energyValue ? normalizeEnergySelection(energyValue) : null) ??
       initialEnergy ??
+      (energyValue ? normalizeEnergySelection(energyValue) : null) ??
       'moderate';
 
     setFeedback([]);

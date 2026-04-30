@@ -98,6 +98,42 @@ const createQuickActions = (
   },
 ];
 
+const createSetupQuickActions = (overrides: {
+  time?: string;
+  focus?: string;
+  equipment?: string;
+  energy?: string;
+}): QuickActionPreset[] => [
+  {
+    key: 'time',
+    label: 'Time',
+    value: overrides.time ?? '60',
+    description: `${overrides.time ?? '60'} min`,
+    stagedValue: null,
+  },
+  {
+    key: 'focus',
+    label: 'Focus',
+    value: overrides.focus ?? 'Upper Body',
+    description: overrides.focus ?? 'Upper Body',
+    stagedValue: null,
+  },
+  {
+    key: 'equipment',
+    label: 'Equipment',
+    value: overrides.equipment ?? 'Dumbbells, Bench',
+    description: overrides.equipment ?? 'Dumbbells, Bench',
+    stagedValue: null,
+  },
+  {
+    key: 'energy',
+    label: 'Energy',
+    value: overrides.energy ?? 'Intense',
+    description: `${overrides.energy ?? 'Intense'} energy`,
+    stagedValue: null,
+  },
+];
+
 describe('HomeScreen', () => {
   beforeEach(() => {
     jest.useFakeTimers();
@@ -182,6 +218,47 @@ describe('HomeScreen', () => {
 
     expect(generateWorkout).toHaveBeenCalledWith(
       expect.not.objectContaining({ equipment: expect.anything() }),
+      expect.objectContaining({
+        scheduledDate: baseHookState.planningDateTimestamp,
+      })
+    );
+  });
+
+  it('opens setup customize with the same values shown on the setup card', async () => {
+    const { generateWorkout } = require('./services/api');
+    generateWorkout.mockResolvedValue(createTodayPlanMock());
+    mockUseHomeData.mockReturnValue({
+      ...baseHookState,
+      quickActions: createSetupQuickActions({
+        time: '60',
+        focus: 'Upper Body',
+        equipment: 'Dumbbells, Bench',
+        energy: 'Intense',
+      }),
+    });
+
+    const { getByText } = render(<HomeScreen />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(getByText('60 min')).toBeTruthy();
+    expect(getByText('Intense intensity')).toBeTruthy();
+
+    fireEvent.press(getByText('Dumbbells, Bench'));
+    await act(async () => {
+      fireEvent.press(getByText('Generate workout'));
+    });
+    await act(async () => {
+      fireEvent.press(getByText("Generate today's workout"));
+    });
+
+    expect(generateWorkout).toHaveBeenCalledWith(
+      expect.objectContaining({
+        timeMinutes: 60,
+        focus: 'Upper Body',
+        energy: 'intense',
+      }),
       expect.objectContaining({
         scheduledDate: baseHookState.planningDateTimestamp,
       })
