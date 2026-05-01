@@ -46,6 +46,13 @@ Thumbs.db
 .cursor/rules/nx-rules.mdc
 .github/instructions/nx.instructions.md
 
+# opencode local install artifacts
+.opencode/package.json
+.opencode/package-lock.json
+.opencode/bun.lock
+.opencode/node_modules/
+.opencode/.gitignore
+
 # Expo
 node_modules/
 .expo/
