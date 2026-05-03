@@ -58,6 +58,7 @@ jest.mock('./db/repositories/WorkoutRepository', () => ({
 jest.mock('./db/repositories/UserRepository', () => ({
   userRepository: {
     hasConfiguredProfile: jest.fn().mockResolvedValue(false),
+    hasCompletedOrSkippedOnboarding: jest.fn().mockResolvedValue(false),
   },
 }));
 jest.mock('./services/api', () => ({

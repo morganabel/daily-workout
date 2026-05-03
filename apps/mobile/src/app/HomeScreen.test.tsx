@@ -3,6 +3,7 @@ import { Alert } from 'react-native';
 import { render, act, fireEvent } from '@testing-library/react-native';
 import { HomeScreen } from './HomeScreen';
 import { useHomeData } from './hooks/useHomeData';
+import { userRepository } from './db/repositories/UserRepository';
 import {
   createTodayPlanMock,
   type QuickActionPreset,
@@ -46,6 +47,7 @@ jest.mock('./db/repositories/WorkoutRepository', () => ({
 jest.mock('./db/repositories/UserRepository', () => ({
   userRepository: {
     hasConfiguredProfile: jest.fn().mockResolvedValue(false),
+    hasCompletedOrSkippedOnboarding: jest.fn().mockResolvedValue(false),
   },
 }));
 // Mock vector icons locally to ensure it takes precedence
@@ -54,6 +56,7 @@ jest.mock('@expo/vector-icons', () => ({
 }));
 
 const mockUseHomeData = useHomeData as jest.MockedFunction<typeof useHomeData>;
+const mockUserRepository = userRepository as jest.Mocked<typeof userRepository>;
 
 const baseHookState = {
   status: 'ready' as const,
@@ -138,6 +141,7 @@ describe('HomeScreen', () => {
   beforeEach(() => {
     jest.useFakeTimers();
     jest.clearAllMocks();
+    mockUserRepository.hasCompletedOrSkippedOnboarding.mockResolvedValue(false);
   });
 
   afterEach(() => {
@@ -158,6 +162,18 @@ describe('HomeScreen', () => {
     expect(getByText(/\d+ min/)).toBeTruthy();
     expect(getByText('Bodyweight')).toBeTruthy();
     expect(getByText("Generate today's workout")).toBeTruthy();
+  });
+
+  it('does not show onboarding prompt for returning users who completed or skipped setup', async () => {
+    mockUserRepository.hasCompletedOrSkippedOnboarding.mockResolvedValue(true);
+    mockUseHomeData.mockReturnValue(baseHookState);
+
+    const { queryByText } = render(<HomeScreen />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(queryByText('Build your starter week')).toBeNull();
   });
 
   it('shows profile equipment from quick actions in setup', async () => {

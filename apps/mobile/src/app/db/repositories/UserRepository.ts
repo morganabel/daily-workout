@@ -2,7 +2,10 @@ import { database } from '../index';
 import User from '../models/User';
 import { Q } from '@nozbe/watermelondb';
 import {
-  UserPreferences,
+  trainingBlueprintSchema,
+  type OnboardingAnswers,
+  type TrainingBlueprint,
+  type UserPreferences,
   userPreferencesSchema,
 } from '@workout-agent/shared';
 
@@ -71,6 +74,15 @@ export class UserRepository {
     return prefs.equipment.length > 0 || prefs.experienceLevel !== undefined;
   }
 
+  async hasCompletedOrSkippedOnboarding(): Promise<boolean> {
+    const prefs = await this.getPreferences();
+    return (
+      prefs.onboardingSetupStatus === 'completed' ||
+      prefs.onboardingSetupStatus === 'skipped' ||
+      prefs.trainingBlueprint?.setupStatus === 'completed'
+    );
+  }
+
   /**
    * Update user preferences with partial data (merges with existing).
    */
@@ -91,6 +103,52 @@ export class UserRepository {
         u.preferences = JSON.stringify(result.data);
       });
     });
+  }
+
+  async saveOnboardingAnswers(answers: OnboardingAnswers): Promise<void> {
+    await this.updatePreferences({ onboardingAnswers: answers });
+  }
+
+  async saveTrainingBlueprint(blueprint: TrainingBlueprint): Promise<void> {
+    await this.updatePreferences({
+      onboardingAnswers: blueprint.onboardingAnswers,
+      onboardingSetupStatus: blueprint.setupStatus,
+      trainingBlueprint: blueprint,
+      equipment: blueprint.equipmentLocationAssumptions.equipment,
+      experienceLevel: blueprint.onboardingAnswers?.experienceLevel,
+      primaryGoal: blueprint.onboardingAnswers?.goal,
+    });
+  }
+
+  async updateTrainingBlueprint(
+    updates: Partial<TrainingBlueprint>
+  ): Promise<TrainingBlueprint> {
+    const current = await this.getPreferences();
+    if (!current.trainingBlueprint) {
+      throw new Error('No training blueprint to update');
+    }
+
+    const result = trainingBlueprintSchema.safeParse({
+      ...current.trainingBlueprint,
+      ...updates,
+      editStatus: updates.editStatus ?? 'edited',
+    });
+
+    if (!result.success) {
+      console.error('Invalid training blueprint update:', result.error);
+      throw new Error('Invalid training blueprint data');
+    }
+
+    await this.updatePreferences({
+      onboardingSetupStatus: result.data.setupStatus,
+      trainingBlueprint: result.data,
+    });
+
+    return result.data;
+  }
+
+  async skipTrainingBlueprintSetup(): Promise<void> {
+    await this.updatePreferences({ onboardingSetupStatus: 'skipped' });
   }
 }
 

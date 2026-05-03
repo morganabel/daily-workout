@@ -10,11 +10,16 @@ import {
 } from 'react-native';
 import { userRepository } from './db/repositories/UserRepository';
 import {
-  UserPreferences,
   EQUIPMENT_OPTIONS,
   GYM_EQUIPMENT,
-  ExperienceLevel,
+  TRAINING_TEMPLATE_DEFINITIONS,
   normalizeEquipmentSelection,
+  trainingBlueprintSchema,
+  type ExperienceLevel,
+  type StarterWeekSlotRole,
+  type TrainingEnvironment,
+  type TrainingTemplateId,
+  type UserPreferences,
 } from '@workout-agent/shared';
 import { palette, typography } from './theme';
 import { BottomNavigation } from './components/BottomNavigation';
@@ -41,6 +46,31 @@ const EXPERIENCE_LEVELS: {
     description: '3+ years with solid technique',
   },
 ];
+
+const TRAINING_ENVIRONMENTS: TrainingEnvironment[] = [
+  'home',
+  'gym',
+  'outdoors',
+  'travel',
+];
+
+const SLOT_ROLES: StarterWeekSlotRole[] = [
+  'push',
+  'pull',
+  'legs',
+  'sprint',
+  'conditioning',
+  'mobility',
+  'recovery',
+  'full-body',
+  'flexible',
+];
+
+const formatLabel = (value: string): string =>
+  value
+    .split('-')
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
 
 export const SettingsScreen = () => {
   const [preferences, setPreferences] = useState<UserPreferences>({
@@ -117,10 +147,96 @@ export const SettingsScreen = () => {
     setHasChanges(true);
   }, []);
 
+  const updateBlueprint = useCallback(
+    (updater: (blueprint: NonNullable<UserPreferences['trainingBlueprint']>) => NonNullable<UserPreferences['trainingBlueprint']>) => {
+      setPreferences((prev) => {
+        if (!prev.trainingBlueprint) return prev;
+        const result = trainingBlueprintSchema.safeParse({
+          ...updater(prev.trainingBlueprint),
+          editStatus: 'edited',
+        });
+        if (!result.success) {
+          console.error('Invalid plan settings update:', result.error);
+          return prev;
+        }
+        return {
+          ...prev,
+          onboardingSetupStatus: result.data.setupStatus,
+          trainingBlueprint: result.data,
+        };
+      });
+      setHasChanges(true);
+    },
+    []
+  );
+
+  const selectTemplate = useCallback(
+    (templateId: TrainingTemplateId) => {
+      const template = TRAINING_TEMPLATE_DEFINITIONS[templateId];
+      updateBlueprint((blueprint) => ({
+        ...blueprint,
+        templateId,
+        weeklyRhythm: template.weeklyRhythm,
+        durationAssumptions: template.durationAssumptions,
+        slotSequence: template.slotSequence,
+      }));
+    },
+    [updateBlueprint]
+  );
+
+  const updateBlueprintDuration = useCallback(
+    (value: string) => {
+      const targetMinutes = Number.parseInt(value, 10);
+      if (Number.isNaN(targetMinutes) || targetMinutes <= 0) return;
+      updateBlueprint((blueprint) => ({
+        ...blueprint,
+        durationAssumptions: {
+          ...blueprint.durationAssumptions,
+          targetMinutes,
+          minimumUsefulMinutes: Math.min(
+            blueprint.durationAssumptions.minimumUsefulMinutes,
+            targetMinutes
+          ),
+        },
+        slotSequence: blueprint.slotSequence.map((slot) => ({
+          ...slot,
+          targetDurationMinutes: targetMinutes,
+        })),
+      }));
+    },
+    [updateBlueprint]
+  );
+
+  const updateSlotRole = useCallback(
+    (slotId: string, role: StarterWeekSlotRole) => {
+      updateBlueprint((blueprint) => ({
+        ...blueprint,
+        slotSequence: blueprint.slotSequence.map((slot) =>
+          slot.id === slotId
+            ? { ...slot, role, label: formatLabel(role) }
+            : slot
+        ),
+      }));
+    },
+    [updateBlueprint]
+  );
+
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      await userRepository.updatePreferences(preferences);
+      const preferencesToSave = preferences.trainingBlueprint
+        ? {
+            ...preferences,
+            trainingBlueprint: trainingBlueprintSchema.parse({
+              ...preferences.trainingBlueprint,
+              equipmentLocationAssumptions: {
+                ...preferences.trainingBlueprint.equipmentLocationAssumptions,
+                equipment: preferences.equipment,
+              },
+            }),
+          }
+        : preferences;
+      await userRepository.updatePreferences(preferencesToSave);
       setHasChanges(false);
       Alert.alert('Saved', 'Your profile has been updated.');
     } catch (e) {
@@ -290,6 +406,109 @@ export const SettingsScreen = () => {
           />
         </View>
 
+        {preferences.trainingBlueprint && (
+          <View style={styles.section}>
+            <SectionHeader title="Plan Settings" />
+            <Text style={styles.sectionDescription}>
+              Fine-tune the accepted starter plan without rerunning onboarding.
+            </Text>
+
+            <View style={styles.planCard}>
+              <Text style={styles.planCardLabel}>Template</Text>
+              <View style={styles.chipContainer}>
+                {Object.values(TRAINING_TEMPLATE_DEFINITIONS).map((template) => (
+                  <Chip
+                    key={template.id}
+                    label={template.name}
+                    selected={
+                      preferences.trainingBlueprint?.templateId === template.id
+                    }
+                    onPress={() => selectTemplate(template.id)}
+                    role="radio"
+                  />
+                ))}
+              </View>
+
+              <Text style={styles.planCardLabel}>Weekly Rhythm</Text>
+              <TextInput
+                style={styles.textInput}
+                value={preferences.trainingBlueprint.weeklyRhythm}
+                onChangeText={(text) =>
+                  updateBlueprint((blueprint) => ({
+                    ...blueprint,
+                    weeklyRhythm: text,
+                  }))
+                }
+                placeholder="e.g. Push / pull / legs plus conditioning"
+                placeholderTextColor={palette.textMuted}
+              />
+
+              <View style={styles.planFieldRow}>
+                <View style={styles.planField}>
+                  <Text style={styles.planCardLabel}>Target Minutes</Text>
+                  <TextInput
+                    style={styles.textInput}
+                    value={String(
+                      preferences.trainingBlueprint.durationAssumptions
+                        .targetMinutes
+                    )}
+                    onChangeText={updateBlueprintDuration}
+                    keyboardType="number-pad"
+                    placeholder="45"
+                    placeholderTextColor={palette.textMuted}
+                  />
+                </View>
+                <View style={styles.planField}>
+                  <Text style={styles.planCardLabel}>Location</Text>
+                  <View style={styles.miniChipWrap}>
+                    {TRAINING_ENVIRONMENTS.map((environment) => (
+                      <Chip
+                        key={environment}
+                        label={formatLabel(environment)}
+                        selected={
+                          preferences.trainingBlueprint
+                            ?.equipmentLocationAssumptions.environment ===
+                          environment
+                        }
+                        onPress={() =>
+                          updateBlueprint((blueprint) => ({
+                            ...blueprint,
+                            equipmentLocationAssumptions: {
+                              ...blueprint.equipmentLocationAssumptions,
+                              environment,
+                            },
+                          }))
+                        }
+                        role="radio"
+                      />
+                    ))}
+                  </View>
+                </View>
+              </View>
+
+              <Text style={styles.planCardLabel}>Slot Preferences</Text>
+              {preferences.trainingBlueprint.slotSequence.map((slot) => (
+                <View key={slot.id} style={styles.slotEditorCard}>
+                  <Text style={styles.slotEditorTitle}>
+                    Day {slot.dayOffset + 1}: {slot.label}
+                  </Text>
+                  <View style={styles.miniChipWrap}>
+                    {SLOT_ROLES.map((role) => (
+                      <Chip
+                        key={`${slot.id}-${role}`}
+                        label={formatLabel(role)}
+                        selected={slot.role === role}
+                        onPress={() => updateSlotRole(slot.id, role)}
+                        role="radio"
+                      />
+                    ))}
+                  </View>
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
+
         <View style={{ height: 100 }} />
       </ScrollView>
       <BottomNavigation />
@@ -433,5 +652,42 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '300',
     lineHeight: 20,
+  },
+  planCard: {
+    backgroundColor: palette.card,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: palette.border,
+    padding: 16,
+    gap: 14,
+  },
+  planCardLabel: {
+    fontSize: 13,
+    fontFamily: typography.fontFamilyBold,
+    color: palette.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
+  planFieldRow: {
+    gap: 14,
+  },
+  planField: {
+    gap: 8,
+  },
+  miniChipWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  slotEditorCard: {
+    backgroundColor: palette.cardSecondary,
+    borderRadius: 14,
+    padding: 12,
+    gap: 10,
+  },
+  slotEditorTitle: {
+    fontSize: 14,
+    fontFamily: typography.fontFamilyBold,
+    color: palette.textPrimary,
   },
 });

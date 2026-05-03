@@ -235,9 +235,9 @@ const SetupProfileCard = ({ onPress }: { onPress: () => void }) => (
       <Ionicons name="sparkles" size={24} color={palette.textInverse} />
     </View>
     <View style={styles.setupContent}>
-      <Text style={styles.setupTitle}>Set up your profile</Text>
+      <Text style={styles.setupTitle}>Build your starter week</Text>
       <Text style={styles.setupDescription}>
-        Tell us about your equipment and goals for personalized workouts.
+        Answer three quick questions to get a recommended training rhythm.
       </Text>
     </View>
     <Ionicons name="arrow-forward" size={20} color={palette.primary} />
@@ -780,8 +780,8 @@ export const HomeScreen = () => {
   // Load user profile on mount
   useFocusEffect(
     useCallback(() => {
-      userRepository.hasConfiguredProfile().then((hasProfile) => {
-        setShowProfileSetup(!hasProfile);
+      userRepository.hasCompletedOrSkippedOnboarding().then((isDone) => {
+        setShowProfileSetup(!isDone);
       });
     }, [])
   );
@@ -1062,7 +1062,7 @@ export const HomeScreen = () => {
         showsVerticalScrollIndicator={false}
       >
         {showProfileSetup && (
-          <SetupProfileCard onPress={() => navigation.navigate('Settings')} />
+          <SetupProfileCard onPress={() => navigation.navigate('Onboarding')} />
         )}
 
         {hasActivePlan && displayPlan ? (

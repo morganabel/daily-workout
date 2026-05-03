@@ -82,8 +82,8 @@ export const SignUpScreen: React.FC = () => {
         return;
       }
 
-      // Navigate back to home on success
-      navigation.navigate('Home');
+      // New accounts should choose or skip a starter rhythm before Home.
+      navigation.navigate('Onboarding');
     } catch {
       setError('Registration failed. Please try again.');
     } finally {
