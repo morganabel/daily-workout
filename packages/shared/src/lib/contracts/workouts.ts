@@ -182,6 +182,338 @@ export const canonicalEventKindSchema = z.enum(canonicalEventKinds);
 export const plannedEventIntensitySchema = z.enum(['low', 'moderate', 'high']);
 export type PlannedEventIntensity = z.infer<typeof plannedEventIntensitySchema>;
 
+export const GYM_EQUIPMENT = 'Gym';
+
+export const onboardingGoalSchema = z.enum([
+  'general-fitness',
+  'build-muscle',
+  'build-strength',
+  'lose-fat',
+  'run-cardio',
+  'mobility',
+]);
+export type OnboardingGoal = z.infer<typeof onboardingGoalSchema>;
+
+export const trainingEnvironmentSchema = z.enum([
+  'home',
+  'gym',
+  'outdoors',
+  'travel',
+]);
+export type TrainingEnvironment = z.infer<typeof trainingEnvironmentSchema>;
+
+export const onboardingAnswersSchema = z
+  .object({
+    goal: onboardingGoalSchema,
+    experienceLevel: z.enum(['beginner', 'intermediate', 'advanced']),
+    environment: trainingEnvironmentSchema,
+    equipment: z.array(z.string()).default([]),
+  })
+  .strict();
+export type OnboardingAnswers = z.infer<typeof onboardingAnswersSchema>;
+
+export const trainingTemplateIdSchema = z.enum([
+  'balanced-foundation',
+  'strength-foundation',
+  'ppl-conditioning',
+  'endurance-support',
+  'busy-travel',
+]);
+export type TrainingTemplateId = z.infer<typeof trainingTemplateIdSchema>;
+
+export const starterWeekSlotRoleSchema = z.enum([
+  'pull',
+  'push',
+  'legs',
+  'sprint',
+  'mobility',
+  'recovery',
+  'conditioning',
+  'full-body',
+  'flexible',
+]);
+export type StarterWeekSlotRole = z.infer<typeof starterWeekSlotRoleSchema>;
+
+export const plannedSlotDetailStateSchema = z.enum([
+  'not-generated',
+  'generating',
+  'generated',
+  'error',
+]);
+export type PlannedSlotDetailState = z.infer<
+  typeof plannedSlotDetailStateSchema
+>;
+
+export const durationAssumptionsSchema = z
+  .object({
+    targetMinutes: z.number().int().positive(),
+    minimumUsefulMinutes: z.number().int().positive(),
+  })
+  .strict();
+export type DurationAssumptions = z.infer<typeof durationAssumptionsSchema>;
+
+export const equipmentLocationAssumptionsSchema = z
+  .object({
+    environment: trainingEnvironmentSchema,
+    equipment: z.array(z.string()).default([]),
+  })
+  .strict();
+export type EquipmentLocationAssumptions = z.infer<
+  typeof equipmentLocationAssumptionsSchema
+>;
+
+export const trainingBlueprintSetupStatusSchema = z.enum([
+  'completed',
+  'skipped',
+]);
+export type TrainingBlueprintSetupStatus = z.infer<
+  typeof trainingBlueprintSetupStatusSchema
+>;
+
+export const trainingBlueprintEditStatusSchema = z.enum([
+  'accepted',
+  'adjusted',
+  'edited',
+]);
+export type TrainingBlueprintEditStatus = z.infer<
+  typeof trainingBlueprintEditStatusSchema
+>;
+
+export const starterWeekSlotSchema = z
+  .object({
+    id: z.string(),
+    role: starterWeekSlotRoleSchema,
+    label: z.string(),
+    dayOffset: z.number().int().min(0).max(13),
+    targetDurationMinutes: z.number().int().positive(),
+  })
+  .strict();
+export type StarterWeekSlot = z.infer<typeof starterWeekSlotSchema>;
+
+export const trainingBlueprintSchema = z
+  .object({
+    templateId: trainingTemplateIdSchema,
+    onboardingAnswers: onboardingAnswersSchema.optional(),
+    weeklyRhythm: z.string(),
+    durationAssumptions: durationAssumptionsSchema,
+    equipmentLocationAssumptions: equipmentLocationAssumptionsSchema,
+    slotSequence: z.array(starterWeekSlotSchema).min(1),
+    setupStatus: trainingBlueprintSetupStatusSchema,
+    editStatus: trainingBlueprintEditStatusSchema.optional(),
+    horizonDays: z.number().int().positive().default(7),
+    updatedAt: z.string().datetime().optional(),
+  })
+  .strict();
+export type TrainingBlueprint = z.infer<typeof trainingBlueprintSchema>;
+
+export const plannedSlotMetadataSchema = z
+  .object({
+    schemaVersion: z.literal(1),
+    ownership: z.literal('app'),
+    source: z.literal('training-blueprint'),
+    templateId: trainingTemplateIdSchema,
+    slotId: z.string(),
+    slotRole: starterWeekSlotRoleSchema,
+    slotLabel: z.string(),
+    plannedDate: localDateSchema,
+    targetDurationMinutes: z.number().int().positive(),
+    equipmentLocationAssumptions: equipmentLocationAssumptionsSchema,
+    detailState: plannedSlotDetailStateSchema,
+    locked: z.boolean().default(false),
+    userEdited: z.boolean().default(false),
+    linkedWorkoutId: z.string().optional(),
+  })
+  .strict();
+export type PlannedSlotMetadata = z.infer<typeof plannedSlotMetadataSchema>;
+
+export const plannedSlotIntentSchema = z
+  .object({
+    role: starterWeekSlotRoleSchema,
+    label: z.string().optional(),
+    targetDurationMinutes: z.number().int().positive().optional(),
+    equipmentLocationAssumptions: equipmentLocationAssumptionsSchema.optional(),
+    plannedDate: localDateSchema.optional(),
+    templateId: trainingTemplateIdSchema.optional(),
+    slotId: z.string().optional(),
+  })
+  .strict();
+export type PlannedSlotIntent = z.infer<typeof plannedSlotIntentSchema>;
+
+export const trainingTemplateDefinitionSchema = z
+  .object({
+    id: trainingTemplateIdSchema,
+    name: z.string(),
+    summary: z.string(),
+    weeklyRhythm: z.string(),
+    durationAssumptions: durationAssumptionsSchema,
+    slotSequence: z.array(starterWeekSlotSchema).min(1),
+  })
+  .strict();
+export type TrainingTemplateDefinition = z.infer<
+  typeof trainingTemplateDefinitionSchema
+>;
+
+const createSlot = (
+  dayOffset: number,
+  role: StarterWeekSlotRole,
+  label: string,
+  targetDurationMinutes: number,
+): StarterWeekSlot => ({
+  id: `day-${dayOffset + 1}-${role}`,
+  role,
+  label,
+  dayOffset,
+  targetDurationMinutes,
+});
+
+export const TRAINING_TEMPLATE_DEFINITIONS = {
+  'balanced-foundation': {
+    id: 'balanced-foundation',
+    name: 'Balanced foundation',
+    summary: 'A simple mix of strength, conditioning, mobility, and recovery.',
+    weeklyRhythm: '3 strength / conditioning days, 2 recovery or mobility days',
+    durationAssumptions: { targetMinutes: 35, minimumUsefulMinutes: 20 },
+    slotSequence: [
+      createSlot(0, 'full-body', 'Full body strength', 35),
+      createSlot(1, 'recovery', 'Recovery', 20),
+      createSlot(2, 'conditioning', 'Conditioning', 30),
+      createSlot(3, 'full-body', 'Full body strength', 35),
+      createSlot(4, 'mobility', 'Mobility', 20),
+      createSlot(5, 'flexible', 'Flexible workout', 30),
+      createSlot(6, 'recovery', 'Recovery', 20),
+    ],
+  },
+  'strength-foundation': {
+    id: 'strength-foundation',
+    name: 'Strength foundation',
+    summary: 'Full-body strength exposures with enough recovery to progress.',
+    weeklyRhythm: '3 strength days, 1 conditioning day, recovery between harder days',
+    durationAssumptions: { targetMinutes: 45, minimumUsefulMinutes: 30 },
+    slotSequence: [
+      createSlot(0, 'full-body', 'Full body strength', 45),
+      createSlot(1, 'recovery', 'Recovery', 20),
+      createSlot(2, 'full-body', 'Full body strength', 45),
+      createSlot(3, 'conditioning', 'Conditioning', 30),
+      createSlot(4, 'full-body', 'Full body strength', 45),
+      createSlot(5, 'mobility', 'Mobility', 20),
+      createSlot(6, 'recovery', 'Recovery', 20),
+    ],
+  },
+  'ppl-conditioning': {
+    id: 'ppl-conditioning',
+    name: 'PPL conditioning',
+    summary: 'Push, pull, and legs with one sprint or conditioning exposure.',
+    weeklyRhythm: 'Push / pull / legs plus one sprint day',
+    durationAssumptions: { targetMinutes: 50, minimumUsefulMinutes: 35 },
+    slotSequence: [
+      createSlot(0, 'push', 'Push', 50),
+      createSlot(1, 'pull', 'Pull', 50),
+      createSlot(2, 'legs', 'Legs', 50),
+      createSlot(3, 'recovery', 'Recovery', 20),
+      createSlot(4, 'sprint', 'Sprint conditioning', 30),
+      createSlot(5, 'mobility', 'Mobility', 20),
+      createSlot(6, 'recovery', 'Recovery', 20),
+    ],
+  },
+  'endurance-support': {
+    id: 'endurance-support',
+    name: 'Endurance support',
+    summary: 'Cardio-forward training with strength support and recovery.',
+    weeklyRhythm: '2 cardio days, 2 support strength days, mobility and recovery',
+    durationAssumptions: { targetMinutes: 40, minimumUsefulMinutes: 25 },
+    slotSequence: [
+      createSlot(0, 'conditioning', 'Easy cardio', 40),
+      createSlot(1, 'mobility', 'Mobility', 20),
+      createSlot(2, 'full-body', 'Strength support', 35),
+      createSlot(3, 'recovery', 'Recovery', 20),
+      createSlot(4, 'sprint', 'Intervals', 30),
+      createSlot(5, 'full-body', 'Strength support', 35),
+      createSlot(6, 'recovery', 'Recovery', 20),
+    ],
+  },
+  'busy-travel': {
+    id: 'busy-travel',
+    name: 'Busy travel',
+    summary: 'Short, low-friction sessions for minimal equipment or travel weeks.',
+    weeklyRhythm: 'Short strength, mobility, and flexible conditioning sessions',
+    durationAssumptions: { targetMinutes: 25, minimumUsefulMinutes: 15 },
+    slotSequence: [
+      createSlot(0, 'full-body', 'Bodyweight strength', 25),
+      createSlot(1, 'mobility', 'Mobility', 15),
+      createSlot(2, 'recovery', 'Recovery', 15),
+      createSlot(3, 'conditioning', 'Quick conditioning', 20),
+      createSlot(4, 'full-body', 'Bodyweight strength', 25),
+      createSlot(5, 'flexible', 'Flexible movement', 20),
+      createSlot(6, 'recovery', 'Recovery', 15),
+    ],
+  },
+} satisfies Record<TrainingTemplateId, TrainingTemplateDefinition>;
+
+const minimalEquipment = new Set(['Bodyweight', 'Resistance Bands', 'Jump Rope']);
+
+export const selectTrainingTemplateId = (
+  answers: OnboardingAnswers,
+): TrainingTemplateId => {
+  const hasGymAccess =
+    answers.environment === 'gym' || answers.equipment.includes(GYM_EQUIPMENT);
+  const onlyMinimalEquipment =
+    answers.equipment.length > 0 &&
+    answers.equipment.every((item) => minimalEquipment.has(item));
+
+  if (answers.goal === 'run-cardio') {
+    return 'endurance-support';
+  }
+
+  if (answers.goal === 'build-strength') {
+    return 'strength-foundation';
+  }
+
+  if (
+    answers.goal === 'build-muscle' &&
+    hasGymAccess &&
+    answers.experienceLevel !== 'beginner'
+  ) {
+    return 'ppl-conditioning';
+  }
+
+  if (answers.goal === 'mobility') {
+    return 'busy-travel';
+  }
+
+  if (answers.environment === 'travel' || onlyMinimalEquipment) {
+    return 'busy-travel';
+  }
+
+  return 'balanced-foundation';
+};
+
+export const createTrainingBlueprintFromOnboarding = (
+  answers: OnboardingAnswers,
+  options: {
+    editStatus?: TrainingBlueprintEditStatus;
+    horizonDays?: number;
+    updatedAt?: string;
+  } = {},
+): TrainingBlueprint => {
+  const template = TRAINING_TEMPLATE_DEFINITIONS[selectTrainingTemplateId(answers)];
+
+  return trainingBlueprintSchema.parse({
+    templateId: template.id,
+    onboardingAnswers: answers,
+    weeklyRhythm: template.weeklyRhythm,
+    durationAssumptions: template.durationAssumptions,
+    equipmentLocationAssumptions: {
+      environment: answers.environment,
+      equipment: answers.equipment,
+    },
+    slotSequence: template.slotSequence,
+    setupStatus: 'completed',
+    editStatus: options.editStatus ?? 'accepted',
+    horizonDays: options.horizonDays ?? 7,
+    updatedAt: options.updatedAt,
+  });
+};
+
 export const plannedEventInputSchema = z.object({
   kind: z.string(),
   title: z.string(),
@@ -285,7 +617,6 @@ const WORKOUT_ENERGY_VALUES = new Set(workoutEnergySchema.options);
 const BACKFILL_TRUE_VALUES = new Set(['true', 'yes', '1', 'y']);
 const BACKFILL_FALSE_VALUES = new Set(['false', 'no', '0', 'n']);
 const MAX_FOCUS_LENGTH = 80;
-export const GYM_EQUIPMENT = 'Gym';
 
 export function normalizeEquipmentSelection(
   equipment: string[],
@@ -459,6 +790,8 @@ export const generationRequestSchema = z
       .array(upcomingEventContextSchema)
       .max(MAX_UPCOMING_EVENTS)
       .optional(),
+    // Optional explicit intent when generating from a blueprint-owned planned slot.
+    plannedSlotIntent: plannedSlotIntentSchema.optional(),
     // Optional provider selection and model override
     provider: aiProviderSchema.optional(),
   })
@@ -496,6 +829,11 @@ export const userPreferencesSchema = z.object({
   focusBias: z.array(z.string()).default([]),
   // Exercises or movements to avoid
   avoid: z.array(z.string()).default([]),
+  // First-run onboarding answers and setup state for template-based planning.
+  onboardingAnswers: onboardingAnswersSchema.optional(),
+  onboardingSetupStatus: trainingBlueprintSetupStatusSchema.optional(),
+  // Accepted or adjusted template-derived training structure.
+  trainingBlueprint: trainingBlueprintSchema.optional(),
 });
 export type UserPreferences = z.infer<typeof userPreferencesSchema>;
 
