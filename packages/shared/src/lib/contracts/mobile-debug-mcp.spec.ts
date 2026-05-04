@@ -76,7 +76,7 @@ describe('mobile debug MCP contracts', () => {
             environment: 'gym',
             equipment: ['Gym'],
           },
-          weeklyRhythm: 'Push / pull / legs plus one sprint day',
+          weeklyRhythm: '3 lift days plus one sprint day',
           durationAssumptions: {
             targetMinutes: 50,
             minimumUsefulMinutes: 35,
@@ -87,9 +87,9 @@ describe('mobile debug MCP contracts', () => {
           },
           slotSequence: [
             {
-              id: 'day-1-push',
-              role: 'push',
-              label: 'Push',
+              id: 'day-1-full-body',
+              role: 'full-body',
+              label: 'Lift',
               dayOffset: 0,
               targetDurationMinutes: 50,
             },

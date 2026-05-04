@@ -28,9 +28,8 @@ jest.mock('./db/repositories/UserRepository', () => ({
   },
 }));
 
-const mockCreateStarterWeekSlots = createStarterWeekSlots as jest.MockedFunction<
-  typeof createStarterWeekSlots
->;
+const mockCreateStarterWeekSlots =
+  createStarterWeekSlots as jest.MockedFunction<typeof createStarterWeekSlots>;
 const mockUserRepository = userRepository as jest.Mocked<typeof userRepository>;
 
 type QueryResult = ReturnType<RenderAPI['getByText']>;
@@ -43,11 +42,10 @@ const press = async (element: QueryResult) => {
 
 const completeQuestions = async (screen: RenderAPI) => {
   await press(screen.getByLabelText('Build muscle'));
-  await press(screen.getByText('Continue'));
+  await press(screen.getByText('Next'));
   await press(screen.getByLabelText('Intermediate'));
-  await press(screen.getByText('Continue'));
-  await press(screen.getAllByLabelText('Gym')[0]);
-  await press(screen.getByText('Continue'));
+  await press(screen.getByText('Next'));
+  await press(screen.getByText('See my week'));
 };
 
 describe('OnboardingScreen', () => {
@@ -60,8 +58,25 @@ describe('OnboardingScreen', () => {
 
     await completeQuestions(screen);
 
-    expect(screen.getByText('PPL conditioning')).toBeTruthy();
+    expect(screen.getByText('Your starter week')).toBeTruthy();
+    expect(screen.getAllByText('Lift')).toHaveLength(3);
     expect(screen.getByText('Use this plan')).toBeTruthy();
+  });
+
+  it('pre-selects gym as the default training environment', async () => {
+    const screen = render(<OnboardingScreen />);
+
+    await press(screen.getByLabelText('Build muscle'));
+    await press(screen.getByText('Next'));
+    await press(screen.getByLabelText('Intermediate'));
+    await press(screen.getByText('Next'));
+
+    expect(
+      screen.getByText(
+        'Assuming full gym access. You can fine-tune equipment later.'
+      )
+    ).toBeTruthy();
+    expect(screen.getByText('See my week')).toBeTruthy();
   });
 
   it('accepts the recommendation and creates starter slots', async () => {
@@ -82,23 +97,104 @@ describe('OnboardingScreen', () => {
     });
   });
 
-  it('enters the adjustment path before saving to Plan Settings', async () => {
+  it('opens day editing from the starter week without saving', async () => {
     const screen = render(<OnboardingScreen />);
 
     await completeQuestions(screen);
-    await press(screen.getByText('Adjust'));
+    await press(screen.getAllByText('Lift')[0]);
 
-    expect(screen.getByText('Adjust after saving')).toBeTruthy();
+    expect(screen.getByText('Workout type')).toBeTruthy();
+    expect(screen.getByText('Duration')).toBeTruthy();
+    expect(screen.getAllByText('Lift').length).toBeGreaterThan(3);
+    expect(screen.getAllByText('Recovery').length).toBeGreaterThan(0);
+    expect(mockUserRepository.saveTrainingBlueprint).not.toHaveBeenCalled();
+    expect(mockReset).not.toHaveBeenCalled();
+  });
 
-    await press(screen.getByText('Save and open Plan Settings'));
+  it('saves edited starter week roles and day-level duration', async () => {
+    const screen = render(<OnboardingScreen />);
+
+    await completeQuestions(screen);
+    await press(screen.getAllByText('Lift')[0]);
+    await press(screen.getByText('Cardio'));
+    const thirtyMinuteOptions = screen.getAllByText('30 min');
+    await press(thirtyMinuteOptions[thirtyMinuteOptions.length - 1]);
+    await press(screen.getByText('Apply'));
+    await press(screen.getByText('Use this plan'));
 
     expect(mockUserRepository.saveTrainingBlueprint).toHaveBeenCalledWith(
-      expect.objectContaining({ editStatus: 'adjusted' })
+      expect.objectContaining({
+        editStatus: 'adjusted',
+        slotSequence: expect.arrayContaining([
+          expect.objectContaining({
+            role: 'conditioning',
+            label: 'Cardio',
+            targetDurationMinutes: 30,
+          }),
+        ]),
+      })
+    );
+    expect(mockCreateStarterWeekSlots).toHaveBeenCalledWith(
+      expect.objectContaining({
+        editStatus: 'adjusted',
+        slotSequence: expect.arrayContaining([
+          expect.objectContaining({
+            role: 'conditioning',
+            label: 'Cardio',
+            targetDurationMinutes: 30,
+          }),
+        ]),
+      })
     );
     expect(mockReset).toHaveBeenCalledWith({
       index: 0,
-      routes: [{ name: 'Settings' }],
+      routes: [{ name: 'Home' }],
     });
+  });
+
+  it('makes recovery an obvious day-level option', async () => {
+    const screen = render(<OnboardingScreen />);
+
+    await completeQuestions(screen);
+    await press(screen.getAllByText('Lift')[0]);
+    const recoveryOptions = screen.getAllByText('Recovery');
+    await press(recoveryOptions[recoveryOptions.length - 1]);
+    await press(screen.getByText('Apply'));
+    await press(screen.getByText('Use this plan'));
+
+    expect(mockUserRepository.saveTrainingBlueprint).toHaveBeenCalledWith(
+      expect.objectContaining({
+        slotSequence: expect.arrayContaining([
+          expect.objectContaining({
+            role: 'recovery',
+            label: 'Recovery',
+            targetDurationMinutes: 15,
+          }),
+        ]),
+      })
+    );
+  });
+
+  it('cancels day edits without changing the starter week', async () => {
+    const screen = render(<OnboardingScreen />);
+
+    await completeQuestions(screen);
+    await press(screen.getAllByText('Lift')[0]);
+    await press(screen.getByText('Cardio'));
+    await press(screen.getByText('Cancel'));
+    await press(screen.getByText('Use this plan'));
+
+    expect(mockUserRepository.saveTrainingBlueprint).toHaveBeenCalledWith(
+      expect.objectContaining({
+        editStatus: 'accepted',
+        slotSequence: expect.arrayContaining([
+          expect.objectContaining({
+            role: 'full-body',
+            label: 'Lift',
+          }),
+        ]),
+      })
+    );
   });
 
   it('skips onboarding and routes to the existing app experience', async () => {

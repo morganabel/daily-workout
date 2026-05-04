@@ -39,7 +39,7 @@ describe('createStarterWeekSlots', () => {
     expect(slots).toHaveLength(7);
     expect(slots[0]).toMatchObject({
       kind: 'workout',
-      title: 'Push',
+      title: 'Lift',
       localDate: '2026-04-13',
       durationMinutes: 50,
     });
@@ -50,7 +50,7 @@ describe('createStarterWeekSlots', () => {
       ownership: 'app',
       source: 'training-blueprint',
       templateId: 'ppl-conditioning',
-      slotRole: 'push',
+      slotRole: 'full-body',
       detailState: 'not-generated',
       locked: false,
       userEdited: false,
