@@ -442,7 +442,6 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
     let plan: TodayPlan;
     let responseId: string | undefined;
     let schemaVersion: string | undefined;
-    let encounteredProviderError = false;
 
     if (apiKey) {
       try {
@@ -468,18 +467,17 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
           },
         };
       } catch (error) {
-        encounteredProviderError = true;
         const sanitizedMessage = sanitizeErrorMessage((error as Error).message);
-        log.warn('ai generation failed; falling back to mock', {
+        log.warn('ai generation failed', {
           provider,
           message: sanitizedMessage,
           error,
         });
         await deps.store.setError(
           auth.principalId,
-          'We could not generate a workout plan. Showing a fallback plan.',
+          'We could not generate a workout plan. Please try again.',
         );
-        plan = mockPlan();
+        return errorResponse('AI_GENERATION_ERROR', sanitizedMessage, 502);
       }
     } else {
       plan = mockPlan();
@@ -492,25 +490,19 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
 
     const validated = todayPlanSchema.parse(plan);
 
-    if (!encounteredProviderError) {
-      await deps.store.persistPlan(auth.principalId, validated, {
-        schemaVersion,
-      });
-      log.info('generation completed', {
-        durationMs: Date.now() - startedAt,
-        source: apiKey ? 'ai' : 'mock',
-        isRegeneration,
-        responseId,
-        schemaVersion,
-      });
-    } else {
-      log.info('generation returned fallback plan', {
-        durationMs: Date.now() - startedAt,
-      });
-    }
+    await deps.store.persistPlan(auth.principalId, validated, {
+      schemaVersion,
+    });
+    log.info('generation completed', {
+      durationMs: Date.now() - startedAt,
+      source: apiKey ? 'ai' : 'mock',
+      isRegeneration,
+      responseId,
+      schemaVersion,
+    });
 
     // Record metering event
-    if (deps.metering && apiKey && !encounteredProviderError) {
+    if (deps.metering && apiKey) {
       await deps.metering.recordUsage({
         userId: auth.userId,
         operation: effectivePlanningBrief.regeneration.isRegeneration
