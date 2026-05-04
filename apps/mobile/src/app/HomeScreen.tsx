@@ -15,6 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import {
   type TodayPlan,
   type GenerationRequest,
+  type PlannedSlotMetadata,
   type QuickActionPreset,
   type WorkoutEnergy,
   normalizeEquipmentSelection,
@@ -58,6 +59,14 @@ const getQuickActionBaseValue = (
 ): string | undefined => {
   const action = quickActions.find((item) => item.key === key);
   return action?.value ?? action?.description;
+};
+
+const getQuickActionStagedValue = (
+  quickActions: QuickActionPreset[],
+  key: QuickActionPreset['key']
+): string | undefined => {
+  const action = quickActions.find((item) => item.key === key);
+  return action?.stagedValue?.trim() ? action.stagedValue : undefined;
 };
 
 const parseEquipmentSelection = (value: string | undefined): string[] => {
@@ -114,7 +123,22 @@ const resolveDurationSelection = (
   parseDurationSelection(getQuickActionValue(quickActions, 'time')) ?? fallback;
 
 const resolveFocusSelection = (quickActions: QuickActionPreset[]): string =>
-  normalizeFocusSelection(getQuickActionValue(quickActions, 'focus'));
+  normalizeFocusSelection(getQuickActionStagedValue(quickActions, 'focus'));
+
+const buildPlannedSlotIntent = (
+  plannedSlot: PlannedSlotMetadata | null
+): GenerationRequest['plannedSlotIntent'] =>
+  plannedSlot
+    ? {
+        role: plannedSlot.slotRole,
+        label: plannedSlot.slotLabel,
+        targetDurationMinutes: plannedSlot.targetDurationMinutes,
+        equipmentLocationAssumptions: plannedSlot.equipmentLocationAssumptions,
+        plannedDate: plannedSlot.plannedDate,
+        templateId: plannedSlot.templateId,
+        slotId: plannedSlot.slotId,
+      }
+    : undefined;
 
 const resolveIntensitySelection = (
   quickActions: QuickActionPreset[],
@@ -741,6 +765,7 @@ export const HomeScreen = () => {
     activePlan,
     activePlanVersions,
     pendingPlanSnapshot,
+    plannedSlot,
     planningDateLocal,
     planningDateTimestamp,
     quickActions,
@@ -805,12 +830,18 @@ export const HomeScreen = () => {
 
     try {
       const targetTimestamp = planningDateTimestamp;
+      const plannedSlotIntent =
+        focus === 'Smart' ? buildPlannedSlotIntent(plannedSlot) : undefined;
       clearTransientPlanState();
       const request: GenerationRequest = {
-        timeMinutes: duration,
+        timeMinutes: plannedSlotIntent?.targetDurationMinutes ?? duration,
         energy: intensity.toLowerCase() as WorkoutEnergy,
         focus,
       };
+
+      if (plannedSlotIntent) {
+        request.plannedSlotIntent = plannedSlotIntent;
+      }
 
       if (shouldSendEquipment) {
         request.equipment = equipment;
@@ -998,10 +1029,12 @@ export const HomeScreen = () => {
       return;
     }
 
-    setDuration(resolveDurationSelection(quickActions));
+    setDuration(
+      plannedSlot?.targetDurationMinutes ?? resolveDurationSelection(quickActions)
+    );
     setFocus(resolveFocusSelection(quickActions));
     setIntensity(resolveIntensitySelection(quickActions));
-  }, [hasActivePlan, quickActions]);
+  }, [hasActivePlan, plannedSlot, quickActions]);
 
   useEffect(
     () => () => {
@@ -1018,6 +1051,7 @@ export const HomeScreen = () => {
       intensity,
       equipmentOverride,
       quickActions,
+      plannedSlot,
       generationStatus,
       generating,
       showCustomizeSheet,
@@ -1036,6 +1070,7 @@ export const HomeScreen = () => {
     generationStatus,
     hasActivePlan,
     intensity,
+    plannedSlot,
     quickActions,
     showCustomizeSheet,
     showProfileSetup,

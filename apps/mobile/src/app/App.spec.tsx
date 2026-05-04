@@ -159,6 +159,7 @@ const baseHookState = {
   planVersions: [],
   activePlanVersions: [basePlan],
   pendingPlanSnapshot: null,
+  plannedSlot: null,
   recentSessions: [],
   quickActions: createBaseQuickActions(),
   offlineHint: { offline: false, requiresApiKey: false },

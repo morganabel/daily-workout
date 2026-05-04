@@ -6,6 +6,7 @@ import { useHomeData } from './hooks/useHomeData';
 import { userRepository } from './db/repositories/UserRepository';
 import {
   createTodayPlanMock,
+  type PlannedSlotMetadata,
   type QuickActionPreset,
   type TodayPlan,
 } from '@workout-agent/shared';
@@ -65,6 +66,7 @@ const baseHookState = {
   planVersions: [],
   activePlanVersions: [],
   pendingPlanSnapshot: null,
+  plannedSlot: null,
   planningDateLocal: '2026-04-27',
   planningDateTimestamp: new Date('2026-04-27T00:00:00').getTime(),
   recentSessions: [],
@@ -136,6 +138,28 @@ const createSetupQuickActions = (overrides: {
     stagedValue: null,
   },
 ];
+
+const createPlannedSlot = (
+  overrides: Partial<PlannedSlotMetadata> = {}
+): PlannedSlotMetadata => ({
+  schemaVersion: 1,
+  ownership: 'app',
+  source: 'training-blueprint',
+  templateId: 'ppl-conditioning',
+  slotId: 'day-1-pull',
+  slotRole: 'pull',
+  slotLabel: 'Upper Body',
+  plannedDate: baseHookState.planningDateLocal,
+  targetDurationMinutes: 45,
+  equipmentLocationAssumptions: {
+    environment: 'gym',
+    equipment: ['Gym'],
+  },
+  detailState: 'not-generated',
+  locked: false,
+  userEdited: false,
+  ...overrides,
+});
 
 describe('HomeScreen', () => {
   beforeEach(() => {
@@ -215,6 +239,75 @@ describe('HomeScreen', () => {
     );
   });
 
+  it('keeps Auto selected while passing today planned slot intent to generation', async () => {
+    const { generateWorkout } = require('./services/api');
+    generateWorkout.mockResolvedValue(createTodayPlanMock());
+    mockUseHomeData.mockReturnValue({
+      ...baseHookState,
+      plannedSlot: createPlannedSlot(),
+      quickActions: createSetupQuickActions({
+        focus: 'Upper Body',
+        equipment: 'Gym',
+      }),
+    });
+
+    const { getByText } = render(<HomeScreen />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    await act(async () => {
+      fireEvent.press(getByText("Generate today's workout"));
+    });
+
+    expect(generateWorkout).toHaveBeenCalledWith(
+      expect.objectContaining({
+        focus: 'Smart',
+        timeMinutes: 45,
+        plannedSlotIntent: expect.objectContaining({
+          role: 'pull',
+          label: 'Upper Body',
+          slotId: 'day-1-pull',
+        }),
+      }),
+      expect.objectContaining({
+        scheduledDate: baseHookState.planningDateTimestamp,
+      })
+    );
+  });
+
+  it('treats manual focus selection as an explicit override', async () => {
+    const { generateWorkout } = require('./services/api');
+    generateWorkout.mockResolvedValue(createTodayPlanMock());
+    mockUseHomeData.mockReturnValue({
+      ...baseHookState,
+      plannedSlot: createPlannedSlot(),
+    });
+
+    const { getByText } = render(<HomeScreen />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    fireEvent.press(getByText('Upper Body'));
+    await act(async () => {
+      fireEvent.press(getByText("Generate today's workout"));
+    });
+
+    expect(generateWorkout).toHaveBeenCalledWith(
+      expect.objectContaining({
+        focus: 'Upper Body',
+      }),
+      expect.objectContaining({
+        scheduledDate: baseHookState.planningDateTimestamp,
+      })
+    );
+    expect(generateWorkout).toHaveBeenCalledWith(
+      expect.not.objectContaining({ plannedSlotIntent: expect.anything() }),
+      expect.anything()
+    );
+  });
+
   it('does not send equipment when staged equipment matches profile equipment', async () => {
     const { generateWorkout } = require('./services/api');
     generateWorkout.mockResolvedValue(createTodayPlanMock());
@@ -272,7 +365,7 @@ describe('HomeScreen', () => {
     expect(generateWorkout).toHaveBeenCalledWith(
       expect.objectContaining({
         timeMinutes: 60,
-        focus: 'Upper Body',
+        focus: 'Smart',
         energy: 'intense',
       }),
       expect.objectContaining({

@@ -8,6 +8,7 @@ import {
 } from '@workout-agent/shared';
 import { useHomeData } from './useHomeData';
 import { workoutRepository } from '../db/repositories/WorkoutRepository';
+import { plannedEventRepository } from '../db/repositories/PlannedEventRepository';
 import { userRepository } from '../db/repositories/UserRepository';
 import type Workout from '../db/models/Workout';
 
@@ -48,10 +49,20 @@ jest.mock('../db/repositories/UserRepository', () => ({
   },
 }));
 
+jest.mock('../db/repositories/PlannedEventRepository', () => ({
+  plannedEventRepository: {
+    observeEvents: jest.fn(),
+    toPlannedEvent: jest.fn((record) => record),
+  },
+}));
+
 const mockWorkoutRepository = workoutRepository as jest.Mocked<
   typeof workoutRepository
 >;
 const mockUserRepository = userRepository as jest.Mocked<typeof userRepository>;
+const mockPlannedEventRepository = plannedEventRepository as jest.Mocked<
+  typeof plannedEventRepository
+>;
 const mockNetInfo = NetInfo as unknown as {
   addEventListener: jest.Mock;
 };
@@ -76,6 +87,7 @@ const createObservableMock = <T,>() => {
 describe('useHomeData', () => {
   let versionStream: ReturnType<typeof createObservableMock<Workout[]>>;
   let sessionStream: ReturnType<typeof createObservableMock<Workout[]>>;
+  let plannedEventStream: ReturnType<typeof createObservableMock<unknown[]>>;
   let mockPlan: ReturnType<typeof createTodayPlanMock>;
   let userStream: ReturnType<typeof createObservableMock<unknown>>;
 
@@ -83,6 +95,7 @@ describe('useHomeData', () => {
     jest.clearAllMocks();
     versionStream = createObservableMock<Workout[]>();
     sessionStream = createObservableMock<Workout[]>();
+    plannedEventStream = createObservableMock<unknown[]>();
     userStream = createObservableMock<unknown>();
     mockPlan = createTodayPlanMock({ id: 'server-plan' });
 
@@ -112,6 +125,9 @@ describe('useHomeData', () => {
     });
     mockUserRepository.observeUser.mockReturnValue(
       userStream.observable as any
+    );
+    mockPlannedEventRepository.observeEvents.mockReturnValue(
+      plannedEventStream.observable as any
     );
     mockNetInfo.addEventListener = jest.fn().mockImplementation((callback) => {
       callback({ isConnected: true, isInternetReachable: true });
@@ -152,6 +168,46 @@ describe('useHomeData', () => {
       expect(result.current.recentSessions).toHaveLength(2);
     });
     expect(mockWorkoutRepository.toSessionSummary).toHaveBeenCalledTimes(2);
+  });
+
+  it('hydrates today planned slot metadata from planned events', async () => {
+    const { result } = renderHook(() => useHomeData());
+
+    await act(async () => {
+      plannedEventStream.emit([
+        {
+          status: 'planned',
+          metadata: {
+            schemaVersion: 1,
+            ownership: 'app',
+            source: 'training-blueprint',
+            templateId: 'ppl-conditioning',
+            slotId: 'day-1-pull',
+            slotRole: 'pull',
+            slotLabel: 'Upper Body',
+            plannedDate: result.current.planningDateLocal,
+            targetDurationMinutes: 45,
+            equipmentLocationAssumptions: {
+              environment: 'gym',
+              equipment: ['Gym'],
+            },
+            detailState: 'not-generated',
+            locked: false,
+            userEdited: false,
+          },
+        },
+      ]);
+    });
+
+    await waitFor(() => {
+      expect(result.current.plannedSlot).toEqual(
+        expect.objectContaining({
+          slotRole: 'pull',
+          slotLabel: 'Upper Body',
+          targetDurationMinutes: 45,
+        })
+      );
+    });
   });
 
   it('hydrates planned workout versions from the selected group', async () => {
