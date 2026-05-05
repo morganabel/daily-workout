@@ -1,5 +1,6 @@
 import type {
   GenerationStatus,
+  PlannedSlotMetadata,
   QuickActionPreset,
   TodayPlan,
 } from '@workout-agent/shared';
@@ -17,6 +18,7 @@ export type DebugHomeUiState = {
   intensity: string;
   equipmentOverride: string[] | null;
   quickActions: QuickActionPreset[];
+  plannedSlot: PlannedSlotMetadata | null;
   generationStatus: GenerationStatus;
   generating: boolean;
   showCustomizeSheet: boolean;

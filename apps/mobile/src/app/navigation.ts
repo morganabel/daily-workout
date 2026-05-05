@@ -3,6 +3,7 @@ import type { TodayPlan } from '@workout-agent/shared';
 
 export type RootStackParamList = {
   Launch: undefined;
+  Onboarding: undefined;
   Home: undefined;
   WorkoutPreview: { plan?: TodayPlan } | undefined;
   ActiveWorkout: { plan: TodayPlan };

@@ -94,6 +94,109 @@ Destructive tool:
 
 - `reset_debug_data`: requires `{ "confirm": "reset-debug-data" }` and clears local debug domain data.
 
+## Seeding Onboarding And Planned Slots
+
+The onboarding blueprint workflow uses existing MCP tools; no dedicated onboarding tool is required for v1.
+
+Seed accepted or skipped onboarding state with `set_profile_preferences`. The payload can include normal profile fields plus `onboardingSetupStatus`, `onboardingAnswers`, and `trainingBlueprint`:
+
+```json
+{
+  "preferences": {
+    "equipment": ["Gym"],
+    "injuries": [],
+    "focusBias": [],
+    "avoid": [],
+    "onboardingSetupStatus": "completed",
+    "onboardingAnswers": {
+      "goal": "build-muscle",
+      "experienceLevel": "intermediate",
+      "environment": "gym",
+      "equipment": ["Gym"]
+    },
+    "trainingBlueprint": {
+      "templateId": "ppl-conditioning",
+      "weeklyRhythm": "Push / pull / legs plus one sprint day",
+      "durationAssumptions": {
+        "targetMinutes": 50,
+        "minimumUsefulMinutes": 35
+      },
+      "equipmentLocationAssumptions": {
+        "environment": "gym",
+        "equipment": ["Gym"]
+      },
+      "slotSequence": [
+        {
+          "id": "day-1-push",
+          "role": "push",
+          "label": "Push",
+          "dayOffset": 0,
+          "targetDurationMinutes": 50
+        }
+      ],
+      "setupStatus": "completed",
+      "editStatus": "accepted",
+      "horizonDays": 7
+    }
+  }
+}
+```
+
+Seed starter-week planned workout slots with `seed_planned_events`. Use `kind: "workout"` and versioned `metadata` with `source: "training-blueprint"` so `list_calendar` and the app agenda can distinguish blueprint-owned slots from user-owned life events:
+
+```json
+{
+  "events": [
+    {
+      "kind": "workout",
+      "title": "Pull",
+      "localDate": "2026-04-15",
+      "createdAtTimezone": "UTC",
+      "durationMinutes": 45,
+      "metadata": {
+        "schemaVersion": 1,
+        "ownership": "app",
+        "source": "training-blueprint",
+        "templateId": "ppl-conditioning",
+        "slotId": "day-2-pull",
+        "slotRole": "pull",
+        "slotLabel": "Pull",
+        "plannedDate": "2026-04-15",
+        "targetDurationMinutes": 45,
+        "equipmentLocationAssumptions": {
+          "environment": "gym",
+          "equipment": ["Gym"]
+        },
+        "detailState": "not-generated"
+      }
+    }
+  ]
+}
+```
+
+Exercise planned-slot generation with `generate_workout` by passing `plannedSlotIntent` in the normal generation request. `get_generation_context` can inspect the effective equipment, recent sessions, and nearby planned events that will be sent with the request:
+
+```json
+{
+  "request": {
+    "focus": "Pull",
+    "plannedSlotIntent": {
+      "role": "pull",
+      "label": "Pull",
+      "targetDurationMinutes": 45,
+      "plannedDate": "2026-04-15",
+      "templateId": "ppl-conditioning",
+      "slotId": "day-2-pull",
+      "equipmentLocationAssumptions": {
+        "environment": "gym",
+        "equipment": ["Gym"]
+      }
+    }
+  },
+  "scheduledDate": 1776218400000
+}
+```
+
 ## Redaction
 
 The bridge and shared contracts redact raw credentials before returning debug output. Tool responses must not include raw BYOK keys, cookies, bearer tokens, device tokens, session tokens, or secret-like headers. Secret state is represented as presence metadata or redacted previews.

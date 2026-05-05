@@ -1,7 +1,11 @@
 import {
   buildGenerationRequestFromQuickActions,
+  createTrainingBlueprintFromOnboarding,
   createTodayPlanMock,
   normalizeQuickActionValue,
+  plannedSlotMetadataSchema,
+  selectTrainingTemplateId,
+  TRAINING_TEMPLATE_DEFINITIONS,
   workoutSetLogSchema,
   workoutExerciseLogSchema,
   workoutSessionDetailSchema,
@@ -17,6 +21,7 @@ import {
   isAutoFocus,
   normalizeEquipmentSelection,
   todayPlanSchema,
+  userPreferencesSchema,
   type GenerationRequest,
   type QuickActionPreset,
 } from './workouts';
@@ -306,6 +311,123 @@ describe('generation request upcoming events', () => {
     });
 
     expect(result.success).toBe(true);
+  });
+
+  it('accepts planned-slot intent without changing the public plan contract', () => {
+    const result = generationRequestSchema.safeParse({
+      planningDateLocal: '2026-04-15',
+      plannedSlotIntent: {
+        role: 'pull',
+        label: 'Pull',
+        targetDurationMinutes: 45,
+        plannedDate: '2026-04-15',
+        templateId: 'ppl-conditioning',
+        slotId: 'day-2-pull',
+        equipmentLocationAssumptions: {
+          environment: 'gym',
+          equipment: [GYM_EQUIPMENT],
+        },
+      },
+    });
+
+    expect(result.success).toBe(true);
+  });
+});
+
+describe('training blueprint contracts', () => {
+  it('selects deterministic templates from onboarding answers', () => {
+    expect(
+      selectTrainingTemplateId({
+        goal: 'build-muscle',
+        experienceLevel: 'intermediate',
+        environment: 'gym',
+        equipment: [GYM_EQUIPMENT],
+      }),
+    ).toBe('ppl-conditioning');
+
+    expect(
+      selectTrainingTemplateId({
+        goal: 'run-cardio',
+        experienceLevel: 'beginner',
+        environment: 'home',
+        equipment: ['Bodyweight'],
+      }),
+    ).toBe('endurance-support');
+
+    expect(
+      selectTrainingTemplateId({
+        goal: 'general-fitness',
+        experienceLevel: 'advanced',
+        environment: 'travel',
+        equipment: ['Bodyweight'],
+      }),
+    ).toBe('busy-travel');
+  });
+
+  it('creates a valid blueprint from onboarding answers', () => {
+    const blueprint = createTrainingBlueprintFromOnboarding(
+      {
+        goal: 'build-strength',
+        experienceLevel: 'beginner',
+        environment: 'home',
+        equipment: ['Dumbbells'],
+      },
+      { updatedAt: '2026-04-15T12:00:00.000Z' },
+    );
+
+    expect(blueprint).toMatchObject({
+      templateId: 'strength-foundation',
+      setupStatus: 'completed',
+      editStatus: 'accepted',
+      horizonDays: 7,
+      equipmentLocationAssumptions: {
+        environment: 'home',
+        equipment: ['Dumbbells'],
+      },
+    });
+    expect(blueprint.slotSequence).toEqual(
+      TRAINING_TEMPLATE_DEFINITIONS['strength-foundation'].slotSequence,
+    );
+  });
+
+  it('parses existing preferences without blueprint fields', () => {
+    const result = userPreferencesSchema.safeParse({
+      equipment: ['Dumbbells'],
+      experienceLevel: 'beginner',
+      primaryGoal: 'Build strength',
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.trainingBlueprint).toBeUndefined();
+      expect(result.data.injuries).toEqual([]);
+      expect(result.data.avoid).toEqual([]);
+    }
+  });
+
+  it('validates minimal versioned planned-slot metadata', () => {
+    const result = plannedSlotMetadataSchema.safeParse({
+      schemaVersion: 1,
+      ownership: 'app',
+      source: 'training-blueprint',
+      templateId: 'ppl-conditioning',
+      slotId: 'day-2-pull',
+      slotRole: 'pull',
+      slotLabel: 'Pull',
+      plannedDate: '2026-04-15',
+      targetDurationMinutes: 45,
+      equipmentLocationAssumptions: {
+        environment: 'gym',
+        equipment: [GYM_EQUIPMENT],
+      },
+      detailState: 'not-generated',
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.locked).toBe(false);
+      expect(result.data.userEdited).toBe(false);
+    }
   });
 });
 

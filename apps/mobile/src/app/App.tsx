@@ -6,6 +6,7 @@ import { RootSiblingParent } from 'react-native-root-siblings';
 
 import { HomeScreen } from './HomeScreen';
 import { LaunchScreen } from './LaunchScreen';
+import { OnboardingScreen } from './OnboardingScreen';
 import { WorkoutPreviewScreen } from './WorkoutPreviewScreen';
 import { ActiveWorkoutScreen } from './ActiveWorkoutScreen';
 import { WorkoutSessionDetailScreen } from './WorkoutSessionDetailScreen';
@@ -69,6 +70,7 @@ export const App = () => {
             }}
           >
             <Stack.Screen name="Launch" component={LaunchScreen} />
+            <Stack.Screen name="Onboarding" component={OnboardingScreen} />
             <Stack.Screen name="Home" component={HomeScreen} />
             <Stack.Screen
               name="WorkoutPreview"

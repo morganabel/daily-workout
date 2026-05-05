@@ -209,7 +209,10 @@ export const LaunchScreen: React.FC = () => {
       }
 
       await setLaunchCompleted(true);
-      goHome();
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'Onboarding' }],
+      });
     } catch {
       setError('Something went wrong. Please try again.');
     } finally {

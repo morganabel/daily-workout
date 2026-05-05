@@ -152,6 +152,101 @@ describe('derivePlanningBrief', () => {
     );
   });
 
+  it('uses planned-slot intent before generic smart focus', () => {
+    const brief = derivePlanningBrief({
+      request: {
+        focus: 'Smart',
+        planningDateLocal: '2026-04-15',
+        plannedSlotIntent: {
+          role: 'pull',
+          label: 'Pull',
+          targetDurationMinutes: 45,
+          plannedDate: '2026-04-15',
+          templateId: 'ppl-conditioning',
+          slotId: 'day-2-pull',
+          equipmentLocationAssumptions: {
+            environment: 'gym',
+            equipment: ['Gym'],
+          },
+        },
+      },
+      context: createContext({
+        preferences: { focusBias: ['Lower Body'] },
+      }),
+      provider: 'openai',
+    });
+
+    expect(brief.focusMode).toBe('planned-slot');
+    expect(brief.resolvedFocus).toBe('Upper Body Pull');
+    expect(brief.durationMinutes).toBe(45);
+    expect(brief.availableEquipment).toEqual(['Gym']);
+    expect(brief.plannedSlotIntent).toEqual(
+      expect.objectContaining({ role: 'pull', slotId: 'day-2-pull' }),
+    );
+  });
+
+  it('keeps explicit focus ahead of planned-slot background context', () => {
+    const brief = derivePlanningBrief({
+      request: {
+        focus: 'Mobility',
+        plannedSlotIntent: {
+          role: 'pull',
+          label: 'Pull',
+          targetDurationMinutes: 45,
+          plannedDate: '2026-04-15',
+          templateId: 'ppl-conditioning',
+          slotId: 'day-2-pull',
+          equipmentLocationAssumptions: {
+            environment: 'gym',
+            equipment: ['Gym'],
+          },
+        },
+      },
+      context: createContext(),
+      provider: 'openai',
+    });
+
+    expect(brief.focusMode).toBe('explicit');
+    expect(brief.resolvedFocus).toBe('Mobility');
+    expect(brief.plannedSlotIntent).toEqual(
+      expect.objectContaining({ role: 'pull' }),
+    );
+  });
+
+  it('keeps planned-slot intent but protects near-term events', () => {
+    const brief = derivePlanningBrief({
+      request: {
+        focus: 'Smart',
+        planningDateLocal: '2026-04-15',
+        plannedSlotIntent: {
+          role: 'sprint',
+          targetDurationMinutes: 30,
+          plannedDate: '2026-04-15',
+          equipmentLocationAssumptions: {
+            environment: 'outdoors',
+            equipment: ['Bodyweight'],
+          },
+        },
+        upcomingEvents: [
+          {
+            kind: 'run',
+            title: '10K Tune-Up',
+            localDate: '2026-04-16',
+            intensity: 'high',
+          },
+        ],
+      },
+      context: createContext(),
+      provider: 'openai',
+    });
+
+    expect(brief.focusMode).toBe('planned-slot');
+    expect(brief.resolvedFocus).toBe('Upper Body & Core');
+    expect(brief.eventProtection).toEqual(
+      expect.objectContaining({ title: '10K Tune-Up' }),
+    );
+  });
+
   it('shifts smart focus away from repeated recent overload', () => {
     const brief = derivePlanningBrief({
       request: {

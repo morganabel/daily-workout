@@ -194,7 +194,11 @@ export async function buildGenerationContext(
   );
 
   // Determine equipment: quick action override > profile default > fallback
-  const equipment = request.equipment ?? prefs.equipment ?? [];
+  const equipment =
+    request.equipment ??
+    request.plannedSlotIntent?.equipmentLocationAssumptions?.equipment ??
+    prefs.equipment ??
+    [];
   const effectiveEquipment = normalizeEquipmentSelection(equipment, [
     'Bodyweight',
   ]);
@@ -214,6 +218,7 @@ export async function buildGenerationContext(
     },
     environment: {
       equipment: effectiveEquipment,
+      location: request.plannedSlotIntent?.equipmentLocationAssumptions?.environment,
       timeAvailableMinutes: request.timeMinutes,
     },
     recentSessions,
@@ -289,6 +294,7 @@ export async function generateWorkout(
       timeMinutes: requestWithPlanningDate.timeMinutes,
       focus: requestWithPlanningDate.focus,
       equipmentOverride: requestWithPlanningDate.equipment,
+      plannedSlotIntent: requestWithPlanningDate.plannedSlotIntent,
       effectiveEquipment: context.environment.equipment,
       energy: requestWithPlanningDate.energy,
       upcomingEvents: requestWithPlanningDate.upcomingEvents?.length ?? 0,

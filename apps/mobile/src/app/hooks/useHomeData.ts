@@ -9,13 +9,16 @@ import { AppState } from 'react-native';
 import type {
   GenerationStatus,
   HomeSnapshot,
+  PlannedSlotMetadata,
   TodayPlan,
   QuickActionKey,
   QuickActionPreset,
   UserPreferences,
 } from '@workout-agent/shared';
+import { plannedSlotMetadataSchema } from '@workout-agent/shared';
 import NetInfo from '@react-native-community/netinfo';
 import { workoutRepository } from '../db/repositories/WorkoutRepository';
+import { plannedEventRepository } from '../db/repositories/PlannedEventRepository';
 import { userRepository } from '../db/repositories/UserRepository';
 import type Workout from '../db/models/Workout';
 import { formatLocalDate, parseLocalDate } from '../utils/date';
@@ -118,6 +121,7 @@ export type HomeDataState = {
   planVersions: TodayPlan[];
   activePlanVersions: TodayPlan[];
   pendingPlanSnapshot: TodayPlan | null;
+  plannedSlot: PlannedSlotMetadata | null;
   recentSessions: HomeSnapshot['recentSessions'];
   quickActions: HomeSnapshot['quickActions'];
   offlineHint: HomeSnapshot['offlineHint'];
@@ -159,6 +163,7 @@ export function useHomeData(): HomeDataState & {
     planVersions: [],
     activePlanVersions: [],
     pendingPlanSnapshot: null,
+    plannedSlot: null,
     recentSessions: [],
     quickActions: FALLBACK_QUICK_ACTIONS,
     offlineHint: {
@@ -205,6 +210,7 @@ export function useHomeData(): HomeDataState & {
         planningDateTimestamp: getLocalDateTimestamp(nextDate),
         plan: null,
         planVersions: [],
+        plannedSlot: null,
         status: 'loading',
       };
     });
@@ -353,9 +359,30 @@ export function useHomeData(): HomeDataState & {
         }));
       });
 
+    const plannedEventSubscription = plannedEventRepository
+      .observeEventsByLocalDate(state.planningDateLocal)
+      .subscribe((records) => {
+        if (!isMountedRef.current) return;
+        const plannedSlot = records
+          .map((record) => plannedEventRepository.toPlannedEvent(record))
+          .filter((event) => event.status !== 'canceled')
+          .map((event) => plannedSlotMetadataSchema.safeParse(event.metadata))
+          .find(
+            (result) =>
+              result.success &&
+              result.data.plannedDate === state.planningDateLocal
+          );
+
+        setState((prev) => ({
+          ...prev,
+          plannedSlot: plannedSlot?.success ? plannedSlot.data : null,
+        }));
+      });
+
     return () => {
       versionSubscription.unsubscribe();
       recentSubscription.unsubscribe();
+      plannedEventSubscription.unsubscribe();
     };
   }, [hydrateWorkoutVersions, state.planningDateLocal]);
 

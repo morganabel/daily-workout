@@ -6,8 +6,8 @@ import type {
   PlannedEvent,
   WorkoutSessionSummary,
 } from '@workout-agent/shared';
+import { plannedSlotMetadataSchema } from '@workout-agent/shared';
 import { palette, typography } from '../theme';
-import { formatLocalDate } from '../utils/date';
 import { formatTime, getKindMeta } from '../utils/historyCalendar';
 
 type HistoryAgendaItemProps = {
@@ -17,7 +17,13 @@ type HistoryAgendaItemProps = {
   isGenerating?: boolean;
   onEditEvent: (event: PlannedEvent) => void;
   onGenerateWorkout: (event: PlannedEvent) => void;
+  onOpenLinkedWorkout: (event: PlannedEvent) => void;
   onOpenSession: (session: WorkoutSessionSummary) => void;
+};
+
+const formatSlotDetailState = (value: string): string => {
+  const label = value.replace('-', ' ');
+  return label.charAt(0).toUpperCase() + label.slice(1);
 };
 
 export const HistoryAgendaItem = ({
@@ -27,25 +33,41 @@ export const HistoryAgendaItem = ({
   isGenerating = false,
   onEditEvent,
   onGenerateWorkout,
+  onOpenLinkedWorkout,
   onOpenSession,
 }: HistoryAgendaItemProps) => {
   if (item.type === 'planned-event') {
     const meta = getKindMeta(item.kind);
+    const plannedSlotMetadata = plannedEvent
+      ? plannedSlotMetadataSchema.safeParse(plannedEvent.metadata)
+      : null;
+    const plannedSlot = plannedSlotMetadata?.success
+      ? plannedSlotMetadata.data
+      : null;
     const timeLabel = item.allDay
       ? 'All day'
       : item.startsAt
       ? formatTime(new Date(item.startsAt))
       : 'Any time';
-    const showGenerate = Boolean(
-      plannedEvent &&
-        item.kind === 'workout' &&
-        item.localDate > formatLocalDate(new Date())
+    const hasLinkedWorkout = Boolean(
+      plannedEvent?.linkedWorkoutId || plannedSlot?.linkedWorkoutId
     );
+    const showGenerate = Boolean(
+      plannedEvent && item.kind === 'workout' && !hasLinkedWorkout
+    );
+    const showOpen = Boolean(plannedEvent && hasLinkedWorkout);
+    const detailState = plannedSlot
+      ? formatSlotDetailState(plannedSlot.detailState)
+      : null;
 
     return (
       <Pressable
         onPress={() => {
           if (plannedEvent) {
+            if (hasLinkedWorkout) {
+              onOpenLinkedWorkout(plannedEvent);
+              return;
+            }
             onEditEvent(plannedEvent);
           }
         }}
@@ -58,13 +80,18 @@ export const HistoryAgendaItem = ({
             <Ionicons name={meta.icon} size={20} color={meta.color} />
           </View>
           <View style={styles.agendaInfo}>
-            <Text style={styles.agendaTitle}>{item.title}</Text>
+            <Text style={styles.agendaTitle}>
+              {plannedSlot?.slotLabel ?? item.title}
+            </Text>
             <Text style={styles.agendaMeta}>
               {timeLabel}
               {plannedEvent?.durationMinutes
                 ? ` • ${plannedEvent.durationMinutes} min`
                 : ''}
             </Text>
+            {plannedSlot && (
+              <Text style={styles.plannedSlotMeta}>{detailState}</Text>
+            )}
           </View>
           {showGenerate && plannedEvent && (
             <Pressable
@@ -75,6 +102,14 @@ export const HistoryAgendaItem = ({
               <Text style={styles.agendaActionText}>
                 {isGenerating ? 'Generating…' : 'Generate'}
               </Text>
+            </Pressable>
+          )}
+          {showOpen && plannedEvent && (
+            <Pressable
+              style={styles.agendaAction}
+              onPress={() => onOpenLinkedWorkout(plannedEvent)}
+            >
+              <Text style={styles.agendaActionText}>Open</Text>
             </Pressable>
           )}
         </View>
@@ -145,6 +180,13 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: typography.fontFamily,
     color: palette.textSecondary,
+  },
+  plannedSlotMeta: {
+    marginTop: 4,
+    fontSize: 12,
+    fontFamily: typography.fontFamilyBold,
+    color: palette.primaryDark,
+    textTransform: 'capitalize',
   },
   agendaAction: {
     paddingVertical: 6,

@@ -133,3 +133,4 @@
 
 - Use Nx MCP tools (`nx_workspace`, `nx_project_details`) for project discovery.
 - Jest config is per-project; pass Jest args through `nx test`.
+- In the Codex macOS app sandbox, Nx commands need elevated permissions to start plugin workers. When running `nx`, `npx nx`, or npm scripts that invoke Nx, request elevated permissions up front instead of first trying inside the sandbox.

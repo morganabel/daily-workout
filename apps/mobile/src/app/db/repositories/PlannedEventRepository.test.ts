@@ -103,4 +103,30 @@ describe('PlannedEventRepository', () => {
     );
     expect(upcoming.some((event) => event.title === 'Later Hike')).toBe(false);
   });
+
+  it('observes events for a single local date', async () => {
+    await plannedEventRepository.createPlannedEvent({
+      kind: 'workout',
+      title: 'Today workout',
+      localDate: '2026-04-15',
+      createdAtTimezone: 'UTC',
+    });
+    await plannedEventRepository.createPlannedEvent({
+      kind: 'workout',
+      title: 'Tomorrow workout',
+      localDate: '2026-04-16',
+      createdAtTimezone: 'UTC',
+    });
+
+    let unsubscribe: (() => void) | undefined;
+    const records = await new Promise<any[]>((resolve) => {
+      const subscription = plannedEventRepository
+        .observeEventsByLocalDate('2026-04-15')
+        .subscribe((value) => resolve(value));
+      unsubscribe = () => subscription.unsubscribe();
+    });
+    unsubscribe?.();
+
+    expect(records.map((record) => record.title)).toEqual(['Today workout']);
+  });
 });

@@ -46,13 +46,21 @@ export function derivePlanningBrief({
 }: DerivePlanningBriefParams): PlanningBrief {
   const baselineWorkout = request.baselineWorkout ?? previousPlan ?? undefined;
   const requestedFocus = request.focus?.trim() || undefined;
+  const plannedSlotIntent = request.plannedSlotIntent;
   const focusMode = requestedFocus
     ? isAutoFocus(requestedFocus)
-      ? 'smart'
+      ? plannedSlotIntent
+        ? 'planned-slot'
+        : 'smart'
       : 'explicit'
-    : 'unset';
+    : plannedSlotIntent
+      ? 'planned-slot'
+      : 'unset';
   const availableEquipment = normalizeEquipmentSelection(
-    request.equipment?.length ? request.equipment : context.environment.equipment,
+    request.equipment?.length
+      ? request.equipment
+      : plannedSlotIntent?.equipmentLocationAssumptions?.equipment ??
+          context.environment.equipment,
     DEFAULT_EQUIPMENT,
   );
   const planningDateLocal =
@@ -80,12 +88,14 @@ export function derivePlanningBrief({
   const resolvedFocus = resolveFocus({
     focusMode,
     requestedFocus,
+    plannedSlotIntent,
     context,
     recentStressorsToAvoid,
     eventProtection,
   });
   const durationMinutes =
     request.timeMinutes ??
+    plannedSlotIntent?.targetDurationMinutes ??
     context.environment.timeAvailableMinutes ??
     baselineWorkout?.durationMinutes ??
     DEFAULT_DURATION_MINUTES;
@@ -102,6 +112,7 @@ export function derivePlanningBrief({
     planningDateLocal,
     requestedFocus,
     focusMode,
+    plannedSlotIntent,
     resolvedFocus,
     durationMinutes,
     availableEquipment,
@@ -276,6 +287,7 @@ function deriveStyleBias(
 function resolveFocus(params: {
   focusMode: PlanningBrief['focusMode'];
   requestedFocus?: string;
+  plannedSlotIntent?: PlanningBrief['plannedSlotIntent'];
   context: GenerationContext;
   recentStressorsToAvoid: string[];
   eventProtection?: PlanningEventProtection;
@@ -283,10 +295,15 @@ function resolveFocus(params: {
   const {
     focusMode,
     requestedFocus,
+    plannedSlotIntent,
     context,
     recentStressorsToAvoid,
     eventProtection,
   } = params;
+
+  if (focusMode === 'planned-slot' && plannedSlotIntent) {
+    return resolvePlannedSlotFocus(plannedSlotIntent.role, eventProtection);
+  }
 
   if (focusMode === 'explicit' && requestedFocus) {
     return requestedFocus;
@@ -341,13 +358,45 @@ function resolveFocus(params: {
   return 'Full Body';
 }
 
+function resolvePlannedSlotFocus(
+  role: NonNullable<PlanningBrief['plannedSlotIntent']>['role'],
+  eventProtection?: PlanningEventProtection,
+): string {
+  if (
+    eventProtection &&
+    (role === 'legs' || role === 'sprint' || role === 'conditioning')
+  ) {
+    return 'Upper Body & Core';
+  }
+
+  switch (role) {
+    case 'pull':
+      return 'Upper Body Pull';
+    case 'push':
+      return 'Upper Body Push';
+    case 'legs':
+      return 'Lower Body';
+    case 'sprint':
+      return 'Sprint Conditioning';
+    case 'conditioning':
+      return 'Conditioning';
+    case 'mobility':
+    case 'recovery':
+      return 'Mobility & Recovery';
+    case 'full-body':
+      return 'Full Body';
+    case 'flexible':
+      return 'Flexible Full Body';
+  }
+}
+
 function collectUnknowns(
   request: GenerationRequestWithContext,
   context: GenerationContext,
 ): string[] {
   const unknowns = new Set<string>();
 
-  if (request.focus === undefined) {
+  if (request.focus === undefined && request.plannedSlotIntent === undefined) {
     unknowns.add('focus');
   }
   if (context.preferences.injuries === undefined) {

@@ -278,6 +278,55 @@ describe('generateWorkout', () => {
     }
   });
 
+  it('passes planned-slot intent and slot assumptions into generation context', async () => {
+    const generatedPlan = createTodayPlanMock({ id: 'plan-slot-pull' });
+    (global.fetch as jest.Mock).mockResolvedValue({
+      ok: true,
+      json: jest.fn().mockResolvedValue(generatedPlan),
+    });
+
+    await generateWorkout({
+      focus: 'Pull',
+      plannedSlotIntent: {
+        role: 'pull',
+        label: 'Pull',
+        targetDurationMinutes: 45,
+        plannedDate: '2026-04-15',
+        templateId: 'ppl-conditioning',
+        slotId: 'day-2-pull',
+        equipmentLocationAssumptions: {
+          environment: 'gym',
+          equipment: ['Gym'],
+        },
+      },
+    });
+
+    const [, requestInit] = (global.fetch as jest.Mock).mock.calls[0];
+    const payload = JSON.parse(requestInit.body as string);
+
+    expect(payload.plannedSlotIntent).toEqual(
+      expect.objectContaining({
+        role: 'pull',
+        targetDurationMinutes: 45,
+        plannedDate: '2026-04-15',
+      })
+    );
+    expect(payload.context.environment).toEqual(
+      expect.objectContaining({
+        equipment: ['Gym'],
+        location: 'gym',
+      })
+    );
+    expect(mockWorkoutRepository.saveGeneratedPlan).toHaveBeenCalledWith(
+      generatedPlan,
+      expect.objectContaining({
+        generationRequest: expect.objectContaining({
+          plannedSlotIntent: expect.objectContaining({ role: 'pull' }),
+        }),
+      })
+    );
+  });
+
   it('still resolves when rejected-version pruning fails after save', async () => {
     const consoleSpy = jest
       .spyOn(console, 'error')

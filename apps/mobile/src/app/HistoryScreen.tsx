@@ -18,6 +18,7 @@ import type {
   PlannedEventPatch,
   WorkoutSessionSummary,
 } from '@workout-agent/shared';
+import { plannedSlotMetadataSchema } from '@workout-agent/shared';
 import { workoutRepository } from './db/repositories/WorkoutRepository';
 import { plannedEventRepository } from './db/repositories/PlannedEventRepository';
 import { useNavigation } from '@react-navigation/native';
@@ -373,6 +374,26 @@ export const HistoryScreen = () => {
     setShowPlanSheet(true);
   };
 
+  const handleOpenLinkedWorkout = async (event: PlannedEvent) => {
+    const metadata = plannedSlotMetadataSchema.safeParse(event.metadata);
+    const linkedWorkoutId = event.linkedWorkoutId ??
+      (metadata.success ? metadata.data.linkedWorkoutId : undefined);
+
+    if (!linkedWorkoutId) {
+      handleEditEvent(event);
+      return;
+    }
+
+    const workout = await workoutRepository.getWorkoutByPlanId(linkedWorkoutId);
+    if (!workout) {
+      Alert.alert('Workout not found', 'The linked workout is no longer available.');
+      return;
+    }
+
+    const plan = await workoutRepository.mapWorkoutToPlan(workout);
+    navigation.navigate('WorkoutPreview', { plan });
+  };
+
   const handleQuickLogSubmit = async (payload: {
     name: string;
     focus: string;
@@ -410,6 +431,8 @@ export const HistoryScreen = () => {
   };
 
   const handleGenerateForEvent = async (event: PlannedEvent) => {
+    const metadata = plannedSlotMetadataSchema.safeParse(event.metadata);
+    const plannedSlot = metadata.success ? metadata.data : null;
     const baseDate = event.startsAt
       ? new Date(event.startsAt)
       : parseLocalDate(event.localDate);
@@ -430,8 +453,22 @@ export const HistoryScreen = () => {
       : undefined;
 
     const request: GenerationRequest = {
-      timeMinutes: event.durationMinutes,
+      timeMinutes: plannedSlot?.targetDurationMinutes ?? event.durationMinutes,
       energy,
+      equipment: plannedSlot?.equipmentLocationAssumptions.equipment,
+      focus: plannedSlot ? 'Smart' : undefined,
+      plannedSlotIntent: plannedSlot
+        ? {
+            role: plannedSlot.slotRole,
+            label: plannedSlot.slotLabel,
+            targetDurationMinutes: plannedSlot.targetDurationMinutes,
+            equipmentLocationAssumptions:
+              plannedSlot.equipmentLocationAssumptions,
+            plannedDate: plannedSlot.plannedDate,
+            templateId: plannedSlot.templateId,
+            slotId: plannedSlot.slotId,
+          }
+        : undefined,
       notes: event.title ? `Planned workout: ${event.title}` : undefined,
     };
 
@@ -448,6 +485,15 @@ export const HistoryScreen = () => {
             const run = async () => {
               try {
                 setGeneratingEventId(event.id);
+                if (plannedSlot) {
+                  await plannedEventRepository.updatePlannedEvent({
+                    id: event.id,
+                    metadata: {
+                      ...plannedSlot,
+                      detailState: 'generating',
+                    },
+                  });
+                }
                 const plan = await generateWorkout(request, { scheduledDate });
                 const workout = await workoutRepository.getWorkoutByPlanId(
                   plan.id
@@ -456,6 +502,13 @@ export const HistoryScreen = () => {
                   await plannedEventRepository.updatePlannedEvent({
                     id: event.id,
                     linkedWorkoutId: workout.id,
+                    metadata: plannedSlot
+                      ? {
+                          ...plannedSlot,
+                          detailState: 'generated',
+                          linkedWorkoutId: workout.id,
+                        }
+                      : undefined,
                   });
                 }
                 Toast.show('Workout generated', {
@@ -464,6 +517,15 @@ export const HistoryScreen = () => {
                 });
               } catch (error) {
                 console.error('Failed to generate workout for plan', error);
+                if (plannedSlot) {
+                  await plannedEventRepository.updatePlannedEvent({
+                    id: event.id,
+                    metadata: {
+                      ...plannedSlot,
+                      detailState: 'error',
+                    },
+                  });
+                }
                 Alert.alert('Unable to generate', 'Please try again.');
               } finally {
                 setGeneratingEventId(null);
@@ -604,6 +666,7 @@ export const HistoryScreen = () => {
                       }
                       onEditEvent={handleEditEvent}
                       onGenerateWorkout={handleGenerateForEvent}
+                      onOpenLinkedWorkout={handleOpenLinkedWorkout}
                       onOpenSession={handleOpenSession}
                     />
                   ))

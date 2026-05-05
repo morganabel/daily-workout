@@ -15,6 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import {
   type TodayPlan,
   type GenerationRequest,
+  type PlannedSlotMetadata,
   type QuickActionPreset,
   type WorkoutEnergy,
   normalizeEquipmentSelection,
@@ -58,6 +59,14 @@ const getQuickActionBaseValue = (
 ): string | undefined => {
   const action = quickActions.find((item) => item.key === key);
   return action?.value ?? action?.description;
+};
+
+const getQuickActionStagedValue = (
+  quickActions: QuickActionPreset[],
+  key: QuickActionPreset['key']
+): string | undefined => {
+  const action = quickActions.find((item) => item.key === key);
+  return action?.stagedValue?.trim() ? action.stagedValue : undefined;
 };
 
 const parseEquipmentSelection = (value: string | undefined): string[] => {
@@ -114,7 +123,22 @@ const resolveDurationSelection = (
   parseDurationSelection(getQuickActionValue(quickActions, 'time')) ?? fallback;
 
 const resolveFocusSelection = (quickActions: QuickActionPreset[]): string =>
-  normalizeFocusSelection(getQuickActionValue(quickActions, 'focus'));
+  normalizeFocusSelection(getQuickActionStagedValue(quickActions, 'focus'));
+
+const buildPlannedSlotIntent = (
+  plannedSlot: PlannedSlotMetadata | null
+): GenerationRequest['plannedSlotIntent'] =>
+  plannedSlot
+    ? {
+        role: plannedSlot.slotRole,
+        label: plannedSlot.slotLabel,
+        targetDurationMinutes: plannedSlot.targetDurationMinutes,
+        equipmentLocationAssumptions: plannedSlot.equipmentLocationAssumptions,
+        plannedDate: plannedSlot.plannedDate,
+        templateId: plannedSlot.templateId,
+        slotId: plannedSlot.slotId,
+      }
+    : undefined;
 
 const resolveIntensitySelection = (
   quickActions: QuickActionPreset[],
@@ -235,9 +259,9 @@ const SetupProfileCard = ({ onPress }: { onPress: () => void }) => (
       <Ionicons name="sparkles" size={24} color={palette.textInverse} />
     </View>
     <View style={styles.setupContent}>
-      <Text style={styles.setupTitle}>Set up your profile</Text>
+      <Text style={styles.setupTitle}>Build your starter week</Text>
       <Text style={styles.setupDescription}>
-        Tell us about your equipment and goals for personalized workouts.
+        Answer three quick questions to get a recommended training rhythm.
       </Text>
     </View>
     <Ionicons name="arrow-forward" size={20} color={palette.primary} />
@@ -741,6 +765,7 @@ export const HomeScreen = () => {
     activePlan,
     activePlanVersions,
     pendingPlanSnapshot,
+    plannedSlot,
     planningDateLocal,
     planningDateTimestamp,
     quickActions,
@@ -780,8 +805,8 @@ export const HomeScreen = () => {
   // Load user profile on mount
   useFocusEffect(
     useCallback(() => {
-      userRepository.hasConfiguredProfile().then((hasProfile) => {
-        setShowProfileSetup(!hasProfile);
+      userRepository.hasCompletedOrSkippedOnboarding().then((isDone) => {
+        setShowProfileSetup(!isDone);
       });
     }, [])
   );
@@ -805,12 +830,18 @@ export const HomeScreen = () => {
 
     try {
       const targetTimestamp = planningDateTimestamp;
+      const plannedSlotIntent =
+        focus === 'Smart' ? buildPlannedSlotIntent(plannedSlot) : undefined;
       clearTransientPlanState();
       const request: GenerationRequest = {
         timeMinutes: duration,
         energy: intensity.toLowerCase() as WorkoutEnergy,
         focus,
       };
+
+      if (plannedSlotIntent) {
+        request.plannedSlotIntent = plannedSlotIntent;
+      }
 
       if (shouldSendEquipment) {
         request.equipment = equipment;
@@ -998,10 +1029,12 @@ export const HomeScreen = () => {
       return;
     }
 
-    setDuration(resolveDurationSelection(quickActions));
+    setDuration(
+      plannedSlot?.targetDurationMinutes ?? resolveDurationSelection(quickActions)
+    );
     setFocus(resolveFocusSelection(quickActions));
     setIntensity(resolveIntensitySelection(quickActions));
-  }, [hasActivePlan, quickActions]);
+  }, [hasActivePlan, plannedSlot, quickActions]);
 
   useEffect(
     () => () => {
@@ -1018,6 +1051,7 @@ export const HomeScreen = () => {
       intensity,
       equipmentOverride,
       quickActions,
+      plannedSlot,
       generationStatus,
       generating,
       showCustomizeSheet,
@@ -1036,6 +1070,7 @@ export const HomeScreen = () => {
     generationStatus,
     hasActivePlan,
     intensity,
+    plannedSlot,
     quickActions,
     showCustomizeSheet,
     showProfileSetup,
@@ -1062,7 +1097,7 @@ export const HomeScreen = () => {
         showsVerticalScrollIndicator={false}
       >
         {showProfileSetup && (
-          <SetupProfileCard onPress={() => navigation.navigate('Settings')} />
+          <SetupProfileCard onPress={() => navigation.navigate('Onboarding')} />
         )}
 
         {hasActivePlan && displayPlan ? (
