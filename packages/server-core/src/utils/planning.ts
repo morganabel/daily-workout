@@ -48,10 +48,10 @@ export function derivePlanningBrief({
   const requestedFocus = request.focus?.trim() || undefined;
   const plannedSlotIntent = request.plannedSlotIntent;
   const focusMode = requestedFocus
-    ? plannedSlotIntent
-      ? 'planned-slot'
-      : isAutoFocus(requestedFocus)
-      ? 'smart'
+    ? isAutoFocus(requestedFocus)
+      ? plannedSlotIntent
+        ? 'planned-slot'
+        : 'smart'
       : 'explicit'
     : plannedSlotIntent
       ? 'planned-slot'

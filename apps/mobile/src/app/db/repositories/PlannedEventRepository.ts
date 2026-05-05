@@ -103,6 +103,21 @@ export class PlannedEventRepository {
     return this.plannedEvents.query(...conditions).observe();
   }
 
+  observeEventsByLocalDate(
+    localDate: string,
+    options?: { includeArchived?: boolean }
+  ) {
+    const conditions: Array<ReturnType<typeof Q.where>> = [
+      Q.where('local_date', localDate),
+    ];
+
+    if (!options?.includeArchived) {
+      conditions.push(Q.where('archived_at', null));
+    }
+
+    return this.plannedEvents.query(...conditions).observe();
+  }
+
   async listEventsByLocalDate(
     localDate: string,
     options?: { includeArchived?: boolean }

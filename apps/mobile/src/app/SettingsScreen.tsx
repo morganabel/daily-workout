@@ -9,6 +9,7 @@ import {
   Alert,
 } from 'react-native';
 import { userRepository } from './db/repositories/UserRepository';
+import { createStarterWeekSlots } from './services/starterWeekSlots';
 import {
   EQUIPMENT_OPTIONS,
   GYM_EQUIPMENT,
@@ -237,6 +238,9 @@ export const SettingsScreen = () => {
           }
         : preferences;
       await userRepository.updatePreferences(preferencesToSave);
+      if (preferencesToSave.trainingBlueprint) {
+        await createStarterWeekSlots(preferencesToSave.trainingBlueprint);
+      }
       setHasChanges(false);
       Alert.alert('Saved', 'Your profile has been updated.');
     } catch (e) {

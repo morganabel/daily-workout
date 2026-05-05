@@ -360,7 +360,7 @@ export function useHomeData(): HomeDataState & {
       });
 
     const plannedEventSubscription = plannedEventRepository
-      .observeEvents()
+      .observeEventsByLocalDate(state.planningDateLocal)
       .subscribe((records) => {
         if (!isMountedRef.current) return;
         const plannedSlot = records

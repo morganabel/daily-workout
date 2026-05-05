@@ -30,6 +30,7 @@ describe('UserRepository blueprint preferences', () => {
     expect(preferences.onboardingAnswers).toEqual(blueprint.onboardingAnswers);
     expect(preferences.equipment).toEqual(['Dumbbells']);
     expect(preferences.experienceLevel).toBe('beginner');
+    expect(preferences.primaryGoal).toBe('Build strength');
   });
 
   it('records skipped onboarding so prompts can be suppressed', async () => {

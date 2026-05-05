@@ -834,7 +834,7 @@ export const HomeScreen = () => {
         focus === 'Smart' ? buildPlannedSlotIntent(plannedSlot) : undefined;
       clearTransientPlanState();
       const request: GenerationRequest = {
-        timeMinutes: plannedSlotIntent?.targetDurationMinutes ?? duration,
+        timeMinutes: duration,
         energy: intensity.toLowerCase() as WorkoutEnergy,
         focus,
       };

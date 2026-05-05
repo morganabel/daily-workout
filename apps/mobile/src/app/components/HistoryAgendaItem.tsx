@@ -21,6 +21,11 @@ type HistoryAgendaItemProps = {
   onOpenSession: (session: WorkoutSessionSummary) => void;
 };
 
+const formatSlotDetailState = (value: string): string => {
+  const label = value.replace('-', ' ');
+  return label.charAt(0).toUpperCase() + label.slice(1);
+};
+
 export const HistoryAgendaItem = ({
   item,
   plannedEvent,
@@ -52,7 +57,7 @@ export const HistoryAgendaItem = ({
     );
     const showOpen = Boolean(plannedEvent && hasLinkedWorkout);
     const detailState = plannedSlot
-      ? plannedSlot.detailState.replace('-', ' ')
+      ? formatSlotDetailState(plannedSlot.detailState)
       : null;
 
     return (
@@ -85,9 +90,7 @@ export const HistoryAgendaItem = ({
                 : ''}
             </Text>
             {plannedSlot && (
-              <Text style={styles.plannedSlotMeta}>
-                {plannedSlot.slotRole} • {detailState}
-              </Text>
+              <Text style={styles.plannedSlotMeta}>{detailState}</Text>
             )}
           </View>
           {showGenerate && plannedEvent && (

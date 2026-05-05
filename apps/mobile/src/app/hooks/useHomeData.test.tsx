@@ -51,7 +51,7 @@ jest.mock('../db/repositories/UserRepository', () => ({
 
 jest.mock('../db/repositories/PlannedEventRepository', () => ({
   plannedEventRepository: {
-    observeEvents: jest.fn(),
+    observeEventsByLocalDate: jest.fn(),
     toPlannedEvent: jest.fn((record) => record),
   },
 }));
@@ -126,7 +126,7 @@ describe('useHomeData', () => {
     mockUserRepository.observeUser.mockReturnValue(
       userStream.observable as any
     );
-    mockPlannedEventRepository.observeEvents.mockReturnValue(
+    mockPlannedEventRepository.observeEventsByLocalDate.mockReturnValue(
       plannedEventStream.observable as any
     );
     mockNetInfo.addEventListener = jest.fn().mockImplementation((callback) => {
@@ -172,6 +172,10 @@ describe('useHomeData', () => {
 
   it('hydrates today planned slot metadata from planned events', async () => {
     const { result } = renderHook(() => useHomeData());
+
+    expect(
+      mockPlannedEventRepository.observeEventsByLocalDate
+    ).toHaveBeenCalledWith(result.current.planningDateLocal);
 
     await act(async () => {
       plannedEventStream.emit([

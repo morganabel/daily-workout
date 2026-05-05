@@ -4,6 +4,7 @@ import { Q } from '@nozbe/watermelondb';
 import {
   trainingBlueprintSchema,
   type OnboardingAnswers,
+  type OnboardingGoal,
   type TrainingBlueprint,
   type UserPreferences,
   userPreferencesSchema,
@@ -14,6 +15,15 @@ const DEFAULT_PREFERENCES: UserPreferences = {
   injuries: [],
   focusBias: [],
   avoid: [],
+};
+
+const ONBOARDING_GOAL_LABELS: Record<OnboardingGoal, string> = {
+  'general-fitness': 'General fitness',
+  'build-muscle': 'Build muscle',
+  'build-strength': 'Build strength',
+  'lose-fat': 'Lose fat',
+  'run-cardio': 'Run/cardio',
+  mobility: 'Mobility',
 };
 
 export class UserRepository {
@@ -116,7 +126,9 @@ export class UserRepository {
       trainingBlueprint: blueprint,
       equipment: blueprint.equipmentLocationAssumptions.equipment,
       experienceLevel: blueprint.onboardingAnswers?.experienceLevel,
-      primaryGoal: blueprint.onboardingAnswers?.goal,
+      primaryGoal: blueprint.onboardingAnswers?.goal
+        ? ONBOARDING_GOAL_LABELS[blueprint.onboardingAnswers.goal]
+        : undefined,
     });
   }
 

@@ -276,6 +276,43 @@ describe('HomeScreen', () => {
     );
   });
 
+  it('preserves customized duration when Auto uses planned slot intent', async () => {
+    const { generateWorkout } = require('./services/api');
+    generateWorkout.mockResolvedValue(createTodayPlanMock());
+    mockUseHomeData.mockReturnValue({
+      ...baseHookState,
+      plannedSlot: createPlannedSlot({ targetDurationMinutes: 45 }),
+      quickActions: createSetupQuickActions({}),
+    });
+
+    const { getByText } = render(<HomeScreen />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    fireEvent.press(getByText('45 min'));
+    fireEvent.press(getByText('60'));
+    await act(async () => {
+      fireEvent.press(getByText('Generate workout'));
+    });
+    await act(async () => {
+      fireEvent.press(getByText("Generate today's workout"));
+    });
+
+    expect(generateWorkout).toHaveBeenCalledWith(
+      expect.objectContaining({
+        focus: 'Smart',
+        timeMinutes: 60,
+        plannedSlotIntent: expect.objectContaining({
+          targetDurationMinutes: 45,
+        }),
+      }),
+      expect.objectContaining({
+        scheduledDate: baseHookState.planningDateTimestamp,
+      })
+    );
+  });
+
   it('treats manual focus selection as an explicit override', async () => {
     const { generateWorkout } = require('./services/api');
     generateWorkout.mockResolvedValue(createTodayPlanMock());

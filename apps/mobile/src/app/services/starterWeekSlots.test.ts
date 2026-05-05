@@ -119,4 +119,36 @@ describe('createStarterWeekSlots', () => {
     expect(updatedSlots[1].title).toBe('Linked pull slot');
     expect(updatedSlots[1].linkedWorkoutId).toBe('workout-1');
   });
+
+  it('archives unprotected blueprint-owned slots omitted by edits', async () => {
+    const blueprint = createBlueprint();
+    const originalSlots = await createStarterWeekSlots(blueprint, {
+      startDate: new Date(2026, 3, 13),
+      timezone: 'UTC',
+    });
+    const editedBlueprint = {
+      ...blueprint,
+      slotSequence: blueprint.slotSequence.slice(0, 3),
+    };
+
+    await createStarterWeekSlots(editedBlueprint, {
+      startDate: new Date(2026, 3, 13),
+      timezone: 'UTC',
+    });
+
+    const activeEvents = await plannedEventRepository.listEventsByDateRange(
+      new Date(2026, 3, 13).getTime(),
+      new Date(2026, 3, 19).getTime()
+    );
+    const archivedSlot = await plannedEventRepository.getPlannedEventById(
+      originalSlots[3].id
+    );
+
+    expect(
+      activeEvents.filter((event) =>
+        plannedSlotMetadataSchema.safeParse(event.metadata).success
+      )
+    ).toHaveLength(3);
+    expect(archivedSlot?.archivedAt).toBeTruthy();
+  });
 });

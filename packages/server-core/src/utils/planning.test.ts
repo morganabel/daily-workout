@@ -185,6 +185,34 @@ describe('derivePlanningBrief', () => {
     );
   });
 
+  it('keeps explicit focus ahead of planned-slot background context', () => {
+    const brief = derivePlanningBrief({
+      request: {
+        focus: 'Mobility',
+        plannedSlotIntent: {
+          role: 'pull',
+          label: 'Pull',
+          targetDurationMinutes: 45,
+          plannedDate: '2026-04-15',
+          templateId: 'ppl-conditioning',
+          slotId: 'day-2-pull',
+          equipmentLocationAssumptions: {
+            environment: 'gym',
+            equipment: ['Gym'],
+          },
+        },
+      },
+      context: createContext(),
+      provider: 'openai',
+    });
+
+    expect(brief.focusMode).toBe('explicit');
+    expect(brief.resolvedFocus).toBe('Mobility');
+    expect(brief.plannedSlotIntent).toEqual(
+      expect.objectContaining({ role: 'pull' }),
+    );
+  });
+
   it('keeps planned-slot intent but protects near-term events', () => {
     const brief = derivePlanningBrief({
       request: {

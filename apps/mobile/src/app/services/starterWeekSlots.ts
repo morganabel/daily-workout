@@ -38,6 +38,9 @@ const getBlueprintSlotId = (event: PlannedEvent): string | undefined => {
   return metadata.success ? metadata.data.slotId : undefined;
 };
 
+const isBlueprintSlot = (event: PlannedEvent): boolean =>
+  plannedSlotMetadataSchema.safeParse(event.metadata).success;
+
 const createMetadata = (
   blueprint: TrainingBlueprint,
   slot: StarterWeekSlot,
@@ -71,6 +74,11 @@ export const createStarterWeekSlots = async (
     end.getTime()
   );
   const existingSlotsById = new Map<string, PlannedEvent>();
+  const expectedSlotIds = new Set(
+    blueprint.slotSequence
+      .filter((slot) => slot.dayOffset < horizonDays)
+      .map((slot) => slot.id)
+  );
 
   for (const event of existingEvents) {
     const slotId = getBlueprintSlotId(event);
@@ -78,6 +86,17 @@ export const createStarterWeekSlots = async (
       existingSlotsById.set(slotId, event);
     }
   }
+
+  await Promise.all(
+    existingEvents
+      .filter(
+        (event) =>
+          isBlueprintSlot(event) &&
+          !expectedSlotIds.has(getBlueprintSlotId(event) ?? '') &&
+          !isProtectedBlueprintSlot(event)
+      )
+      .map((event) => plannedEventRepository.archivePlannedEvent(event.id))
+  );
 
   const plannedSlots: PlannedEvent[] = [];
 

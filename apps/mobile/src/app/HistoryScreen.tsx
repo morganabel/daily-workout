@@ -456,7 +456,7 @@ export const HistoryScreen = () => {
       timeMinutes: plannedSlot?.targetDurationMinutes ?? event.durationMinutes,
       energy,
       equipment: plannedSlot?.equipmentLocationAssumptions.equipment,
-      focus: plannedSlot?.slotLabel,
+      focus: plannedSlot ? 'Smart' : undefined,
       plannedSlotIntent: plannedSlot
         ? {
             role: plannedSlot.slotRole,
