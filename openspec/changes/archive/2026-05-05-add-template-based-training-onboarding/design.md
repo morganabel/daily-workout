@@ -6,9 +6,7 @@ The onboarding gap is narrower than the full coach vision. New users need a simp
 
 ## Visual Reference
 
-The current onboarding mockup is stored with this change:
-
-![Streamlined onboarding flow](./assets/onboarding-flow-streamlined.png)
+The archived onboarding mockup image was intentionally removed to keep binary assets out of the repo.
 
 ## Goals / Non-Goals
 
