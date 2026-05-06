@@ -339,6 +339,396 @@ export const plannedSlotIntentSchema = z
   .strict();
 export type PlannedSlotIntent = z.infer<typeof plannedSlotIntentSchema>;
 
+export const adaptiveTrainingPlanSchemaVersionSchema = z.literal(1);
+export type AdaptiveTrainingPlanSchemaVersion = z.infer<
+  typeof adaptiveTrainingPlanSchemaVersionSchema
+>;
+
+export const adaptiveTrainingPlanModeSchema = z.enum(['adaptive']);
+export type AdaptiveTrainingPlanMode = z.infer<
+  typeof adaptiveTrainingPlanModeSchema
+>;
+
+export const adaptiveTrainingPlanStatusSchema = z.enum([
+  'active',
+  'paused',
+  'archived',
+]);
+export type AdaptiveTrainingPlanStatus = z.infer<
+  typeof adaptiveTrainingPlanStatusSchema
+>;
+
+export const adaptiveTrainingBlockCategorySchema = z.enum([
+  'strength',
+  'cardio',
+  'conditioning',
+  'mobility',
+  'recovery',
+  'accessory',
+  'rest',
+]);
+export type AdaptiveTrainingBlockCategory = z.infer<
+  typeof adaptiveTrainingBlockCategorySchema
+>;
+
+export const adaptiveTrainingTargetPrioritySchema = z.enum([
+  'primary',
+  'secondary',
+  'optional',
+]);
+export type AdaptiveTrainingTargetPriority = z.infer<
+  typeof adaptiveTrainingTargetPrioritySchema
+>;
+
+export const adaptiveProjectionStatusSchema = z.enum([
+  'preferred',
+  'projected',
+  'pinned',
+]);
+export type AdaptiveProjectionStatus = z.infer<
+  typeof adaptiveProjectionStatusSchema
+>;
+
+export const adaptiveWeekdaySchema = z.enum([
+  'monday',
+  'tuesday',
+  'wednesday',
+  'thursday',
+  'friday',
+  'saturday',
+  'sunday',
+]);
+export type AdaptiveWeekday = z.infer<typeof adaptiveWeekdaySchema>;
+
+export const adaptiveTypicalWeekFlexibilitySchema = z.enum([
+  'flexible',
+  'preferred',
+  'pinned',
+]);
+export type AdaptiveTypicalWeekFlexibility = z.infer<
+  typeof adaptiveTypicalWeekFlexibilitySchema
+>;
+
+export const adaptiveTargetContributionSchema = z
+  .object({
+    targetId: z.string().min(1),
+    count: z.number().positive(),
+  })
+  .strict();
+export type AdaptiveTargetContribution = z.infer<
+  typeof adaptiveTargetContributionSchema
+>;
+
+export const adaptiveTrainingBlockSchema = z
+  .object({
+    id: z.string().min(1),
+    label: z.string().min(1),
+    role: z.string().min(1),
+    category: adaptiveTrainingBlockCategorySchema,
+    stressTags: z.array(z.string().min(1)).default([]),
+    defaultDurationMinutes: z.number().int().positive(),
+    targetContributions: z.array(adaptiveTargetContributionSchema).default([]),
+    compatibleAddOnBlockIds: z.array(z.string().min(1)).default([]),
+    conflictsWithBlockIds: z.array(z.string().min(1)).default([]),
+    recoveryGuidance: z.string().optional(),
+  })
+  .strict();
+export type AdaptiveTrainingBlock = z.infer<
+  typeof adaptiveTrainingBlockSchema
+>;
+
+export const adaptiveTargetAppliesToSchema = z
+  .object({
+    blockIds: z.array(z.string().min(1)).default([]),
+    categories: z.array(adaptiveTrainingBlockCategorySchema).default([]),
+    stressTags: z.array(z.string().min(1)).default([]),
+  })
+  .strict();
+export type AdaptiveTargetAppliesTo = z.infer<
+  typeof adaptiveTargetAppliesToSchema
+>;
+
+export const adaptiveTargetRangeSchema = z
+  .object({
+    id: z.string().min(1),
+    label: z.string().min(1),
+    appliesTo: adaptiveTargetAppliesToSchema,
+    windowDays: z.number().int().positive(),
+    minCount: z.number().int().nonnegative(),
+    maxCount: z.number().int().nonnegative(),
+    idealCount: z.number().int().nonnegative().optional(),
+    priority: adaptiveTrainingTargetPrioritySchema,
+  })
+  .strict()
+  .superRefine((range, ctx) => {
+    if (range.minCount > range.maxCount) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'minCount must be less than or equal to maxCount',
+        path: ['minCount'],
+      });
+    }
+
+    if (
+      range.idealCount !== undefined &&
+      (range.idealCount < range.minCount || range.idealCount > range.maxCount)
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'idealCount must be inside minCount and maxCount',
+        path: ['idealCount'],
+      });
+    }
+  });
+export type AdaptiveTargetRange = z.infer<typeof adaptiveTargetRangeSchema>;
+
+export const adaptiveTypicalWeekPreferenceSchema = z
+  .object({
+    dayOfWeek: adaptiveWeekdaySchema,
+    preferredBlockIds: z.array(z.string().min(1)).min(1),
+    flexibility: adaptiveTypicalWeekFlexibilitySchema,
+  })
+  .strict();
+export type AdaptiveTypicalWeekPreference = z.infer<
+  typeof adaptiveTypicalWeekPreferenceSchema
+>;
+
+export const adaptivePlanSessionPreferenceSchema = z
+  .object({
+    id: z.string().min(1),
+    localDate: localDateSchema,
+    blockIds: z.array(z.string().min(1)).min(1),
+    status: adaptiveProjectionStatusSchema,
+    note: z.string().optional(),
+  })
+  .strict();
+export type AdaptivePlanSessionPreference = z.infer<
+  typeof adaptivePlanSessionPreferenceSchema
+>;
+
+export const adaptiveRecommendationSettingsSchema = z
+  .object({
+    preferredRotationBlockIds: z.array(z.string().min(1)).default([]),
+    allowCompatibleAddOns: z.boolean().default(true),
+    protectUpcomingLowerBodyDays: z.number().int().nonnegative().default(1),
+  })
+  .strict();
+export type AdaptiveRecommendationSettings = z.infer<
+  typeof adaptiveRecommendationSettingsSchema
+>;
+
+export const adaptivePlanTargetProgressSchema = z
+  .object({
+    targetId: z.string().min(1),
+    label: z.string().min(1),
+    count: z.number().nonnegative(),
+    minCount: z.number().int().nonnegative(),
+    maxCount: z.number().int().nonnegative(),
+    windowDays: z.number().int().positive(),
+  })
+  .strict();
+export type AdaptivePlanTargetProgress = z.infer<
+  typeof adaptivePlanTargetProgressSchema
+>;
+
+export const adaptiveRecommendationRationaleSchema = z
+  .object({
+    code: z.string().min(1),
+    message: z.string().min(1),
+  })
+  .strict();
+export type AdaptiveRecommendationRationale = z.infer<
+  typeof adaptiveRecommendationRationaleSchema
+>;
+
+export const adaptivePlanRecommendationSchema = z
+  .object({
+    id: z.string().min(1),
+    planId: z.string().min(1),
+    planningDateLocal: localDateSchema,
+    primaryBlockId: z.string().min(1),
+    addOnBlockIds: z.array(z.string().min(1)).default([]),
+    alternativeBlockIds: z.array(z.string().min(1)).default([]),
+    targetProgress: z.array(adaptivePlanTargetProgressSchema).default([]),
+    rationale: z.array(adaptiveRecommendationRationaleSchema).min(1),
+    coachNotes: z.array(z.string().min(1)).default([]),
+    projectionStatus: adaptiveProjectionStatusSchema.optional(),
+  })
+  .strict();
+export type AdaptivePlanRecommendation = z.infer<
+  typeof adaptivePlanRecommendationSchema
+>;
+
+export const adaptiveTrainingPlanSchema = z
+  .object({
+    schemaVersion: adaptiveTrainingPlanSchemaVersionSchema,
+    id: z.string().min(1),
+    sourceTemplateId: trainingTemplateIdSchema,
+    mode: adaptiveTrainingPlanModeSchema,
+    activeFrom: localDateSchema,
+    activeUntil: localDateSchema.optional(),
+    blocks: z.array(adaptiveTrainingBlockSchema).min(1),
+    targetRanges: z.array(adaptiveTargetRangeSchema).min(1),
+    typicalWeekPreferences: z.array(adaptiveTypicalWeekPreferenceSchema).default([]),
+    sessionPreferences: z.array(adaptivePlanSessionPreferenceSchema).default([]),
+    recommendationSettings: adaptiveRecommendationSettingsSchema,
+    status: adaptiveTrainingPlanStatusSchema,
+    updatedAt: z.string().datetime(),
+  })
+  .strict()
+  .superRefine((plan, ctx) => {
+    const blockIds = new Set<string>();
+
+    plan.blocks.forEach((block, blockIndex) => {
+      if (blockIds.has(block.id)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'block ids must be unique',
+          path: ['blocks', blockIndex, 'id'],
+        });
+      }
+      blockIds.add(block.id);
+
+      [...block.compatibleAddOnBlockIds, ...block.conflictsWithBlockIds].forEach(
+        (referencedBlockId) => {
+          if (referencedBlockId === block.id) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              message: 'block cannot reference itself as compatible or conflicting',
+              path: ['blocks', blockIndex],
+            });
+          }
+        },
+      );
+    });
+
+    const targetIds = new Set(plan.targetRanges.map((target) => target.id));
+
+    plan.targetRanges.forEach((target, targetIndex) => {
+      target.appliesTo.blockIds.forEach((blockId, blockIdIndex) => {
+        if (!blockIds.has(blockId)) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: 'target range references an unknown block id',
+            path: [
+              'targetRanges',
+              targetIndex,
+              'appliesTo',
+              'blockIds',
+              blockIdIndex,
+            ],
+          });
+        }
+      });
+    });
+
+    plan.blocks.forEach((block, blockIndex) => {
+      block.targetContributions.forEach((contribution, contributionIndex) => {
+        if (!targetIds.has(contribution.targetId)) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: 'block target contribution references an unknown target id',
+            path: ['blocks', blockIndex, 'targetContributions', contributionIndex],
+          });
+        }
+      });
+
+      block.compatibleAddOnBlockIds.forEach((blockId, blockIdIndex) => {
+        if (!blockIds.has(blockId)) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: 'compatible add-on references an unknown block id',
+            path: ['blocks', blockIndex, 'compatibleAddOnBlockIds', blockIdIndex],
+          });
+        }
+      });
+
+      block.conflictsWithBlockIds.forEach((blockId, blockIdIndex) => {
+        if (!blockIds.has(blockId)) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: 'conflict references an unknown block id',
+            path: ['blocks', blockIndex, 'conflictsWithBlockIds', blockIdIndex],
+          });
+        }
+      });
+    });
+
+    plan.typicalWeekPreferences.forEach((preference, preferenceIndex) => {
+      preference.preferredBlockIds.forEach((blockId, blockIdIndex) => {
+        if (!blockIds.has(blockId)) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: 'typical week preference references an unknown block id',
+            path: [
+              'typicalWeekPreferences',
+              preferenceIndex,
+              'preferredBlockIds',
+              blockIdIndex,
+            ],
+          });
+        }
+      });
+    });
+
+    plan.sessionPreferences.forEach((session, sessionIndex) => {
+      session.blockIds.forEach((blockId, blockIdIndex) => {
+        if (!blockIds.has(blockId)) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: 'session preference references an unknown block id',
+            path: ['sessionPreferences', sessionIndex, 'blockIds', blockIdIndex],
+          });
+        }
+      });
+    });
+
+    plan.recommendationSettings.preferredRotationBlockIds.forEach(
+      (blockId, blockIdIndex) => {
+        if (!blockIds.has(blockId)) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: 'preferred rotation references an unknown block id',
+            path: [
+              'recommendationSettings',
+              'preferredRotationBlockIds',
+              blockIdIndex,
+            ],
+          });
+        }
+      },
+    );
+  });
+export type AdaptiveTrainingPlan = z.infer<typeof adaptiveTrainingPlanSchema>;
+
+export const adaptivePlanBlockIntentSchema = z
+  .object({
+    blockId: z.string().min(1),
+    label: z.string().min(1),
+    category: adaptiveTrainingBlockCategorySchema,
+    role: z.string().min(1).optional(),
+    targetDurationMinutes: z.number().int().positive().optional(),
+    stressTags: z.array(z.string().min(1)).default([]),
+  })
+  .strict();
+export type AdaptivePlanBlockIntent = z.infer<
+  typeof adaptivePlanBlockIntentSchema
+>;
+
+export const adaptivePlanIntentSchema = z
+  .object({
+    planId: z.string().min(1),
+    recommendationId: z.string().min(1).optional(),
+    sourceTemplateId: trainingTemplateIdSchema.optional(),
+    primaryBlock: adaptivePlanBlockIntentSchema,
+    addOnBlocks: z.array(adaptivePlanBlockIntentSchema).default([]),
+    targetRangeContext: z.array(adaptivePlanTargetProgressSchema).default([]),
+    rationale: z.array(adaptiveRecommendationRationaleSchema).default([]),
+    projectionStatus: adaptiveProjectionStatusSchema.optional(),
+  })
+  .strict();
+export type AdaptivePlanIntent = z.infer<typeof adaptivePlanIntentSchema>;
+
 export const trainingTemplateDefinitionSchema = z
   .object({
     id: trainingTemplateIdSchema,
@@ -347,6 +737,17 @@ export const trainingTemplateDefinitionSchema = z
     weeklyRhythm: z.string(),
     durationAssumptions: durationAssumptionsSchema,
     slotSequence: z.array(starterWeekSlotSchema).min(1),
+    adaptivePlanTemplate: z
+      .object({
+        blocks: z.array(adaptiveTrainingBlockSchema).min(1),
+        targetRanges: z.array(adaptiveTargetRangeSchema).min(1),
+        typicalWeekPreferences: z
+          .array(adaptiveTypicalWeekPreferenceSchema)
+          .default([]),
+        recommendationSettings: adaptiveRecommendationSettingsSchema,
+      })
+      .strict()
+      .optional(),
   })
   .strict();
 export type TrainingTemplateDefinition = z.infer<
@@ -365,6 +766,209 @@ const createSlot = (
   dayOffset,
   targetDurationMinutes,
 });
+
+export const ADAPTIVE_PPL_CONDITIONING_BLOCKS = [
+  {
+    id: 'push',
+    label: 'Push',
+    role: 'push',
+    category: 'strength',
+    stressTags: ['upper-body', 'push'],
+    defaultDurationMinutes: 50,
+    targetContributions: [{ targetId: 'lift', count: 1 }],
+    compatibleAddOnBlockIds: ['easy-cardio', 'abs-accessory', 'mobility'],
+    conflictsWithBlockIds: [],
+  },
+  {
+    id: 'pull',
+    label: 'Pull',
+    role: 'pull',
+    category: 'strength',
+    stressTags: ['upper-body', 'pull'],
+    defaultDurationMinutes: 50,
+    targetContributions: [{ targetId: 'lift', count: 1 }],
+    compatibleAddOnBlockIds: ['easy-cardio', 'abs-accessory', 'mobility'],
+    conflictsWithBlockIds: [],
+  },
+  {
+    id: 'legs',
+    label: 'Legs',
+    role: 'legs',
+    category: 'strength',
+    stressTags: ['lower-body', 'heavy'],
+    defaultDurationMinutes: 50,
+    targetContributions: [{ targetId: 'lift', count: 1 }],
+    compatibleAddOnBlockIds: ['abs-accessory', 'mobility'],
+    conflictsWithBlockIds: ['sprint'],
+    recoveryGuidance: 'Avoid heavy lower-body stacking before hikes, sports, or sprint work.',
+  },
+  {
+    id: 'easy-cardio',
+    label: 'Easy Cardio',
+    role: 'easy-cardio',
+    category: 'cardio',
+    stressTags: ['low-impact', 'aerobic'],
+    defaultDurationMinutes: 25,
+    targetContributions: [{ targetId: 'cardio', count: 1 }],
+    compatibleAddOnBlockIds: ['push', 'pull', 'mobility'],
+    conflictsWithBlockIds: [],
+  },
+  {
+    id: 'sprint',
+    label: 'Sprint',
+    role: 'sprint',
+    category: 'conditioning',
+    stressTags: ['lower-body', 'high-impact', 'intense'],
+    defaultDurationMinutes: 30,
+    targetContributions: [
+      { targetId: 'cardio', count: 1 },
+      { targetId: 'sprint', count: 1 },
+    ],
+    compatibleAddOnBlockIds: ['mobility'],
+    conflictsWithBlockIds: ['legs'],
+    recoveryGuidance: 'Keep sprint work away from heavy legs and lower-body events.',
+  },
+  {
+    id: 'abs-accessory',
+    label: 'Abs / Accessory',
+    role: 'abs-accessory',
+    category: 'accessory',
+    stressTags: ['core', 'accessory'],
+    defaultDurationMinutes: 15,
+    targetContributions: [{ targetId: 'accessory', count: 1 }],
+    compatibleAddOnBlockIds: ['push', 'pull', 'legs', 'easy-cardio', 'mobility'],
+    conflictsWithBlockIds: [],
+  },
+  {
+    id: 'mobility',
+    label: 'Mobility',
+    role: 'mobility',
+    category: 'mobility',
+    stressTags: ['recovery'],
+    defaultDurationMinutes: 20,
+    targetContributions: [{ targetId: 'rest', count: 1 }],
+    compatibleAddOnBlockIds: ['push', 'pull', 'legs', 'easy-cardio', 'sprint'],
+    conflictsWithBlockIds: [],
+  },
+  {
+    id: 'rest',
+    label: 'Rest',
+    role: 'rest',
+    category: 'rest',
+    stressTags: ['recovery'],
+    defaultDurationMinutes: 15,
+    targetContributions: [{ targetId: 'rest', count: 1 }],
+    compatibleAddOnBlockIds: [],
+    conflictsWithBlockIds: ['push', 'pull', 'legs', 'easy-cardio', 'sprint'],
+  },
+] satisfies AdaptiveTrainingBlock[];
+
+export const ADAPTIVE_PPL_CONDITIONING_TARGET_RANGES = [
+  {
+    id: 'lift',
+    label: 'Lift',
+    appliesTo: {
+      blockIds: ['push', 'pull', 'legs'],
+      categories: ['strength'],
+      stressTags: [],
+    },
+    windowDays: 7,
+    minCount: 3,
+    maxCount: 5,
+    idealCount: 3,
+    priority: 'primary',
+  },
+  {
+    id: 'cardio',
+    label: 'Cardio',
+    appliesTo: {
+      blockIds: ['easy-cardio', 'sprint'],
+      categories: ['cardio', 'conditioning'],
+      stressTags: [],
+    },
+    windowDays: 7,
+    minCount: 2,
+    maxCount: 3,
+    idealCount: 2,
+    priority: 'secondary',
+  },
+  {
+    id: 'sprint',
+    label: 'Sprint',
+    appliesTo: {
+      blockIds: ['sprint'],
+      categories: ['conditioning'],
+      stressTags: [],
+    },
+    windowDays: 7,
+    minCount: 1,
+    maxCount: 1,
+    idealCount: 1,
+    priority: 'secondary',
+  },
+  {
+    id: 'rest',
+    label: 'Rest / Recovery',
+    appliesTo: {
+      blockIds: ['rest', 'mobility'],
+      categories: ['rest', 'mobility'],
+      stressTags: [],
+    },
+    windowDays: 7,
+    minCount: 0,
+    maxCount: 2,
+    idealCount: 1,
+    priority: 'optional',
+  },
+  {
+    id: 'accessory',
+    label: 'Abs / Accessory',
+    appliesTo: {
+      blockIds: ['abs-accessory'],
+      categories: ['accessory'],
+      stressTags: [],
+    },
+    windowDays: 7,
+    minCount: 0,
+    maxCount: 3,
+    idealCount: 1,
+    priority: 'optional',
+  },
+] satisfies AdaptiveTargetRange[];
+
+export const ADAPTIVE_PPL_CONDITIONING_TYPICAL_WEEK = [
+  {
+    dayOfWeek: 'monday',
+    preferredBlockIds: ['push'],
+    flexibility: 'preferred',
+  },
+  {
+    dayOfWeek: 'tuesday',
+    preferredBlockIds: ['easy-cardio'],
+    flexibility: 'flexible',
+  },
+  {
+    dayOfWeek: 'wednesday',
+    preferredBlockIds: ['pull'],
+    flexibility: 'preferred',
+  },
+  {
+    dayOfWeek: 'friday',
+    preferredBlockIds: ['legs'],
+    flexibility: 'preferred',
+  },
+  {
+    dayOfWeek: 'saturday',
+    preferredBlockIds: ['sprint'],
+    flexibility: 'flexible',
+  },
+] satisfies AdaptiveTypicalWeekPreference[];
+
+export const ADAPTIVE_PPL_CONDITIONING_RECOMMENDATION_SETTINGS = {
+  preferredRotationBlockIds: ['push', 'pull', 'legs'],
+  allowCompatibleAddOns: true,
+  protectUpcomingLowerBodyDays: 1,
+} satisfies AdaptiveRecommendationSettings;
 
 export const TRAINING_TEMPLATE_DEFINITIONS = {
   'balanced-foundation': {
@@ -414,6 +1018,12 @@ export const TRAINING_TEMPLATE_DEFINITIONS = {
       createSlot(5, 'mobility', 'Mobility', 20),
       createSlot(6, 'recovery', 'Recovery', 20),
     ],
+    adaptivePlanTemplate: {
+      blocks: ADAPTIVE_PPL_CONDITIONING_BLOCKS,
+      targetRanges: ADAPTIVE_PPL_CONDITIONING_TARGET_RANGES,
+      typicalWeekPreferences: ADAPTIVE_PPL_CONDITIONING_TYPICAL_WEEK,
+      recommendationSettings: ADAPTIVE_PPL_CONDITIONING_RECOMMENDATION_SETTINGS,
+    },
   },
   'endurance-support': {
     id: 'endurance-support',
@@ -448,6 +1058,11 @@ export const TRAINING_TEMPLATE_DEFINITIONS = {
     ],
   },
 } satisfies Record<TrainingTemplateId, TrainingTemplateDefinition>;
+
+export const supportsAdaptiveTrainingPlan = (
+  templateId: TrainingTemplateId,
+): boolean =>
+  Boolean(TRAINING_TEMPLATE_DEFINITIONS[templateId].adaptivePlanTemplate);
 
 const minimalEquipment = new Set(['Bodyweight', 'Resistance Bands', 'Jump Rope']);
 
@@ -510,6 +1125,38 @@ export const createTrainingBlueprintFromOnboarding = (
     setupStatus: 'completed',
     editStatus: options.editStatus ?? 'accepted',
     horizonDays: options.horizonDays ?? 7,
+    updatedAt: options.updatedAt,
+  });
+};
+
+export const createAdaptiveTrainingPlanFromTemplate = (
+  templateId: TrainingTemplateId,
+  options: {
+    id?: string;
+    activeFrom: LocalDate;
+    activeUntil?: LocalDate;
+    updatedAt: string;
+  },
+): AdaptiveTrainingPlan | undefined => {
+  const template = TRAINING_TEMPLATE_DEFINITIONS[templateId].adaptivePlanTemplate;
+
+  if (!template) {
+    return undefined;
+  }
+
+  return adaptiveTrainingPlanSchema.parse({
+    schemaVersion: 1,
+    id: options.id ?? `${templateId}-adaptive-plan`,
+    sourceTemplateId: templateId,
+    mode: 'adaptive',
+    activeFrom: options.activeFrom,
+    activeUntil: options.activeUntil,
+    blocks: template.blocks,
+    targetRanges: template.targetRanges,
+    typicalWeekPreferences: template.typicalWeekPreferences,
+    sessionPreferences: [],
+    recommendationSettings: template.recommendationSettings,
+    status: 'active',
     updatedAt: options.updatedAt,
   });
 };
@@ -792,6 +1439,8 @@ export const generationRequestSchema = z
       .optional(),
     // Optional explicit intent when generating from a blueprint-owned planned slot.
     plannedSlotIntent: plannedSlotIntentSchema.optional(),
+    // Optional explicit intent when generating from an adaptive training plan recommendation.
+    adaptivePlanIntent: adaptivePlanIntentSchema.optional(),
     // Optional provider selection and model override
     provider: aiProviderSchema.optional(),
   })
@@ -834,6 +1483,8 @@ export const userPreferencesSchema = z.object({
   onboardingSetupStatus: trainingBlueprintSetupStatusSchema.optional(),
   // Accepted or adjusted template-derived training structure.
   trainingBlueprint: trainingBlueprintSchema.optional(),
+  // Active adaptive plan. Stored locally so CE and hosted use the same planning model.
+  adaptiveTrainingPlan: adaptiveTrainingPlanSchema.optional(),
 });
 export type UserPreferences = z.infer<typeof userPreferencesSchema>;
 
