@@ -266,6 +266,43 @@ export const resolveAdaptiveTrainingRecommendation = (
     (block) => block.category !== 'accessory'
   );
   const targetProgress = computeAdaptiveTargetProgress(input);
+  const pinnedSession = input.plan.sessionPreferences.find(
+    (session) =>
+      session.status === 'pinned' && session.localDate === input.planningDateLocal
+  );
+  const pinnedPrimaryBlockId = pinnedSession?.blockIds[0];
+  const pinnedPrimary = pinnedSession
+    ? pinnedPrimaryBlockId
+      ? getBlockById(input.plan, pinnedPrimaryBlockId)
+      : undefined
+    : undefined;
+  if (pinnedSession && pinnedPrimary) {
+    const pinnedAddOns = pinnedSession.blockIds
+      .slice(1)
+      .map((blockId) => getBlockById(input.plan, blockId))
+      .filter((block): block is AdaptiveTrainingBlock => Boolean(block));
+
+    return adaptivePlanRecommendationSchema.parse({
+      id: `${input.plan.id}-${input.planningDateLocal}-${pinnedPrimary.id}-pinned`,
+      planId: input.plan.id,
+      planningDateLocal: input.planningDateLocal,
+      primaryBlockId: pinnedPrimary.id,
+      addOnBlockIds: pinnedAddOns.map((block) => block.id),
+      alternativeBlockIds: activeBlocks
+        .map((block) => block.id)
+        .filter((blockId) => !pinnedSession.blockIds.includes(blockId))
+        .slice(0, 3),
+      targetProgress,
+      rationale: [
+        {
+          code: 'pinned-session',
+          message: `${pinnedPrimary.label} is pinned for this date.`,
+        },
+      ],
+      coachNotes: ['Pinned sessions are preserved until you change them.'],
+      projectionStatus: 'pinned',
+    });
+  }
   const recentBlockIds = getRecentBlockIds(input.plan, input.recentSessions);
   const scoredBlocks = activeBlocks
     .map((block) => ({

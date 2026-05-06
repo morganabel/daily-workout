@@ -1,4 +1,5 @@
 import {
+  type AdaptiveTargetRange,
   createAdaptiveTrainingPlanFromTemplate,
   createTrainingBlueprintFromOnboarding,
 } from '@workout-agent/shared';
@@ -74,7 +75,7 @@ describe('UserRepository blueprint preferences', () => {
 
     await userRepository.saveAdaptiveTrainingPlan(plan);
     const updated = await userRepository.updateAdaptiveTrainingPlan({
-      targetRanges: plan.targetRanges.map((target) =>
+      targetRanges: plan.targetRanges.map((target: AdaptiveTargetRange) =>
         target.id === 'lift'
           ? { ...target, minCount: 4, maxCount: 5, idealCount: 4 }
           : target
@@ -82,9 +83,11 @@ describe('UserRepository blueprint preferences', () => {
       updatedAt: '2026-04-16T12:00:00.000Z',
     });
 
-    expect(updated.targetRanges.find((target) => target.id === 'lift')).toMatchObject(
-      { minCount: 4, maxCount: 5, idealCount: 4 }
-    );
+    expect(
+      updated.targetRanges.find(
+        (target: AdaptiveTargetRange) => target.id === 'lift'
+      )
+    ).toMatchObject({ minCount: 4, maxCount: 5, idealCount: 4 });
   });
 
   it('rejects invalid adaptive plan updates and keeps previous plan', async () => {
@@ -100,7 +103,7 @@ describe('UserRepository blueprint preferences', () => {
     await userRepository.saveAdaptiveTrainingPlan(plan);
     await expect(
       userRepository.updateAdaptiveTrainingPlan({
-        targetRanges: plan.targetRanges.map((target) =>
+        targetRanges: plan.targetRanges.map((target: AdaptiveTargetRange) =>
           target.id === 'lift'
             ? { ...target, minCount: 6, maxCount: 3, idealCount: 4 }
             : target

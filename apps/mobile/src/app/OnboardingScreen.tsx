@@ -277,15 +277,15 @@ const getStepCopy = (step: number) => {
 
   if (step === 3) {
     return {
-      title: 'Your starter week',
-      subtitle: 'Tap any day to adjust.',
+      title: 'Your training rhythm',
+      subtitle: 'Projected blocks can move as your schedule changes.',
       prompt: null,
     };
   }
 
   return {
     title: "Let's set your rhythm",
-    subtitle: "We'll suggest a starter week from a few basics.",
+    subtitle: "We'll suggest flexible blocks and target ranges from a few basics.",
     prompt: "What's your primary goal?",
   };
 };
@@ -649,7 +649,7 @@ export const OnboardingScreen = () => {
                 color={palette.textSecondary}
               />
               <Text style={styles.editNoteText}>
-                You can change these now or later.
+                These are projected suggestions. You can change or pin them later.
               </Text>
             </View>
           </View>
@@ -680,7 +680,7 @@ export const OnboardingScreen = () => {
               </Pressable>
             )}
             <PrimaryAction
-              label={step === 2 ? 'See my week' : 'Next'}
+              label={step === 2 ? 'See my rhythm' : 'Next'}
               onPress={handleContinue}
               disabled={!canContinue}
               rightIcon={

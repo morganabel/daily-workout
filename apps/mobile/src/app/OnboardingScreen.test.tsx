@@ -45,7 +45,7 @@ const completeQuestions = async (screen: RenderAPI) => {
   await press(screen.getByText('Next'));
   await press(screen.getByLabelText('Intermediate'));
   await press(screen.getByText('Next'));
-  await press(screen.getByText('See my week'));
+    await press(screen.getByText('See my rhythm'));
 };
 
 describe('OnboardingScreen', () => {
@@ -53,12 +53,12 @@ describe('OnboardingScreen', () => {
     jest.clearAllMocks();
   });
 
-  it('shows a recommended starter week after the three questions', async () => {
+  it('shows a recommended training rhythm after the three questions', async () => {
     const screen = render(<OnboardingScreen />);
 
     await completeQuestions(screen);
 
-    expect(screen.getByText('Your starter week')).toBeTruthy();
+    expect(screen.getByText('Your training rhythm')).toBeTruthy();
     expect(screen.getAllByText('Lift')).toHaveLength(3);
     expect(screen.getByText('Use this plan')).toBeTruthy();
   });
@@ -76,7 +76,7 @@ describe('OnboardingScreen', () => {
         'Assuming full gym access. You can fine-tune equipment later.'
       )
     ).toBeTruthy();
-    expect(screen.getByText('See my week')).toBeTruthy();
+    expect(screen.getByText('See my rhythm')).toBeTruthy();
   });
 
   it('accepts the recommendation and creates starter slots', async () => {

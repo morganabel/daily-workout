@@ -86,6 +86,8 @@ AI can later help explain or refine recommendations, but the core plan state and
 
 `planned_events` should continue to represent calendar-visible items. Adaptive plans may create projected workout events for visibility and pinned events for commitments, but the plan is not defined by those events. User-owned events, hikes, sports, travel, and other planned events remain inputs to recommendation and projection.
 
+V1 computes adaptive recommendations and projection labels on demand from the local plan, recent sessions, and upcoming events. It does not persist adaptive projected workout events into `planned_events`; that remains a follow-up once pinning and reflow controls are more complete. Existing blueprint-owned starter slots still persist as `planned_events` for compatibility.
+
 ### Decision: Reuse generation planning with richer intent
 
 The existing planned-slot intent path already lets Home and History pass structured session intent into generation. This change should extend that concept with adaptive plan intent: plan id, recommendation id, primary block, optional add-ons, target range context, rationale, and relevant constraints.

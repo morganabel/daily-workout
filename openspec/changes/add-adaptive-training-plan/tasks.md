@@ -29,18 +29,18 @@
 
 ## 5. Mobile UI
 
-- [ ] 5.1 Update onboarding copy and recommendation UI for adaptive templates from “starter week” to “training rhythm,” blocks, and target ranges.
-- [ ] 5.2 Add Plan Settings UI for editing target ranges, inspecting blocks, editing typical week preferences, and saving local adaptive plan updates.
+- [x] 5.1 Update onboarding copy and recommendation UI for adaptive templates from “starter week” to “training rhythm,” blocks, and target ranges.
+- [x] 5.2 Add Plan Settings UI for editing target ranges, inspecting blocks, editing typical week preferences, and saving local adaptive plan updates.
 - [x] 5.3 Update Home to show the recommended next session, optional add-ons, rationale, alternatives, and customize/generate actions.
-- [ ] 5.4 Add projected vs pinned language where adaptive plan sessions appear in planning or calendar surfaces.
-- [ ] 5.5 Add mobile UI tests for adaptive onboarding, plan settings edits, Home recommendation rationale, combined session presentation, and pinned/projected labels.
+- [x] 5.4 Add projected vs pinned language where adaptive plan sessions appear in planning or calendar surfaces.
+- [x] 5.5 Add mobile UI tests for adaptive onboarding, plan settings edits, Home recommendation rationale, combined session presentation, and pinned/projected labels.
 
 ## 6. Calendar Projection And Planned Events
 
-- [ ] 6.1 Decide whether V1 projections are computed on demand, persisted as `planned_events`, or both; document the decision in `design.md` if it changes.
-- [ ] 6.2 If persisted, add metadata for adaptive projected and pinned workout events without overwriting user-owned events.
+- [x] 6.1 Decide whether V1 projections are computed on demand, persisted as `planned_events`, or both; document the decision in `design.md` if it changes.
+- [x] 6.2 If persisted, add metadata for adaptive projected and pinned workout events without overwriting user-owned events.
 - [x] 6.3 Ensure user-owned events such as hikes, sports, travel, and manual plans feed recommendation context without being modified by projection logic.
-- [ ] 6.4 Add tests for preserving pinned sessions, reflowing projected sessions, and using upcoming events as coach constraints.
+- [x] 6.4 Add tests for preserving pinned sessions, reflowing projected sessions, and using upcoming events as coach constraints.
 
 ## 7. Server Planning And Prompts
 
@@ -53,20 +53,20 @@
 ## 8. Compatibility And Debugging
 
 - [x] 8.1 Keep existing starter-week planned-slot generation working for users without adaptive plans.
-- [ ] 8.2 Update mobile debug MCP schemas/tools if needed so adaptive plan state and recommendation traces remain inspectable without exposing secrets.
+- [x] 8.2 Update mobile debug MCP schemas/tools if needed so adaptive plan state and recommendation traces remain inspectable without exposing secrets.
 - [x] 8.3 Add regression tests proving legacy planned slots still hydrate on Home and generate workouts.
 - [x] 8.4 Confirm CE and hosted behavior remains identical for adaptive planning, with no new billing or quota paths.
 
 ## 9. Coaching Vision Continuity
 
-- [ ] 9.1 Document follow-up changes for template library expansion, multi-week progression, plan adaptation, and coach evaluation.
-- [ ] 9.2 Verify schemas can represent future template families without hardcoding PPL-specific logic.
+- [x] 9.1 Document follow-up changes for template library expansion, multi-week progression, plan adaptation, and coach evaluation.
+- [x] 9.2 Verify schemas can represent future template families without hardcoding PPL-specific logic.
 - [x] 9.3 Add tests proving recommendations derive from structured plan state rather than fixed 7-day slots.
-- [ ] 9.4 Capture known limitations for periodization, deloads, advanced load metrics, and AI-assisted plan tuning.
+- [x] 9.4 Capture known limitations for periodization, deloads, advanced load metrics, and AI-assisted plan tuning.
 
 ## 10. Verification
 
 - [x] 10.1 Run shared package tests for adaptive plan contracts.
-- [ ] 10.2 Run mobile tests for onboarding, profile persistence, Home data, resolver behavior, and UI presentation.
+- [x] 10.2 Run mobile tests for onboarding, profile persistence, Home data, resolver behavior, and UI presentation.
 - [x] 10.3 Run server-core and server-ai tests for generation planning and prompt construction.
-- [ ] 10.4 Run lint/typecheck targets for affected Nx projects.
+- [x] 10.4 Run lint/typecheck targets for affected Nx projects.

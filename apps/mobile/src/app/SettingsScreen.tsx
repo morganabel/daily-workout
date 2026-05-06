@@ -14,8 +14,10 @@ import {
   EQUIPMENT_OPTIONS,
   GYM_EQUIPMENT,
   TRAINING_TEMPLATE_DEFINITIONS,
+  adaptiveTrainingPlanSchema,
   normalizeEquipmentSelection,
   trainingBlueprintSchema,
+  type AdaptiveTargetRange,
   type ExperienceLevel,
   type StarterWeekSlotRole,
   type TrainingEnvironment,
@@ -72,6 +74,9 @@ const formatLabel = (value: string): string =>
     .split('-')
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(' ');
+
+const formatRange = (target: AdaptiveTargetRange): string =>
+  `${target.minCount}-${target.maxCount} in ${target.windowDays} days`;
 
 export const SettingsScreen = () => {
   const [preferences, setPreferences] = useState<UserPreferences>({
@@ -169,6 +174,52 @@ export const SettingsScreen = () => {
       setHasChanges(true);
     },
     []
+  );
+
+  const updateAdaptivePlan = useCallback(
+    (
+      updater: (
+        plan: NonNullable<UserPreferences['adaptiveTrainingPlan']>
+      ) => NonNullable<UserPreferences['adaptiveTrainingPlan']>
+    ) => {
+      setPreferences((prev) => {
+        if (!prev.adaptiveTrainingPlan) return prev;
+        const result = adaptiveTrainingPlanSchema.safeParse({
+          ...updater(prev.adaptiveTrainingPlan),
+          updatedAt: new Date().toISOString(),
+        });
+        if (!result.success) {
+          console.error('Invalid adaptive plan settings update:', result.error);
+          return prev;
+        }
+        return {
+          ...prev,
+          adaptiveTrainingPlan: result.data,
+        };
+      });
+      setHasChanges(true);
+    },
+    []
+  );
+
+  const updateTargetRange = useCallback(
+    (targetId: string, updates: Partial<AdaptiveTargetRange>) => {
+      updateAdaptivePlan((plan) => ({
+        ...plan,
+        targetRanges: plan.targetRanges.map((target) => {
+          if (target.id !== targetId) return target;
+          const next = { ...target, ...updates };
+          return {
+            ...next,
+            idealCount:
+              next.idealCount === undefined
+                ? undefined
+                : Math.min(Math.max(next.idealCount, next.minCount), next.maxCount),
+          };
+        }),
+      }));
+    },
+    [updateAdaptivePlan]
   );
 
   const selectTemplate = useCallback(
@@ -410,11 +461,125 @@ export const SettingsScreen = () => {
           />
         </View>
 
+        {preferences.adaptiveTrainingPlan && (
+          <View style={styles.section}>
+            <SectionHeader title="Training Rhythm" />
+            <Text style={styles.sectionDescription}>
+              Edit the adaptive blocks and target ranges Home uses for coach
+              recommendations. Projected sessions can reflow; pinned sessions
+              should stay put until you change them.
+            </Text>
+
+            <View style={styles.planCard}>
+              <Text style={styles.planCardLabel}>Blocks</Text>
+              <View style={styles.miniChipWrap}>
+                {preferences.adaptiveTrainingPlan.blocks.map((block) => (
+                  <View key={block.id} style={styles.blockPill}>
+                    <Text style={styles.blockPillTitle}>{block.label}</Text>
+                    <Text style={styles.blockPillMeta}>
+                      {formatLabel(block.category)} · {block.defaultDurationMinutes} min
+                    </Text>
+                  </View>
+                ))}
+              </View>
+
+              <Text style={styles.planCardLabel}>Target Ranges</Text>
+              {preferences.adaptiveTrainingPlan.targetRanges.map((target) => (
+                <View key={target.id} style={styles.targetRangeCard}>
+                  <View style={styles.targetRangeHeader}>
+                    <View>
+                      <Text style={styles.slotEditorTitle}>{target.label}</Text>
+                      <Text style={styles.blockPillMeta}>{formatRange(target)}</Text>
+                    </View>
+                    <Text style={styles.projectionBadge}>Projected</Text>
+                  </View>
+                  <View style={styles.rangeControlRow}>
+                    <Text style={styles.rangeControlLabel}>Min</Text>
+                    <Button
+                      label="-"
+                      variant="secondary"
+                      onPress={() =>
+                        updateTargetRange(target.id, {
+                          minCount: Math.max(0, target.minCount - 1),
+                        })
+                      }
+                      disabled={target.minCount <= 0}
+                      style={styles.rangeButton}
+                    />
+                    <Text style={styles.rangeValue}>{target.minCount}</Text>
+                    <Button
+                      label="+"
+                      variant="secondary"
+                      onPress={() =>
+                        updateTargetRange(target.id, {
+                          minCount: Math.min(target.maxCount, target.minCount + 1),
+                        })
+                      }
+                      disabled={target.minCount >= target.maxCount}
+                      style={styles.rangeButton}
+                    />
+                    <Text style={styles.rangeControlLabel}>Max</Text>
+                    <Button
+                      label="-"
+                      variant="secondary"
+                      onPress={() =>
+                        updateTargetRange(target.id, {
+                          maxCount: Math.max(target.minCount, target.maxCount - 1),
+                        })
+                      }
+                      disabled={target.maxCount <= target.minCount}
+                      style={styles.rangeButton}
+                    />
+                    <Text style={styles.rangeValue}>{target.maxCount}</Text>
+                    <Button
+                      label="+"
+                      variant="secondary"
+                      onPress={() =>
+                        updateTargetRange(target.id, {
+                          maxCount: target.maxCount + 1,
+                        })
+                      }
+                      style={styles.rangeButton}
+                    />
+                  </View>
+                </View>
+              ))}
+
+              <Text style={styles.planCardLabel}>Typical Week Preferences</Text>
+              {preferences.adaptiveTrainingPlan.typicalWeekPreferences.map(
+                (preference) => (
+                  <View
+                    key={`${preference.dayOfWeek}-${preference.preferredBlockIds.join('-')}`}
+                    style={styles.preferenceRow}
+                  >
+                    <Text style={styles.preferenceDay}>
+                      {formatLabel(preference.dayOfWeek)}
+                    </Text>
+                    <Text style={styles.preferenceBlocks}>
+                      {preference.preferredBlockIds
+                        .map(
+                          (blockId) =>
+                            preferences.adaptiveTrainingPlan?.blocks.find(
+                              (block) => block.id === blockId
+                            )?.label ?? blockId
+                        )
+                        .join(', ')}
+                    </Text>
+                    <Text style={styles.projectionBadge}>
+                      {preference.flexibility === 'pinned' ? 'Pinned' : 'Preferred'}
+                    </Text>
+                  </View>
+                )
+              )}
+            </View>
+          </View>
+        )}
+
         {preferences.trainingBlueprint && (
           <View style={styles.section}>
             <SectionHeader title="Plan Settings" />
             <Text style={styles.sectionDescription}>
-              Fine-tune the accepted starter plan without rerunning onboarding.
+              Fine-tune the legacy starter slots without rerunning onboarding.
             </Text>
 
             <View style={styles.planCard}>
@@ -693,5 +858,89 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: typography.fontFamilyBold,
     color: palette.textPrimary,
+  },
+  blockPill: {
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 14,
+    backgroundColor: palette.cardSecondary,
+    borderWidth: 1,
+    borderColor: palette.border,
+    gap: 2,
+  },
+  blockPillTitle: {
+    fontSize: 13,
+    fontFamily: typography.fontFamilyBold,
+    color: palette.textPrimary,
+  },
+  blockPillMeta: {
+    fontSize: 12,
+    fontFamily: typography.fontFamily,
+    color: palette.textSecondary,
+  },
+  targetRangeCard: {
+    padding: 12,
+    borderRadius: 14,
+    backgroundColor: palette.cardSecondary,
+    gap: 12,
+  },
+  targetRangeHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  projectionBadge: {
+    alignSelf: 'flex-start',
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 999,
+    overflow: 'hidden',
+    backgroundColor: '#E0F2FE',
+    color: palette.primary,
+    fontFamily: typography.fontFamilyBold,
+    fontSize: 11,
+  },
+  rangeControlRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  rangeControlLabel: {
+    fontSize: 12,
+    fontFamily: typography.fontFamilyBold,
+    color: palette.textSecondary,
+    textTransform: 'uppercase',
+  },
+  rangeButton: {
+    minWidth: 38,
+    paddingHorizontal: 0,
+  },
+  rangeValue: {
+    minWidth: 18,
+    textAlign: 'center',
+    fontSize: 14,
+    fontFamily: typography.fontFamilyBold,
+    color: palette.textPrimary,
+  },
+  preferenceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    padding: 12,
+    borderRadius: 14,
+    backgroundColor: palette.cardSecondary,
+  },
+  preferenceDay: {
+    width: 86,
+    fontSize: 13,
+    fontFamily: typography.fontFamilyBold,
+    color: palette.textPrimary,
+  },
+  preferenceBlocks: {
+    flex: 1,
+    fontSize: 13,
+    fontFamily: typography.fontFamily,
+    color: palette.textSecondary,
   },
 });

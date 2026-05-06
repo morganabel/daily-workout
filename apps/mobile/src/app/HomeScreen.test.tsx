@@ -239,7 +239,7 @@ describe('HomeScreen', () => {
       await Promise.resolve();
     });
 
-    expect(queryByText('Build your starter week')).toBeNull();
+    expect(queryByText('Build your training rhythm')).toBeNull();
   });
 
   it('shows profile equipment from quick actions in setup', async () => {
