@@ -970,7 +970,10 @@ export const ADAPTIVE_PPL_CONDITIONING_RECOMMENDATION_SETTINGS = {
   protectUpcomingLowerBodyDays: 1,
 } satisfies AdaptiveRecommendationSettings;
 
-export const TRAINING_TEMPLATE_DEFINITIONS = {
+export const TRAINING_TEMPLATE_DEFINITIONS: Record<
+  TrainingTemplateId,
+  TrainingTemplateDefinition
+> = {
   'balanced-foundation': {
     id: 'balanced-foundation',
     name: 'Balanced foundation',
@@ -1057,7 +1060,7 @@ export const TRAINING_TEMPLATE_DEFINITIONS = {
       createSlot(6, 'recovery', 'Recovery', 15),
     ],
   },
-} satisfies Record<TrainingTemplateId, TrainingTemplateDefinition>;
+};
 
 export const supportsAdaptiveTrainingPlan = (
   templateId: TrainingTemplateId,

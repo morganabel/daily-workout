@@ -7,18 +7,18 @@
 
 ## 2. Template And Profile Persistence
 
-- [ ] 2.1 Extend template selection/creation logic so applicable onboarding answers can seed an adaptive training plan instead of only a 7-day starter slot sequence.
-- [ ] 2.2 Persist the accepted adaptive training plan in local user preferences while preserving existing `trainingBlueprint` and starter-week compatibility.
-- [ ] 2.3 Add profile repository helpers for saving and updating adaptive plan settings with validation.
-- [ ] 2.4 Add repository tests covering adaptive plan save, update, invalid range rejection, and legacy preference parsing.
+- [x] 2.1 Extend template selection/creation logic so applicable onboarding answers can seed an adaptive training plan instead of only a 7-day starter slot sequence.
+- [x] 2.2 Persist the accepted adaptive training plan in local user preferences while preserving existing `trainingBlueprint` and starter-week compatibility.
+- [x] 2.3 Add profile repository helpers for saving and updating adaptive plan settings with validation.
+- [x] 2.4 Add repository tests covering adaptive plan save, update, invalid range rejection, and legacy preference parsing.
 
 ## 3. Recommendation Resolver
 
-- [ ] 3.1 Implement a deterministic resolver that computes target progress over rolling windows from recent completed sessions and plan block target contributions.
-- [ ] 3.2 Score primary block candidates using target ranges, preferred rotation, recent stress, recovery guidance, available context, and upcoming planned events.
-- [ ] 3.3 Score compatible add-on blocks using available time, target progress, compatibility rules, conflict rules, and recent stress.
-- [ ] 3.4 Return recommendation output with primary block, optional add-ons, alternatives, rationale, and coach notes.
-- [ ] 3.5 Add resolver tests for PPL sequencing, target ranges, extra lift exposures, Pull + Easy Cardio, Push + Abs, sprint/legs conflicts, and a Saturday hike causing Friday Legs to swap or reflow.
+- [x] 3.1 Implement a deterministic resolver that computes target progress over rolling windows from recent completed sessions and plan block target contributions.
+- [x] 3.2 Score primary block candidates using target ranges, preferred rotation, recent stress, recovery guidance, available context, and upcoming planned events.
+- [x] 3.3 Score compatible add-on blocks using available time, target progress, compatibility rules, conflict rules, and recent stress.
+- [x] 3.4 Return recommendation output with primary block, optional add-ons, alternatives, rationale, and coach notes.
+- [x] 3.5 Add resolver tests for PPL sequencing, target ranges, extra lift exposures, Pull + Easy Cardio, Push + Abs, sprint/legs conflicts, and a Saturday hike causing Friday Legs to swap or reflow.
 
 ## 4. Home Data And Generation
 
@@ -39,7 +39,7 @@
 
 - [ ] 6.1 Decide whether V1 projections are computed on demand, persisted as `planned_events`, or both; document the decision in `design.md` if it changes.
 - [ ] 6.2 If persisted, add metadata for adaptive projected and pinned workout events without overwriting user-owned events.
-- [ ] 6.3 Ensure user-owned events such as hikes, sports, travel, and manual plans feed recommendation context without being modified by projection logic.
+- [x] 6.3 Ensure user-owned events such as hikes, sports, travel, and manual plans feed recommendation context without being modified by projection logic.
 - [ ] 6.4 Add tests for preserving pinned sessions, reflowing projected sessions, and using upcoming events as coach constraints.
 
 ## 7. Server Planning And Prompts
