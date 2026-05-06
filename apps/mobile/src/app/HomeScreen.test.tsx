@@ -5,7 +5,9 @@ import { HomeScreen } from './HomeScreen';
 import { useHomeData } from './hooks/useHomeData';
 import { userRepository } from './db/repositories/UserRepository';
 import {
+  createAdaptiveTrainingPlanFromTemplate,
   createTodayPlanMock,
+  type AdaptivePlanRecommendation,
   type PlannedSlotMetadata,
   type QuickActionPreset,
   type TodayPlan,
@@ -67,6 +69,8 @@ const baseHookState = {
   activePlanVersions: [],
   pendingPlanSnapshot: null,
   plannedSlot: null,
+  adaptivePlan: null,
+  adaptiveRecommendation: null,
   planningDateLocal: '2026-04-27',
   planningDateTimestamp: new Date('2026-04-27T00:00:00').getTime(),
   recentSessions: [],
@@ -160,6 +164,44 @@ const createPlannedSlot = (
   userEdited: false,
   ...overrides,
 });
+
+const createAdaptivePlanFixture = () => {
+  const plan = createAdaptiveTrainingPlanFromTemplate('ppl-conditioning', {
+    id: 'plan-ppl',
+    activeFrom: baseHookState.planningDateLocal,
+    updatedAt: '2026-04-27T12:00:00.000Z',
+  });
+  if (!plan) {
+    throw new Error('Expected adaptive plan');
+  }
+  const recommendation: AdaptivePlanRecommendation = {
+    id: 'rec-pull-cardio',
+    planId: plan.id,
+    planningDateLocal: baseHookState.planningDateLocal,
+    primaryBlockId: 'pull',
+    addOnBlockIds: ['easy-cardio'],
+    alternativeBlockIds: ['push', 'mobility'],
+    targetProgress: [
+      {
+        targetId: 'cardio',
+        label: 'Cardio',
+        count: 1,
+        minCount: 2,
+        maxCount: 3,
+        windowDays: 7,
+      },
+    ],
+    rationale: [
+      {
+        code: 'target-gap',
+        message: 'Cardio is below the 2-3 target range.',
+      },
+    ],
+    coachNotes: [],
+    projectionStatus: 'projected',
+  };
+  return { plan, recommendation };
+};
 
 describe('HomeScreen', () => {
   beforeEach(() => {
@@ -276,6 +318,46 @@ describe('HomeScreen', () => {
     );
   });
 
+  it('shows adaptive recommendation and sends adaptive intent for Auto generation', async () => {
+    const { generateWorkout } = require('./services/api');
+    generateWorkout.mockResolvedValue(createTodayPlanMock());
+    const { plan, recommendation } = createAdaptivePlanFixture();
+    mockUseHomeData.mockReturnValue({
+      ...baseHookState,
+      adaptivePlan: plan,
+      adaptiveRecommendation: recommendation,
+      quickActions: createSetupQuickActions({ equipment: 'Gym' }),
+    });
+
+    const { getByText } = render(<HomeScreen />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(getByText('COACH RECOMMENDS')).toBeTruthy();
+    expect(getByText('Pull + Easy Cardio')).toBeTruthy();
+    expect(getByText('Cardio is below the 2-3 target range.')).toBeTruthy();
+
+    await act(async () => {
+      fireEvent.press(getByText("Generate today's workout"));
+    });
+
+    expect(generateWorkout).toHaveBeenCalledWith(
+      expect.objectContaining({
+        focus: 'Pull',
+        adaptivePlanIntent: expect.objectContaining({
+          planId: 'plan-ppl',
+          recommendationId: 'rec-pull-cardio',
+          primaryBlock: expect.objectContaining({ blockId: 'pull' }),
+          addOnBlocks: [expect.objectContaining({ blockId: 'easy-cardio' })],
+        }),
+      }),
+      expect.objectContaining({
+        scheduledDate: baseHookState.planningDateTimestamp,
+      })
+    );
+  });
+
   it('preserves customized duration when Auto uses planned slot intent', async () => {
     const { generateWorkout } = require('./services/api');
     generateWorkout.mockResolvedValue(createTodayPlanMock());
@@ -341,6 +423,10 @@ describe('HomeScreen', () => {
     );
     expect(generateWorkout).toHaveBeenCalledWith(
       expect.not.objectContaining({ plannedSlotIntent: expect.anything() }),
+      expect.anything()
+    );
+    expect(generateWorkout).toHaveBeenCalledWith(
+      expect.not.objectContaining({ adaptivePlanIntent: expect.anything() }),
       expect.anything()
     );
   });

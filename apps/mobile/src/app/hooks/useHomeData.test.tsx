@@ -1,6 +1,7 @@
 import { renderHook, act, waitFor } from '@testing-library/react-native';
 import NetInfo from '@react-native-community/netinfo';
 import {
+  createAdaptiveTrainingPlanFromTemplate,
   createSessionSummaryMock,
   createTodayPlanMock,
   type QuickActionPreset,
@@ -52,6 +53,7 @@ jest.mock('../db/repositories/UserRepository', () => ({
 jest.mock('../db/repositories/PlannedEventRepository', () => ({
   plannedEventRepository: {
     observeEventsByLocalDate: jest.fn(),
+    listUpcomingEventContext: jest.fn(),
     toPlannedEvent: jest.fn((record) => record),
   },
 }));
@@ -129,6 +131,7 @@ describe('useHomeData', () => {
     mockPlannedEventRepository.observeEventsByLocalDate.mockReturnValue(
       plannedEventStream.observable as any
     );
+    mockPlannedEventRepository.listUpcomingEventContext.mockResolvedValue([]);
     mockNetInfo.addEventListener = jest.fn().mockImplementation((callback) => {
       callback({ isConnected: true, isInternetReachable: true });
       return () => {
@@ -212,6 +215,38 @@ describe('useHomeData', () => {
         })
       );
     });
+  });
+
+  it('loads adaptive plan state and resolves a Home recommendation', async () => {
+    const plan = createAdaptiveTrainingPlanFromTemplate('ppl-conditioning', {
+      id: 'plan-ppl',
+      activeFrom: '2026-04-15',
+      updatedAt: '2026-04-15T12:00:00.000Z',
+    });
+    if (!plan) {
+      throw new Error('Expected adaptive plan');
+    }
+    mockUserRepository.getPreferences.mockResolvedValue({
+      equipment: ['Gym'],
+      injuries: [],
+      focusBias: [],
+      avoid: [],
+      adaptiveTrainingPlan: plan,
+    });
+
+    const { result } = renderHook(() => useHomeData());
+
+    await act(async () => {
+      userStream.emit({});
+    });
+
+    await waitFor(() => {
+      expect(result.current.adaptivePlan?.id).toBe('plan-ppl');
+      expect(result.current.adaptiveRecommendation?.primaryBlockId).toBe('push');
+    });
+    expect(
+      mockPlannedEventRepository.listUpcomingEventContext
+    ).toHaveBeenCalled();
   });
 
   it('hydrates planned workout versions from the selected group', async () => {

@@ -22,16 +22,16 @@
 
 ## 4. Home Data And Generation
 
-- [ ] 4.1 Extend Home data hydration to load the active adaptive plan, recent-session target progress, upcoming schedule constraints, and recommendation result.
-- [ ] 4.2 Preserve existing Home behavior for users with no adaptive plan or only legacy starter-week slots.
-- [ ] 4.3 Build generation requests from adaptive recommendations, including primary block and optional add-on intent.
-- [ ] 4.4 Add Home data and generation service tests for recommendation display data, combined session generation, explicit user overrides, and legacy fallback.
+- [x] 4.1 Extend Home data hydration to load the active adaptive plan, recent-session target progress, upcoming schedule constraints, and recommendation result.
+- [x] 4.2 Preserve existing Home behavior for users with no adaptive plan or only legacy starter-week slots.
+- [x] 4.3 Build generation requests from adaptive recommendations, including primary block and optional add-on intent.
+- [x] 4.4 Add Home data and generation service tests for recommendation display data, combined session generation, explicit user overrides, and legacy fallback.
 
 ## 5. Mobile UI
 
 - [ ] 5.1 Update onboarding copy and recommendation UI for adaptive templates from “starter week” to “training rhythm,” blocks, and target ranges.
 - [ ] 5.2 Add Plan Settings UI for editing target ranges, inspecting blocks, editing typical week preferences, and saving local adaptive plan updates.
-- [ ] 5.3 Update Home to show the recommended next session, optional add-ons, rationale, alternatives, and customize/generate actions.
+- [x] 5.3 Update Home to show the recommended next session, optional add-ons, rationale, alternatives, and customize/generate actions.
 - [ ] 5.4 Add projected vs pinned language where adaptive plan sessions appear in planning or calendar surfaces.
 - [ ] 5.5 Add mobile UI tests for adaptive onboarding, plan settings edits, Home recommendation rationale, combined session presentation, and pinned/projected labels.
 
@@ -52,9 +52,9 @@
 
 ## 8. Compatibility And Debugging
 
-- [ ] 8.1 Keep existing starter-week planned-slot generation working for users without adaptive plans.
+- [x] 8.1 Keep existing starter-week planned-slot generation working for users without adaptive plans.
 - [ ] 8.2 Update mobile debug MCP schemas/tools if needed so adaptive plan state and recommendation traces remain inspectable without exposing secrets.
-- [ ] 8.3 Add regression tests proving legacy planned slots still hydrate on Home and generate workouts.
+- [x] 8.3 Add regression tests proving legacy planned slots still hydrate on Home and generate workouts.
 - [ ] 8.4 Confirm CE and hosted behavior remains identical for adaptive planning, with no new billing or quota paths.
 
 ## 9. Coaching Vision Continuity

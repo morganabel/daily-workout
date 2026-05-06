@@ -13,6 +13,10 @@ import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import {
+  type AdaptivePlanIntent,
+  type AdaptivePlanRecommendation,
+  type AdaptiveTrainingPlan,
+  type AdaptiveTrainingBlock,
   type TodayPlan,
   type GenerationRequest,
   type PlannedSlotMetadata,
@@ -139,6 +143,46 @@ const buildPlannedSlotIntent = (
         slotId: plannedSlot.slotId,
       }
     : undefined;
+
+const buildAdaptivePlanIntent = (
+  adaptivePlan: AdaptiveTrainingPlan | null,
+  recommendation: AdaptivePlanRecommendation | null
+): AdaptivePlanIntent | undefined => {
+  if (!adaptivePlan || !recommendation) {
+    return undefined;
+  }
+
+  const blocksById = new Map(
+    adaptivePlan.blocks.map((block) => [block.id, block] as const)
+  );
+  const primaryBlock = blocksById.get(recommendation.primaryBlockId);
+  if (!primaryBlock) {
+    return undefined;
+  }
+
+  const toBlockIntent = (block: AdaptiveTrainingBlock) => ({
+    blockId: block.id,
+    label: block.label,
+    category: block.category,
+    role: block.role,
+    targetDurationMinutes: block.defaultDurationMinutes,
+    stressTags: block.stressTags,
+  });
+
+  return {
+    planId: adaptivePlan.id,
+    recommendationId: recommendation.id,
+    sourceTemplateId: adaptivePlan.sourceTemplateId,
+    primaryBlock: toBlockIntent(primaryBlock),
+    addOnBlocks: recommendation.addOnBlockIds
+      .map((blockId) => blocksById.get(blockId))
+      .filter((block): block is AdaptiveTrainingBlock => Boolean(block))
+      .map(toBlockIntent),
+    targetRangeContext: recommendation.targetProgress,
+    rationale: recommendation.rationale,
+    projectionStatus: recommendation.projectionStatus,
+  };
+};
 
 const resolveIntensitySelection = (
   quickActions: QuickActionPreset[],
@@ -317,6 +361,85 @@ const SetupSummaryRow = ({
         <Ionicons name="chevron-forward" size={20} color={palette.textMuted} />
       </View>
     </Pressable>
+  );
+};
+
+const AdaptiveRecommendationCard = ({
+  adaptivePlan,
+  recommendation,
+  onCustomize,
+}: {
+  adaptivePlan: AdaptiveTrainingPlan;
+  recommendation: AdaptivePlanRecommendation;
+  onCustomize: () => void;
+}) => {
+  const blocksById = new Map(
+    adaptivePlan.blocks.map((block) => [block.id, block] as const)
+  );
+  const primaryBlock = blocksById.get(recommendation.primaryBlockId);
+  const addOnBlocks = recommendation.addOnBlockIds
+    .map((blockId) => blocksById.get(blockId))
+    .filter((block): block is AdaptiveTrainingBlock => Boolean(block));
+  const alternativeBlocks = recommendation.alternativeBlockIds
+    .map((blockId) => blocksById.get(blockId))
+    .filter((block): block is AdaptiveTrainingBlock => Boolean(block));
+
+  if (!primaryBlock) {
+    return null;
+  }
+
+  return (
+    <Card style={styles.recommendationCard}>
+      <View style={styles.recommendationHeader}>
+        <View style={styles.recommendationIcon}>
+          <Ionicons name="sparkles" size={18} color={palette.textInverse} />
+        </View>
+        <View style={styles.recommendationTitleGroup}>
+          <Text style={styles.sectionLabel}>COACH RECOMMENDS</Text>
+          <Text style={styles.recommendationTitle}>
+            {primaryBlock.label}
+            {addOnBlocks.length
+              ? ` + ${addOnBlocks.map((block) => block.label).join(' + ')}`
+              : ''}
+          </Text>
+        </View>
+      </View>
+
+      <View style={styles.recommendationPillRow}>
+        <View style={styles.recommendationPill}>
+          <Ionicons name="time-outline" size={14} color={palette.primary} />
+          <Text style={styles.recommendationPillText}>
+            {primaryBlock.defaultDurationMinutes +
+              addOnBlocks.reduce(
+                (total, block) => total + block.defaultDurationMinutes,
+                0
+              )}{' '}
+            min target
+          </Text>
+        </View>
+        <View style={styles.recommendationPill}>
+          <Ionicons name="git-branch-outline" size={14} color={palette.primary} />
+          <Text style={styles.recommendationPillText}>Projected</Text>
+        </View>
+      </View>
+
+      <Text style={styles.recommendationRationale}>
+        {recommendation.coachNotes[0] ?? recommendation.rationale[0]?.message}
+      </Text>
+
+      {alternativeBlocks.length ? (
+        <Text style={styles.recommendationAlternatives}>
+          Alternatives: {alternativeBlocks.map((block) => block.label).join(', ')}
+        </Text>
+      ) : null}
+
+      <Button
+        label="Customize recommendation"
+        variant="outline"
+        onPress={onCustomize}
+        style={styles.recommendationCustomizeButton}
+      />
+    </Card>
   );
 };
 
@@ -764,6 +887,8 @@ export const HomeScreen = () => {
   const {
     activePlan,
     activePlanVersions,
+    adaptivePlan,
+    adaptiveRecommendation,
     pendingPlanSnapshot,
     plannedSlot,
     planningDateLocal,
@@ -832,14 +957,20 @@ export const HomeScreen = () => {
       const targetTimestamp = planningDateTimestamp;
       const plannedSlotIntent =
         focus === 'Smart' ? buildPlannedSlotIntent(plannedSlot) : undefined;
+      const adaptivePlanIntent =
+        focus === 'Smart'
+          ? buildAdaptivePlanIntent(adaptivePlan, adaptiveRecommendation)
+          : undefined;
       clearTransientPlanState();
       const request: GenerationRequest = {
         timeMinutes: duration,
         energy: intensity.toLowerCase() as WorkoutEnergy,
-        focus,
+        focus: adaptivePlanIntent?.primaryBlock.label ?? focus,
       };
 
-      if (plannedSlotIntent) {
+      if (adaptivePlanIntent) {
+        request.adaptivePlanIntent = adaptivePlanIntent;
+      } else if (plannedSlotIntent) {
         request.plannedSlotIntent = plannedSlotIntent;
       }
 
@@ -1052,6 +1183,8 @@ export const HomeScreen = () => {
       equipmentOverride,
       quickActions,
       plannedSlot,
+      adaptivePlan,
+      adaptiveRecommendation,
       generationStatus,
       generating,
       showCustomizeSheet,
@@ -1062,6 +1195,8 @@ export const HomeScreen = () => {
     setDebugSelectedPlan(displayPlan);
   }, [
     customizeForRegeneration,
+    adaptivePlan,
+    adaptiveRecommendation,
     displayPlan,
     duration,
     equipmentOverride,
@@ -1120,6 +1255,14 @@ export const HomeScreen = () => {
               intensity={intensity}
               onPress={handleOpenSetupCustomize}
             />
+
+            {adaptivePlan && adaptiveRecommendation ? (
+              <AdaptiveRecommendationCard
+                adaptivePlan={adaptivePlan}
+                recommendation={adaptiveRecommendation}
+                onCustomize={handleOpenSetupCustomize}
+              />
+            ) : null}
 
             <FocusSelector
               value={focus}
@@ -1278,6 +1421,69 @@ const styles = StyleSheet.create({
   },
   summaryChevron: {
     marginLeft: 8,
+  },
+  recommendationCard: {
+    padding: 18,
+    marginBottom: 24,
+    gap: 14,
+    borderRadius: 22,
+  },
+  recommendationHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  recommendationIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: palette.primary,
+  },
+  recommendationTitleGroup: {
+    flex: 1,
+  },
+  recommendationTitle: {
+    fontFamily: typography.fontFamilyExtraBold,
+    fontSize: 22,
+    color: palette.textPrimary,
+    marginTop: -4,
+  },
+  recommendationPillRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  recommendationPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingVertical: 7,
+    paddingHorizontal: 10,
+    borderRadius: 999,
+    backgroundColor: palette.cardSecondary,
+    borderWidth: 1,
+    borderColor: palette.border,
+  },
+  recommendationPillText: {
+    fontFamily: typography.fontFamilyBold,
+    fontSize: 12,
+    color: palette.textPrimary,
+  },
+  recommendationRationale: {
+    fontFamily: typography.fontFamily,
+    fontSize: 14,
+    color: palette.textSecondary,
+    lineHeight: 20,
+  },
+  recommendationAlternatives: {
+    fontFamily: typography.fontFamilyBold,
+    fontSize: 12,
+    color: palette.textMuted,
+  },
+  recommendationCustomizeButton: {
+    marginTop: 2,
   },
 
   // Section Shared

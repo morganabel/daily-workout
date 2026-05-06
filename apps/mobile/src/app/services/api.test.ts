@@ -327,6 +327,68 @@ describe('generateWorkout', () => {
     );
   });
 
+  it('passes adaptive plan intent through generation payload and trace', async () => {
+    const generatedPlan = createTodayPlanMock({ id: 'plan-adaptive-pull' });
+    (global.fetch as jest.Mock).mockResolvedValue({
+      ok: true,
+      json: jest.fn().mockResolvedValue(generatedPlan),
+    });
+
+    await generateWorkout({
+      focus: 'Pull',
+      timeMinutes: 70,
+      adaptivePlanIntent: {
+        planId: 'plan-ppl',
+        recommendationId: 'rec-pull-cardio',
+        sourceTemplateId: 'ppl-conditioning',
+        primaryBlock: {
+          blockId: 'pull',
+          label: 'Pull',
+          category: 'strength',
+          role: 'pull',
+          targetDurationMinutes: 50,
+          stressTags: ['upper-body', 'pull'],
+        },
+        addOnBlocks: [
+          {
+            blockId: 'easy-cardio',
+            label: 'Easy Cardio',
+            category: 'cardio',
+            role: 'easy-cardio',
+            targetDurationMinutes: 25,
+            stressTags: ['low-impact'],
+          },
+        ],
+        targetRangeContext: [],
+        rationale: [],
+        projectionStatus: 'projected',
+      },
+    });
+
+    const [, requestInit] = (global.fetch as jest.Mock).mock.calls[0];
+    const payload = JSON.parse(requestInit.body as string);
+
+    expect(payload.adaptivePlanIntent).toEqual(
+      expect.objectContaining({
+        planId: 'plan-ppl',
+        primaryBlock: expect.objectContaining({ blockId: 'pull' }),
+      })
+    );
+    expect(mockWorkoutRepository.saveGeneratedPlan).toHaveBeenCalledWith(
+      generatedPlan,
+      expect.objectContaining({
+        generationRequest: expect.objectContaining({
+          adaptivePlanIntent: expect.objectContaining({ planId: 'plan-ppl' }),
+        }),
+      })
+    );
+    expect(getDebugStateSnapshot().lastGenerationTrace?.request).toEqual(
+      expect.objectContaining({
+        adaptivePlanIntent: expect.objectContaining({ planId: 'plan-ppl' }),
+      })
+    );
+  });
+
   it('still resolves when rejected-version pruning fails after save', async () => {
     const consoleSpy = jest
       .spyOn(console, 'error')

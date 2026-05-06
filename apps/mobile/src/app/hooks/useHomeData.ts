@@ -7,6 +7,8 @@ import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import { AppState } from 'react-native';
 import type {
+  AdaptivePlanRecommendation,
+  AdaptiveTrainingPlan,
   GenerationStatus,
   HomeSnapshot,
   PlannedSlotMetadata,
@@ -22,6 +24,7 @@ import { plannedEventRepository } from '../db/repositories/PlannedEventRepositor
 import { userRepository } from '../db/repositories/UserRepository';
 import type Workout from '../db/models/Workout';
 import { formatLocalDate, parseLocalDate } from '../utils/date';
+import { resolveAdaptiveTrainingRecommendation } from '../services/adaptiveTrainingPlanResolver';
 
 const buildQuickActionsFromPreferences = (
   prefs: UserPreferences
@@ -122,6 +125,8 @@ export type HomeDataState = {
   activePlanVersions: TodayPlan[];
   pendingPlanSnapshot: TodayPlan | null;
   plannedSlot: PlannedSlotMetadata | null;
+  adaptivePlan: AdaptiveTrainingPlan | null;
+  adaptiveRecommendation: AdaptivePlanRecommendation | null;
   recentSessions: HomeSnapshot['recentSessions'];
   quickActions: HomeSnapshot['quickActions'];
   offlineHint: HomeSnapshot['offlineHint'];
@@ -164,6 +169,8 @@ export function useHomeData(): HomeDataState & {
     activePlanVersions: [],
     pendingPlanSnapshot: null,
     plannedSlot: null,
+    adaptivePlan: null,
+    adaptiveRecommendation: null,
     recentSessions: [],
     quickActions: FALLBACK_QUICK_ACTIONS,
     offlineHint: {
@@ -211,6 +218,7 @@ export function useHomeData(): HomeDataState & {
         plan: null,
         planVersions: [],
         plannedSlot: null,
+        adaptiveRecommendation: null,
         status: 'loading',
       };
     });
@@ -415,6 +423,14 @@ export function useHomeData(): HomeDataState & {
       await userRepository.getOrCreateUser();
       if (!isMountedRef.current || cancelled) return;
 
+      const initialPrefs = await userRepository.getPreferences();
+      if (!isMountedRef.current || cancelled) return;
+      setState((prev) => ({
+        ...prev,
+        quickActions: buildQuickActionsFromPreferences(initialPrefs),
+        adaptivePlan: initialPrefs.adaptiveTrainingPlan ?? null,
+      }));
+
       const sub = userRepository.observeUser().subscribe(() => {
         void (async () => {
           const prefs = await userRepository.getPreferences();
@@ -422,6 +438,7 @@ export function useHomeData(): HomeDataState & {
           setState((prev) => ({
             ...prev,
             quickActions: buildQuickActionsFromPreferences(prefs),
+            adaptivePlan: prefs.adaptiveTrainingPlan ?? null,
           }));
         })();
       });
@@ -439,6 +456,47 @@ export function useHomeData(): HomeDataState & {
       subscription?.unsubscribe();
     };
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    const adaptivePlan = state.adaptivePlan;
+
+    if (!adaptivePlan || adaptivePlan.status !== 'active') {
+      setState((prev) =>
+        prev.adaptiveRecommendation === null
+          ? prev
+          : { ...prev, adaptiveRecommendation: null }
+      );
+      return;
+    }
+
+    void (async () => {
+      try {
+        const upcomingEvents =
+          await plannedEventRepository.listUpcomingEventContext();
+        if (cancelled || !isMountedRef.current) return;
+        const recommendation = resolveAdaptiveTrainingRecommendation({
+          plan: adaptivePlan,
+          planningDateLocal: state.planningDateLocal,
+          recentSessions: state.recentSessions,
+          upcomingEvents,
+        });
+
+        setState((prev) => ({
+          ...prev,
+          adaptiveRecommendation: recommendation,
+        }));
+      } catch (error) {
+        console.error('Failed to resolve adaptive recommendation', error);
+        if (cancelled || !isMountedRef.current) return;
+        setState((prev) => ({ ...prev, adaptiveRecommendation: null }));
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [state.adaptivePlan, state.planningDateLocal, state.recentSessions]);
 
   const fetchData = useCallback(async () => {
     refreshPlanningDate();
