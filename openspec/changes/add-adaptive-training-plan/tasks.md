@@ -45,28 +45,28 @@
 ## 7. Server Planning And Prompts
 
 - [x] 7.1 Extend shared generation request contracts with optional adaptive plan intent while preserving existing planned-slot intent.
-- [ ] 7.2 Extend server planning brief derivation to record adaptive-plan source metadata, primary block intent, add-on block intent, target context, and rationale.
-- [ ] 7.3 Ensure explicit focus, injuries, avoid lists, equipment, energy, recent fatigue, and upcoming event protection can override or adjust adaptive intent.
-- [ ] 7.4 Update provider prompt construction to include adaptive plan intent when present.
-- [ ] 7.5 Add server-core and prompt tests for adaptive intent, combined blocks, upcoming-event overrides, and explicit-focus precedence.
+- [x] 7.2 Extend server planning brief derivation to record adaptive-plan source metadata, primary block intent, add-on block intent, target context, and rationale.
+- [x] 7.3 Ensure explicit focus, injuries, avoid lists, equipment, energy, recent fatigue, and upcoming event protection can override or adjust adaptive intent.
+- [x] 7.4 Update provider prompt construction to include adaptive plan intent when present.
+- [x] 7.5 Add server-core and prompt tests for adaptive intent, combined blocks, upcoming-event overrides, and explicit-focus precedence.
 
 ## 8. Compatibility And Debugging
 
 - [x] 8.1 Keep existing starter-week planned-slot generation working for users without adaptive plans.
 - [ ] 8.2 Update mobile debug MCP schemas/tools if needed so adaptive plan state and recommendation traces remain inspectable without exposing secrets.
 - [x] 8.3 Add regression tests proving legacy planned slots still hydrate on Home and generate workouts.
-- [ ] 8.4 Confirm CE and hosted behavior remains identical for adaptive planning, with no new billing or quota paths.
+- [x] 8.4 Confirm CE and hosted behavior remains identical for adaptive planning, with no new billing or quota paths.
 
 ## 9. Coaching Vision Continuity
 
 - [ ] 9.1 Document follow-up changes for template library expansion, multi-week progression, plan adaptation, and coach evaluation.
 - [ ] 9.2 Verify schemas can represent future template families without hardcoding PPL-specific logic.
-- [ ] 9.3 Add tests proving recommendations derive from structured plan state rather than fixed 7-day slots.
+- [x] 9.3 Add tests proving recommendations derive from structured plan state rather than fixed 7-day slots.
 - [ ] 9.4 Capture known limitations for periodization, deloads, advanced load metrics, and AI-assisted plan tuning.
 
 ## 10. Verification
 
 - [x] 10.1 Run shared package tests for adaptive plan contracts.
 - [ ] 10.2 Run mobile tests for onboarding, profile persistence, Home data, resolver behavior, and UI presentation.
-- [ ] 10.3 Run server-core and server-ai tests for generation planning and prompt construction.
+- [x] 10.3 Run server-core and server-ai tests for generation planning and prompt construction.
 - [ ] 10.4 Run lint/typecheck targets for affected Nx projects.

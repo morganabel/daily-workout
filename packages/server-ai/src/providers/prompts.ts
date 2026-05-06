@@ -82,6 +82,7 @@ export function buildPlanningBriefPromptData(planningBrief?: PlanningBrief):
       plannerAvoidances: string[];
       recentStressorsToAvoid: string[];
       eventProtection?: PlanningBrief['eventProtection'];
+      adaptivePlanIntent?: PlanningBrief['adaptivePlanIntent'];
       blockIntents: PlanningBrief['blockIntents'];
       regeneration: PlanningBrief['regeneration'];
       variationMode: PlanningBrief['variationMode'];
@@ -105,6 +106,7 @@ export function buildPlanningBriefPromptData(planningBrief?: PlanningBrief):
     plannerAvoidances: planningBrief.disallowedStressors,
     recentStressorsToAvoid: planningBrief.recentStressorsToAvoid,
     eventProtection: planningBrief.eventProtection,
+    adaptivePlanIntent: planningBrief.adaptivePlanIntent,
     blockIntents: planningBrief.blockIntents,
     regeneration: planningBrief.regeneration,
     variationMode: planningBrief.variationMode,
@@ -162,6 +164,8 @@ export function buildStageOnePlannerRequestPayload(
       notes: request.notes,
       planningDateLocal: request.planningDateLocal,
       upcomingEvents: request.upcomingEvents,
+      adaptivePlanIntent: request.adaptivePlanIntent,
+      plannedSlotIntent: request.plannedSlotIntent,
       baselineWorkout: request.baselineWorkout
         ? {
             focus: request.baselineWorkout.focus,
@@ -283,6 +287,9 @@ export function buildRegenerationMessage(
         `Protect freshness for ${planningBrief.eventProtection.title} on ${planningBrief.eventProtection.localDate}.`,
       );
     }
+    if (planningBrief.adaptivePlanIntent) {
+      parts.push(formatAdaptivePlanIntent(planningBrief.adaptivePlanIntent));
+    }
   }
 
   if (stageOneArtifact) {
@@ -382,6 +389,10 @@ export function buildRegenerationMessage(
     parts.push(`User explicit instructions: ${request.notes}`);
   }
 
+  if (!planningBrief && request.adaptivePlanIntent) {
+    parts.push(formatAdaptivePlanIntent(request.adaptivePlanIntent));
+  }
+
   const baselineSummary = buildBaselineWorkoutSummary(request);
   if (baselineSummary) {
     parts.push(baselineSummary);
@@ -425,4 +436,23 @@ export function buildRegenerationMessage(
   parts.push('Please generate a new workout that addresses these preferences.');
 
   return parts.join(' ');
+}
+
+function formatAdaptivePlanIntent(
+  adaptivePlanIntent: NonNullable<GenerationRequest['adaptivePlanIntent']>,
+): string {
+  const addOns = adaptivePlanIntent.addOnBlocks.map((block) => block.label);
+  const pieces = [`primary ${adaptivePlanIntent.primaryBlock.label}`];
+  if (addOns.length > 0) {
+    pieces.push(`add-ons ${addOns.join(', ')}`);
+  }
+  if (adaptivePlanIntent.rationale.length > 0) {
+    pieces.push(
+      `rationale ${adaptivePlanIntent.rationale
+        .map((item) => item.message)
+        .join(' ')}`,
+    );
+  }
+
+  return `Adaptive plan intent: ${pieces.join('; ')}.`;
 }

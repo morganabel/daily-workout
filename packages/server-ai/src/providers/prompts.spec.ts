@@ -387,6 +387,61 @@ describe('buildRegenerationMessage', () => {
       );
     });
 
+    it('includes adaptive plan intent in planning brief and stage-one payloads', () => {
+      const request: GenerationRequest = {
+        focus: 'Pull',
+        adaptivePlanIntent: {
+          planId: 'plan-ppl',
+          recommendationId: 'rec-pull-cardio',
+          sourceTemplateId: 'ppl-conditioning',
+          primaryBlock: {
+            blockId: 'pull',
+            label: 'Pull',
+            category: 'strength',
+            targetDurationMinutes: 50,
+            stressTags: ['upper-body'],
+          },
+          addOnBlocks: [
+            {
+              blockId: 'easy-cardio',
+              label: 'Easy Cardio',
+              category: 'cardio',
+              targetDurationMinutes: 25,
+              stressTags: ['low-impact'],
+            },
+          ],
+          targetRangeContext: [],
+          rationale: [
+            {
+              code: 'target-gap',
+              message: 'Cardio is below target.',
+            },
+          ],
+          projectionStatus: 'projected',
+        },
+      };
+      const adaptiveBrief: PlanningBrief = {
+        ...planningBrief,
+        focusMode: 'adaptive-plan',
+        resolvedFocus: 'Pull + Easy Cardio',
+        adaptivePlanIntent: request.adaptivePlanIntent,
+      };
+
+      expect(buildPlanningBriefPromptData(adaptiveBrief)).toEqual(
+        expect.objectContaining({
+          adaptivePlanIntent: expect.objectContaining({ planId: 'plan-ppl' }),
+        }),
+      );
+      expect(buildStageOnePlannerRequestPayload(request).request).toEqual(
+        expect.objectContaining({
+          adaptivePlanIntent: expect.objectContaining({ planId: 'plan-ppl' }),
+        }),
+      );
+      expect(buildRegenerationMessage(request)).toContain(
+        'Adaptive plan intent: primary Pull; add-ons Easy Cardio; rationale Cardio is below target.',
+      );
+    });
+
     it('formats stage-one planner artifact prompt data', () => {
       expect(buildStageOnePlannerArtifactPromptData(stageOneArtifact)).toEqual(
         expect.objectContaining({

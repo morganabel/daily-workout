@@ -5,6 +5,7 @@ import {
 } from '@workout-agent/shared';
 import type { GenerationRequestWithContext } from './context';
 import type {
+  PlanningBlockIntent,
   PlanningBrief,
   PlanningEventProtection,
   PlanningLoadCeiling,
@@ -47,15 +48,28 @@ export function derivePlanningBrief({
   const baselineWorkout = request.baselineWorkout ?? previousPlan ?? undefined;
   const requestedFocus = request.focus?.trim() || undefined;
   const plannedSlotIntent = request.plannedSlotIntent;
+  const adaptivePlanIntent = request.adaptivePlanIntent;
+  const requestedFocusMatchesAdaptivePlan = Boolean(
+    requestedFocus &&
+      adaptivePlanIntent &&
+      normalizeText(requestedFocus) ===
+        normalizeText(adaptivePlanIntent.primaryBlock.label),
+  );
   const focusMode = requestedFocus
     ? isAutoFocus(requestedFocus)
-      ? plannedSlotIntent
+      ? adaptivePlanIntent
+        ? 'adaptive-plan'
+        : plannedSlotIntent
+          ? 'planned-slot'
+          : 'smart'
+      : requestedFocusMatchesAdaptivePlan
+        ? 'adaptive-plan'
+        : 'explicit'
+    : adaptivePlanIntent
+      ? 'adaptive-plan'
+      : plannedSlotIntent
         ? 'planned-slot'
-        : 'smart'
-      : 'explicit'
-    : plannedSlotIntent
-      ? 'planned-slot'
-      : 'unset';
+        : 'unset';
   const availableEquipment = normalizeEquipmentSelection(
     request.equipment?.length
       ? request.equipment
@@ -89,12 +103,14 @@ export function derivePlanningBrief({
     focusMode,
     requestedFocus,
     plannedSlotIntent,
+    adaptivePlanIntent,
     context,
     recentStressorsToAvoid,
     eventProtection,
   });
   const durationMinutes =
     request.timeMinutes ??
+    deriveAdaptivePlanDuration(adaptivePlanIntent) ??
     plannedSlotIntent?.targetDurationMinutes ??
     context.environment.timeAvailableMinutes ??
     baselineWorkout?.durationMinutes ??
@@ -113,6 +129,7 @@ export function derivePlanningBrief({
     requestedFocus,
     focusMode,
     plannedSlotIntent,
+    adaptivePlanIntent,
     resolvedFocus,
     durationMinutes,
     availableEquipment,
@@ -129,19 +146,13 @@ export function derivePlanningBrief({
     disallowedStressors,
     recentStressorsToAvoid,
     eventProtection,
-    blockIntents: [
-      {
-        key: 'main',
-        title: 'Main Block',
-        focus: resolvedFocus,
-        durationMinutes,
-        objective: deriveObjective(resolvedFocus),
-        candidateFocusTags: deriveCandidateFocusTags(
-          resolvedFocus,
-          context.preferences.focusBias ?? [],
-        ),
-      },
-    ],
+    blockIntents: deriveBlockIntents({
+      adaptivePlanIntent,
+      context,
+      durationMinutes,
+      focusMode,
+      resolvedFocus,
+    }),
     variationMode,
     fallbackMode: 'strict-library',
     fallbackReasons: [],
@@ -288,6 +299,7 @@ function resolveFocus(params: {
   focusMode: PlanningBrief['focusMode'];
   requestedFocus?: string;
   plannedSlotIntent?: PlanningBrief['plannedSlotIntent'];
+  adaptivePlanIntent?: PlanningBrief['adaptivePlanIntent'];
   context: GenerationContext;
   recentStressorsToAvoid: string[];
   eventProtection?: PlanningEventProtection;
@@ -296,6 +308,7 @@ function resolveFocus(params: {
     focusMode,
     requestedFocus,
     plannedSlotIntent,
+    adaptivePlanIntent,
     context,
     recentStressorsToAvoid,
     eventProtection,
@@ -303,6 +316,10 @@ function resolveFocus(params: {
 
   if (focusMode === 'planned-slot' && plannedSlotIntent) {
     return resolvePlannedSlotFocus(plannedSlotIntent.role, eventProtection);
+  }
+
+  if (focusMode === 'adaptive-plan' && adaptivePlanIntent) {
+    return resolveAdaptivePlanFocus(adaptivePlanIntent, eventProtection);
   }
 
   if (focusMode === 'explicit' && requestedFocus) {
@@ -390,13 +407,116 @@ function resolvePlannedSlotFocus(
   }
 }
 
+function resolveAdaptivePlanFocus(
+  adaptivePlanIntent: NonNullable<PlanningBrief['adaptivePlanIntent']>,
+  eventProtection?: PlanningEventProtection,
+): string {
+  if (
+    eventProtection &&
+    hasLowerBodyOrImpactStress(adaptivePlanIntent.primaryBlock.stressTags)
+  ) {
+    return 'Upper Body & Core';
+  }
+
+  const addOnLabels = adaptivePlanIntent.addOnBlocks.map((block) => block.label);
+  return [adaptivePlanIntent.primaryBlock.label, ...addOnLabels].join(' + ');
+}
+
+function deriveAdaptivePlanDuration(
+  adaptivePlanIntent?: PlanningBrief['adaptivePlanIntent'],
+): number | undefined {
+  if (!adaptivePlanIntent) {
+    return undefined;
+  }
+
+  const durations = [
+    adaptivePlanIntent.primaryBlock.targetDurationMinutes,
+    ...adaptivePlanIntent.addOnBlocks.map((block) => block.targetDurationMinutes),
+  ].filter((value): value is number => typeof value === 'number');
+
+  if (!durations.length) {
+    return undefined;
+  }
+
+  return durations.reduce((total, duration) => total + duration, 0);
+}
+
+function deriveBlockIntents(params: {
+  adaptivePlanIntent?: PlanningBrief['adaptivePlanIntent'];
+  context: GenerationContext;
+  durationMinutes: number;
+  focusMode: PlanningBrief['focusMode'];
+  resolvedFocus: string;
+}): PlanningBlockIntent[] {
+  const {
+    adaptivePlanIntent,
+    context,
+    durationMinutes,
+    focusMode,
+    resolvedFocus,
+  } = params;
+
+  if (adaptivePlanIntent && focusMode === 'adaptive-plan') {
+    const blocks = [
+      adaptivePlanIntent.primaryBlock,
+      ...adaptivePlanIntent.addOnBlocks,
+    ];
+    return blocks.map((block, index) => ({
+      key: index === 0 ? 'adaptive-primary' : `adaptive-addon-${index}`,
+      title: index === 0 ? 'Adaptive Primary Block' : 'Adaptive Add-on Block',
+      focus: block.label,
+      durationMinutes:
+        block.targetDurationMinutes ??
+        Math.max(10, Math.round(durationMinutes / blocks.length)),
+      objective: deriveObjective(block.label),
+      candidateFocusTags: [
+        ...new Set([
+          block.category,
+          block.role,
+          ...block.stressTags,
+          ...deriveCandidateFocusTags(block.label, context.preferences.focusBias ?? []),
+        ].filter((value): value is string => Boolean(value))),
+      ],
+    }));
+  }
+
+  return [
+    {
+      key: 'main',
+      title: 'Main Block',
+      focus: resolvedFocus,
+      durationMinutes,
+      objective: deriveObjective(resolvedFocus),
+      candidateFocusTags: deriveCandidateFocusTags(
+        resolvedFocus,
+        context.preferences.focusBias ?? [],
+      ),
+    },
+  ];
+}
+
+function hasLowerBodyOrImpactStress(stressTags: string[]): boolean {
+  return stressTags.some((tag) => {
+    const normalized = normalizeText(tag);
+    return (
+      normalized.includes('lower') ||
+      normalized.includes('impact') ||
+      normalized.includes('heavy')
+    );
+  });
+}
+
 function collectUnknowns(
   request: GenerationRequestWithContext,
   context: GenerationContext,
 ): string[] {
   const unknowns = new Set<string>();
 
-  if (request.focus === undefined && request.plannedSlotIntent === undefined) {
+  if (
+    request.focus === undefined &&
+    request.plannedSlotIntent === undefined &&
+    request.adaptivePlanIntent === undefined
+  ) {
     unknowns.add('focus');
   }
   if (context.preferences.injuries === undefined) {

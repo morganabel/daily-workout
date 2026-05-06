@@ -1,5 +1,6 @@
 import {
   createTodayPlanMock,
+  type AdaptivePlanIntent,
   type GenerationContext,
 } from '@workout-agent/shared';
 import {
@@ -29,6 +30,47 @@ const createContext = (
   recentSessions: overrides.recentSessions ?? [],
   notes: overrides.notes,
 });
+
+const adaptivePlanIntent: AdaptivePlanIntent = {
+  planId: 'plan-ppl',
+  recommendationId: 'rec-pull-cardio',
+  sourceTemplateId: 'ppl-conditioning',
+  primaryBlock: {
+    blockId: 'pull',
+    label: 'Pull',
+    category: 'strength',
+    role: 'pull',
+    targetDurationMinutes: 50,
+    stressTags: ['upper-body', 'pull'],
+  },
+  addOnBlocks: [
+    {
+      blockId: 'easy-cardio',
+      label: 'Easy Cardio',
+      category: 'cardio',
+      role: 'easy-cardio',
+      targetDurationMinutes: 25,
+      stressTags: ['low-impact'],
+    },
+  ],
+  targetRangeContext: [
+    {
+      targetId: 'cardio',
+      label: 'Cardio',
+      count: 1,
+      minCount: 2,
+      maxCount: 3,
+      windowDays: 7,
+    },
+  ],
+  rationale: [
+    {
+      code: 'target-gap',
+      message: 'Cardio is below the target range.',
+    },
+  ],
+  projectionStatus: 'projected',
+};
 
 describe('derivePlanningBrief', () => {
   it('keeps explicit focus and normalizes regeneration metadata', () => {
@@ -210,6 +252,86 @@ describe('derivePlanningBrief', () => {
     expect(brief.resolvedFocus).toBe('Mobility');
     expect(brief.plannedSlotIntent).toEqual(
       expect.objectContaining({ role: 'pull' }),
+    );
+  });
+
+  it('records adaptive plan intent and creates primary plus add-on block intents', () => {
+    const brief = derivePlanningBrief({
+      request: {
+        focus: 'Pull',
+        adaptivePlanIntent,
+        planningDateLocal: '2026-04-15',
+      },
+      context: createContext(),
+      provider: 'openai',
+    });
+
+    expect(brief.focusMode).toBe('adaptive-plan');
+    expect(brief.adaptivePlanIntent).toEqual(
+      expect.objectContaining({ planId: 'plan-ppl' }),
+    );
+    expect(brief.resolvedFocus).toBe('Pull + Easy Cardio');
+    expect(brief.durationMinutes).toBe(75);
+    expect(brief.blockIntents).toEqual([
+      expect.objectContaining({ key: 'adaptive-primary', focus: 'Pull' }),
+      expect.objectContaining({ key: 'adaptive-addon-1', focus: 'Easy Cardio' }),
+    ]);
+  });
+
+  it('keeps explicit focus stronger than adaptive background context', () => {
+    const brief = derivePlanningBrief({
+      request: {
+        focus: 'Mobility',
+        adaptivePlanIntent,
+      },
+      context: createContext(),
+      provider: 'openai',
+    });
+
+    expect(brief.focusMode).toBe('explicit');
+    expect(brief.resolvedFocus).toBe('Mobility');
+    expect(brief.adaptivePlanIntent).toEqual(
+      expect.objectContaining({ planId: 'plan-ppl' }),
+    );
+    expect(brief.blockIntents).toEqual([
+      expect.objectContaining({ key: 'main', focus: 'Mobility' }),
+    ]);
+  });
+
+  it('protects upcoming events from adaptive lower-body recommendations', () => {
+    const brief = derivePlanningBrief({
+      request: {
+        focus: 'Legs',
+        adaptivePlanIntent: {
+          ...adaptivePlanIntent,
+          primaryBlock: {
+            blockId: 'legs',
+            label: 'Legs',
+            category: 'strength',
+            role: 'legs',
+            targetDurationMinutes: 50,
+            stressTags: ['lower-body', 'heavy'],
+          },
+          addOnBlocks: [],
+        },
+        planningDateLocal: '2026-04-15',
+        upcomingEvents: [
+          {
+            kind: 'hike',
+            title: 'Saturday hike',
+            localDate: '2026-04-16',
+            intensity: 'high',
+          },
+        ],
+      },
+      context: createContext(),
+      provider: 'gemini',
+    });
+
+    expect(brief.focusMode).toBe('adaptive-plan');
+    expect(brief.resolvedFocus).toBe('Upper Body & Core');
+    expect(brief.disallowedStressors).toEqual(
+      expect.arrayContaining(['lower_body_overload', 'high_impact']),
     );
   });
 
