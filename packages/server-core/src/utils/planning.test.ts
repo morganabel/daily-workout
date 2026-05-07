@@ -333,6 +333,47 @@ describe('derivePlanningBrief', () => {
     expect(brief.disallowedStressors).toEqual(
       expect.arrayContaining(['lower_body_overload', 'high_impact']),
     );
+    expect(brief.blockIntents).toEqual([
+      expect.objectContaining({ key: 'main', focus: 'Upper Body & Core' }),
+    ]);
+  });
+
+  it('protects upcoming events from adaptive lower-body add-ons', () => {
+    const brief = derivePlanningBrief({
+      request: {
+        focus: 'Pull',
+        adaptivePlanIntent: {
+          ...adaptivePlanIntent,
+          addOnBlocks: [
+            {
+              blockId: 'sprint',
+              label: 'Sprint',
+              category: 'conditioning',
+              role: 'sprint',
+              targetDurationMinutes: 30,
+              stressTags: ['lower-body', 'high-impact'],
+            },
+          ],
+        },
+        planningDateLocal: '2026-04-15',
+        upcomingEvents: [
+          {
+            kind: 'hike',
+            title: 'Saturday hike',
+            localDate: '2026-04-16',
+            intensity: 'high',
+          },
+        ],
+      },
+      context: createContext(),
+      provider: 'gemini',
+    });
+
+    expect(brief.focusMode).toBe('adaptive-plan');
+    expect(brief.resolvedFocus).toBe('Upper Body & Core');
+    expect(brief.blockIntents).toEqual([
+      expect.objectContaining({ key: 'main', focus: 'Upper Body & Core' }),
+    ]);
   });
 
   it('keeps planned-slot intent but protects near-term events', () => {

@@ -425,6 +425,24 @@ describe('buildRegenerationMessage', () => {
         focusMode: 'adaptive-plan',
         resolvedFocus: 'Pull + Easy Cardio',
         adaptivePlanIntent: request.adaptivePlanIntent,
+        blockIntents: [
+          {
+            key: 'adaptive-primary',
+            title: 'Adaptive Primary Block',
+            focus: 'Pull',
+            durationMinutes: 50,
+            objective: 'Train the requested emphasis.',
+            candidateFocusTags: ['strength', 'pull', 'upper-body'],
+          },
+          {
+            key: 'adaptive-addon-1',
+            title: 'Adaptive Add-on Block',
+            focus: 'Easy Cardio',
+            durationMinutes: 25,
+            objective: 'Train the requested emphasis.',
+            candidateFocusTags: ['cardio', 'low-impact'],
+          },
+        ],
       };
 
       expect(buildPlanningBriefPromptData(adaptiveBrief)).toEqual(
@@ -440,6 +458,47 @@ describe('buildRegenerationMessage', () => {
       expect(buildRegenerationMessage(request)).toContain(
         'Adaptive plan intent: primary Pull; add-ons Easy Cardio; rationale Cardio is below target.',
       );
+    });
+
+    it('does not surface overridden adaptive intent as prompt guidance', () => {
+      const adaptiveBrief: PlanningBrief = {
+        ...planningBrief,
+        focusMode: 'adaptive-plan',
+        resolvedFocus: 'Upper Body & Core',
+        adaptivePlanIntent: {
+          planId: 'plan-ppl',
+          recommendationId: 'rec-legs',
+          sourceTemplateId: 'ppl-conditioning',
+          primaryBlock: {
+            blockId: 'legs',
+            label: 'Legs',
+            category: 'strength',
+            targetDurationMinutes: 50,
+            stressTags: ['lower-body', 'heavy'],
+          },
+          addOnBlocks: [],
+          targetRangeContext: [],
+          rationale: [],
+          projectionStatus: 'projected',
+        },
+        blockIntents: [
+          {
+            key: 'main',
+            title: 'Main Block',
+            focus: 'Upper Body & Core',
+            durationMinutes: 30,
+            objective: 'Protect lower-body freshness.',
+            candidateFocusTags: ['upper_body', 'core'],
+          },
+        ],
+      };
+
+      expect(buildPlanningBriefPromptData(adaptiveBrief)).toEqual(
+        expect.objectContaining({ adaptivePlanIntent: undefined }),
+      );
+      expect(
+        buildRegenerationMessage(baseRequest, undefined, undefined, adaptiveBrief),
+      ).not.toContain('Adaptive plan intent: primary Legs');
     });
 
     it('formats stage-one planner artifact prompt data', () => {

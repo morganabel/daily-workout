@@ -52,6 +52,7 @@ jest.mock('../db/repositories/UserRepository', () => ({
 
 jest.mock('../db/repositories/PlannedEventRepository', () => ({
   plannedEventRepository: {
+    observeEvents: jest.fn(),
     observeEventsByLocalDate: jest.fn(),
     listUpcomingEventContext: jest.fn(),
     toPlannedEvent: jest.fn((record) => record),
@@ -89,6 +90,7 @@ const createObservableMock = <T,>() => {
 describe('useHomeData', () => {
   let versionStream: ReturnType<typeof createObservableMock<Workout[]>>;
   let sessionStream: ReturnType<typeof createObservableMock<Workout[]>>;
+  let allPlannedEventStream: ReturnType<typeof createObservableMock<unknown[]>>;
   let plannedEventStream: ReturnType<typeof createObservableMock<unknown[]>>;
   let mockPlan: ReturnType<typeof createTodayPlanMock>;
   let userStream: ReturnType<typeof createObservableMock<unknown>>;
@@ -97,6 +99,7 @@ describe('useHomeData', () => {
     jest.clearAllMocks();
     versionStream = createObservableMock<Workout[]>();
     sessionStream = createObservableMock<Workout[]>();
+    allPlannedEventStream = createObservableMock<unknown[]>();
     plannedEventStream = createObservableMock<unknown[]>();
     userStream = createObservableMock<unknown>();
     mockPlan = createTodayPlanMock({ id: 'server-plan' });
@@ -127,6 +130,9 @@ describe('useHomeData', () => {
     });
     mockUserRepository.observeUser.mockReturnValue(
       userStream.observable as any
+    );
+    mockPlannedEventRepository.observeEvents.mockReturnValue(
+      allPlannedEventStream.observable as any
     );
     mockPlannedEventRepository.observeEventsByLocalDate.mockReturnValue(
       plannedEventStream.observable as any
@@ -247,6 +253,84 @@ describe('useHomeData', () => {
     expect(
       mockPlannedEventRepository.listUpcomingEventContext
     ).toHaveBeenCalled();
+  });
+
+  it('uses staged available time when resolving adaptive add-ons', async () => {
+    const plan = createAdaptiveTrainingPlanFromTemplate('ppl-conditioning', {
+      id: 'plan-ppl',
+      activeFrom: '2026-04-15',
+      updatedAt: '2026-04-15T12:00:00.000Z',
+    });
+    if (!plan) {
+      throw new Error('Expected adaptive plan');
+    }
+    mockUserRepository.getPreferences.mockResolvedValue({
+      equipment: ['Gym'],
+      injuries: [],
+      focusBias: [],
+      avoid: [],
+      adaptiveTrainingPlan: plan,
+    });
+
+    const { result } = renderHook(() => useHomeData());
+
+    await act(async () => {
+      userStream.emit({});
+    });
+
+    await waitFor(() => {
+      expect(result.current.adaptiveRecommendation?.addOnBlockIds).toEqual([]);
+    });
+
+    await act(async () => {
+      result.current.updateStagedValue('time', '75');
+    });
+
+    await waitFor(() => {
+      expect(result.current.adaptiveRecommendation?.addOnBlockIds).toContain(
+        'easy-cardio'
+      );
+    });
+  });
+
+  it('refreshes adaptive recommendations when upcoming events change', async () => {
+    const plan = createAdaptiveTrainingPlanFromTemplate('ppl-conditioning', {
+      id: 'plan-ppl',
+      activeFrom: '2026-04-15',
+      updatedAt: '2026-04-15T12:00:00.000Z',
+    });
+    if (!plan) {
+      throw new Error('Expected adaptive plan');
+    }
+    mockUserRepository.getPreferences.mockResolvedValue({
+      equipment: ['Gym'],
+      injuries: [],
+      focusBias: [],
+      avoid: [],
+      adaptiveTrainingPlan: plan,
+    });
+
+    renderHook(() => useHomeData());
+
+    await act(async () => {
+      userStream.emit({});
+    });
+
+    await waitFor(() => {
+      expect(
+        mockPlannedEventRepository.listUpcomingEventContext
+      ).toHaveBeenCalledTimes(1);
+    });
+
+    await act(async () => {
+      allPlannedEventStream.emit([]);
+    });
+
+    await waitFor(() => {
+      expect(
+        mockPlannedEventRepository.listUpcomingEventContext
+      ).toHaveBeenCalledTimes(2);
+    });
   });
 
   it('hydrates planned workout versions from the selected group', async () => {

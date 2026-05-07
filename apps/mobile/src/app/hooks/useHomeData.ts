@@ -78,6 +78,31 @@ const FALLBACK_QUICK_ACTIONS = buildQuickActionsFromPreferences({
   avoid: [],
 });
 
+type StagedQuickActionValues = Partial<Record<QuickActionKey, string | null>>;
+
+const getQuickActionResolvedValue = (
+  quickActions: QuickActionPreset[],
+  stagedValues: StagedQuickActionValues,
+  key: QuickActionKey
+): string | undefined => {
+  const stagedValue = stagedValues[key];
+  if (stagedValue?.trim()) {
+    return stagedValue;
+  }
+
+  const action = quickActions.find((item) => item.key === key);
+  return action?.stagedValue ?? action?.value ?? action?.description;
+};
+
+const resolveAvailableTimeMinutes = (
+  quickActions: QuickActionPreset[],
+  stagedValues: StagedQuickActionValues
+): number | undefined => {
+  const value = getQuickActionResolvedValue(quickActions, stagedValues, 'time');
+  const parsed = Number.parseInt(value ?? '', 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
+};
+
 const getCurrentLocalDate = (): string => formatLocalDate(new Date());
 
 const getNextLocalMidnightDelay = (localDate: string): number => {
@@ -193,6 +218,7 @@ export function useHomeData(): HomeDataState & {
   const [stagedValues, setStagedValues] = useState<
     Partial<Record<QuickActionKey, string | null>>
   >({});
+  const [plannedEventsRevision, setPlannedEventsRevision] = useState(0);
 
   useEffect(() => {
     return () => {
@@ -367,7 +393,7 @@ export function useHomeData(): HomeDataState & {
         }));
       });
 
-    const plannedEventSubscription = plannedEventRepository
+    const plannedSlotSubscription = plannedEventRepository
       .observeEventsByLocalDate(state.planningDateLocal)
       .subscribe((records) => {
         if (!isMountedRef.current) return;
@@ -387,10 +413,18 @@ export function useHomeData(): HomeDataState & {
         }));
       });
 
+    const plannedEventsSubscription = plannedEventRepository
+      .observeEvents()
+      .subscribe(() => {
+        if (!isMountedRef.current) return;
+        setPlannedEventsRevision((revision) => revision + 1);
+      });
+
     return () => {
       versionSubscription.unsubscribe();
       recentSubscription.unsubscribe();
-      plannedEventSubscription.unsubscribe();
+      plannedSlotSubscription.unsubscribe();
+      plannedEventsSubscription.unsubscribe();
     };
   }, [hydrateWorkoutVersions, state.planningDateLocal]);
 
@@ -480,6 +514,10 @@ export function useHomeData(): HomeDataState & {
           planningDateLocal: state.planningDateLocal,
           recentSessions: state.recentSessions,
           upcomingEvents,
+          availableTimeMinutes: resolveAvailableTimeMinutes(
+            state.quickActions,
+            stagedValues
+          ),
         });
 
         setState((prev) => ({
@@ -496,7 +534,14 @@ export function useHomeData(): HomeDataState & {
     return () => {
       cancelled = true;
     };
-  }, [state.adaptivePlan, state.planningDateLocal, state.recentSessions]);
+  }, [
+    plannedEventsRevision,
+    stagedValues,
+    state.adaptivePlan,
+    state.planningDateLocal,
+    state.quickActions,
+    state.recentSessions,
+  ]);
 
   const fetchData = useCallback(async () => {
     refreshPlanningDate();

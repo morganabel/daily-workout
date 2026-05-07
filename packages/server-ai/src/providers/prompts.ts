@@ -94,6 +94,10 @@ export function buildPlanningBriefPromptData(planningBrief?: PlanningBrief):
     return undefined;
   }
 
+  const adaptivePlanIntent = usesAdaptiveBlockIntents(planningBrief)
+    ? planningBrief.adaptivePlanIntent
+    : undefined;
+
   return {
     resolvedFocus: planningBrief.resolvedFocus,
     focusMode: planningBrief.focusMode,
@@ -106,7 +110,7 @@ export function buildPlanningBriefPromptData(planningBrief?: PlanningBrief):
     plannerAvoidances: planningBrief.disallowedStressors,
     recentStressorsToAvoid: planningBrief.recentStressorsToAvoid,
     eventProtection: planningBrief.eventProtection,
-    adaptivePlanIntent: planningBrief.adaptivePlanIntent,
+    adaptivePlanIntent,
     blockIntents: planningBrief.blockIntents,
     regeneration: planningBrief.regeneration,
     variationMode: planningBrief.variationMode,
@@ -287,7 +291,10 @@ export function buildRegenerationMessage(
         `Protect freshness for ${planningBrief.eventProtection.title} on ${planningBrief.eventProtection.localDate}.`,
       );
     }
-    if (planningBrief.adaptivePlanIntent) {
+    if (
+      planningBrief.adaptivePlanIntent &&
+      usesAdaptiveBlockIntents(planningBrief)
+    ) {
       parts.push(formatAdaptivePlanIntent(planningBrief.adaptivePlanIntent));
     }
   }
@@ -455,4 +462,10 @@ function formatAdaptivePlanIntent(
   }
 
   return `Adaptive plan intent: ${pieces.join('; ')}.`;
+}
+
+function usesAdaptiveBlockIntents(planningBrief: PlanningBrief): boolean {
+  return planningBrief.blockIntents.some((block) =>
+    block.key.startsWith('adaptive-'),
+  );
 }

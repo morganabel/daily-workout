@@ -411,13 +411,23 @@ function resolveAdaptivePlanFocus(
   adaptivePlanIntent: NonNullable<PlanningBrief['adaptivePlanIntent']>,
   eventProtection?: PlanningEventProtection,
 ): string {
+  const blocks = [
+    adaptivePlanIntent.primaryBlock,
+    ...adaptivePlanIntent.addOnBlocks,
+  ];
   if (
     eventProtection &&
-    hasLowerBodyOrImpactStress(adaptivePlanIntent.primaryBlock.stressTags)
+    blocks.some((block) => hasLowerBodyOrImpactStress(block.stressTags))
   ) {
     return 'Upper Body & Core';
   }
 
+  return formatAdaptivePlanFocus(adaptivePlanIntent);
+}
+
+function formatAdaptivePlanFocus(
+  adaptivePlanIntent: NonNullable<PlanningBrief['adaptivePlanIntent']>,
+): string {
   const addOnLabels = adaptivePlanIntent.addOnBlocks.map((block) => block.label);
   return [adaptivePlanIntent.primaryBlock.label, ...addOnLabels].join(' + ');
 }
@@ -456,7 +466,12 @@ function deriveBlockIntents(params: {
     resolvedFocus,
   } = params;
 
-  if (adaptivePlanIntent && focusMode === 'adaptive-plan') {
+  if (
+    adaptivePlanIntent &&
+    focusMode === 'adaptive-plan' &&
+    normalizeText(resolvedFocus) ===
+      normalizeText(formatAdaptivePlanFocus(adaptivePlanIntent))
+  ) {
     const blocks = [
       adaptivePlanIntent.primaryBlock,
       ...adaptivePlanIntent.addOnBlocks,
@@ -474,7 +489,10 @@ function deriveBlockIntents(params: {
           block.category,
           block.role,
           ...block.stressTags,
-          ...deriveCandidateFocusTags(block.label, context.preferences.focusBias ?? []),
+          ...deriveCandidateFocusTags(
+            block.label,
+            context.preferences.focusBias ?? [],
+          ),
         ].filter((value): value is string => Boolean(value))),
       ],
     }));

@@ -8,7 +8,7 @@ import type {
   WorkoutSessionSummary,
 } from '@workout-agent/shared';
 import { adaptivePlanRecommendationSchema } from '@workout-agent/shared';
-import { parseLocalDate } from '../utils/date';
+import { formatLocalDate, parseLocalDate } from '../utils/date';
 
 export type AdaptiveTrainingPlanResolverInput = {
   plan: AdaptiveTrainingPlan;
@@ -22,9 +22,13 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 
 const normalize = (value: string): string => value.trim().toLowerCase();
 
-const daysBetween = (leftLocalDate: string, rightTime: number): number => {
+const daysBetweenLocalDates = (
+  leftLocalDate: string,
+  rightLocalDate: string
+): number => {
   const left = parseLocalDate(leftLocalDate).getTime();
-  return Math.floor((left - rightTime) / DAY_MS);
+  const right = parseLocalDate(rightLocalDate).getTime();
+  return Math.floor((left - right) / DAY_MS);
 };
 
 const sessionMatchesBlock = (
@@ -33,7 +37,7 @@ const sessionMatchesBlock = (
 ): boolean => {
   const focus = normalize(session.focus);
   const name = normalize(session.name);
-  const labels = [block.id, block.label, block.role, block.category].map(normalize);
+  const labels = [block.id, block.label, block.role].map(normalize);
 
   return labels.some((label) => focus.includes(label) || name.includes(label));
 };
@@ -49,7 +53,10 @@ const getRecentBlockIds = (
   recentSessions: WorkoutSessionSummary[]
 ): string[] =>
   recentSessions
-    .map((session) => plan.blocks.find((block) => sessionMatchesBlock(session, block)))
+    .filter((session) => !session.archivedAt)
+    .map((session) =>
+      plan.blocks.find((block) => sessionMatchesBlock(session, block))
+    )
     .filter((block): block is AdaptiveTrainingBlock => Boolean(block))
     .map((block) => block.id);
 
@@ -61,12 +68,19 @@ export const computeAdaptiveTargetProgress = (
 ): AdaptivePlanTargetProgress[] => {
   return input.plan.targetRanges.map((target) => {
     const count = input.recentSessions.reduce((total, session) => {
+      if (session.archivedAt) {
+        return total;
+      }
+
       const completedAt = Date.parse(session.completedAt);
       if (!Number.isFinite(completedAt)) {
         return total;
       }
 
-      const ageDays = daysBetween(input.planningDateLocal, completedAt);
+      const ageDays = daysBetweenLocalDates(
+        input.planningDateLocal,
+        formatLocalDate(new Date(completedAt))
+      );
       if (ageDays < 0 || ageDays >= target.windowDays) {
         return total;
       }
@@ -135,7 +149,7 @@ const hasProtectedLowerBodyEventSoon = (
 ): boolean => {
   const protectDays = input.plan.recommendationSettings.protectUpcomingLowerBodyDays;
   return (input.upcomingEvents ?? []).some((event) => {
-    const daysUntil = daysBetween(event.localDate, parseLocalDate(input.planningDateLocal).getTime());
+    const daysUntil = daysBetweenLocalDates(event.localDate, input.planningDateLocal);
     return daysUntil > 0 && daysUntil <= protectDays && eventStressesLowerBody(event);
   });
 };

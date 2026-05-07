@@ -23,6 +23,58 @@ const createPlan = (): AdaptiveTrainingPlan => {
   return plan;
 };
 
+const createUpperLowerPlan = (): AdaptiveTrainingPlan => ({
+  ...createPlan(),
+  id: 'plan-upper-lower',
+  sourceTemplateId: 'balanced-foundation',
+  blocks: [
+    {
+      id: 'upper-strength',
+      label: 'Upper Strength',
+      role: 'upper-strength',
+      category: 'strength',
+      stressTags: ['upper-body'],
+      defaultDurationMinutes: 40,
+      targetContributions: [{ targetId: 'strength', count: 1 }],
+      compatibleAddOnBlockIds: [],
+      conflictsWithBlockIds: [],
+    },
+    {
+      id: 'lower-strength',
+      label: 'Lower Strength',
+      role: 'lower-strength',
+      category: 'strength',
+      stressTags: ['lower-body'],
+      defaultDurationMinutes: 40,
+      targetContributions: [{ targetId: 'strength', count: 1 }],
+      compatibleAddOnBlockIds: [],
+      conflictsWithBlockIds: [],
+    },
+  ],
+  targetRanges: [
+    {
+      id: 'strength',
+      label: 'Strength',
+      appliesTo: {
+        blockIds: ['upper-strength', 'lower-strength'],
+        categories: ['strength'],
+        stressTags: [],
+      },
+      windowDays: 7,
+      minCount: 2,
+      maxCount: 4,
+      idealCount: 3,
+      priority: 'primary',
+    },
+  ],
+  typicalWeekPreferences: [],
+  recommendationSettings: {
+    preferredRotationBlockIds: ['upper-strength', 'lower-strength'],
+    allowCompatibleAddOns: false,
+    protectUpcomingLowerBodyDays: 1,
+  },
+});
+
 const session = (
   id: string,
   focus: string,
@@ -67,6 +119,26 @@ describe('adaptive training plan resolver', () => {
         (target: AdaptivePlanTargetProgress) => target.targetId === 'lift'
       )?.count
     ).toBe(3);
+  });
+
+  it('counts same-day sessions and ignores archived sessions for target progress', () => {
+    const progress = computeAdaptiveTargetProgress({
+      plan: createPlan(),
+      planningDateLocal: '2026-04-20',
+      recentSessions: [
+        session('today-push', 'Push', '2026-04-20T12:00:00.000Z'),
+        {
+          ...session('archived-pull', 'Pull', '2026-04-19T12:00:00.000Z'),
+          archivedAt: '2026-04-19T13:00:00.000Z',
+        },
+      ],
+    });
+
+    expect(
+      progress.find(
+        (target: AdaptivePlanTargetProgress) => target.targetId === 'lift'
+      )?.count
+    ).toBe(1);
   });
 
   it('does not treat an extra lift inside the range as broken', () => {
@@ -190,6 +262,18 @@ describe('adaptive training plan resolver', () => {
     expect(recommendation.primaryBlockId).toBe('legs');
     expect(recommendation.projectionStatus).toBe('pinned');
     expect(recommendation.rationale[0]?.code).toBe('pinned-session');
+  });
+
+  it('matches recent sessions by specific block labels instead of broad categories', () => {
+    const recommendation = resolveAdaptiveTrainingRecommendation({
+      plan: createUpperLowerPlan(),
+      planningDateLocal: '2026-04-15',
+      recentSessions: [
+        session('lower', 'Lower Strength', '2026-04-14T12:00:00.000Z'),
+      ],
+    });
+
+    expect(recommendation.primaryBlockId).toBe('upper-strength');
   });
 
   it('derives recommendations from structured blocks instead of PPL-specific slots', () => {
