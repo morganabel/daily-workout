@@ -18,7 +18,7 @@ describe('UserRepository blueprint preferences', () => {
     await clearUsers();
   });
 
-  it('saves accepted training blueprint data into preferences', async () => {
+  it('saves accepted onboarding data and an adaptive plan into preferences', async () => {
     const blueprint = createTrainingBlueprintFromOnboarding({
       goal: 'build-strength',
       experienceLevel: 'beginner',
@@ -30,12 +30,16 @@ describe('UserRepository blueprint preferences', () => {
 
     const preferences = await userRepository.getPreferences();
     expect(preferences.onboardingSetupStatus).toBe('completed');
-    expect(preferences.trainingBlueprint?.templateId).toBe('strength-foundation');
+    expect(preferences.trainingBlueprint).toBeUndefined();
     expect(preferences.onboardingAnswers).toEqual(blueprint.onboardingAnswers);
     expect(preferences.equipment).toEqual(['Dumbbells']);
     expect(preferences.experienceLevel).toBe('beginner');
     expect(preferences.primaryGoal).toBe('Build strength');
-    expect(preferences.adaptiveTrainingPlan).toBeUndefined();
+    expect(preferences.adaptiveTrainingPlan).toMatchObject({
+      sourceTemplateId: 'strength-foundation',
+      mode: 'adaptive',
+      status: 'active',
+    });
   });
 
   it('seeds and persists an adaptive plan for PPL conditioning onboarding', async () => {
@@ -49,7 +53,7 @@ describe('UserRepository blueprint preferences', () => {
     await userRepository.saveTrainingBlueprint(blueprint);
 
     const preferences = await userRepository.getPreferences();
-    expect(preferences.trainingBlueprint?.templateId).toBe('ppl-conditioning');
+    expect(preferences.trainingBlueprint).toBeUndefined();
     expect(preferences.adaptiveTrainingPlan).toMatchObject({
       sourceTemplateId: 'ppl-conditioning',
       mode: 'adaptive',

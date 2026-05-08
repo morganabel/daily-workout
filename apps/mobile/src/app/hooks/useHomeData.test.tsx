@@ -91,7 +91,6 @@ describe('useHomeData', () => {
   let versionStream: ReturnType<typeof createObservableMock<Workout[]>>;
   let sessionStream: ReturnType<typeof createObservableMock<Workout[]>>;
   let allPlannedEventStream: ReturnType<typeof createObservableMock<unknown[]>>;
-  let plannedEventStream: ReturnType<typeof createObservableMock<unknown[]>>;
   let mockPlan: ReturnType<typeof createTodayPlanMock>;
   let userStream: ReturnType<typeof createObservableMock<unknown>>;
 
@@ -100,7 +99,6 @@ describe('useHomeData', () => {
     versionStream = createObservableMock<Workout[]>();
     sessionStream = createObservableMock<Workout[]>();
     allPlannedEventStream = createObservableMock<unknown[]>();
-    plannedEventStream = createObservableMock<unknown[]>();
     userStream = createObservableMock<unknown>();
     mockPlan = createTodayPlanMock({ id: 'server-plan' });
 
@@ -133,9 +131,6 @@ describe('useHomeData', () => {
     );
     mockPlannedEventRepository.observeEvents.mockReturnValue(
       allPlannedEventStream.observable as any
-    );
-    mockPlannedEventRepository.observeEventsByLocalDate.mockReturnValue(
-      plannedEventStream.observable as any
     );
     mockPlannedEventRepository.listUpcomingEventContext.mockResolvedValue([]);
     mockNetInfo.addEventListener = jest.fn().mockImplementation((callback) => {
@@ -177,50 +172,6 @@ describe('useHomeData', () => {
       expect(result.current.recentSessions).toHaveLength(2);
     });
     expect(mockWorkoutRepository.toSessionSummary).toHaveBeenCalledTimes(2);
-  });
-
-  it('hydrates today planned slot metadata from planned events', async () => {
-    const { result } = renderHook(() => useHomeData());
-
-    expect(
-      mockPlannedEventRepository.observeEventsByLocalDate
-    ).toHaveBeenCalledWith(result.current.planningDateLocal);
-
-    await act(async () => {
-      plannedEventStream.emit([
-        {
-          status: 'planned',
-          metadata: {
-            schemaVersion: 1,
-            ownership: 'app',
-            source: 'training-blueprint',
-            templateId: 'ppl-conditioning',
-            slotId: 'day-1-pull',
-            slotRole: 'pull',
-            slotLabel: 'Upper Body',
-            plannedDate: result.current.planningDateLocal,
-            targetDurationMinutes: 45,
-            equipmentLocationAssumptions: {
-              environment: 'gym',
-              equipment: ['Gym'],
-            },
-            detailState: 'not-generated',
-            locked: false,
-            userEdited: false,
-          },
-        },
-      ]);
-    });
-
-    await waitFor(() => {
-      expect(result.current.plannedSlot).toEqual(
-        expect.objectContaining({
-          slotRole: 'pull',
-          slotLabel: 'Upper Body',
-          targetDurationMinutes: 45,
-        })
-      );
-    });
   });
 
   it('loads adaptive plan state and resolves a Home recommendation', async () => {

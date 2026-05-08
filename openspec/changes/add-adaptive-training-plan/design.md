@@ -1,6 +1,6 @@
 ## Context
 
-The app currently has strong pieces for single-session coaching: quick generation inputs, recent-session context, planned events, planned-slot intent, and a server-side planning brief. The latest onboarding work added a local `TrainingBlueprint` and materializes a 7-day starter week into `planned_events`.
+The app currently has strong pieces for single-session coaching: quick generation inputs, recent-session context, planned events, and a server-side planning brief. The latest onboarding work added a local `TrainingBlueprint` and materializes a 7-day starter week into `planned_events`.
 
 That model is useful for a first-run starter rhythm, but it is not a durable planning model. Many lifting and fitness plans are weekly in language but not fixed to seven slots. A user may target 3-5 lift exposures, 2-3 cardio exposures, 1 sprint exposure, and 0-2 rest days over a rolling window. They may normally prefer legs on Friday, but a Saturday hike should cause the coach to swap or reflow that day. They may combine a lift and easy cardio in one session.
 
@@ -25,7 +25,7 @@ This change introduces an adaptive training plan layer that can use weekly menta
 - AI-authored long-term plans or large template-library authoring tools.
 - External calendar sync, reminders, or recurrence engines.
 - Advanced training-load metrics such as tonnage, chronic load, monotony, strain, pace, or distance.
-- Replacing one-off Today generation for users who skip onboarding or do not use an adaptive plan.
+- Replacing one-off Today generation for users who skip onboarding or have not created an adaptive plan.
 
 ## Decisions
 
@@ -86,17 +86,17 @@ AI can later help explain or refine recommendations, but the core plan state and
 
 `planned_events` should continue to represent calendar-visible items. Adaptive plans may create projected workout events for visibility and pinned events for commitments, but the plan is not defined by those events. User-owned events, hikes, sports, travel, and other planned events remain inputs to recommendation and projection.
 
-V1 computes adaptive recommendations and projection labels on demand from the local plan, recent sessions, and upcoming events. It does not persist adaptive projected workout events into `planned_events`; that remains a follow-up once pinning and reflow controls are more complete. Existing blueprint-owned starter slots still persist as `planned_events` for compatibility.
+V1 computes adaptive recommendations and projection labels on demand from the local plan, recent sessions, and upcoming events. It does not persist adaptive projected workout events into `planned_events`; that remains a follow-up once pinning and reflow controls are more complete. App-owned starter-week planned slots are no longer created because there are no existing users to migrate.
 
 ### Decision: Reuse generation planning with richer intent
 
-The existing planned-slot intent path already lets Home and History pass structured session intent into generation. This change should extend that concept with adaptive plan intent: plan id, recommendation id, primary block, optional add-ons, target range context, rationale, and relevant constraints.
+Generation should use adaptive plan intent: plan id, recommendation id, primary block, optional add-ons, target range context, rationale, and relevant constraints.
 
 The planning brief should treat adaptive plan intent as structured intent while still allowing injuries, avoid lists, equipment, energy, recent fatigue, and upcoming event protection to adjust the generated session.
 
-### Decision: Preserve compatibility paths
+### Decision: Do not preserve starter-week compatibility paths
 
-Existing users with `TrainingBlueprint.slotSequence` continue to work. Existing planned slots remain valid and can still generate workouts. Adaptive templates can be introduced alongside starter-week templates, then later migrations can move starter users into adaptive plans when appropriate.
+The product has no existing users, so the implementation should not carry runtime starter-week compatibility. Template onboarding creates an adaptive plan directly, Home does not hydrate app-owned planned-slot metadata, and generation requests do not include planned-slot intent. Calendar events remain as user-owned context for the resolver.
 
 ## Path To Full Coaching
 
@@ -121,15 +121,15 @@ To keep that path open, this change should ensure recommendations are derived fr
 - Deterministic recommendations may feel too rigid at first. Mitigation: produce alternatives and rationale, and keep user override/generation paths simple.
 - Storing adaptive plans inside preferences may become unwieldy. Mitigation: use preferences for V1 local-first simplicity, but version schemas so a later table/sync model can migrate cleanly.
 - Projected events may be mistaken for commitments. Mitigation: label projected vs pinned clearly and avoid silently overwriting pinned or user-owned events.
-- Existing starter-week behavior can diverge from adaptive plan behavior. Mitigation: preserve both paths during rollout and add tests for legacy planned-slot generation.
+- Removing starter-week compatibility reduces rollback options. Mitigation: keep one-off Today generation for users without a plan and validate every onboarding template can produce an adaptive plan.
 
 ## Migration Plan
 
-- Add versioned adaptive plan schemas without removing existing blueprint fields.
-- Seed new adaptive plans from relevant templates, starting with PPL + conditioning.
-- Keep existing users on their current starter-week slots until they opt into or edit the adaptive plan.
-- Allow `TrainingBlueprint` to reference or seed an adaptive plan while preserving `slotSequence` compatibility.
-- Rollback is safe because existing `planned_events`, `TrainingBlueprint`, and one-off generation remain valid if adaptive plan fields are ignored.
+- Add versioned adaptive plan schemas.
+- Seed adaptive plans from every onboarding template.
+- Stop creating app-owned starter-week planned events during onboarding and settings saves.
+- Remove planned-slot generation intent from Home and server planning.
+- Rollback is limited to one-off Today generation for users without a plan.
 
 ## Open Questions
 

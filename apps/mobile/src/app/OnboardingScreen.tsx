@@ -30,7 +30,6 @@ import {
 import type { RootStackParamList } from './navigation';
 import { Button, Chip } from './components/DesignSystem';
 import { userRepository } from './db/repositories/UserRepository';
-import { createStarterWeekSlots } from './services/starterWeekSlots';
 import { palette, typography, layout } from './theme';
 
 type NavigationProp = NativeStackNavigationProp<
@@ -416,7 +415,6 @@ export const OnboardingScreen = () => {
           updatedAt: new Date().toISOString(),
         });
       await userRepository.saveTrainingBlueprint(nextBlueprint);
-      await createStarterWeekSlots(nextBlueprint);
       goHome();
     } catch (error) {
       console.error('Failed to save onboarding plan', error);

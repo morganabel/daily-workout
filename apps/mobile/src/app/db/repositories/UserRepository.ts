@@ -93,7 +93,6 @@ export class UserRepository {
     return (
       prefs.onboardingSetupStatus === 'completed' ||
       prefs.onboardingSetupStatus === 'skipped' ||
-      prefs.trainingBlueprint?.setupStatus === 'completed' ||
       prefs.adaptiveTrainingPlan?.status === 'active'
     );
   }
@@ -133,10 +132,13 @@ export class UserRepository {
       }
     );
 
+    if (!adaptiveTrainingPlan) {
+      throw new Error('Selected template does not support adaptive planning');
+    }
+
     await this.updatePreferences({
       onboardingAnswers: blueprint.onboardingAnswers,
       onboardingSetupStatus: blueprint.setupStatus,
-      trainingBlueprint: blueprint,
       adaptiveTrainingPlan,
       equipment: blueprint.equipmentLocationAssumptions.equipment,
       experienceLevel: blueprint.onboardingAnswers?.experienceLevel,

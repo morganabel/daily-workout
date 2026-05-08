@@ -326,19 +326,6 @@ export const plannedSlotMetadataSchema = z
   .strict();
 export type PlannedSlotMetadata = z.infer<typeof plannedSlotMetadataSchema>;
 
-export const plannedSlotIntentSchema = z
-  .object({
-    role: starterWeekSlotRoleSchema,
-    label: z.string().optional(),
-    targetDurationMinutes: z.number().int().positive().optional(),
-    equipmentLocationAssumptions: equipmentLocationAssumptionsSchema.optional(),
-    plannedDate: localDateSchema.optional(),
-    templateId: trainingTemplateIdSchema.optional(),
-    slotId: z.string().optional(),
-  })
-  .strict();
-export type PlannedSlotIntent = z.infer<typeof plannedSlotIntentSchema>;
-
 export const adaptiveTrainingPlanSchemaVersionSchema = z.literal(1);
 export type AdaptiveTrainingPlanSchemaVersion = z.infer<
   typeof adaptiveTrainingPlanSchemaVersionSchema
@@ -970,6 +957,194 @@ export const ADAPTIVE_PPL_CONDITIONING_RECOMMENDATION_SETTINGS = {
   protectUpcomingLowerBodyDays: 1,
 } satisfies AdaptiveRecommendationSettings;
 
+type AdaptivePlanTemplateDefinition = NonNullable<
+  TrainingTemplateDefinition['adaptivePlanTemplate']
+>;
+
+const WEEKDAYS: AdaptiveWeekday[] = [
+  'monday',
+  'tuesday',
+  'wednesday',
+  'thursday',
+  'friday',
+  'saturday',
+  'sunday',
+];
+
+const roleToAdaptiveBlock = (slot: StarterWeekSlot): AdaptiveTrainingBlock => {
+  switch (slot.role) {
+    case 'push':
+    case 'pull':
+    case 'legs':
+    case 'full-body':
+      return {
+        id: slot.role,
+        label: slot.label,
+        role: slot.role,
+        category: 'strength',
+        stressTags:
+          slot.role === 'legs'
+            ? ['lower-body', 'strength']
+            : slot.role === 'full-body'
+              ? ['full-body', 'strength']
+              : ['upper-body', slot.role],
+        defaultDurationMinutes: slot.targetDurationMinutes,
+        targetContributions: [{ targetId: 'strength', count: 1 }],
+        compatibleAddOnBlockIds: ['mobility'],
+        conflictsWithBlockIds: slot.role === 'legs' ? ['sprint'] : [],
+      };
+    case 'conditioning':
+      return {
+        id: 'conditioning',
+        label: slot.label,
+        role: slot.role,
+        category: 'cardio',
+        stressTags: ['aerobic'],
+        defaultDurationMinutes: slot.targetDurationMinutes,
+        targetContributions: [{ targetId: 'cardio', count: 1 }],
+        compatibleAddOnBlockIds: ['mobility'],
+        conflictsWithBlockIds: [],
+      };
+    case 'sprint':
+      return {
+        id: 'sprint',
+        label: slot.label,
+        role: slot.role,
+        category: 'conditioning',
+        stressTags: ['lower-body', 'high-impact', 'intense'],
+        defaultDurationMinutes: slot.targetDurationMinutes,
+        targetContributions: [
+          { targetId: 'cardio', count: 1 },
+          { targetId: 'sprint', count: 1 },
+        ],
+        compatibleAddOnBlockIds: ['mobility'],
+        conflictsWithBlockIds: ['legs'],
+      };
+    case 'mobility':
+      return {
+        id: 'mobility',
+        label: slot.label,
+        role: slot.role,
+        category: 'mobility',
+        stressTags: ['recovery'],
+        defaultDurationMinutes: slot.targetDurationMinutes,
+        targetContributions: [{ targetId: 'recovery', count: 1 }],
+        compatibleAddOnBlockIds: [],
+        conflictsWithBlockIds: [],
+      };
+    case 'recovery':
+      return {
+        id: 'rest',
+        label: slot.label,
+        role: slot.role,
+        category: 'rest',
+        stressTags: ['recovery'],
+        defaultDurationMinutes: slot.targetDurationMinutes,
+        targetContributions: [{ targetId: 'recovery', count: 1 }],
+        compatibleAddOnBlockIds: [],
+        conflictsWithBlockIds: [],
+      };
+    case 'flexible':
+      return {
+        id: 'flexible',
+        label: slot.label,
+        role: slot.role,
+        category: 'conditioning',
+        stressTags: ['flexible'],
+        defaultDurationMinutes: slot.targetDurationMinutes,
+        targetContributions: [{ targetId: 'flexible', count: 1 }],
+        compatibleAddOnBlockIds: ['mobility'],
+        conflictsWithBlockIds: [],
+      };
+  }
+};
+
+const targetLabelById: Record<string, string> = {
+  strength: 'Strength',
+  cardio: 'Cardio',
+  sprint: 'Sprint',
+  recovery: 'Recovery',
+  flexible: 'Flexible',
+};
+
+const createAdaptivePlanTemplateFromSlots = (
+  template: TrainingTemplateDefinition,
+): AdaptivePlanTemplateDefinition => {
+  const rawBlocks = [...new Map(
+    template.slotSequence.map((slot) => {
+      const block = roleToAdaptiveBlock(slot);
+      return [block.id, block] as const;
+    }),
+  ).values()];
+  const blockIdSet = new Set(rawBlocks.map((block) => block.id));
+  const blocks = rawBlocks.map((block) => ({
+    ...block,
+    compatibleAddOnBlockIds: block.compatibleAddOnBlockIds.filter((blockId) =>
+      blockIdSet.has(blockId),
+    ),
+    conflictsWithBlockIds: block.conflictsWithBlockIds.filter((blockId) =>
+      blockIdSet.has(blockId),
+    ),
+  }));
+  const contributionCounts = new Map<string, number>();
+
+  template.slotSequence.forEach((slot) => {
+    roleToAdaptiveBlock(slot).targetContributions.forEach((contribution) => {
+      contributionCounts.set(
+        contribution.targetId,
+        (contributionCounts.get(contribution.targetId) ?? 0) + contribution.count,
+      );
+    });
+  });
+
+  const targetRanges = [...contributionCounts.entries()].map(([targetId, count]) => {
+    const minCount = targetId === 'recovery' ? 0 : Math.max(1, Math.floor(count));
+    return {
+      id: targetId,
+      label: targetLabelById[targetId] ?? targetId,
+      appliesTo: {
+        blockIds: blocks
+          .filter((block) =>
+            block.targetContributions.some(
+              (contribution) => contribution.targetId === targetId,
+            ),
+          )
+          .map((block) => block.id),
+        categories: [],
+        stressTags: [],
+      },
+      windowDays: 7,
+      minCount,
+      maxCount: Math.max(minCount, Math.ceil(count) + 1),
+      idealCount: Math.ceil(count),
+      priority:
+        targetId === 'strength' || targetId === 'cardio' ? 'primary' : 'secondary',
+    } satisfies AdaptiveTargetRange;
+  });
+
+  return {
+    blocks,
+    targetRanges,
+    typicalWeekPreferences: template.slotSequence.map((slot) => ({
+      dayOfWeek: WEEKDAYS[slot.dayOffset % WEEKDAYS.length],
+      preferredBlockIds: [roleToAdaptiveBlock(slot).id],
+      flexibility: 'preferred',
+    })),
+    recommendationSettings: {
+      preferredRotationBlockIds: blocks
+        .filter((block) => block.category !== 'rest' && block.category !== 'mobility')
+        .map((block) => block.id),
+      allowCompatibleAddOns: true,
+      protectUpcomingLowerBodyDays: 1,
+    },
+  };
+};
+
+const getAdaptivePlanTemplate = (
+  template: TrainingTemplateDefinition,
+): AdaptivePlanTemplateDefinition =>
+  template.adaptivePlanTemplate ?? createAdaptivePlanTemplateFromSlots(template);
+
 export const TRAINING_TEMPLATE_DEFINITIONS: Record<
   TrainingTemplateId,
   TrainingTemplateDefinition
@@ -1064,8 +1239,7 @@ export const TRAINING_TEMPLATE_DEFINITIONS: Record<
 
 export const supportsAdaptiveTrainingPlan = (
   templateId: TrainingTemplateId,
-): boolean =>
-  Boolean(TRAINING_TEMPLATE_DEFINITIONS[templateId].adaptivePlanTemplate);
+): boolean => Boolean(TRAINING_TEMPLATE_DEFINITIONS[templateId]);
 
 const minimalEquipment = new Set(['Bodyweight', 'Resistance Bands', 'Jump Rope']);
 
@@ -1141,7 +1315,8 @@ export const createAdaptiveTrainingPlanFromTemplate = (
     updatedAt: string;
   },
 ): AdaptiveTrainingPlan | undefined => {
-  const template = TRAINING_TEMPLATE_DEFINITIONS[templateId].adaptivePlanTemplate;
+  const templateDefinition = TRAINING_TEMPLATE_DEFINITIONS[templateId];
+  const template = getAdaptivePlanTemplate(templateDefinition);
 
   if (!template) {
     return undefined;
@@ -1440,8 +1615,6 @@ export const generationRequestSchema = z
       .array(upcomingEventContextSchema)
       .max(MAX_UPCOMING_EVENTS)
       .optional(),
-    // Optional explicit intent when generating from a blueprint-owned planned slot.
-    plannedSlotIntent: plannedSlotIntentSchema.optional(),
     // Optional explicit intent when generating from an adaptive training plan recommendation.
     adaptivePlanIntent: adaptivePlanIntentSchema.optional(),
     // Optional provider selection and model override

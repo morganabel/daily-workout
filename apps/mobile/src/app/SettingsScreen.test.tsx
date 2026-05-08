@@ -8,10 +8,6 @@ jest.mock('./components/BottomNavigation', () => ({
   BottomNavigation: () => null,
 }));
 
-jest.mock('./services/starterWeekSlots', () => ({
-  createStarterWeekSlots: jest.fn().mockResolvedValue([]),
-}));
-
 jest.mock('./db/repositories/UserRepository', () => ({
   userRepository: {
     getPreferences: jest.fn(),

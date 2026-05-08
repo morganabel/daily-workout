@@ -4,6 +4,7 @@ import type {
   AdaptiveRecommendationRationale,
   AdaptiveTrainingBlock,
   AdaptiveTrainingPlan,
+  AdaptiveTrainingTargetPriority,
   UpcomingEventContext,
   WorkoutSessionSummary,
 } from '@workout-agent/shared';
@@ -19,8 +20,28 @@ export type AdaptiveTrainingPlanResolverInput = {
 };
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+const RECOVERY_STRESS_WINDOW_DAYS = 3;
 
 const normalize = (value: string): string => value.trim().toLowerCase();
+
+const normalizeTag = (value: string): string =>
+  normalize(value).replace(/_/g, '-');
+
+type RecentBlockContext = {
+  block: AdaptiveTrainingBlock;
+  ageDays: number;
+};
+
+type ScoreReason = {
+  code: string;
+  message: string;
+};
+
+type ScoredBlock = {
+  block: AdaptiveTrainingBlock;
+  score: number;
+  reasons: ScoreReason[];
+};
 
 const daysBetweenLocalDates = (
   leftLocalDate: string,
@@ -59,6 +80,36 @@ const getRecentBlockIds = (
     )
     .filter((block): block is AdaptiveTrainingBlock => Boolean(block))
     .map((block) => block.id);
+
+const getRecentBlockContexts = (
+  input: Pick<
+    AdaptiveTrainingPlanResolverInput,
+    'plan' | 'planningDateLocal' | 'recentSessions'
+  >
+): RecentBlockContext[] =>
+  input.recentSessions
+    .filter((session) => !session.archivedAt)
+    .map((session) => {
+      const completedAt = Date.parse(session.completedAt);
+      if (!Number.isFinite(completedAt)) {
+        return null;
+      }
+
+      const ageDays = daysBetweenLocalDates(
+        input.planningDateLocal,
+        formatLocalDate(new Date(completedAt))
+      );
+      if (ageDays < 0 || ageDays > RECOVERY_STRESS_WINDOW_DAYS) {
+        return null;
+      }
+
+      const block = input.plan.blocks.find((candidate) =>
+        sessionMatchesBlock(session, candidate)
+      );
+
+      return block ? { block, ageDays } : null;
+    })
+    .filter((context): context is RecentBlockContext => Boolean(context));
 
 export const computeAdaptiveTargetProgress = (
   input: Pick<
@@ -122,8 +173,8 @@ export const computeAdaptiveTargetProgress = (
   });
 };
 
-const eventStressesLowerBody = (event: UpcomingEventContext): boolean => {
-  const searchable = [
+const getEventSearchText = (event: UpcomingEventContext): string =>
+  [
     event.kind,
     event.title,
     event.intensity,
@@ -131,33 +182,266 @@ const eventStressesLowerBody = (event: UpcomingEventContext): boolean => {
     ...(event.tags ?? []),
   ]
     .filter((value): value is string => Boolean(value))
-    .map(normalize)
+    .map(normalizeTag)
     .join(' ');
 
-  return (
-    searchable.includes('hike') ||
-    searchable.includes('run') ||
-    searchable.includes('sport') ||
-    searchable.includes('lower') ||
-    searchable.includes('leg') ||
-    searchable.includes('high')
-  );
+const getProtectedEventStressTags = (
+  input: AdaptiveTrainingPlanResolverInput
+): string[] => {
+  const protectDays = input.plan.recommendationSettings.protectUpcomingLowerBodyDays;
+  const tags = new Set<string>();
+
+  (input.upcomingEvents ?? []).forEach((event) => {
+    const daysUntil = daysBetweenLocalDates(event.localDate, input.planningDateLocal);
+    if (daysUntil <= 0 || daysUntil > protectDays) {
+      return;
+    }
+
+    const searchable = getEventSearchText(event);
+
+    if (
+      searchable.includes('hike') ||
+      searchable.includes('run') ||
+      searchable.includes('lower') ||
+      searchable.includes('leg')
+    ) {
+      tags.add('lower-body');
+      tags.add('high-impact');
+    }
+    if (
+      searchable.includes('run') ||
+      searchable.includes('hike') ||
+      searchable.includes('cardio') ||
+      searchable.includes('aerobic') ||
+      searchable.includes('endurance')
+    ) {
+      tags.add('aerobic');
+    }
+    if (
+      searchable.includes('shoulder') ||
+      searchable.includes('overhead') ||
+      searchable.includes('throw') ||
+      searchable.includes('upper')
+    ) {
+      tags.add('upper-body');
+      tags.add('shoulder');
+    }
+    if (searchable.includes('grip') || searchable.includes('climb')) {
+      tags.add('grip');
+    }
+  });
+
+  return [...tags];
 };
 
 const hasProtectedLowerBodyEventSoon = (
   input: AdaptiveTrainingPlanResolverInput
+): boolean =>
+  getProtectedEventStressTags(input).some((tag) =>
+    ['lower-body', 'high-impact'].includes(tag)
+  );
+
+const getBlockStressTags = (block: AdaptiveTrainingBlock): string[] =>
+  block.stressTags.map(normalizeTag);
+
+const hasStressOverlap = (
+  left: AdaptiveTrainingBlock,
+  rightTags: string[]
 ): boolean => {
-  const protectDays = input.plan.recommendationSettings.protectUpcomingLowerBodyDays;
-  return (input.upcomingEvents ?? []).some((event) => {
-    const daysUntil = daysBetweenLocalDates(event.localDate, input.planningDateLocal);
-    return daysUntil > 0 && daysUntil <= protectDays && eventStressesLowerBody(event);
-  });
+  const leftTags = getBlockStressTags(left);
+  return leftTags.some((tag) => rightTags.includes(tag));
 };
 
-const hasLowerBodyStress = (block: AdaptiveTrainingBlock): boolean =>
-  block.stressTags.some((tag) =>
-    ['lower-body', 'high-impact', 'heavy'].includes(normalize(tag))
+const isRecoveryOrRestBlock = (block: AdaptiveTrainingBlock): boolean => {
+  const tags = getBlockStressTags(block);
+  return (
+    block.category === 'rest' ||
+    block.category === 'recovery' ||
+    block.category === 'mobility' ||
+    tags.includes('recovery')
   );
+};
+
+const hasRecentHardStress = (recentContexts: RecentBlockContext[]): boolean =>
+  recentContexts.some(
+    ({ block, ageDays }) =>
+      ageDays <= 2 &&
+      getBlockStressTags(block).some((tag) =>
+        ['heavy', 'high-impact', 'intense', 'lower-body'].includes(tag)
+      )
+  );
+
+const getPriorityWeight = (
+  priority: AdaptiveTrainingTargetPriority,
+  phase: 'below' | 'inside' | 'over'
+): number => {
+  if (priority === 'primary') {
+    return phase === 'below' ? 60 : phase === 'inside' ? 18 : -45;
+  }
+  if (priority === 'secondary') {
+    return phase === 'below' ? 42 : phase === 'inside' ? 12 : -30;
+  }
+  return phase === 'below' ? 20 : phase === 'inside' ? 6 : -15;
+};
+
+const scoreTargetNeed = (
+  block: AdaptiveTrainingBlock,
+  plan: AdaptiveTrainingPlan,
+  targetProgress: AdaptivePlanTargetProgress[]
+): { score: number; reasons: ScoreReason[] } => {
+  const reasons: ScoreReason[] = [];
+  const contributionScores = block.targetContributions.map((contribution) => {
+    const target = targetProgress.find(
+      (item) => item.targetId === contribution.targetId
+    );
+    const range = plan.targetRanges.find(
+      (item) => item.id === contribution.targetId
+    );
+    if (!target || !range) {
+      return 0;
+    }
+
+    if (target.count < target.minCount) {
+      reasons.push({
+        code: 'target-gap',
+        message: `${target.label} is below the ${target.minCount}-${target.maxCount} target range.`,
+      });
+      return getPriorityWeight(range.priority, 'below');
+    }
+    if (target.count < target.maxCount) {
+      return getPriorityWeight(range.priority, 'inside');
+    }
+
+    return getPriorityWeight(range.priority, 'over');
+  });
+  const sortedScores = contributionScores.sort((left, right) => right - left);
+  const score = sortedScores.reduce(
+    (total, value, index) => total + (index === 0 ? value : value * 0.4),
+    0
+  );
+
+  return { score, reasons };
+};
+
+const scoreRecoveryFit = (
+  block: AdaptiveTrainingBlock,
+  recentContexts: RecentBlockContext[]
+): { score: number; reasons: ScoreReason[] } => {
+  let score = 0;
+  const reasons: ScoreReason[] = [];
+  const blockTags = getBlockStressTags(block);
+
+  recentContexts.forEach((context) => {
+    const overlappingTags = getBlockStressTags(context.block).filter((tag) =>
+      blockTags.includes(tag)
+    );
+    if (!overlappingTags.length) {
+      return;
+    }
+
+    const hasSpecificOverlap = overlappingTags.some(
+      (tag) => !['upper-body', 'lower-body', 'aerobic'].includes(tag)
+    );
+    const penalty = hasSpecificOverlap
+      ? context.ageDays === 0
+        ? 45
+        : context.ageDays === 1
+          ? 35
+          : 18
+      : context.ageDays === 0
+        ? 18
+        : context.ageDays === 1
+          ? 10
+          : 5;
+    score -= penalty;
+    if (context.ageDays <= 1) {
+      reasons.push({
+        code: 'recent-stress',
+        message: `Avoiding another ${block.label} style session after recent ${context.block.label}.`,
+      });
+    }
+  });
+
+  if (isRecoveryOrRestBlock(block) && hasRecentHardStress(recentContexts)) {
+    score += 28;
+    reasons.push({
+      code: 'recovery-fit',
+      message: `${block.label} helps absorb recent harder training.`,
+    });
+  }
+
+  return { score, reasons };
+};
+
+const scoreEventFit = (
+  block: AdaptiveTrainingBlock,
+  protectedStressTags: string[]
+): { score: number; reasons: ScoreReason[] } => {
+  if (!protectedStressTags.length) {
+    return { score: 0, reasons: [] };
+  }
+
+  if (hasStressOverlap(block, protectedStressTags)) {
+    return {
+      score: -100,
+      reasons: [
+        {
+          code: 'event-protection',
+          message: `Moved ${block.label} down to protect an upcoming event.`,
+        },
+      ],
+    };
+  }
+
+  if (isRecoveryOrRestBlock(block)) {
+    return {
+      score: 22,
+      reasons: [
+        {
+          code: 'event-protection',
+          message: `${block.label} protects freshness for an upcoming event.`,
+        },
+      ],
+    };
+  }
+
+  return { score: 0, reasons: [] };
+};
+
+const scoreTimeFit = (
+  block: AdaptiveTrainingBlock,
+  availableTimeMinutes?: number
+): { score: number; reasons: ScoreReason[] } => {
+  if (!availableTimeMinutes) {
+    return { score: 0, reasons: [] };
+  }
+
+  const gap = availableTimeMinutes - block.defaultDurationMinutes;
+  if (gap >= 0) {
+    return { score: gap <= 15 ? 10 : 4, reasons: [] };
+  }
+
+  return {
+    score: gap < -10 ? -60 : -18,
+    reasons: [
+      {
+        code: 'time-fit',
+        message: `${block.label} is longer than today's available time.`,
+      },
+    ],
+  };
+};
+
+const primaryTargetsAreCovered = (
+  plan: AdaptiveTrainingPlan,
+  targetProgress: AdaptivePlanTargetProgress[]
+): boolean =>
+  plan.targetRanges
+    .filter((target) => target.priority !== 'optional')
+    .every((target) => {
+      const progress = targetProgress.find((item) => item.targetId === target.id);
+      return progress ? progress.count >= progress.minCount : true;
+    });
 
 const getPreferredBlockForDate = (
   input: AdaptiveTrainingPlanResolverInput
@@ -197,37 +481,26 @@ const getNextRotationBlockId = (
   return rotation[nextIndex];
 };
 
-const scoreTargetNeed = (
-  block: AdaptiveTrainingBlock,
-  targetProgress: AdaptivePlanTargetProgress[]
-): number =>
-  block.targetContributions.reduce((score, contribution) => {
-    const target = targetProgress.find(
-      (item) => item.targetId === contribution.targetId
-    );
-    if (!target) {
-      return score;
-    }
-    if (target.count < target.minCount) {
-      return Math.max(score, 50);
-    }
-    if (target.count < target.maxCount) {
-      return Math.max(score, 15);
-    }
-    return Math.min(score, -35);
-  }, 0);
-
 const scorePrimaryBlock = (
   block: AdaptiveTrainingBlock,
   input: AdaptiveTrainingPlanResolverInput,
   targetProgress: AdaptivePlanTargetProgress[],
-  recentBlockIds: string[]
-): number => {
+  recentBlockIds: string[],
+  recentContexts: RecentBlockContext[],
+  protectedStressTags: string[]
+): ScoredBlock => {
   let score = block.category === 'rest' ? -20 : 0;
-  score += scoreTargetNeed(block, targetProgress);
+  const reasons: ScoreReason[] = [];
+  const targetScore = scoreTargetNeed(block, input.plan, targetProgress);
+  score += targetScore.score;
+  reasons.push(...targetScore.reasons);
 
   if (block.id === getNextRotationBlockId(input.plan, recentBlockIds)) {
     score += 25;
+    reasons.push({
+      code: 'rotation-fit',
+      message: `${block.label} fits your preferred training rotation.`,
+    });
   }
   if (block.id === getPreferredBlockForDate(input)) {
     score += 12;
@@ -235,20 +508,28 @@ const scorePrimaryBlock = (
   if (recentBlockIds[0] === block.id) {
     score -= 30;
   }
-  if (hasProtectedLowerBodyEventSoon(input) && hasLowerBodyStress(block)) {
-    score -= 100;
+  if (block.category === 'rest' && primaryTargetsAreCovered(input.plan, targetProgress)) {
+    score += 35;
+    reasons.push({
+      code: 'rest-fit',
+      message: 'Your main targets are covered. Recovery keeps the plan moving.',
+    });
   }
-  if (input.availableTimeMinutes && block.defaultDurationMinutes > input.availableTimeMinutes) {
-    score -= 20;
-  }
+  const recoveryScore = scoreRecoveryFit(block, recentContexts);
+  const eventScore = scoreEventFit(block, protectedStressTags);
+  const timeScore = scoreTimeFit(block, input.availableTimeMinutes);
+  score += recoveryScore.score + eventScore.score + timeScore.score;
+  reasons.push(...recoveryScore.reasons, ...eventScore.reasons, ...timeScore.reasons);
 
-  return score;
+  return { block, score, reasons };
 };
 
 const chooseAddOns = (
   primary: AdaptiveTrainingBlock,
   input: AdaptiveTrainingPlanResolverInput,
-  targetProgress: AdaptivePlanTargetProgress[]
+  targetProgress: AdaptivePlanTargetProgress[],
+  recentContexts: RecentBlockContext[],
+  protectedStressTags: string[]
 ): AdaptiveTrainingBlock[] => {
   if (!input.plan.recommendationSettings.allowCompatibleAddOns) {
     return [];
@@ -266,7 +547,20 @@ const chooseAddOns = (
     .filter((block) => !primary.conflictsWithBlockIds.includes(block.id))
     .filter((block) => !block.conflictsWithBlockIds.includes(primary.id))
     .filter((block) => block.defaultDurationMinutes <= remainingMinutes)
-    .map((block) => ({ block, score: scoreTargetNeed(block, targetProgress) }))
+    .map((block) => {
+      const targetScore = scoreTargetNeed(block, input.plan, targetProgress);
+      const recoveryScore = scoreRecoveryFit(block, recentContexts);
+      const eventScore = scoreEventFit(block, protectedStressTags);
+      const timeScore = scoreTimeFit(block, remainingMinutes);
+      return {
+        block,
+        score:
+          targetScore.score +
+          recoveryScore.score * 0.4 +
+          eventScore.score +
+          timeScore.score,
+      };
+    })
     .filter((candidate) => candidate.score > 0)
     .sort((left, right) => right.score - left.score)
     .slice(0, 1)
@@ -318,34 +612,63 @@ export const resolveAdaptiveTrainingRecommendation = (
     });
   }
   const recentBlockIds = getRecentBlockIds(input.plan, input.recentSessions);
+  const recentContexts = getRecentBlockContexts(input);
+  const protectedStressTags = getProtectedEventStressTags(input);
   const scoredBlocks = activeBlocks
-    .map((block) => ({
-      block,
-      score: scorePrimaryBlock(block, input, targetProgress, recentBlockIds),
-    }))
+    .map((block) =>
+      scorePrimaryBlock(
+        block,
+        input,
+        targetProgress,
+        recentBlockIds,
+        recentContexts,
+        protectedStressTags
+      )
+    )
     .sort((left, right) => right.score - left.score);
-  const primary = scoredBlocks[0]?.block ?? input.plan.blocks[0];
-  const addOns = chooseAddOns(primary, input, targetProgress);
+  const primaryCandidate = scoredBlocks[0];
+  const primary = primaryCandidate?.block ?? input.plan.blocks[0];
+  const addOns = chooseAddOns(
+    primary,
+    input,
+    targetProgress,
+    recentContexts,
+    protectedStressTags
+  );
   const rationale: AdaptiveRecommendationRationale[] = [
     {
       code: 'structured-plan',
-      message: `Recommended ${primary.label} from your adaptive plan rhythm.`,
+      message: 'This fits your current training rhythm.',
     },
   ];
   const coachNotes: string[] = [];
 
-  const targetGap = targetProgress.find((target) => target.count < target.minCount);
-  if (targetGap) {
+  (primaryCandidate?.reasons ?? []).forEach((reason) => {
+    if (!rationale.some((item) => item.code === reason.code)) {
+      rationale.push(reason);
+    }
+  });
+
+  if (
+    protectedStressTags.length &&
+    !rationale.some((item) => item.code === 'event-protection')
+  ) {
     rationale.push({
-      code: 'target-gap',
-      message: `${targetGap.label} is below the ${targetGap.minCount}-${targetGap.maxCount} target range.`,
+      code: 'event-protection',
+      message: 'Adjusted to avoid overlapping stress with an upcoming event.',
     });
   }
 
   if (hasProtectedLowerBodyEventSoon(input)) {
     coachNotes.push(
-      'Adjusted away from heavy lower-body stress to protect an upcoming event.'
+      'Swapped away from heavy lower-body work to protect an upcoming event.'
     );
+  }
+  const recoveryReason = primaryCandidate?.reasons.find(
+    (reason) => reason.code === 'recovery-fit' || reason.code === 'rest-fit'
+  );
+  if (recoveryReason) {
+    coachNotes.push(recoveryReason.message);
   }
 
   const recommendation = {

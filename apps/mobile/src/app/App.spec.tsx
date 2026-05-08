@@ -159,7 +159,6 @@ const baseHookState = {
   planVersions: [],
   activePlanVersions: [basePlan],
   pendingPlanSnapshot: null,
-  plannedSlot: null,
   adaptivePlan: null,
   adaptiveRecommendation: null,
   recentSessions: [],

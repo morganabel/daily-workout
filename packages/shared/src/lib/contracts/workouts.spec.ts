@@ -318,7 +318,7 @@ describe('generation request upcoming events', () => {
     expect(result.success).toBe(true);
   });
 
-  it('accepts planned-slot intent without changing the public plan contract', () => {
+  it('rejects planned-slot intent because generation uses adaptive intent only', () => {
     const result = generationRequestSchema.safeParse({
       planningDateLocal: '2026-04-15',
       plannedSlotIntent: {
@@ -335,7 +335,7 @@ describe('generation request upcoming events', () => {
       },
     });
 
-    expect(result.success).toBe(true);
+    expect(result.success).toBe(false);
   });
 
   it('accepts adaptive plan intent with combined blocks', () => {
@@ -499,9 +499,19 @@ describe('training blueprint contracts', () => {
     }
   });
 
-  it('marks only templates with adaptive data as adaptive-capable', () => {
-    expect(supportsAdaptiveTrainingPlan('ppl-conditioning')).toBe(true);
-    expect(supportsAdaptiveTrainingPlan('balanced-foundation')).toBe(false);
+  it('creates an adaptive plan for every onboarding template', () => {
+    Object.keys(TRAINING_TEMPLATE_DEFINITIONS).forEach((templateId) => {
+      const typedTemplateId = templateId as keyof typeof TRAINING_TEMPLATE_DEFINITIONS;
+      const plan = createAdaptiveTrainingPlanFromTemplate(typedTemplateId, {
+        id: `${templateId}-plan`,
+        activeFrom: '2026-04-15',
+        updatedAt: '2026-04-15T12:00:00.000Z',
+      });
+
+      expect(supportsAdaptiveTrainingPlan(typedTemplateId)).toBe(true);
+      expect(plan).toBeDefined();
+      expect(adaptiveTrainingPlanSchema.safeParse(plan).success).toBe(true);
+    });
   });
 
   it('rejects invalid adaptive target ranges', () => {

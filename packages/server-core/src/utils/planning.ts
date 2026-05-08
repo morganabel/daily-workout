@@ -47,7 +47,6 @@ export function derivePlanningBrief({
 }: DerivePlanningBriefParams): PlanningBrief {
   const baselineWorkout = request.baselineWorkout ?? previousPlan ?? undefined;
   const requestedFocus = request.focus?.trim() || undefined;
-  const plannedSlotIntent = request.plannedSlotIntent;
   const adaptivePlanIntent = request.adaptivePlanIntent;
   const requestedFocusMatchesAdaptivePlan = Boolean(
     requestedFocus &&
@@ -59,22 +58,17 @@ export function derivePlanningBrief({
     ? isAutoFocus(requestedFocus)
       ? adaptivePlanIntent
         ? 'adaptive-plan'
-        : plannedSlotIntent
-          ? 'planned-slot'
-          : 'smart'
+        : 'smart'
       : requestedFocusMatchesAdaptivePlan
         ? 'adaptive-plan'
         : 'explicit'
     : adaptivePlanIntent
       ? 'adaptive-plan'
-      : plannedSlotIntent
-        ? 'planned-slot'
-        : 'unset';
+      : 'unset';
   const availableEquipment = normalizeEquipmentSelection(
     request.equipment?.length
       ? request.equipment
-      : plannedSlotIntent?.equipmentLocationAssumptions?.equipment ??
-          context.environment.equipment,
+      : context.environment.equipment,
     DEFAULT_EQUIPMENT,
   );
   const planningDateLocal =
@@ -102,7 +96,6 @@ export function derivePlanningBrief({
   const resolvedFocus = resolveFocus({
     focusMode,
     requestedFocus,
-    plannedSlotIntent,
     adaptivePlanIntent,
     context,
     recentStressorsToAvoid,
@@ -111,7 +104,6 @@ export function derivePlanningBrief({
   const durationMinutes =
     request.timeMinutes ??
     deriveAdaptivePlanDuration(adaptivePlanIntent) ??
-    plannedSlotIntent?.targetDurationMinutes ??
     context.environment.timeAvailableMinutes ??
     baselineWorkout?.durationMinutes ??
     DEFAULT_DURATION_MINUTES;
@@ -128,7 +120,6 @@ export function derivePlanningBrief({
     planningDateLocal,
     requestedFocus,
     focusMode,
-    plannedSlotIntent,
     adaptivePlanIntent,
     resolvedFocus,
     durationMinutes,
@@ -298,7 +289,6 @@ function deriveStyleBias(
 function resolveFocus(params: {
   focusMode: PlanningBrief['focusMode'];
   requestedFocus?: string;
-  plannedSlotIntent?: PlanningBrief['plannedSlotIntent'];
   adaptivePlanIntent?: PlanningBrief['adaptivePlanIntent'];
   context: GenerationContext;
   recentStressorsToAvoid: string[];
@@ -307,16 +297,11 @@ function resolveFocus(params: {
   const {
     focusMode,
     requestedFocus,
-    plannedSlotIntent,
     adaptivePlanIntent,
     context,
     recentStressorsToAvoid,
     eventProtection,
   } = params;
-
-  if (focusMode === 'planned-slot' && plannedSlotIntent) {
-    return resolvePlannedSlotFocus(plannedSlotIntent.role, eventProtection);
-  }
 
   if (focusMode === 'adaptive-plan' && adaptivePlanIntent) {
     return resolveAdaptivePlanFocus(adaptivePlanIntent, eventProtection);
@@ -373,38 +358,6 @@ function resolveFocus(params: {
   }
 
   return 'Full Body';
-}
-
-function resolvePlannedSlotFocus(
-  role: NonNullable<PlanningBrief['plannedSlotIntent']>['role'],
-  eventProtection?: PlanningEventProtection,
-): string {
-  if (
-    eventProtection &&
-    (role === 'legs' || role === 'sprint' || role === 'conditioning')
-  ) {
-    return 'Upper Body & Core';
-  }
-
-  switch (role) {
-    case 'pull':
-      return 'Upper Body Pull';
-    case 'push':
-      return 'Upper Body Push';
-    case 'legs':
-      return 'Lower Body';
-    case 'sprint':
-      return 'Sprint Conditioning';
-    case 'conditioning':
-      return 'Conditioning';
-    case 'mobility':
-    case 'recovery':
-      return 'Mobility & Recovery';
-    case 'full-body':
-      return 'Full Body';
-    case 'flexible':
-      return 'Flexible Full Body';
-  }
 }
 
 function resolveAdaptivePlanFocus(
@@ -532,7 +485,6 @@ function collectUnknowns(
 
   if (
     request.focus === undefined &&
-    request.plannedSlotIntent === undefined &&
     request.adaptivePlanIntent === undefined
   ) {
     unknowns.add('focus');

@@ -180,7 +180,6 @@ describe('adaptive training plan resolver', () => {
       plan: createPlan(),
       planningDateLocal: '2026-04-13',
       recentSessions: [
-        session('sprint', 'Sprint', '2026-04-12T12:00:00.000Z'),
         session('cardio-2', 'Easy Cardio', '2026-04-11T12:00:00.000Z'),
         session('cardio-1', 'Easy Cardio', '2026-04-10T12:00:00.000Z'),
       ],
@@ -189,6 +188,22 @@ describe('adaptive training plan resolver', () => {
 
     expect(recommendation.primaryBlockId).toBe('push');
     expect(recommendation.addOnBlockIds).toContain('abs-accessory');
+  });
+
+  it('prefers a recovery add-on after recent high-impact stress', () => {
+    const recommendation = resolveAdaptiveTrainingRecommendation({
+      plan: createPlan(),
+      planningDateLocal: '2026-04-13',
+      recentSessions: [
+        session('sprint', 'Sprint', '2026-04-12T12:00:00.000Z'),
+        session('cardio-2', 'Easy Cardio', '2026-04-11T12:00:00.000Z'),
+        session('cardio-1', 'Easy Cardio', '2026-04-10T12:00:00.000Z'),
+      ],
+      availableTimeMinutes: 70,
+    });
+
+    expect(recommendation.primaryBlockId).toBe('push');
+    expect(recommendation.addOnBlockIds).toContain('mobility');
   });
 
   it('does not combine sprint with heavy legs', () => {
@@ -274,6 +289,50 @@ describe('adaptive training plan resolver', () => {
     });
 
     expect(recommendation.primaryBlockId).toBe('upper-strength');
+  });
+
+  it('protects upcoming upper-body stress without template-specific rules', () => {
+    const recommendation = resolveAdaptiveTrainingRecommendation({
+      plan: createUpperLowerPlan(),
+      planningDateLocal: '2026-04-15',
+      recentSessions: [
+        session('lower', 'Lower Strength', '2026-04-14T12:00:00.000Z'),
+      ],
+      upcomingEvents: [
+        {
+          kind: 'sport',
+          title: 'Shoulder-heavy climbing session',
+          localDate: '2026-04-16',
+          intensity: 'high',
+          tags: ['shoulder', 'grip'],
+        },
+      ],
+    });
+
+    expect(recommendation.primaryBlockId).not.toBe('upper-strength');
+    expect(recommendation.rationale.map((item) => item.code)).toContain(
+      'event-protection'
+    );
+  });
+
+  it('can recommend rest when main targets are covered and hard stress is recent', () => {
+    const recommendation = resolveAdaptiveTrainingRecommendation({
+      plan: createPlan(),
+      planningDateLocal: '2026-04-20',
+      recentSessions: [
+        session('sprint', 'Sprint', '2026-04-19T12:00:00.000Z'),
+        session('cardio', 'Easy Cardio', '2026-04-18T12:00:00.000Z'),
+        session('legs', 'Legs', '2026-04-17T12:00:00.000Z'),
+        session('pull', 'Pull', '2026-04-16T12:00:00.000Z'),
+        session('push', 'Push', '2026-04-15T12:00:00.000Z'),
+      ],
+      availableTimeMinutes: 30,
+    });
+
+    expect(recommendation.primaryBlockId).toBe('rest');
+    expect(recommendation.rationale.map((item) => item.code)).toContain(
+      'rest-fit'
+    );
   });
 
   it('derives recommendations from structured blocks instead of PPL-specific slots', () => {

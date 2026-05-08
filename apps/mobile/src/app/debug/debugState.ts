@@ -2,7 +2,6 @@ import type {
   AdaptivePlanRecommendation,
   AdaptiveTrainingPlan,
   GenerationStatus,
-  PlannedSlotMetadata,
   QuickActionPreset,
   TodayPlan,
 } from '@workout-agent/shared';
@@ -20,7 +19,6 @@ export type DebugHomeUiState = {
   intensity: string;
   equipmentOverride: string[] | null;
   quickActions: QuickActionPreset[];
-  plannedSlot: PlannedSlotMetadata | null;
   adaptivePlan: AdaptiveTrainingPlan | null;
   adaptiveRecommendation: AdaptivePlanRecommendation | null;
   generationStatus: GenerationStatus;

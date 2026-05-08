@@ -3,14 +3,14 @@
 - [x] 1.1 Add Zod schemas and exported types for adaptive training plans, training blocks, target ranges, typical week preferences, projection status, pinned sessions, recommendation rationale, and adaptive plan intent.
 - [x] 1.2 Add default adaptive template data for PPL + conditioning with Push, Pull, Legs, Easy Cardio, Sprint, Abs/Accessory, Mobility, and Rest-style blocks.
 - [x] 1.3 Add schema validation for target ranges, block compatibility/conflict rules, block target contributions, and plan versioning.
-- [x] 1.4 Add shared contract tests for valid adaptive plans, invalid ranges, combined block intent, and existing preferences without adaptive plan fields.
+- [x] 1.4 Add shared contract tests for valid adaptive plans, invalid ranges, combined block intent, and every onboarding template producing an adaptive plan.
 
 ## 2. Template And Profile Persistence
 
-- [x] 2.1 Extend template selection/creation logic so applicable onboarding answers can seed an adaptive training plan instead of only a 7-day starter slot sequence.
-- [x] 2.2 Persist the accepted adaptive training plan in local user preferences while preserving existing `trainingBlueprint` and starter-week compatibility.
+- [x] 2.1 Extend template selection/creation logic so every onboarding template seeds an adaptive training plan instead of a 7-day starter slot sequence.
+- [x] 2.2 Persist the accepted adaptive training plan in local user preferences without creating starter-week planned events.
 - [x] 2.3 Add profile repository helpers for saving and updating adaptive plan settings with validation.
-- [x] 2.4 Add repository tests covering adaptive plan save, update, invalid range rejection, and legacy preference parsing.
+- [x] 2.4 Add repository tests covering adaptive plan save, update, invalid range rejection, and template seeding.
 
 ## 3. Recommendation Resolver
 
@@ -23,9 +23,9 @@
 ## 4. Home Data And Generation
 
 - [x] 4.1 Extend Home data hydration to load the active adaptive plan, recent-session target progress, upcoming schedule constraints, and recommendation result.
-- [x] 4.2 Preserve existing Home behavior for users with no adaptive plan or only legacy starter-week slots.
+- [x] 4.2 Preserve one-off Home setup behavior for users with no adaptive plan.
 - [x] 4.3 Build generation requests from adaptive recommendations, including primary block and optional add-on intent.
-- [x] 4.4 Add Home data and generation service tests for recommendation display data, combined session generation, explicit user overrides, and legacy fallback.
+- [x] 4.4 Add Home data and generation service tests for recommendation display data, combined session generation, explicit user overrides, and one-off fallback.
 
 ## 5. Mobile UI
 
@@ -44,7 +44,7 @@
 
 ## 7. Server Planning And Prompts
 
-- [x] 7.1 Extend shared generation request contracts with optional adaptive plan intent while preserving existing planned-slot intent.
+- [x] 7.1 Extend shared generation request contracts with optional adaptive plan intent and remove planned-slot generation intent.
 - [x] 7.2 Extend server planning brief derivation to record adaptive-plan source metadata, primary block intent, add-on block intent, target context, and rationale.
 - [x] 7.3 Ensure explicit focus, injuries, avoid lists, equipment, energy, recent fatigue, and upcoming event protection can override or adjust adaptive intent.
 - [x] 7.4 Update provider prompt construction to include adaptive plan intent when present.
@@ -52,9 +52,9 @@
 
 ## 8. Compatibility And Debugging
 
-- [x] 8.1 Keep existing starter-week planned-slot generation working for users without adaptive plans.
+- [x] 8.1 Remove starter-week planned-slot generation from onboarding, Home, and generation planning.
 - [x] 8.2 Update mobile debug MCP schemas/tools if needed so adaptive plan state and recommendation traces remain inspectable without exposing secrets.
-- [x] 8.3 Add regression tests proving legacy planned slots still hydrate on Home and generate workouts.
+- [x] 8.3 Add regression tests proving users without adaptive plans still get one-off Today generation.
 - [x] 8.4 Confirm CE and hosted behavior remains identical for adaptive planning, with no new billing or quota paths.
 
 ## 9. Coaching Vision Continuity

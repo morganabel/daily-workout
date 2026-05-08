@@ -1,7 +1,6 @@
 import type {
   AiProviderName,
   AdaptivePlanIntent,
-  PlannedSlotIntent,
   PlanningLoadCeiling,
   PlanningStageOneActivation,
 } from '@workout-agent/shared';
@@ -19,7 +18,6 @@ export type {
 export type PlanningFocusMode =
   | 'explicit'
   | 'smart'
-  | 'planned-slot'
   | 'adaptive-plan'
   | 'unset';
 export type PlanningVariationMode =
@@ -64,7 +62,6 @@ export interface PlanningBrief {
   planningDateLocal?: string;
   requestedFocus?: string;
   focusMode: PlanningFocusMode;
-  plannedSlotIntent?: PlannedSlotIntent;
   adaptivePlanIntent?: AdaptivePlanIntent;
   resolvedFocus: string;
   durationMinutes: number;

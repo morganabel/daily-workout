@@ -169,7 +169,6 @@ export function buildStageOnePlannerRequestPayload(
       planningDateLocal: request.planningDateLocal,
       upcomingEvents: request.upcomingEvents,
       adaptivePlanIntent: request.adaptivePlanIntent,
-      plannedSlotIntent: request.plannedSlotIntent,
       baselineWorkout: request.baselineWorkout
         ? {
             focus: request.baselineWorkout.focus,
