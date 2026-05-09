@@ -17,12 +17,12 @@ jest.mock('./db/repositories/UserRepository', () => ({
 
 const mockUserRepository = userRepository as jest.Mocked<typeof userRepository>;
 
-describe('SettingsScreen adaptive plan settings', () => {
+describe('SettingsScreen profile summary', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
-  it('renders adaptive blocks and saves edited target ranges locally', async () => {
+  it('summarizes rhythm and saves edited target ranges from the focused editor', async () => {
     const plan = createAdaptiveTrainingPlanFromTemplate('ppl-conditioning', {
       id: 'plan-ppl',
       activeFrom: '2026-04-15',
@@ -43,10 +43,23 @@ describe('SettingsScreen adaptive plan settings', () => {
     const screen = render(<SettingsScreen />);
 
     await waitFor(() => {
-      expect(screen.getByText('Training Rhythm')).toBeTruthy();
-      expect(screen.getAllByText('Push').length).toBeGreaterThan(0);
-      expect(screen.getAllByText('Lift').length).toBeGreaterThan(0);
-      expect(screen.getByText('3-5 in 7 days')).toBeTruthy();
+      expect(screen.getByText('Training rhythm')).toBeTruthy();
+      expect(screen.getByText('Strength 3-5x/week')).toBeTruthy();
+      expect(
+        screen.getByText('Usually: Push, Cardio, Pull, Legs +1')
+      ).toBeTruthy();
+      expect(screen.queryByText('Projected')).toBeNull();
+      expect(screen.queryByText('At least')).toBeNull();
+    });
+
+    await act(async () => {
+      fireEvent.press(screen.getByText('Adjust rhythm'));
+    });
+
+    await waitFor(() => {
+      expect(screen.getAllByText('At least').length).toBeGreaterThan(0);
+      expect(screen.getAllByText('Up to').length).toBeGreaterThan(0);
+      expect(screen.getByText('3-5x/week')).toBeTruthy();
     });
 
     await act(async () => {
