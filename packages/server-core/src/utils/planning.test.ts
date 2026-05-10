@@ -9,7 +9,7 @@ import {
 } from './planning';
 
 const createContext = (
-  overrides: Partial<GenerationContext> = {},
+  overrides: Partial<GenerationContext> = {}
 ): GenerationContext => ({
   userProfile: {
     experienceLevel: 'beginner',
@@ -95,7 +95,7 @@ describe('derivePlanningBrief', () => {
         isRegeneration: true,
         mode: 'stateful',
         baselineWorkoutId: 'plan-1',
-      }),
+      })
     );
     expect(brief.blockIntents).toEqual([
       expect.objectContaining({
@@ -130,7 +130,7 @@ describe('derivePlanningBrief', () => {
         'recentSessions',
         'preferredStyle',
         'primaryGoal',
-      ]),
+      ])
     );
     expect(brief.availableEquipment).toEqual(['Bodyweight']);
     expect(brief.regeneration.mode).toBe('initial');
@@ -179,10 +179,10 @@ describe('derivePlanningBrief', () => {
     expect(brief.focusMode).toBe('smart');
     expect(brief.resolvedFocus).toBe('Upper Body & Core');
     expect(brief.eventProtection).toEqual(
-      expect.objectContaining({ title: '10K Tune-Up' }),
+      expect.objectContaining({ title: '10K Tune-Up' })
     );
     expect(brief.disallowedStressors).toEqual(
-      expect.arrayContaining(['lower_body_overload', 'high_impact']),
+      expect.arrayContaining(['lower_body_overload', 'high_impact'])
     );
     expect(brief.loadCeiling).toBe('low');
     expect(brief.stagedPlanning).toEqual(
@@ -190,7 +190,7 @@ describe('derivePlanningBrief', () => {
         mode: 'llm-assisted',
         shouldRun: true,
         reasons: ['smart-focus'],
-      }),
+      })
     );
   });
 
@@ -207,13 +207,16 @@ describe('derivePlanningBrief', () => {
 
     expect(brief.focusMode).toBe('adaptive-plan');
     expect(brief.adaptivePlanIntent).toEqual(
-      expect.objectContaining({ planId: 'plan-ppl' }),
+      expect.objectContaining({ planId: 'plan-ppl' })
     );
     expect(brief.resolvedFocus).toBe('Pull + Easy Cardio');
     expect(brief.durationMinutes).toBe(75);
     expect(brief.blockIntents).toEqual([
       expect.objectContaining({ key: 'adaptive-primary', focus: 'Pull' }),
-      expect.objectContaining({ key: 'adaptive-addon-1', focus: 'Easy Cardio' }),
+      expect.objectContaining({
+        key: 'adaptive-addon-1',
+        focus: 'Easy Cardio',
+      }),
     ]);
   });
 
@@ -230,10 +233,38 @@ describe('derivePlanningBrief', () => {
     expect(brief.focusMode).toBe('explicit');
     expect(brief.resolvedFocus).toBe('Mobility');
     expect(brief.adaptivePlanIntent).toEqual(
-      expect.objectContaining({ planId: 'plan-ppl' }),
+      expect.objectContaining({ planId: 'plan-ppl' })
     );
+    expect(brief.durationMinutes).toBe(30);
     expect(brief.blockIntents).toEqual([
       expect.objectContaining({ key: 'main', focus: 'Mobility' }),
+    ]);
+  });
+
+  it('scales adaptive block durations to explicit requested time', () => {
+    const brief = derivePlanningBrief({
+      request: {
+        focus: 'Pull',
+        timeMinutes: 60,
+        adaptivePlanIntent,
+        planningDateLocal: '2026-04-15',
+      },
+      context: createContext(),
+      provider: 'openai',
+    });
+
+    expect(brief.durationMinutes).toBe(60);
+    expect(brief.blockIntents).toEqual([
+      expect.objectContaining({
+        key: 'adaptive-primary',
+        focus: 'Pull',
+        durationMinutes: 40,
+      }),
+      expect.objectContaining({
+        key: 'adaptive-addon-1',
+        focus: 'Easy Cardio',
+        durationMinutes: 20,
+      }),
     ]);
   });
 
@@ -269,8 +300,9 @@ describe('derivePlanningBrief', () => {
 
     expect(brief.focusMode).toBe('adaptive-plan');
     expect(brief.resolvedFocus).toBe('Upper Body & Core');
+    expect(brief.durationMinutes).toBe(30);
     expect(brief.disallowedStressors).toEqual(
-      expect.arrayContaining(['lower_body_overload', 'high_impact']),
+      expect.arrayContaining(['lower_body_overload', 'high_impact'])
     );
     expect(brief.blockIntents).toEqual([
       expect.objectContaining({ key: 'main', focus: 'Upper Body & Core' }),
@@ -380,7 +412,7 @@ describe('derivePlanningBrief', () => {
         'lower_body_fatigue',
         'axial_loading',
         'high_bracing',
-      ]),
+      ])
     );
     expect(brief.resolvedFocus).toBe('Upper Body');
   });
@@ -413,7 +445,7 @@ describe('derivePlanningBrief', () => {
     });
 
     expect(brief.recentStressorsToAvoid).toEqual(
-      expect.arrayContaining(['push', 'pull', 'upper_body']),
+      expect.arrayContaining(['push', 'pull', 'upper_body'])
     );
     expect(brief.resolvedFocus).toBe('Lower Body');
   });
@@ -446,7 +478,7 @@ describe('derivePlanningBrief', () => {
     });
 
     expect(brief.recentStressorsToAvoid).not.toEqual(
-      expect.arrayContaining(['push', 'pull']),
+      expect.arrayContaining(['push', 'pull'])
     );
     expect(brief.resolvedFocus).toBe('Strength');
   });
@@ -501,7 +533,7 @@ describe('determineStageOnePlanningActivation', () => {
             baselineExerciseCount: 0,
           },
         },
-      }),
+      })
     ).toEqual({
       mode: 'single-pass',
       shouldRun: false,
@@ -531,7 +563,7 @@ describe('determineStageOnePlanningActivation', () => {
           priorityNotes:
             'Keep it shoulder-friendly, bias unilateral work, avoid long rest, and make it feel athletic rather than bodybuilding because I am also practicing climbing tomorrow morning.',
         },
-      }),
+      })
     ).toEqual({
       mode: 'llm-assisted',
       shouldRun: true,

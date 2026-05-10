@@ -14,6 +14,7 @@ import type {
   TodayPlan,
   QuickActionKey,
   QuickActionPreset,
+  UpcomingEventContext,
   UserPreferences,
 } from '@workout-agent/shared';
 import NetInfo from '@react-native-community/netinfo';
@@ -214,7 +215,9 @@ export function useHomeData(): HomeDataState & {
   const [stagedValues, setStagedValues] = useState<
     Partial<Record<QuickActionKey, string | null>>
   >({});
-  const [plannedEventsRevision, setPlannedEventsRevision] = useState(0);
+  const [upcomingEvents, setUpcomingEvents] = useState<UpcomingEventContext[]>(
+    []
+  );
 
   useEffect(() => {
     return () => {
@@ -388,19 +391,30 @@ export function useHomeData(): HomeDataState & {
         }));
       });
 
-    const plannedEventsSubscription = plannedEventRepository
-      .observeEvents()
-      .subscribe(() => {
-        if (!isMountedRef.current) return;
-        setPlannedEventsRevision((revision) => revision + 1);
-      });
-
     return () => {
       versionSubscription.unsubscribe();
       recentSubscription.unsubscribe();
-      plannedEventsSubscription.unsubscribe();
     };
   }, [hydrateWorkoutVersions, state.planningDateLocal]);
+
+  useEffect(() => {
+    const adaptivePlan = state.adaptivePlan;
+    if (!adaptivePlan || adaptivePlan.status !== 'active') {
+      setUpcomingEvents([]);
+      return;
+    }
+
+    const subscription = plannedEventRepository
+      .observeUpcomingEventContext({
+        startLocalDate: state.planningDateLocal,
+      })
+      .subscribe((events) => {
+        if (!isMountedRef.current) return;
+        setUpcomingEvents(events);
+      });
+
+    return () => subscription.unsubscribe();
+  }, [state.adaptivePlan, state.planningDateLocal]);
 
   // Offline detection
   useEffect(() => {
@@ -466,7 +480,6 @@ export function useHomeData(): HomeDataState & {
   }, []);
 
   useEffect(() => {
-    let cancelled = false;
     const adaptivePlan = state.adaptivePlan;
 
     if (!adaptivePlan || adaptivePlan.status !== 'active') {
@@ -478,43 +491,33 @@ export function useHomeData(): HomeDataState & {
       return;
     }
 
-    void (async () => {
-      try {
-        const upcomingEvents =
-          await plannedEventRepository.listUpcomingEventContext();
-        if (cancelled || !isMountedRef.current) return;
-        const recommendation = resolveAdaptiveTrainingRecommendation({
-          plan: adaptivePlan,
-          planningDateLocal: state.planningDateLocal,
-          recentSessions: state.recentSessions,
-          upcomingEvents,
-          availableTimeMinutes: resolveAvailableTimeMinutes(
-            state.quickActions,
-            stagedValues
-          ),
-        });
+    try {
+      const recommendation = resolveAdaptiveTrainingRecommendation({
+        plan: adaptivePlan,
+        planningDateLocal: state.planningDateLocal,
+        recentSessions: state.recentSessions,
+        upcomingEvents,
+        availableTimeMinutes: resolveAvailableTimeMinutes(
+          state.quickActions,
+          stagedValues
+        ),
+      });
 
-        setState((prev) => ({
-          ...prev,
-          adaptiveRecommendation: recommendation,
-        }));
-      } catch (error) {
-        console.error('Failed to resolve adaptive recommendation', error);
-        if (cancelled || !isMountedRef.current) return;
-        setState((prev) => ({ ...prev, adaptiveRecommendation: null }));
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
+      setState((prev) => ({
+        ...prev,
+        adaptiveRecommendation: recommendation,
+      }));
+    } catch (error) {
+      console.error('Failed to resolve adaptive recommendation', error);
+      setState((prev) => ({ ...prev, adaptiveRecommendation: null }));
+    }
   }, [
-    plannedEventsRevision,
     stagedValues,
     state.adaptivePlan,
     state.planningDateLocal,
     state.quickActions,
     state.recentSessions,
+    upcomingEvents,
   ]);
 
   const fetchData = useCallback(async () => {

@@ -54,6 +54,7 @@ jest.mock('../db/repositories/PlannedEventRepository', () => ({
   plannedEventRepository: {
     observeEvents: jest.fn(),
     observeEventsByLocalDate: jest.fn(),
+    observeUpcomingEventContext: jest.fn(),
     listUpcomingEventContext: jest.fn(),
     toPlannedEvent: jest.fn((record) => record),
   },
@@ -90,7 +91,7 @@ const createObservableMock = <T,>() => {
 describe('useHomeData', () => {
   let versionStream: ReturnType<typeof createObservableMock<Workout[]>>;
   let sessionStream: ReturnType<typeof createObservableMock<Workout[]>>;
-  let allPlannedEventStream: ReturnType<typeof createObservableMock<unknown[]>>;
+  let upcomingEventStream: ReturnType<typeof createObservableMock<unknown[]>>;
   let mockPlan: ReturnType<typeof createTodayPlanMock>;
   let userStream: ReturnType<typeof createObservableMock<unknown>>;
 
@@ -98,7 +99,7 @@ describe('useHomeData', () => {
     jest.clearAllMocks();
     versionStream = createObservableMock<Workout[]>();
     sessionStream = createObservableMock<Workout[]>();
-    allPlannedEventStream = createObservableMock<unknown[]>();
+    upcomingEventStream = createObservableMock<unknown[]>();
     userStream = createObservableMock<unknown>();
     mockPlan = createTodayPlanMock({ id: 'server-plan' });
 
@@ -129,8 +130,8 @@ describe('useHomeData', () => {
     mockUserRepository.observeUser.mockReturnValue(
       userStream.observable as any
     );
-    mockPlannedEventRepository.observeEvents.mockReturnValue(
-      allPlannedEventStream.observable as any
+    mockPlannedEventRepository.observeUpcomingEventContext.mockReturnValue(
+      upcomingEventStream.observable as any
     );
     mockPlannedEventRepository.listUpcomingEventContext.mockResolvedValue([]);
     mockNetInfo.addEventListener = jest.fn().mockImplementation((callback) => {
@@ -199,11 +200,13 @@ describe('useHomeData', () => {
 
     await waitFor(() => {
       expect(result.current.adaptivePlan?.id).toBe('plan-ppl');
-      expect(result.current.adaptiveRecommendation?.primaryBlockId).toBe('push');
+      expect(result.current.adaptiveRecommendation?.primaryBlockId).toBe(
+        'push'
+      );
     });
     expect(
-      mockPlannedEventRepository.listUpcomingEventContext
-    ).toHaveBeenCalled();
+      mockPlannedEventRepository.observeUpcomingEventContext
+    ).toHaveBeenCalledWith({ startLocalDate: expect.any(String) });
   });
 
   it('uses staged available time when resolving adaptive add-ons', async () => {
@@ -269,18 +272,25 @@ describe('useHomeData', () => {
 
     await waitFor(() => {
       expect(
-        mockPlannedEventRepository.listUpcomingEventContext
+        mockPlannedEventRepository.observeUpcomingEventContext
       ).toHaveBeenCalledTimes(1);
     });
 
     await act(async () => {
-      allPlannedEventStream.emit([]);
+      upcomingEventStream.emit([
+        {
+          kind: 'run',
+          title: 'Same-day run',
+          localDate: new Date().toISOString().slice(0, 10),
+          intensity: 'high',
+        },
+      ]);
     });
 
     await waitFor(() => {
       expect(
-        mockPlannedEventRepository.listUpcomingEventContext
-      ).toHaveBeenCalledTimes(2);
+        mockPlannedEventRepository.observeUpcomingEventContext
+      ).toHaveBeenCalledTimes(1);
     });
   });
 

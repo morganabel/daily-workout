@@ -192,10 +192,13 @@ const createRestRecommendationFixture = () => {
     rationale: [
       {
         code: 'rest-fit',
-        message: 'Your main targets are covered. Recovery keeps the plan moving.',
+        message:
+          'Your main targets are covered. Recovery keeps the plan moving.',
       },
     ],
-    coachNotes: ['Your main targets are covered. Recovery keeps the plan moving.'],
+    coachNotes: [
+      'Your main targets are covered. Recovery keeps the plan moving.',
+    ],
     projectionStatus: 'projected',
   };
   return { plan, recommendation };
@@ -326,6 +329,13 @@ describe('HomeScreen', () => {
         scheduledDate: baseHookState.planningDateTimestamp,
       })
     );
+    const request = generateWorkout.mock.calls[0][0];
+    expect(
+      request.adaptivePlanIntent.primaryBlock.targetDurationMinutes
+    ).toBeUndefined();
+    expect(
+      request.adaptivePlanIntent.addOnBlocks[0].targetDurationMinutes
+    ).toBeUndefined();
   });
 
   it('shows rest recommendations as recovery with an escape to choose a workout', async () => {
@@ -347,7 +357,9 @@ describe('HomeScreen', () => {
     expect(getByText('Recovery is the plan today.')).toBeTruthy();
     expect(getByText('Take a rest day')).toBeTruthy();
     expect(
-      getByText('Your main targets are covered. Recovery keeps the plan moving.')
+      getByText(
+        'Your main targets are covered. Recovery keeps the plan moving.'
+      )
     ).toBeTruthy();
     expect(getByText('No workout required')).toBeTruthy();
     expect(getByText('Choose a workout instead')).toBeTruthy();

@@ -149,7 +149,6 @@ const buildAdaptivePlanIntent = (
     label: block.label,
     category: block.category,
     role: block.role,
-    targetDurationMinutes: block.defaultDurationMinutes,
     stressTags: block.stressTags,
   });
 
@@ -455,7 +454,9 @@ const AdaptiveRecommendationCard = ({
         {isRest ? (
           <View style={styles.recommendationPill}>
             <Ionicons name="bed-outline" size={14} color={palette.primary} />
-            <Text style={styles.recommendationPillText}>No workout required</Text>
+            <Text style={styles.recommendationPillText}>
+              No workout required
+            </Text>
           </View>
         ) : (
           <>
@@ -466,7 +467,11 @@ const AdaptiveRecommendationCard = ({
               </Text>
             </View>
             <View style={styles.recommendationPill}>
-              <Ionicons name="barbell-outline" size={14} color={palette.primary} />
+              <Ionicons
+                name="barbell-outline"
+                size={14}
+                color={palette.primary}
+              />
               <Text style={styles.recommendationPillText}>
                 {formatEquipment(equipment)}
               </Text>
@@ -487,12 +492,14 @@ const AdaptiveRecommendationCard = ({
         {isRest
           ? recommendation.coachNotes[0] ??
             'Recovery keeps the plan moving. If you still want to train, choose any workout instead.'
-          : recommendation.coachNotes[0] ?? recommendation.rationale[0]?.message}
+          : recommendation.coachNotes[0] ??
+            recommendation.rationale[0]?.message}
       </Text>
 
       {alternativeBlocks.length ? (
         <Text style={styles.recommendationAlternatives}>
-          Alternatives: {alternativeBlocks.map((block) => block.label).join(', ')}
+          Alternatives:{' '}
+          {alternativeBlocks.map((block) => block.label).join(', ')}
         </Text>
       ) : null}
 
@@ -1207,11 +1214,11 @@ export const HomeScreen = () => {
   const hasAdaptiveRecommendation = Boolean(
     adaptivePlan && adaptiveRecommendation
   );
-  const shouldShowCoachRecommendation = hasAdaptiveRecommendation && focus === 'Smart';
-  const hasRestRecommendation = isRestRecommendation(
-    adaptivePlan,
-    adaptiveRecommendation
-  ) && shouldShowCoachRecommendation;
+  const shouldShowCoachRecommendation =
+    hasAdaptiveRecommendation && focus === 'Smart';
+  const hasRestRecommendation =
+    isRestRecommendation(adaptivePlan, adaptiveRecommendation) &&
+    shouldShowCoachRecommendation;
   const adaptiveRecommendationDuration = getAdaptiveRecommendationDuration(
     adaptivePlan,
     adaptiveRecommendation
@@ -1231,16 +1238,11 @@ export const HomeScreen = () => {
     }
 
     setDuration(
-      adaptiveRecommendationDuration ??
-        resolveDurationSelection(quickActions)
+      adaptiveRecommendationDuration ?? resolveDurationSelection(quickActions)
     );
     setFocus(resolveFocusSelection(quickActions));
     setIntensity(resolveIntensitySelection(quickActions));
-  }, [
-    adaptiveRecommendationDuration,
-    hasActivePlan,
-    quickActions,
-  ]);
+  }, [adaptiveRecommendationDuration, hasActivePlan, quickActions]);
 
   useEffect(
     () => () => {
@@ -1292,17 +1294,17 @@ export const HomeScreen = () => {
             {hasActivePlan
               ? "Today's Workout"
               : shouldShowCoachRecommendation
-                ? "Today's Plan"
-                : "Today's Setup"}
+              ? "Today's Plan"
+              : "Today's Setup"}
           </Text>
           <Text style={styles.headerSubtitle}>
             {hasActivePlan
               ? 'Review the plan, then start.'
               : hasRestRecommendation
-                ? 'Recovery is the plan today.'
-                : shouldShowCoachRecommendation
-                  ? 'Your next session is ready.'
-                  : 'Personalize your session.'}
+              ? 'Recovery is the plan today.'
+              : shouldShowCoachRecommendation
+              ? 'Your next session is ready.'
+              : 'Personalize your session.'}
           </Text>
         </View>
       </View>
@@ -1339,7 +1341,9 @@ export const HomeScreen = () => {
               />
             ) : null}
 
-            {shouldShowCoachRecommendation && adaptivePlan && adaptiveRecommendation ? (
+            {shouldShowCoachRecommendation &&
+            adaptivePlan &&
+            adaptiveRecommendation ? (
               <AdaptiveRecommendationCard
                 adaptivePlan={adaptivePlan}
                 recommendation={adaptiveRecommendation}
@@ -1360,7 +1364,9 @@ export const HomeScreen = () => {
             {!hasRestRecommendation ? (
               <View style={styles.actionContainer}>
                 <Button
-                  label={isPending ? 'Generating...' : "Generate today's workout"}
+                  label={
+                    isPending ? 'Generating...' : "Generate today's workout"
+                  }
                   onPress={handleGenerate}
                   loading={isPending}
                   icon={

@@ -174,13 +174,7 @@ export const computeAdaptiveTargetProgress = (
 };
 
 const getEventSearchText = (event: UpcomingEventContext): string =>
-  [
-    event.kind,
-    event.title,
-    event.intensity,
-    event.notes,
-    ...(event.tags ?? []),
-  ]
+  [event.kind, event.title, event.intensity, event.notes, ...(event.tags ?? [])]
     .filter((value): value is string => Boolean(value))
     .map(normalizeTag)
     .join(' ');
@@ -188,12 +182,16 @@ const getEventSearchText = (event: UpcomingEventContext): string =>
 const getProtectedEventStressTags = (
   input: AdaptiveTrainingPlanResolverInput
 ): string[] => {
-  const protectDays = input.plan.recommendationSettings.protectUpcomingLowerBodyDays;
+  const protectDays =
+    input.plan.recommendationSettings.protectUpcomingLowerBodyDays;
   const tags = new Set<string>();
 
   (input.upcomingEvents ?? []).forEach((event) => {
-    const daysUntil = daysBetweenLocalDates(event.localDate, input.planningDateLocal);
-    if (daysUntil <= 0 || daysUntil > protectDays) {
+    const daysUntil = daysBetweenLocalDates(
+      event.localDate,
+      input.planningDateLocal
+    );
+    if (daysUntil < 0 || daysUntil > protectDays) {
       return;
     }
 
@@ -346,13 +344,13 @@ const scoreRecoveryFit = (
       ? context.ageDays === 0
         ? 45
         : context.ageDays === 1
-          ? 35
-          : 18
+        ? 35
+        : 18
       : context.ageDays === 0
-        ? 18
-        : context.ageDays === 1
-          ? 10
-          : 5;
+      ? 18
+      : context.ageDays === 1
+      ? 10
+      : 5;
     score -= penalty;
     if (context.ageDays <= 1) {
       reasons.push({
@@ -439,7 +437,9 @@ const primaryTargetsAreCovered = (
   plan.targetRanges
     .filter((target) => target.priority !== 'optional')
     .every((target) => {
-      const progress = targetProgress.find((item) => item.targetId === target.id);
+      const progress = targetProgress.find(
+        (item) => item.targetId === target.id
+      );
       return progress ? progress.count >= progress.minCount : true;
     });
 
@@ -508,7 +508,10 @@ const scorePrimaryBlock = (
   if (recentBlockIds[0] === block.id) {
     score -= 30;
   }
-  if (block.category === 'rest' && primaryTargetsAreCovered(input.plan, targetProgress)) {
+  if (
+    block.category === 'rest' &&
+    primaryTargetsAreCovered(input.plan, targetProgress)
+  ) {
     score += 35;
     reasons.push({
       code: 'rest-fit',
@@ -519,7 +522,11 @@ const scorePrimaryBlock = (
   const eventScore = scoreEventFit(block, protectedStressTags);
   const timeScore = scoreTimeFit(block, input.availableTimeMinutes);
   score += recoveryScore.score + eventScore.score + timeScore.score;
-  reasons.push(...recoveryScore.reasons, ...eventScore.reasons, ...timeScore.reasons);
+  reasons.push(
+    ...recoveryScore.reasons,
+    ...eventScore.reasons,
+    ...timeScore.reasons
+  );
 
   return { block, score, reasons };
 };
@@ -535,7 +542,8 @@ const chooseAddOns = (
     return [];
   }
 
-  const availableMinutes = input.availableTimeMinutes ?? primary.defaultDurationMinutes;
+  const availableMinutes =
+    input.availableTimeMinutes ?? primary.defaultDurationMinutes;
   const remainingMinutes = availableMinutes - primary.defaultDurationMinutes;
   if (remainingMinutes < 10) {
     return [];
@@ -576,7 +584,8 @@ export const resolveAdaptiveTrainingRecommendation = (
   const targetProgress = computeAdaptiveTargetProgress(input);
   const pinnedSession = input.plan.sessionPreferences.find(
     (session) =>
-      session.status === 'pinned' && session.localDate === input.planningDateLocal
+      session.status === 'pinned' &&
+      session.localDate === input.planningDateLocal
   );
   const pinnedPrimaryBlockId = pinnedSession?.blockIds[0];
   const pinnedPrimary = pinnedSession

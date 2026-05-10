@@ -420,9 +420,7 @@ export const adaptiveTrainingBlockSchema = z
     recoveryGuidance: z.string().optional(),
   })
   .strict();
-export type AdaptiveTrainingBlock = z.infer<
-  typeof adaptiveTrainingBlockSchema
->;
+export type AdaptiveTrainingBlock = z.infer<typeof adaptiveTrainingBlockSchema>;
 
 export const adaptiveTargetAppliesToSchema = z
   .object({
@@ -556,8 +554,12 @@ export const adaptiveTrainingPlanSchema = z
     activeUntil: localDateSchema.optional(),
     blocks: z.array(adaptiveTrainingBlockSchema).min(1),
     targetRanges: z.array(adaptiveTargetRangeSchema).min(1),
-    typicalWeekPreferences: z.array(adaptiveTypicalWeekPreferenceSchema).default([]),
-    sessionPreferences: z.array(adaptivePlanSessionPreferenceSchema).default([]),
+    typicalWeekPreferences: z
+      .array(adaptiveTypicalWeekPreferenceSchema)
+      .default([]),
+    sessionPreferences: z
+      .array(adaptivePlanSessionPreferenceSchema)
+      .default([]),
     recommendationSettings: adaptiveRecommendationSettingsSchema,
     status: adaptiveTrainingPlanStatusSchema,
     updatedAt: z.string().datetime(),
@@ -576,17 +578,19 @@ export const adaptiveTrainingPlanSchema = z
       }
       blockIds.add(block.id);
 
-      [...block.compatibleAddOnBlockIds, ...block.conflictsWithBlockIds].forEach(
-        (referencedBlockId) => {
-          if (referencedBlockId === block.id) {
-            ctx.addIssue({
-              code: z.ZodIssueCode.custom,
-              message: 'block cannot reference itself as compatible or conflicting',
-              path: ['blocks', blockIndex],
-            });
-          }
-        },
-      );
+      [
+        ...block.compatibleAddOnBlockIds,
+        ...block.conflictsWithBlockIds,
+      ].forEach((referencedBlockId) => {
+        if (referencedBlockId === block.id) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message:
+              'block cannot reference itself as compatible or conflicting',
+            path: ['blocks', blockIndex],
+          });
+        }
+      });
     });
 
     const targetIds = new Set(plan.targetRanges.map((target) => target.id));
@@ -614,8 +618,14 @@ export const adaptiveTrainingPlanSchema = z
         if (!targetIds.has(contribution.targetId)) {
           ctx.addIssue({
             code: z.ZodIssueCode.custom,
-            message: 'block target contribution references an unknown target id',
-            path: ['blocks', blockIndex, 'targetContributions', contributionIndex],
+            message:
+              'block target contribution references an unknown target id',
+            path: [
+              'blocks',
+              blockIndex,
+              'targetContributions',
+              contributionIndex,
+            ],
           });
         }
       });
@@ -625,7 +635,12 @@ export const adaptiveTrainingPlanSchema = z
           ctx.addIssue({
             code: z.ZodIssueCode.custom,
             message: 'compatible add-on references an unknown block id',
-            path: ['blocks', blockIndex, 'compatibleAddOnBlockIds', blockIdIndex],
+            path: [
+              'blocks',
+              blockIndex,
+              'compatibleAddOnBlockIds',
+              blockIdIndex,
+            ],
           });
         }
       });
@@ -664,7 +679,12 @@ export const adaptiveTrainingPlanSchema = z
           ctx.addIssue({
             code: z.ZodIssueCode.custom,
             message: 'session preference references an unknown block id',
-            path: ['sessionPreferences', sessionIndex, 'blockIds', blockIdIndex],
+            path: [
+              'sessionPreferences',
+              sessionIndex,
+              'blockIds',
+              blockIdIndex,
+            ],
           });
         }
       });
@@ -683,7 +703,7 @@ export const adaptiveTrainingPlanSchema = z
             ],
           });
         }
-      },
+      }
     );
   });
 export type AdaptiveTrainingPlan = z.infer<typeof adaptiveTrainingPlanSchema>;
@@ -745,7 +765,7 @@ const createSlot = (
   dayOffset: number,
   role: StarterWeekSlotRole,
   label: string,
-  targetDurationMinutes: number,
+  targetDurationMinutes: number
 ): StarterWeekSlot => ({
   id: `day-${dayOffset + 1}-${role}`,
   role,
@@ -787,7 +807,8 @@ export const ADAPTIVE_PPL_CONDITIONING_BLOCKS = [
     targetContributions: [{ targetId: 'lift', count: 1 }],
     compatibleAddOnBlockIds: ['abs-accessory', 'mobility'],
     conflictsWithBlockIds: ['sprint'],
-    recoveryGuidance: 'Avoid heavy lower-body stacking before hikes, sports, or sprint work.',
+    recoveryGuidance:
+      'Avoid heavy lower-body stacking before hikes, sports, or sprint work.',
   },
   {
     id: 'easy-cardio',
@@ -813,7 +834,8 @@ export const ADAPTIVE_PPL_CONDITIONING_BLOCKS = [
     ],
     compatibleAddOnBlockIds: ['mobility'],
     conflictsWithBlockIds: ['legs'],
-    recoveryGuidance: 'Keep sprint work away from heavy legs and lower-body events.',
+    recoveryGuidance:
+      'Keep sprint work away from heavy legs and lower-body events.',
   },
   {
     id: 'abs-accessory',
@@ -823,7 +845,13 @@ export const ADAPTIVE_PPL_CONDITIONING_BLOCKS = [
     stressTags: ['core', 'accessory'],
     defaultDurationMinutes: 15,
     targetContributions: [{ targetId: 'accessory', count: 1 }],
-    compatibleAddOnBlockIds: ['push', 'pull', 'legs', 'easy-cardio', 'mobility'],
+    compatibleAddOnBlockIds: [
+      'push',
+      'pull',
+      'legs',
+      'easy-cardio',
+      'mobility',
+    ],
     conflictsWithBlockIds: [],
   },
   {
@@ -986,8 +1014,8 @@ const roleToAdaptiveBlock = (slot: StarterWeekSlot): AdaptiveTrainingBlock => {
           slot.role === 'legs'
             ? ['lower-body', 'strength']
             : slot.role === 'full-body'
-              ? ['full-body', 'strength']
-              : ['upper-body', slot.role],
+            ? ['full-body', 'strength']
+            : ['upper-body', slot.role],
         defaultDurationMinutes: slot.targetDurationMinutes,
         targetContributions: [{ targetId: 'strength', count: 1 }],
         compatibleAddOnBlockIds: ['mobility'],
@@ -1068,22 +1096,24 @@ const targetLabelById: Record<string, string> = {
 };
 
 const createAdaptivePlanTemplateFromSlots = (
-  template: TrainingTemplateDefinition,
+  template: TrainingTemplateDefinition
 ): AdaptivePlanTemplateDefinition => {
-  const rawBlocks = [...new Map(
-    template.slotSequence.map((slot) => {
-      const block = roleToAdaptiveBlock(slot);
-      return [block.id, block] as const;
-    }),
-  ).values()];
+  const rawBlocks = [
+    ...new Map(
+      template.slotSequence.map((slot) => {
+        const block = roleToAdaptiveBlock(slot);
+        return [block.id, block] as const;
+      })
+    ).values(),
+  ];
   const blockIdSet = new Set(rawBlocks.map((block) => block.id));
   const blocks = rawBlocks.map((block) => ({
     ...block,
     compatibleAddOnBlockIds: block.compatibleAddOnBlockIds.filter((blockId) =>
-      blockIdSet.has(blockId),
+      blockIdSet.has(blockId)
     ),
     conflictsWithBlockIds: block.conflictsWithBlockIds.filter((blockId) =>
-      blockIdSet.has(blockId),
+      blockIdSet.has(blockId)
     ),
   }));
   const contributionCounts = new Map<string, number>();
@@ -1092,35 +1122,41 @@ const createAdaptivePlanTemplateFromSlots = (
     roleToAdaptiveBlock(slot).targetContributions.forEach((contribution) => {
       contributionCounts.set(
         contribution.targetId,
-        (contributionCounts.get(contribution.targetId) ?? 0) + contribution.count,
+        (contributionCounts.get(contribution.targetId) ?? 0) +
+          contribution.count
       );
     });
   });
 
-  const targetRanges = [...contributionCounts.entries()].map(([targetId, count]) => {
-    const minCount = targetId === 'recovery' ? 0 : Math.max(1, Math.floor(count));
-    return {
-      id: targetId,
-      label: targetLabelById[targetId] ?? targetId,
-      appliesTo: {
-        blockIds: blocks
-          .filter((block) =>
-            block.targetContributions.some(
-              (contribution) => contribution.targetId === targetId,
-            ),
-          )
-          .map((block) => block.id),
-        categories: [],
-        stressTags: [],
-      },
-      windowDays: 7,
-      minCount,
-      maxCount: Math.max(minCount, Math.ceil(count) + 1),
-      idealCount: Math.ceil(count),
-      priority:
-        targetId === 'strength' || targetId === 'cardio' ? 'primary' : 'secondary',
-    } satisfies AdaptiveTargetRange;
-  });
+  const targetRanges = [...contributionCounts.entries()].map(
+    ([targetId, count]) => {
+      const minCount =
+        targetId === 'recovery' ? 0 : Math.max(1, Math.floor(count));
+      return {
+        id: targetId,
+        label: targetLabelById[targetId] ?? targetId,
+        appliesTo: {
+          blockIds: blocks
+            .filter((block) =>
+              block.targetContributions.some(
+                (contribution) => contribution.targetId === targetId
+              )
+            )
+            .map((block) => block.id),
+          categories: [],
+          stressTags: [],
+        },
+        windowDays: 7,
+        minCount,
+        maxCount: Math.max(minCount, Math.ceil(count) + 1),
+        idealCount: Math.ceil(count),
+        priority:
+          targetId === 'strength' || targetId === 'cardio'
+            ? 'primary'
+            : 'secondary',
+      } satisfies AdaptiveTargetRange;
+    }
+  );
 
   return {
     blocks,
@@ -1132,7 +1168,9 @@ const createAdaptivePlanTemplateFromSlots = (
     })),
     recommendationSettings: {
       preferredRotationBlockIds: blocks
-        .filter((block) => block.category !== 'rest' && block.category !== 'mobility')
+        .filter(
+          (block) => block.category !== 'rest' && block.category !== 'mobility'
+        )
         .map((block) => block.id),
       allowCompatibleAddOns: true,
       protectUpcomingLowerBodyDays: 1,
@@ -1141,9 +1179,10 @@ const createAdaptivePlanTemplateFromSlots = (
 };
 
 const getAdaptivePlanTemplate = (
-  template: TrainingTemplateDefinition,
+  template: TrainingTemplateDefinition
 ): AdaptivePlanTemplateDefinition =>
-  template.adaptivePlanTemplate ?? createAdaptivePlanTemplateFromSlots(template);
+  template.adaptivePlanTemplate ??
+  createAdaptivePlanTemplateFromSlots(template);
 
 export const TRAINING_TEMPLATE_DEFINITIONS: Record<
   TrainingTemplateId,
@@ -1169,7 +1208,8 @@ export const TRAINING_TEMPLATE_DEFINITIONS: Record<
     id: 'strength-foundation',
     name: 'Strength foundation',
     summary: 'Full-body strength exposures with enough recovery to progress.',
-    weeklyRhythm: '3 strength days, 1 conditioning day, recovery between harder days',
+    weeklyRhythm:
+      '3 strength days, 1 conditioning day, recovery between harder days',
     durationAssumptions: { targetMinutes: 45, minimumUsefulMinutes: 30 },
     slotSequence: [
       createSlot(0, 'full-body', 'Full body strength', 45),
@@ -1207,7 +1247,8 @@ export const TRAINING_TEMPLATE_DEFINITIONS: Record<
     id: 'endurance-support',
     name: 'Endurance support',
     summary: 'Cardio-forward training with strength support and recovery.',
-    weeklyRhythm: '2 cardio days, 2 support strength days, mobility and recovery',
+    weeklyRhythm:
+      '2 cardio days, 2 support strength days, mobility and recovery',
     durationAssumptions: { targetMinutes: 40, minimumUsefulMinutes: 25 },
     slotSequence: [
       createSlot(0, 'conditioning', 'Easy cardio', 40),
@@ -1222,8 +1263,10 @@ export const TRAINING_TEMPLATE_DEFINITIONS: Record<
   'busy-travel': {
     id: 'busy-travel',
     name: 'Busy travel',
-    summary: 'Short, low-friction sessions for minimal equipment or travel weeks.',
-    weeklyRhythm: 'Short strength, mobility, and flexible conditioning sessions',
+    summary:
+      'Short, low-friction sessions for minimal equipment or travel weeks.',
+    weeklyRhythm:
+      'Short strength, mobility, and flexible conditioning sessions',
     durationAssumptions: { targetMinutes: 25, minimumUsefulMinutes: 15 },
     slotSequence: [
       createSlot(0, 'full-body', 'Bodyweight strength', 25),
@@ -1238,13 +1281,17 @@ export const TRAINING_TEMPLATE_DEFINITIONS: Record<
 };
 
 export const supportsAdaptiveTrainingPlan = (
-  templateId: TrainingTemplateId,
+  templateId: TrainingTemplateId
 ): boolean => Boolean(TRAINING_TEMPLATE_DEFINITIONS[templateId]);
 
-const minimalEquipment = new Set(['Bodyweight', 'Resistance Bands', 'Jump Rope']);
+const minimalEquipment = new Set([
+  'Bodyweight',
+  'Resistance Bands',
+  'Jump Rope',
+]);
 
 export const selectTrainingTemplateId = (
-  answers: OnboardingAnswers,
+  answers: OnboardingAnswers
 ): TrainingTemplateId => {
   const hasGymAccess =
     answers.environment === 'gym' || answers.equipment.includes(GYM_EQUIPMENT);
@@ -1285,9 +1332,10 @@ export const createTrainingBlueprintFromOnboarding = (
     editStatus?: TrainingBlueprintEditStatus;
     horizonDays?: number;
     updatedAt?: string;
-  } = {},
+  } = {}
 ): TrainingBlueprint => {
-  const template = TRAINING_TEMPLATE_DEFINITIONS[selectTrainingTemplateId(answers)];
+  const template =
+    TRAINING_TEMPLATE_DEFINITIONS[selectTrainingTemplateId(answers)];
 
   return trainingBlueprintSchema.parse({
     templateId: template.id,
@@ -1313,14 +1361,10 @@ export const createAdaptiveTrainingPlanFromTemplate = (
     activeFrom: LocalDate;
     activeUntil?: LocalDate;
     updatedAt: string;
-  },
-): AdaptiveTrainingPlan | undefined => {
+  }
+): AdaptiveTrainingPlan => {
   const templateDefinition = TRAINING_TEMPLATE_DEFINITIONS[templateId];
   const template = getAdaptivePlanTemplate(templateDefinition);
-
-  if (!template) {
-    return undefined;
-  }
 
   return adaptiveTrainingPlanSchema.parse({
     schemaVersion: 1,
@@ -1445,7 +1489,7 @@ const MAX_FOCUS_LENGTH = 80;
 
 export function normalizeEquipmentSelection(
   equipment: string[],
-  fallback: string[] = [],
+  fallback: string[] = []
 ): string[] {
   const normalized = [
     ...new Set(equipment.map((item) => item.trim()).filter(Boolean)),
@@ -1522,14 +1566,14 @@ const coerceNumber = (value: string): number | undefined => {
 };
 
 export const normalizeQuickActionValue = (
-  action: QuickActionPreset,
+  action: QuickActionPreset
 ): Partial<GenerationRequest> => {
   // For equipment, only use stagedValue (explicit user choice), not the default display value.
   // This allows the API layer to fall back to user profile equipment when not explicitly set.
   const source =
     action.key === 'equipment'
       ? action.stagedValue
-      : (action.stagedValue ?? action.value);
+      : action.stagedValue ?? action.value;
 
   if (!source) {
     return {};
@@ -1565,7 +1609,7 @@ export const normalizeQuickActionValue = (
 
 export const buildGenerationRequestFromQuickActions = (
   quickActions: QuickActionPreset[],
-  base: Partial<GenerationRequest> = {},
+  base: Partial<GenerationRequest> = {}
 ): GenerationRequest => {
   const request: Partial<GenerationRequest> = { ...base };
 
@@ -1723,7 +1767,7 @@ export const quickLogPayloadSchema = z.object({
 export type QuickLogPayload = z.infer<typeof quickLogPayloadSchema>;
 
 export const createTodayPlanMock = (
-  overrides: Partial<TodayPlan> = {},
+  overrides: Partial<TodayPlan> = {}
 ): TodayPlan => ({
   id: 'plan-mock',
   focus: 'Upper Body Push',
@@ -1781,7 +1825,7 @@ export const createTodayPlanMock = (
 });
 
 export const createSessionSummaryMock = (
-  overrides: Partial<WorkoutSessionSummary> = {},
+  overrides: Partial<WorkoutSessionSummary> = {}
 ): WorkoutSessionSummary => ({
   id: 'session-mock',
   name: 'Quick Reset',
@@ -1794,7 +1838,7 @@ export const createSessionSummaryMock = (
 });
 
 export const createWorkoutSetLogMock = (
-  overrides: Partial<WorkoutSetLog> = {},
+  overrides: Partial<WorkoutSetLog> = {}
 ): WorkoutSetLog => ({
   id: 'set-1',
   order: 0,
@@ -1807,7 +1851,7 @@ export const createWorkoutSetLogMock = (
 });
 
 export const createWorkoutExerciseLogMock = (
-  overrides: Partial<WorkoutExerciseLog> = {},
+  overrides: Partial<WorkoutExerciseLog> = {}
 ): WorkoutExerciseLog => ({
   id: 'exercise-1',
   name: 'Dumbbell Bench Press',
@@ -1823,7 +1867,7 @@ export const createWorkoutExerciseLogMock = (
 });
 
 export const createSessionDetailMock = (
-  overrides: Partial<WorkoutSessionDetail> = {},
+  overrides: Partial<WorkoutSessionDetail> = {}
 ): WorkoutSessionDetail => ({
   ...createSessionSummaryMock(),
   exercises: [createWorkoutExerciseLogMock()],
@@ -1831,7 +1875,7 @@ export const createSessionDetailMock = (
 });
 
 export const createGenerationContextMock = (
-  overrides: Partial<GenerationContext> = {},
+  overrides: Partial<GenerationContext> = {}
 ): GenerationContext => {
   const base: GenerationContext = {
     userProfile: {

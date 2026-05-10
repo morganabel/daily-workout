@@ -244,6 +244,31 @@ describe('adaptive training plan resolver', () => {
     expect(recommendation.coachNotes.join(' ')).toContain('upcoming event');
   });
 
+  it('includes same-day events in the protection window', () => {
+    const recommendation = resolveAdaptiveTrainingRecommendation({
+      plan: createPlan(),
+      planningDateLocal: '2026-04-17',
+      recentSessions: [
+        session('pull', 'Pull', '2026-04-16T12:00:00.000Z'),
+        session('push', 'Push', '2026-04-15T12:00:00.000Z'),
+      ],
+      upcomingEvents: [
+        {
+          kind: 'run',
+          title: 'Morning trail run',
+          localDate: '2026-04-17',
+          intensity: 'high',
+          tags: ['lower-body'],
+        },
+      ],
+    });
+
+    expect(recommendation.primaryBlockId).not.toBe('legs');
+    expect(recommendation.rationale.map((item) => item.code)).toContain(
+      'event-protection'
+    );
+  });
+
   it('preserves pinned sessions even when projected logic would reflow', () => {
     const plan: AdaptiveTrainingPlan = {
       ...createPlan(),
