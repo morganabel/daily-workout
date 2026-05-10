@@ -82,7 +82,7 @@ export const SignUpScreen: React.FC = () => {
         return;
       }
 
-      // New accounts should choose or skip a starter rhythm before Home.
+      // New accounts should choose or skip a starter plan before Home.
       navigation.navigate('Onboarding');
     } catch {
       setError('Registration failed. Please try again.');

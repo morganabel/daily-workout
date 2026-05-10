@@ -138,10 +138,10 @@ export const SettingsSummary = ({
       </SummaryCard>
 
       <SummaryCard
-        title="Training rhythm"
+        title="Training plan"
         eyebrow="Flexible, not a fixed calendar"
         icon="pulse-outline"
-        actionLabel="Adjust rhythm"
+        actionLabel="Adjust plan"
         onAction={() => onOpenEditor('rhythm')}
       >
         {trainingTargets.length > 0 ? (
@@ -159,7 +159,7 @@ export const SettingsSummary = ({
           </View>
         ) : (
           <Text style={styles.summaryBody}>
-            Your coach will learn a rhythm after setup.
+            Your coach will build a plan after setup.
           </Text>
         )}
         <Text style={styles.coachNote}>

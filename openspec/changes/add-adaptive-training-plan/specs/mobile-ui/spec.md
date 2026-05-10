@@ -1,22 +1,22 @@
 ## ADDED Requirements
 
-### Requirement: Training Rhythm Setup UI
-The mobile UI MUST present adaptive setup as training rhythm rather than a fixed starter week for templates that support adaptive planning.
+### Requirement: Training Plan Setup UI
+The mobile UI MUST present adaptive setup as a flexible training plan rather than a fixed starter week for templates that support adaptive planning.
 
 #### Scenario: Adaptive onboarding avoids fixed-week framing
 - **WHEN** the recommended template creates an adaptive training plan
-- **THEN** onboarding describes blocks, target ranges, and flexible weekly preferences instead of requiring the user to accept seven fixed days
+- **THEN** onboarding describes a flexible starting plan in plain language instead of exposing internal blocks, target ranges, or requiring the user to accept seven fixed days
 
 #### Scenario: Simple setup remains concise
 - **WHEN** a new user completes first-run onboarding
 - **THEN** adaptive planning setup does not require advanced scheduling details before the user can reach Home
 
-### Requirement: Plan Settings For Blocks And Ranges
-Plan Settings MUST allow users to inspect and edit adaptive training blocks, target ranges, and typical week preferences without rerunning onboarding.
+### Requirement: Plan Settings For Weekly Guidance
+Plan Settings MUST allow users to inspect and edit weekly plan guidance without rerunning onboarding, while keeping internal adaptive training blocks and target ranges behind user-friendly labels.
 
-#### Scenario: User edits target range
+#### Scenario: User edits weekly guidance
 - **WHEN** a user changes Lift from 3-5 to 4-5 in Plan Settings
-- **THEN** future recommendations use the updated range
+- **THEN** future recommendations use the updated guidance
 
 #### Scenario: User edits typical week preference
 - **WHEN** a user marks Friday as a preferred Legs day

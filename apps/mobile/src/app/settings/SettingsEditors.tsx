@@ -96,10 +96,10 @@ export const RhythmEditor = ({
   if (!plan) {
     return (
       <Card style={styles.emptyCard}>
-        <Text style={styles.summaryTitle}>No rhythm yet</Text>
+        <Text style={styles.summaryTitle}>No plan yet</Text>
         <Text style={styles.summaryBody}>
           Finish setup from Today and Workout Agent will start with a flexible
-          training rhythm.
+          training plan.
         </Text>
       </Card>
     );
@@ -108,11 +108,11 @@ export const RhythmEditor = ({
   return (
     <View style={styles.editorSection}>
       <Text style={styles.editorIntro}>
-        This is a soft pattern. Your coach may reorder sessions based on
+        This plan is flexible. Your coach may reorder sessions based on
         recovery, recent workouts, and upcoming events.
       </Text>
 
-      <Text style={styles.editorLabel}>Weekly targets</Text>
+      <Text style={styles.editorLabel}>Weekly guidance</Text>
       <View style={styles.targetList}>
         {plan.targetRanges.map((target) => (
           <View key={target.id} style={styles.targetEditorCard}>

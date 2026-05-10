@@ -343,9 +343,9 @@ const SetupProfileCard = ({ onPress }: { onPress: () => void }) => (
       <Ionicons name="sparkles" size={24} color={palette.textInverse} />
     </View>
     <View style={styles.setupContent}>
-      <Text style={styles.setupTitle}>Build your training rhythm</Text>
+      <Text style={styles.setupTitle}>Build your training plan</Text>
       <Text style={styles.setupDescription}>
-        Answer three quick questions to get flexible blocks and target ranges.
+        Answer three quick questions to get a flexible weekly plan.
       </Text>
     </View>
     <Ionicons name="arrow-forward" size={20} color={palette.primary} />

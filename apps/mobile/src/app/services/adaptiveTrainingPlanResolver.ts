@@ -304,7 +304,7 @@ const scoreTargetNeed = (
     if (target.count < target.minCount) {
       reasons.push({
         code: 'target-gap',
-        message: `${target.label} is below the ${target.minCount}-${target.maxCount} target range.`,
+        message: `${target.label} is due this week.`,
       });
       return getPriorityWeight(range.priority, 'below');
     }
@@ -638,7 +638,7 @@ export const resolveAdaptiveTrainingRecommendation = (
   const rationale: AdaptiveRecommendationRationale[] = [
     {
       code: 'structured-plan',
-      message: 'This fits your current training rhythm.',
+      message: 'This fits your current training plan.',
     },
   ];
   const coachNotes: string[] = [];

@@ -33,11 +33,11 @@ The system MUST create an adaptive training plan from simple onboarding answers 
 
 #### Scenario: Power-user structure is not required during onboarding
 - **WHEN** a user completes the standard onboarding flow
-- **THEN** the user is not required to choose strength-day counts, cardio-day counts, split type, preferred training windows, or slot ordering before seeing the recommended training rhythm
+- **THEN** the user is not required to choose strength-day counts, cardio-day counts, split type, preferred training windows, or slot ordering before seeing the recommended training plan
 
 #### Scenario: Adaptive rhythm remains editable after onboarding
 - **WHEN** a user opens plan settings after onboarding
-- **THEN** they can adjust target ranges and inspect the template-derived rhythm without re-running onboarding
+- **THEN** they can adjust weekly guidance and inspect the template-derived plan without re-running onboarding
 
 #### Scenario: Skipped onboarding does not block app use
 - **WHEN** a user skips onboarding
@@ -47,7 +47,7 @@ The system MUST create an adaptive training plan from simple onboarding answers 
 The system MUST NOT create app-owned starter-week planned workout slots from onboarding. Planned events are user-owned schedule context or later explicit projections, not compatibility artifacts for template onboarding.
 
 #### Scenario: Accepted template does not create starter slots
-- **WHEN** a user accepts a recommended training rhythm
+- **WHEN** a user accepts a recommended training plan
 - **THEN** the system stores an adaptive training plan and does not create app-owned planned workout events for a fixed 7-day starter week
 
 #### Scenario: User-owned events are preserved

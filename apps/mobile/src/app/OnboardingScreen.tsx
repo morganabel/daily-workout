@@ -101,24 +101,32 @@ const EXPERIENCE_LEVELS: Array<{
   label: string;
   description: string;
   icon: IconName;
+  color: string;
+  background: string;
 }> = [
   {
     value: 'beginner',
     label: 'Beginner',
     description: 'New to training or getting back after a break.',
-    icon: 'stats-chart',
+    icon: 'walk',
+    color: '#22C55E',
+    background: '#DCFCE7',
   },
   {
     value: 'intermediate',
     label: 'Intermediate',
     description: 'Consistent workouts for a while.',
-    icon: 'stats-chart',
+    icon: 'barbell',
+    color: palette.primary,
+    background: '#E0F2FE',
   },
   {
     value: 'advanced',
     label: 'Advanced',
     description: 'Experienced and training regularly.',
-    icon: 'stats-chart',
+    icon: 'trophy',
+    color: '#8B5CF6',
+    background: '#EDE9FE',
   },
 ];
 
@@ -276,15 +284,15 @@ const getStepCopy = (step: number) => {
 
   if (step === 3) {
     return {
-      title: 'Your training rhythm',
-      subtitle: 'Projected blocks can move as your schedule changes.',
+      title: 'Your training plan',
+      subtitle: 'A flexible starting point your coach can adapt.',
       prompt: null,
     };
   }
 
   return {
-    title: "Let's set your rhythm",
-    subtitle: "We'll suggest flexible blocks and target ranges from a few basics.",
+    title: "Let's set your plan",
+    subtitle: "We'll suggest a simple weekly plan from a few basics.",
     prompt: "What's your primary goal?",
   };
 };
@@ -561,14 +569,10 @@ export const OnboardingScreen = () => {
                 description={item.description}
                 icon={item.icon}
                 iconColor={
-                  experienceLevel === item.value
-                    ? palette.primary
-                    : palette.textSecondary
+                  experienceLevel === item.value ? item.color : palette.textSecondary
                 }
                 iconBackground={
-                  experienceLevel === item.value
-                    ? '#E0F2FE'
-                    : palette.cardSecondary
+                  experienceLevel === item.value ? item.background : palette.cardSecondary
                 }
                 selected={experienceLevel === item.value}
                 onPress={() => setExperienceLevel(item.value)}
@@ -647,7 +651,7 @@ export const OnboardingScreen = () => {
                 color={palette.textSecondary}
               />
               <Text style={styles.editNoteText}>
-                These are projected suggestions. You can change or pin them later.
+                This is a starting plan. You can adjust days now and change it later.
               </Text>
             </View>
           </View>
@@ -678,7 +682,7 @@ export const OnboardingScreen = () => {
               </Pressable>
             )}
             <PrimaryAction
-              label={step === 2 ? 'See my rhythm' : 'Next'}
+              label={step === 2 ? 'See my plan' : 'Next'}
               onPress={handleContinue}
               disabled={!canContinue}
               rightIcon={

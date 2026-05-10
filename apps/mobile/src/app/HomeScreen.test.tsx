@@ -170,7 +170,7 @@ const createAdaptivePlanFixture = () => {
     rationale: [
       {
         code: 'target-gap',
-        message: 'Cardio is below the 2-3 target range.',
+        message: 'Cardio is due this week.',
       },
     ],
     coachNotes: [],
@@ -237,7 +237,7 @@ describe('HomeScreen', () => {
       await Promise.resolve();
     });
 
-    expect(queryByText('Build your training rhythm')).toBeNull();
+    expect(queryByText('Build your training plan')).toBeNull();
   });
 
   it('shows profile equipment from quick actions in setup', async () => {
@@ -305,7 +305,7 @@ describe('HomeScreen', () => {
     expect(queryByText('FOCUS')).toBeNull();
     expect(queryByText('Customize recommendation')).toBeNull();
     expect(getByText('Adjust details')).toBeTruthy();
-    expect(getByText('Cardio is below the 2-3 target range.')).toBeTruthy();
+    expect(getByText('Cardio is due this week.')).toBeTruthy();
 
     await act(async () => {
       fireEvent.press(getByText("Generate today's workout"));

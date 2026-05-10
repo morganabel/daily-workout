@@ -31,7 +31,7 @@ export const EXPERIENCE_LEVELS: {
 
 export const EDITOR_TITLES: Record<EditorKey, string> = {
   profile: 'Coach profile',
-  rhythm: 'Training rhythm',
+  rhythm: 'Training plan',
   constraints: 'Safety & constraints',
   equipment: 'Equipment',
 };

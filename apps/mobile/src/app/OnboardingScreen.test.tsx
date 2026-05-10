@@ -38,7 +38,7 @@ const completeQuestions = async (screen: RenderAPI) => {
   await press(screen.getByText('Next'));
   await press(screen.getByLabelText('Intermediate'));
   await press(screen.getByText('Next'));
-    await press(screen.getByText('See my rhythm'));
+  await press(screen.getByText('See my plan'));
 };
 
 describe('OnboardingScreen', () => {
@@ -46,12 +46,12 @@ describe('OnboardingScreen', () => {
     jest.clearAllMocks();
   });
 
-  it('shows a recommended training rhythm after the three questions', async () => {
+  it('shows a recommended training plan after the three questions', async () => {
     const screen = render(<OnboardingScreen />);
 
     await completeQuestions(screen);
 
-    expect(screen.getByText('Your training rhythm')).toBeTruthy();
+    expect(screen.getByText('Your training plan')).toBeTruthy();
     expect(screen.getAllByText('Lift')).toHaveLength(3);
     expect(screen.getByText('Use this plan')).toBeTruthy();
   });
@@ -69,7 +69,7 @@ describe('OnboardingScreen', () => {
         'Assuming full gym access. You can fine-tune equipment later.'
       )
     ).toBeTruthy();
-    expect(screen.getByText('See my rhythm')).toBeTruthy();
+    expect(screen.getByText('See my plan')).toBeTruthy();
   });
 
   it('accepts the recommendation and saves the adaptive plan seed', async () => {
@@ -87,7 +87,7 @@ describe('OnboardingScreen', () => {
     });
   });
 
-  it('opens day editing from the training rhythm without saving', async () => {
+  it('opens day editing from the training plan without saving', async () => {
     const screen = render(<OnboardingScreen />);
 
     await completeQuestions(screen);
@@ -101,7 +101,7 @@ describe('OnboardingScreen', () => {
     expect(mockReset).not.toHaveBeenCalled();
   });
 
-  it('saves edited rhythm roles and day-level duration', async () => {
+  it('saves edited plan roles and day-level duration', async () => {
     const screen = render(<OnboardingScreen />);
 
     await completeQuestions(screen);
@@ -153,7 +153,7 @@ describe('OnboardingScreen', () => {
     );
   });
 
-  it('cancels day edits without changing the training rhythm', async () => {
+  it('cancels day edits without changing the training plan', async () => {
     const screen = render(<OnboardingScreen />);
 
     await completeQuestions(screen);

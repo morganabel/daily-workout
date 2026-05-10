@@ -14,7 +14,7 @@ This change establishes the first durable planning layer for the larger coaching
 - Add deterministic recommendation logic that chooses the next useful block or combined blocks from plan state, recent history, target ranges, and upcoming events.
 - Allow compatible blocks to combine, such as Pull + Easy Cardio or Push + Abs.
 - Update Home to show an explainable recommended next session and generate from that recommendation.
-- Update plan/profile UI away from “starter week” editing and toward training rhythm, blocks, target ranges, and typical week preferences.
+- Update plan/profile UI away from “starter week” editing and toward flexible training plan summaries with advanced mechanics hidden behind user-friendly labels.
 - Preserve one-off Today generation for users who skip setup, but make adaptive training plans the only template-based planning model.
 - Do not add hosted-only behavior, billing, quotas, or paid plan restrictions; CE and hosted use the same local planning model.
 
@@ -29,7 +29,7 @@ This change establishes the first durable planning layer for the larger coaching
 - `training-blueprint`: Template onboarding must seed adaptive training plans instead of fixed 7-day starter slots.
 - `user-profile`: Profile preferences must persist the accepted adaptive plan, target ranges, training blocks, and typical week preferences.
 - `home-data`: Home data must expose plan state and the recommended next session with rationale.
-- `mobile-ui`: Onboarding, Home, and Profile/Plan Settings must present training rhythm, target ranges, coach recommendations, and flexible weekly projections instead of only starter-week slots.
+- `mobile-ui`: Onboarding, Home, and Profile/Plan Settings must present flexible training plan summaries, coach recommendations, and adaptable weekly guidance instead of only starter-week slots.
 - `generation-planning`: Generation planning must accept adaptive plan intent, including a primary block and optional add-on blocks, while still honoring safety and schedule constraints.
 
 ## Impact

@@ -29,8 +29,8 @@
 
 ## 5. Mobile UI
 
-- [x] 5.1 Update onboarding copy and recommendation UI for adaptive templates from “starter week” to “training rhythm,” blocks, and target ranges.
-- [x] 5.2 Add Plan Settings UI for editing target ranges, inspecting blocks, editing typical week preferences, and saving local adaptive plan updates.
+- [x] 5.1 Update onboarding copy and recommendation UI for adaptive templates from “starter week” to flexible training plan language.
+- [x] 5.2 Add Plan Settings UI for editing weekly guidance with user-friendly labels and saving local adaptive plan updates.
 - [x] 5.3 Update Home to show the recommended next session, optional add-ons, rationale, alternatives, and customize/generate actions.
 - [x] 5.4 Add projected vs pinned language where adaptive plan sessions appear in planning or calendar surfaces.
 - [x] 5.5 Add mobile UI tests for adaptive onboarding, plan settings edits, Home recommendation rationale, combined session presentation, and pinned/projected labels.

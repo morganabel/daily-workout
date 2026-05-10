@@ -22,7 +22,7 @@ describe('SettingsScreen profile summary', () => {
     jest.clearAllMocks();
   });
 
-  it('summarizes rhythm and saves edited target ranges from the focused editor', async () => {
+  it('summarizes the plan and saves edited weekly guidance from the focused editor', async () => {
     const plan = createAdaptiveTrainingPlanFromTemplate('ppl-conditioning', {
       id: 'plan-ppl',
       activeFrom: '2026-04-15',
@@ -43,7 +43,7 @@ describe('SettingsScreen profile summary', () => {
     const screen = render(<SettingsScreen />);
 
     await waitFor(() => {
-      expect(screen.getByText('Training rhythm')).toBeTruthy();
+      expect(screen.getByText('Training plan')).toBeTruthy();
       expect(screen.getByText('Strength 3-5x/week')).toBeTruthy();
       expect(
         screen.getByText('Usually: Push, Cardio, Pull, Legs +1')
@@ -53,7 +53,7 @@ describe('SettingsScreen profile summary', () => {
     });
 
     await act(async () => {
-      fireEvent.press(screen.getByText('Adjust rhythm'));
+      fireEvent.press(screen.getByText('Adjust plan'));
     });
 
     await waitFor(() => {
