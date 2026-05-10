@@ -10,7 +10,8 @@ export type ApiErrorCode =
   | 'UNAUTHORIZED'
   | 'VALIDATION_ERROR'
   | 'NOT_FOUND'
-  | 'INVALID_PROVIDER';
+  | 'INVALID_PROVIDER'
+  | 'AI_GENERATION_ERROR';
 
 export interface ApiError {
   code: ApiErrorCode;

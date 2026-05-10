@@ -529,7 +529,7 @@ describe('createGenerateHandler', () => {
     expect(router.generate).not.toHaveBeenCalled();
   });
 
-  it('falls back to a mock plan on provider failure and sanitizes logged errors', async () => {
+  it('returns an error response on provider failure and sanitizes logged errors', async () => {
     const router = createRouterMock();
     router.generate.mockRejectedValueOnce(
       new Error('provider exploded with key sk-live-should-not-appear'),
@@ -551,14 +551,13 @@ describe('createGenerateHandler', () => {
         equipment: ['Dumbbells'],
       }),
     );
-    const json = (await response.json()) as TodayPlan;
+    const json = (await response.json()) as { code: string; message: string };
 
-    expect(response.status).toBe(200);
-    expect(json.durationMinutes).toBe(25);
-    expect(json.focus).toBe('Upper Body');
+    expect(response.status).toBe(502);
+    expect(json.code).toBe('AI_GENERATION_ERROR');
     expect(store.setError).toHaveBeenCalledWith(
       'device-123',
-      'We could not generate a workout plan. Showing a fallback plan.',
+      'We could not generate a workout plan. Please try again.',
     );
     expect(store.persistPlan).not.toHaveBeenCalled();
 
