@@ -8,7 +8,11 @@ import type {
 import { MAX_UPCOMING_EVENTS } from '@workout-agent/shared';
 import { database } from '../index';
 import PlannedEventModel from '../models/PlannedEvent';
-import { formatLocalDate, getLocalDateFromTimestamp } from '../../utils/date';
+import {
+  formatLocalDate,
+  getLocalDateFromTimestamp,
+  parseLocalDate,
+} from '../../utils/date';
 
 const parseJson = <T>(value?: string | null): T | undefined => {
   if (!value) return undefined;
@@ -77,11 +81,36 @@ const buildUpcomingContext = (
   startsAt: event.startsAt ? new Date(event.startsAt).toISOString() : undefined,
   durationMinutes: event.durationMinutes ?? undefined,
   allDay: event.allDay ?? undefined,
-  intensity: coerceIntensity(event.intensity) as UpcomingEventContext['intensity'],
+  intensity: coerceIntensity(
+    event.intensity
+  ) as UpcomingEventContext['intensity'],
   tags: parseJson<string[]>(event.tagsJson),
   notes: event.notes ?? undefined,
   metadata: parseJson<Record<string, unknown>>(event.metadataJson),
 });
+
+const resolveUpcomingWindow = (options?: {
+  startLocalDate?: string;
+  daysAhead?: number;
+}) => {
+  const startLocalDate = options?.startLocalDate ?? formatLocalDate(new Date());
+  const end = parseLocalDate(startLocalDate);
+  end.setDate(end.getDate() + (options?.daysAhead ?? 7));
+
+  return {
+    startLocalDate,
+    endLocalDate: formatLocalDate(end),
+  };
+};
+
+const filterUpcomingRecords = (
+  events: PlannedEventModel[],
+  limit: number
+): UpcomingEventContext[] =>
+  events
+    .filter((event) => event.status !== 'canceled')
+    .map(buildUpcomingContext)
+    .slice(0, limit);
 
 export class PlannedEventRepository {
   private plannedEvents =
@@ -131,33 +160,53 @@ export class PlannedEventRepository {
   }
 
   async listUpcomingEventContext(
-    daysAhead = 7,
-    limit = MAX_UPCOMING_EVENTS
+    options: {
+      startLocalDate?: string;
+      daysAhead?: number;
+      limit?: number;
+    } = {}
   ): Promise<UpcomingEventContext[]> {
-    const today = new Date();
-    const end = new Date(today);
-    end.setDate(end.getDate() + daysAhead);
-
-    const startLocalDate = formatLocalDate(today);
-    const endLocalDate = formatLocalDate(end);
+    const { startLocalDate, endLocalDate } = resolveUpcomingWindow(options);
+    const limit = options.limit ?? MAX_UPCOMING_EVENTS;
 
     const events = await this.plannedEvents
       .query(
         Q.where('archived_at', null),
+        Q.where('local_date', Q.gte(startLocalDate)),
+        Q.where('local_date', Q.lte(endLocalDate)),
         Q.sortBy('local_date', Q.asc),
         Q.sortBy('starts_at', Q.asc)
       )
       .fetch();
 
-    return events
-      .filter(
-        (event) =>
-          event.status !== 'canceled' &&
-          event.localDate >= startLocalDate &&
-          event.localDate <= endLocalDate
+    return filterUpcomingRecords(events, limit);
+  }
+
+  observeUpcomingEventContext(
+    options: {
+      startLocalDate?: string;
+      daysAhead?: number;
+      limit?: number;
+    } = {}
+  ) {
+    const { startLocalDate, endLocalDate } = resolveUpcomingWindow(options);
+    const limit = options.limit ?? MAX_UPCOMING_EVENTS;
+    const observable = this.plannedEvents
+      .query(
+        Q.where('archived_at', null),
+        Q.where('local_date', Q.gte(startLocalDate)),
+        Q.where('local_date', Q.lte(endLocalDate)),
+        Q.sortBy('local_date', Q.asc),
+        Q.sortBy('starts_at', Q.asc)
       )
-      .map(buildUpcomingContext)
-      .slice(0, limit);
+      .observe();
+
+    return {
+      subscribe: (callback: (events: UpcomingEventContext[]) => void) =>
+        observable.subscribe((events) =>
+          callback(filterUpcomingRecords(events, limit))
+        ),
+    };
   }
 
   async createPlannedEvent(input: PlannedEventInput): Promise<PlannedEvent> {
@@ -196,22 +245,17 @@ export class PlannedEventRepository {
         if ('createdAtTimezone' in patch) {
           record.createdAtTimezone = patch.createdAtTimezone!;
         }
-        if ('startsAt' in patch)
-          record.startsAt = patch.startsAt ?? undefined;
-        if ('endsAt' in patch)
-          record.endsAt = patch.endsAt ?? undefined;
-        if ('allDay' in patch)
-          record.allDay = patch.allDay ?? undefined;
+        if ('startsAt' in patch) record.startsAt = patch.startsAt ?? undefined;
+        if ('endsAt' in patch) record.endsAt = patch.endsAt ?? undefined;
+        if ('allDay' in patch) record.allDay = patch.allDay ?? undefined;
         if ('durationMinutes' in patch) {
           record.durationMinutes = patch.durationMinutes ?? undefined;
         }
         if ('intensity' in patch)
           record.intensity = patch.intensity ?? undefined;
-        if ('tags' in patch)
-          record.tagsJson = serializeTags(patch.tags);
+        if ('tags' in patch) record.tagsJson = serializeTags(patch.tags);
         if ('notes' in patch) record.notes = patch.notes ?? undefined;
-        if ('status' in patch)
-          record.status = patch.status ?? undefined;
+        if ('status' in patch) record.status = patch.status ?? undefined;
         if ('linkedWorkoutId' in patch) {
           record.linkedWorkoutId = patch.linkedWorkoutId ?? undefined;
         }

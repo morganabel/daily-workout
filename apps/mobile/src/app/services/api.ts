@@ -194,11 +194,7 @@ export async function buildGenerationContext(
   );
 
   // Determine equipment: quick action override > profile default > fallback
-  const equipment =
-    request.equipment ??
-    request.plannedSlotIntent?.equipmentLocationAssumptions?.equipment ??
-    prefs.equipment ??
-    [];
+  const equipment = request.equipment ?? prefs.equipment ?? [];
   const effectiveEquipment = normalizeEquipmentSelection(equipment, [
     'Bodyweight',
   ]);
@@ -218,7 +214,6 @@ export async function buildGenerationContext(
     },
     environment: {
       equipment: effectiveEquipment,
-      location: request.plannedSlotIntent?.equipmentLocationAssumptions?.environment,
       timeAvailableMinutes: request.timeMinutes,
     },
     recentSessions,
@@ -260,18 +255,20 @@ export async function generateWorkout(
   request: GenerationRequest,
   options?: { scheduledDate?: number }
 ): Promise<TodayPlan> {
+  const planningDateLocal =
+    request.planningDateLocal ??
+    (options?.scheduledDate
+      ? getLocalDateFromTimestamp(options.scheduledDate)
+      : formatLocalDate(new Date()));
   const upcomingEvents =
     request.upcomingEvents ??
-    (await plannedEventRepository.listUpcomingEventContext());
+    (await plannedEventRepository.listUpcomingEventContext({
+      startLocalDate: planningDateLocal,
+    }));
 
   const requestWithEvents = upcomingEvents?.length
     ? { ...request, upcomingEvents }
     : request;
-  const planningDateLocal =
-    requestWithEvents.planningDateLocal ??
-    (options?.scheduledDate
-      ? getLocalDateFromTimestamp(options.scheduledDate)
-      : formatLocalDate(new Date()));
   const requestWithPlanningDate = { ...requestWithEvents, planningDateLocal };
 
   const isRegeneration = Boolean(requestWithPlanningDate.previousResponseId);
@@ -294,7 +291,6 @@ export async function generateWorkout(
       timeMinutes: requestWithPlanningDate.timeMinutes,
       focus: requestWithPlanningDate.focus,
       equipmentOverride: requestWithPlanningDate.equipment,
-      plannedSlotIntent: requestWithPlanningDate.plannedSlotIntent,
       effectiveEquipment: context.environment.equipment,
       energy: requestWithPlanningDate.energy,
       upcomingEvents: requestWithPlanningDate.upcomingEvents?.length ?? 0,
@@ -346,11 +342,11 @@ export async function generateWorkout(
       },
     });
 
-    void Promise.resolve(workoutRepository.pruneRejectedWorkoutVersions()).catch(
-      (error) => {
-        console.error('Failed to prune rejected workout versions', error);
-      }
-    );
+    void Promise.resolve(
+      workoutRepository.pruneRejectedWorkoutVersions()
+    ).catch((error) => {
+      console.error('Failed to prune rejected workout versions', error);
+    });
     return plan;
   } catch (error) {
     setDebugLastGenerationTrace({

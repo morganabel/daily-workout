@@ -5,6 +5,7 @@ import {
 } from '@workout-agent/shared';
 import type { GenerationRequestWithContext } from './context';
 import type {
+  PlanningBlockIntent,
   PlanningBrief,
   PlanningEventProtection,
   PlanningLoadCeiling,
@@ -46,34 +47,41 @@ export function derivePlanningBrief({
 }: DerivePlanningBriefParams): PlanningBrief {
   const baselineWorkout = request.baselineWorkout ?? previousPlan ?? undefined;
   const requestedFocus = request.focus?.trim() || undefined;
-  const plannedSlotIntent = request.plannedSlotIntent;
+  const adaptivePlanIntent = request.adaptivePlanIntent;
+  const requestedFocusMatchesAdaptivePlan = Boolean(
+    requestedFocus &&
+      adaptivePlanIntent &&
+      normalizeText(requestedFocus) ===
+        normalizeText(adaptivePlanIntent.primaryBlock.label)
+  );
   const focusMode = requestedFocus
     ? isAutoFocus(requestedFocus)
-      ? plannedSlotIntent
-        ? 'planned-slot'
+      ? adaptivePlanIntent
+        ? 'adaptive-plan'
         : 'smart'
+      : requestedFocusMatchesAdaptivePlan
+      ? 'adaptive-plan'
       : 'explicit'
-    : plannedSlotIntent
-      ? 'planned-slot'
-      : 'unset';
+    : adaptivePlanIntent
+    ? 'adaptive-plan'
+    : 'unset';
   const availableEquipment = normalizeEquipmentSelection(
     request.equipment?.length
       ? request.equipment
-      : plannedSlotIntent?.equipmentLocationAssumptions?.equipment ??
-          context.environment.equipment,
-    DEFAULT_EQUIPMENT,
+      : context.environment.equipment,
+    DEFAULT_EQUIPMENT
   );
   const planningDateLocal =
     request.planningDateLocal ?? formatLocalDate(new Date());
   const eventProtection = selectEventProtection(
     request.upcomingEvents ?? [],
-    planningDateLocal,
+    planningDateLocal
   );
   const trainingRhythm = detectTrainingRhythm(context);
   const recentStressorsToAvoid = deriveRecentStressorsToAvoid(
     context,
     planningDateLocal,
-    trainingRhythm,
+    trainingRhythm
   );
   const recentSessionDisallowedStressors =
     deriveRecentSessionDisallowedStressors(recentStressorsToAvoid);
@@ -88,14 +96,22 @@ export function derivePlanningBrief({
   const resolvedFocus = resolveFocus({
     focusMode,
     requestedFocus,
-    plannedSlotIntent,
+    adaptivePlanIntent,
     context,
     recentStressorsToAvoid,
     eventProtection,
   });
+  const isUsingAdaptivePlanIntent = Boolean(
+    adaptivePlanIntent &&
+      focusMode === 'adaptive-plan' &&
+      normalizeText(resolvedFocus) ===
+        normalizeText(formatAdaptivePlanFocus(adaptivePlanIntent))
+  );
   const durationMinutes =
     request.timeMinutes ??
-    plannedSlotIntent?.targetDurationMinutes ??
+    (isUsingAdaptivePlanIntent
+      ? deriveAdaptivePlanDuration(adaptivePlanIntent)
+      : undefined) ??
     context.environment.timeAvailableMinutes ??
     baselineWorkout?.durationMinutes ??
     DEFAULT_DURATION_MINUTES;
@@ -104,15 +120,15 @@ export function derivePlanningBrief({
   const variationMode = request.feedback?.includes('different-exercises')
     ? 'different-exercises'
     : request.previousResponseId || baselineWorkout
-      ? 'preserve-intent'
-      : 'none';
+    ? 'preserve-intent'
+    : 'none';
 
   const brief: PlanningBrief = {
     provider,
     planningDateLocal,
     requestedFocus,
     focusMode,
-    plannedSlotIntent,
+    adaptivePlanIntent,
     resolvedFocus,
     durationMinutes,
     availableEquipment,
@@ -129,19 +145,13 @@ export function derivePlanningBrief({
     disallowedStressors,
     recentStressorsToAvoid,
     eventProtection,
-    blockIntents: [
-      {
-        key: 'main',
-        title: 'Main Block',
-        focus: resolvedFocus,
-        durationMinutes,
-        objective: deriveObjective(resolvedFocus),
-        candidateFocusTags: deriveCandidateFocusTags(
-          resolvedFocus,
-          context.preferences.focusBias ?? [],
-        ),
-      },
-    ],
+    blockIntents: deriveBlockIntents({
+      adaptivePlanIntent,
+      context,
+      durationMinutes,
+      focusMode,
+      resolvedFocus,
+    }),
     variationMode,
     fallbackMode: 'strict-library',
     fallbackReasons: [],
@@ -151,8 +161,8 @@ export function derivePlanningBrief({
         request.previousResponseId && provider === 'openai'
           ? 'stateful'
           : request.previousResponseId || baselineWorkout
-            ? 'stateless'
-            : 'initial',
+          ? 'stateless'
+          : 'initial',
       feedback: request.feedback ?? [],
       baselineWorkoutId: baselineWorkout?.id,
       baselineExerciseCount: countExercises(baselineWorkout),
@@ -218,7 +228,7 @@ export function determineStageOnePlanningActivation({
 
 function deriveLoadCeiling(
   energy: PlanningBrief['energy'],
-  eventProtection?: PlanningEventProtection,
+  eventProtection?: PlanningEventProtection
 ): PlanningLoadCeiling {
   let loadCeiling: PlanningLoadCeiling;
 
@@ -251,7 +261,7 @@ function deriveLoadCeiling(
 
 function deriveStyleBias(
   context: GenerationContext,
-  resolvedFocus: string,
+  resolvedFocus: string
 ): string | undefined {
   if (context.userProfile.preferredStyle) {
     return context.userProfile.preferredStyle;
@@ -275,7 +285,7 @@ function deriveStyleBias(
         value.includes('size') ||
         value.includes('lifting') ||
         value.includes('powerlifting') ||
-        value.includes('bodybuilding'),
+        value.includes('bodybuilding')
     )
   ) {
     return 'strength';
@@ -287,7 +297,7 @@ function deriveStyleBias(
 function resolveFocus(params: {
   focusMode: PlanningBrief['focusMode'];
   requestedFocus?: string;
-  plannedSlotIntent?: PlanningBrief['plannedSlotIntent'];
+  adaptivePlanIntent?: PlanningBrief['adaptivePlanIntent'];
   context: GenerationContext;
   recentStressorsToAvoid: string[];
   eventProtection?: PlanningEventProtection;
@@ -295,14 +305,14 @@ function resolveFocus(params: {
   const {
     focusMode,
     requestedFocus,
-    plannedSlotIntent,
+    adaptivePlanIntent,
     context,
     recentStressorsToAvoid,
     eventProtection,
   } = params;
 
-  if (focusMode === 'planned-slot' && plannedSlotIntent) {
-    return resolvePlannedSlotFocus(plannedSlotIntent.role, eventProtection);
+  if (focusMode === 'adaptive-plan' && adaptivePlanIntent) {
+    return resolveAdaptivePlanFocus(adaptivePlanIntent, eventProtection);
   }
 
   if (focusMode === 'explicit' && requestedFocus) {
@@ -358,45 +368,179 @@ function resolveFocus(params: {
   return 'Full Body';
 }
 
-function resolvePlannedSlotFocus(
-  role: NonNullable<PlanningBrief['plannedSlotIntent']>['role'],
-  eventProtection?: PlanningEventProtection,
+function resolveAdaptivePlanFocus(
+  adaptivePlanIntent: NonNullable<PlanningBrief['adaptivePlanIntent']>,
+  eventProtection?: PlanningEventProtection
 ): string {
+  const blocks = [
+    adaptivePlanIntent.primaryBlock,
+    ...adaptivePlanIntent.addOnBlocks,
+  ];
   if (
     eventProtection &&
-    (role === 'legs' || role === 'sprint' || role === 'conditioning')
+    blocks.some((block) => hasLowerBodyOrImpactStress(block.stressTags))
   ) {
     return 'Upper Body & Core';
   }
 
-  switch (role) {
-    case 'pull':
-      return 'Upper Body Pull';
-    case 'push':
-      return 'Upper Body Push';
-    case 'legs':
-      return 'Lower Body';
-    case 'sprint':
-      return 'Sprint Conditioning';
-    case 'conditioning':
-      return 'Conditioning';
-    case 'mobility':
-    case 'recovery':
-      return 'Mobility & Recovery';
-    case 'full-body':
-      return 'Full Body';
-    case 'flexible':
-      return 'Flexible Full Body';
+  return formatAdaptivePlanFocus(adaptivePlanIntent);
+}
+
+function formatAdaptivePlanFocus(
+  adaptivePlanIntent: NonNullable<PlanningBrief['adaptivePlanIntent']>
+): string {
+  const addOnLabels = adaptivePlanIntent.addOnBlocks.map(
+    (block) => block.label
+  );
+  return [adaptivePlanIntent.primaryBlock.label, ...addOnLabels].join(' + ');
+}
+
+function deriveAdaptivePlanDuration(
+  adaptivePlanIntent?: PlanningBrief['adaptivePlanIntent']
+): number | undefined {
+  if (!adaptivePlanIntent) {
+    return undefined;
   }
+
+  const durations = [
+    adaptivePlanIntent.primaryBlock.targetDurationMinutes,
+    ...adaptivePlanIntent.addOnBlocks.map(
+      (block) => block.targetDurationMinutes
+    ),
+  ].filter((value): value is number => typeof value === 'number');
+
+  if (!durations.length) {
+    return undefined;
+  }
+
+  return durations.reduce((total, duration) => total + duration, 0);
+}
+
+function distributeAdaptiveBlockDurations(params: {
+  blocks: NonNullable<PlanningBrief['adaptivePlanIntent']>['addOnBlocks'];
+  durationMinutes: number;
+}): number[] {
+  const { blocks, durationMinutes } = params;
+  if (!blocks.length) {
+    return [];
+  }
+
+  const targetDurations = blocks.map(
+    (block) =>
+      block.targetDurationMinutes ?? Math.round(durationMinutes / blocks.length)
+  );
+  const targetTotal = targetDurations.reduce(
+    (total, duration) => total + duration,
+    0
+  );
+  if (targetTotal <= 0) {
+    return blocks.map(() =>
+      Math.max(10, Math.round(durationMinutes / blocks.length))
+    );
+  }
+
+  let remaining = durationMinutes;
+  return targetDurations.map((targetDuration, index) => {
+    const blocksRemaining = blocks.length - index - 1;
+    if (blocksRemaining === 0) {
+      return Math.max(10, remaining);
+    }
+
+    const scaledDuration = Math.max(
+      10,
+      Math.round((targetDuration / targetTotal) * durationMinutes)
+    );
+    const maxDuration = Math.max(10, remaining - blocksRemaining * 10);
+    const duration = Math.min(scaledDuration, maxDuration);
+    remaining -= duration;
+    return duration;
+  });
+}
+
+function deriveBlockIntents(params: {
+  adaptivePlanIntent?: PlanningBrief['adaptivePlanIntent'];
+  context: GenerationContext;
+  durationMinutes: number;
+  focusMode: PlanningBrief['focusMode'];
+  resolvedFocus: string;
+}): PlanningBlockIntent[] {
+  const {
+    adaptivePlanIntent,
+    context,
+    durationMinutes,
+    focusMode,
+    resolvedFocus,
+  } = params;
+
+  if (
+    adaptivePlanIntent &&
+    focusMode === 'adaptive-plan' &&
+    normalizeText(resolvedFocus) ===
+      normalizeText(formatAdaptivePlanFocus(adaptivePlanIntent))
+  ) {
+    const blocks = [
+      adaptivePlanIntent.primaryBlock,
+      ...adaptivePlanIntent.addOnBlocks,
+    ];
+    const durations = distributeAdaptiveBlockDurations({
+      blocks,
+      durationMinutes,
+    });
+    return blocks.map((block, index) => ({
+      key: index === 0 ? 'adaptive-primary' : `adaptive-addon-${index}`,
+      title: index === 0 ? 'Adaptive Primary Block' : 'Adaptive Add-on Block',
+      focus: block.label,
+      durationMinutes: durations[index] ?? durationMinutes,
+      objective: deriveObjective(block.label),
+      candidateFocusTags: [
+        ...new Set(
+          [
+            block.category,
+            block.role,
+            ...block.stressTags,
+            ...deriveCandidateFocusTags(
+              block.label,
+              context.preferences.focusBias ?? []
+            ),
+          ].filter((value): value is string => Boolean(value))
+        ),
+      ],
+    }));
+  }
+
+  return [
+    {
+      key: 'main',
+      title: 'Main Block',
+      focus: resolvedFocus,
+      durationMinutes,
+      objective: deriveObjective(resolvedFocus),
+      candidateFocusTags: deriveCandidateFocusTags(
+        resolvedFocus,
+        context.preferences.focusBias ?? []
+      ),
+    },
+  ];
+}
+
+function hasLowerBodyOrImpactStress(stressTags: string[]): boolean {
+  return stressTags.some((tag) => {
+    const normalized = normalizeText(tag);
+    return (
+      normalized.includes('lower') ||
+      normalized.includes('impact') ||
+      normalized.includes('heavy')
+    );
+  });
 }
 
 function collectUnknowns(
   request: GenerationRequestWithContext,
-  context: GenerationContext,
+  context: GenerationContext
 ): string[] {
   const unknowns = new Set<string>();
 
-  if (request.focus === undefined && request.plannedSlotIntent === undefined) {
+  if (request.focus === undefined && request.adaptivePlanIntent === undefined) {
     unknowns.add('focus');
   }
   if (context.preferences.injuries === undefined) {
@@ -434,7 +578,7 @@ function isDenseFreeformNotes(notes?: string): boolean {
 function deriveRecentStressorsToAvoid(
   context: GenerationContext,
   planningDateLocal: string,
-  trainingRhythm: TrainingRhythm,
+  trainingRhythm: TrainingRhythm
 ): string[] {
   const counts = new Map<string, number>();
   let latestSession: GenerationContext['recentSessions'][number] | undefined;
@@ -470,7 +614,7 @@ function deriveRecentStressorsToAvoid(
     shouldBiasAwayFromLatestSession(
       latestSession,
       planningDateLocal,
-      trainingRhythm,
+      trainingRhythm
     )
   ) {
     stressors.push(...inferStressors(latestSession.focus));
@@ -480,7 +624,7 @@ function deriveRecentStressorsToAvoid(
 }
 
 function deriveRecentSessionDisallowedStressors(
-  recentStressorsToAvoid: string[],
+  recentStressorsToAvoid: string[]
 ): string[] {
   const stressors = new Set<string>();
 
@@ -510,7 +654,7 @@ function detectTrainingRhythm(context: GenerationContext): TrainingRhythm {
     .filter(Boolean)
     .map((value) => normalizeText(value as string));
   const recentFocuses = context.recentSessions.map((session) =>
-    normalizeText(session.focus),
+    normalizeText(session.focus)
   );
 
   if (
@@ -522,7 +666,7 @@ function detectTrainingRhythm(context: GenerationContext): TrainingRhythm {
         value.includes('split') ||
         value.includes('bodybuilding') ||
         value.includes('powerbuilding') ||
-        value.includes('powerlifting'),
+        value.includes('powerlifting')
     )
   ) {
     return 'split';
@@ -538,7 +682,7 @@ function detectTrainingRhythm(context: GenerationContext): TrainingRhythm {
       value.includes('pull') ||
       value.includes('upper body') ||
       value.includes('lower body') ||
-      value.includes('legs'),
+      value.includes('legs')
   ).length;
 
   if (recentSplitFocusCount >= 2) {
@@ -555,13 +699,13 @@ function detectTrainingRhythm(context: GenerationContext): TrainingRhythm {
 function shouldBiasAwayFromLatestSession(
   session: GenerationContext['recentSessions'][number],
   planningDateLocal: string,
-  trainingRhythm: TrainingRhythm,
+  trainingRhythm: TrainingRhythm
 ): boolean {
   if (
     !isRecentSession(
       session.completedAt,
       planningDateLocal,
-      SINGLE_SESSION_BIAS_WINDOW_DAYS,
+      SINGLE_SESSION_BIAS_WINDOW_DAYS
     )
   ) {
     return false;
@@ -620,7 +764,7 @@ function deriveAvoidStressors(context: GenerationContext): string[] {
 
 function selectEventProtection(
   upcomingEvents: NonNullable<GenerationRequestWithContext['upcomingEvents']>,
-  planningDateLocal: string,
+  planningDateLocal: string
 ): PlanningEventProtection | undefined {
   const planningDate = parseLocalDate(planningDateLocal);
   const candidates = upcomingEvents
@@ -657,7 +801,7 @@ function selectEventProtection(
 }
 
 function deriveEventStressors(
-  eventProtection?: PlanningEventProtection,
+  eventProtection?: PlanningEventProtection
 ): string[] {
   if (!eventProtection) {
     return [];
@@ -668,7 +812,7 @@ function deriveEventStressors(
 
 function deriveCandidateFocusTags(
   resolvedFocus: string,
-  focusBias: string[],
+  focusBias: string[]
 ): string[] {
   const tags = new Set<string>();
 
@@ -737,7 +881,7 @@ function inferStressors(value: string): string[] {
 function isRecentSession(
   completedAt: string,
   planningDateLocal: string,
-  maxAgeDays = RECENT_SESSION_WINDOW_DAYS,
+  maxAgeDays = RECENT_SESSION_WINDOW_DAYS
 ): boolean {
   const sessionDate = new Date(completedAt);
   const planningDate = parseLocalDate(planningDateLocal);
@@ -745,16 +889,16 @@ function isRecentSession(
     new Date(
       sessionDate.getFullYear(),
       sessionDate.getMonth(),
-      sessionDate.getDate(),
+      sessionDate.getDate()
     ),
-    planningDate,
+    planningDate
   );
 
   return dayDistance >= 0 && dayDistance <= maxAgeDays;
 }
 
 function countExercises(
-  baselineWorkout: GenerationRequestWithContext['baselineWorkout'] | undefined,
+  baselineWorkout: GenerationRequestWithContext['baselineWorkout'] | undefined
 ): number {
   if (!baselineWorkout) {
     return 0;
@@ -762,7 +906,7 @@ function countExercises(
 
   return baselineWorkout.blocks.reduce(
     (total, block) => total + block.exercises.length,
-    0,
+    0
   );
 }
 
@@ -781,11 +925,11 @@ function diffLocalDays(left: Date, right: Date): number {
   const rightDay = new Date(
     right.getFullYear(),
     right.getMonth(),
-    right.getDate(),
+    right.getDate()
   );
 
   return Math.round(
-    (rightDay.getTime() - leftDay.getTime()) / millisecondsPerDay,
+    (rightDay.getTime() - leftDay.getTime()) / millisecondsPerDay
   );
 }
 

@@ -1,9 +1,29 @@
-# training-blueprint Specification
+## ADDED Requirements
 
-## Purpose
+### Requirement: Adaptive Plan Seeding From Templates
+The system MUST allow template-based onboarding to seed an adaptive training plan for every selectable template.
 
-Define the local training blueprint that maps simple onboarding answers into editable starter-week plans and planned workout slots.
-## Requirements
+#### Scenario: Template seeds adaptive plan
+- **WHEN** onboarding selects any training template
+- **THEN** the resulting setup creates an active adaptive training plan with reusable blocks, target ranges, typical week preferences, and recommendation settings
+
+#### Scenario: Starter-week planned slots are not created
+- **WHEN** onboarding saves a template-derived plan
+- **THEN** the system does not create app-owned starter-week planned events for compatibility
+
+### Requirement: Template Definitions Support Plan Blueprints
+Training template definitions MUST be able to produce plan blueprints that include blocks, target ranges, typical week preferences, and recommendation rules.
+
+#### Scenario: Template can describe ranges
+- **WHEN** a template represents flexible fitness training
+- **THEN** it can define target ranges such as 3-5 lift exposures and 2-3 cardio exposures over a rolling planning window
+
+#### Scenario: Template can describe flexible ordering
+- **WHEN** a template includes a preferred rotation such as Push, Pull, Legs
+- **THEN** it can mark the rotation as coach-flexible rather than strict calendar ordering
+
+## MODIFIED Requirements
+
 ### Requirement: Template-Based Training Blueprint
 The system MUST create an adaptive training plan from simple onboarding answers instead of requiring users to manually design a weekly plan during first-run setup. The setup MUST identify a recommended training template, inferred rhythm, default duration assumptions, equipment/location assumptions, reusable blocks, target ranges, and whether the user accepted, adjusted, skipped, or later edited the recommendation.
 
@@ -59,26 +79,3 @@ The system MUST NOT require planned-slot generation intent. Concrete workout gen
 #### Scenario: Planned slots remain unnecessary for workout generation
 - **WHEN** adaptive recommendations are computed
 - **THEN** the system does not call an AI provider or create planned-slot records solely to place starter-week workouts
-
-### Requirement: Adaptive Plan Seeding From Templates
-The system MUST allow template-based onboarding to seed an adaptive training plan for every selectable template.
-
-#### Scenario: Template seeds adaptive plan
-- **WHEN** onboarding selects any training template
-- **THEN** the resulting setup creates an active adaptive training plan with reusable blocks, target ranges, typical week preferences, and recommendation settings
-
-#### Scenario: Starter-week planned slots are not created
-- **WHEN** onboarding saves a template-derived plan
-- **THEN** the system does not create app-owned starter-week planned events for compatibility
-
-### Requirement: Template Definitions Support Plan Blueprints
-Training template definitions MUST be able to produce plan blueprints that include blocks, target ranges, typical week preferences, and recommendation rules.
-
-#### Scenario: Template can describe ranges
-- **WHEN** a template represents flexible fitness training
-- **THEN** it can define target ranges such as 3-5 lift exposures and 2-3 cardio exposures over a rolling planning window
-
-#### Scenario: Template can describe flexible ordering
-- **WHEN** a template includes a preferred rotation such as Push, Pull, Legs
-- **THEN** it can mark the rotation as coach-flexible rather than strict calendar ordering
-

@@ -7,21 +7,23 @@ import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import { AppState } from 'react-native';
 import type {
+  AdaptivePlanRecommendation,
+  AdaptiveTrainingPlan,
   GenerationStatus,
   HomeSnapshot,
-  PlannedSlotMetadata,
   TodayPlan,
   QuickActionKey,
   QuickActionPreset,
+  UpcomingEventContext,
   UserPreferences,
 } from '@workout-agent/shared';
-import { plannedSlotMetadataSchema } from '@workout-agent/shared';
 import NetInfo from '@react-native-community/netinfo';
 import { workoutRepository } from '../db/repositories/WorkoutRepository';
 import { plannedEventRepository } from '../db/repositories/PlannedEventRepository';
 import { userRepository } from '../db/repositories/UserRepository';
 import type Workout from '../db/models/Workout';
 import { formatLocalDate, parseLocalDate } from '../utils/date';
+import { resolveAdaptiveTrainingRecommendation } from '../services/adaptiveTrainingPlanResolver';
 
 const buildQuickActionsFromPreferences = (
   prefs: UserPreferences
@@ -75,6 +77,31 @@ const FALLBACK_QUICK_ACTIONS = buildQuickActionsFromPreferences({
   avoid: [],
 });
 
+type StagedQuickActionValues = Partial<Record<QuickActionKey, string | null>>;
+
+const getQuickActionResolvedValue = (
+  quickActions: QuickActionPreset[],
+  stagedValues: StagedQuickActionValues,
+  key: QuickActionKey
+): string | undefined => {
+  const stagedValue = stagedValues[key];
+  if (stagedValue?.trim()) {
+    return stagedValue;
+  }
+
+  const action = quickActions.find((item) => item.key === key);
+  return action?.stagedValue ?? action?.value ?? action?.description;
+};
+
+const resolveAvailableTimeMinutes = (
+  quickActions: QuickActionPreset[],
+  stagedValues: StagedQuickActionValues
+): number | undefined => {
+  const value = getQuickActionResolvedValue(quickActions, stagedValues, 'time');
+  const parsed = Number.parseInt(value ?? '', 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
+};
+
 const getCurrentLocalDate = (): string => formatLocalDate(new Date());
 
 const getNextLocalMidnightDelay = (localDate: string): number => {
@@ -121,7 +148,8 @@ export type HomeDataState = {
   planVersions: TodayPlan[];
   activePlanVersions: TodayPlan[];
   pendingPlanSnapshot: TodayPlan | null;
-  plannedSlot: PlannedSlotMetadata | null;
+  adaptivePlan: AdaptiveTrainingPlan | null;
+  adaptiveRecommendation: AdaptivePlanRecommendation | null;
   recentSessions: HomeSnapshot['recentSessions'];
   quickActions: HomeSnapshot['quickActions'];
   offlineHint: HomeSnapshot['offlineHint'];
@@ -163,7 +191,8 @@ export function useHomeData(): HomeDataState & {
     planVersions: [],
     activePlanVersions: [],
     pendingPlanSnapshot: null,
-    plannedSlot: null,
+    adaptivePlan: null,
+    adaptiveRecommendation: null,
     recentSessions: [],
     quickActions: FALLBACK_QUICK_ACTIONS,
     offlineHint: {
@@ -186,6 +215,9 @@ export function useHomeData(): HomeDataState & {
   const [stagedValues, setStagedValues] = useState<
     Partial<Record<QuickActionKey, string | null>>
   >({});
+  const [upcomingEvents, setUpcomingEvents] = useState<UpcomingEventContext[]>(
+    []
+  );
 
   useEffect(() => {
     return () => {
@@ -210,7 +242,7 @@ export function useHomeData(): HomeDataState & {
         planningDateTimestamp: getLocalDateTimestamp(nextDate),
         plan: null,
         planVersions: [],
-        plannedSlot: null,
+        adaptiveRecommendation: null,
         status: 'loading',
       };
     });
@@ -359,32 +391,30 @@ export function useHomeData(): HomeDataState & {
         }));
       });
 
-    const plannedEventSubscription = plannedEventRepository
-      .observeEventsByLocalDate(state.planningDateLocal)
-      .subscribe((records) => {
-        if (!isMountedRef.current) return;
-        const plannedSlot = records
-          .map((record) => plannedEventRepository.toPlannedEvent(record))
-          .filter((event) => event.status !== 'canceled')
-          .map((event) => plannedSlotMetadataSchema.safeParse(event.metadata))
-          .find(
-            (result) =>
-              result.success &&
-              result.data.plannedDate === state.planningDateLocal
-          );
-
-        setState((prev) => ({
-          ...prev,
-          plannedSlot: plannedSlot?.success ? plannedSlot.data : null,
-        }));
-      });
-
     return () => {
       versionSubscription.unsubscribe();
       recentSubscription.unsubscribe();
-      plannedEventSubscription.unsubscribe();
     };
   }, [hydrateWorkoutVersions, state.planningDateLocal]);
+
+  useEffect(() => {
+    const adaptivePlan = state.adaptivePlan;
+    if (!adaptivePlan || adaptivePlan.status !== 'active') {
+      setUpcomingEvents([]);
+      return;
+    }
+
+    const subscription = plannedEventRepository
+      .observeUpcomingEventContext({
+        startLocalDate: state.planningDateLocal,
+      })
+      .subscribe((events) => {
+        if (!isMountedRef.current) return;
+        setUpcomingEvents(events);
+      });
+
+    return () => subscription.unsubscribe();
+  }, [state.adaptivePlan, state.planningDateLocal]);
 
   // Offline detection
   useEffect(() => {
@@ -415,6 +445,14 @@ export function useHomeData(): HomeDataState & {
       await userRepository.getOrCreateUser();
       if (!isMountedRef.current || cancelled) return;
 
+      const initialPrefs = await userRepository.getPreferences();
+      if (!isMountedRef.current || cancelled) return;
+      setState((prev) => ({
+        ...prev,
+        quickActions: buildQuickActionsFromPreferences(initialPrefs),
+        adaptivePlan: initialPrefs.adaptiveTrainingPlan ?? null,
+      }));
+
       const sub = userRepository.observeUser().subscribe(() => {
         void (async () => {
           const prefs = await userRepository.getPreferences();
@@ -422,6 +460,7 @@ export function useHomeData(): HomeDataState & {
           setState((prev) => ({
             ...prev,
             quickActions: buildQuickActionsFromPreferences(prefs),
+            adaptivePlan: prefs.adaptiveTrainingPlan ?? null,
           }));
         })();
       });
@@ -439,6 +478,47 @@ export function useHomeData(): HomeDataState & {
       subscription?.unsubscribe();
     };
   }, []);
+
+  useEffect(() => {
+    const adaptivePlan = state.adaptivePlan;
+
+    if (!adaptivePlan || adaptivePlan.status !== 'active') {
+      setState((prev) =>
+        prev.adaptiveRecommendation === null
+          ? prev
+          : { ...prev, adaptiveRecommendation: null }
+      );
+      return;
+    }
+
+    try {
+      const recommendation = resolveAdaptiveTrainingRecommendation({
+        plan: adaptivePlan,
+        planningDateLocal: state.planningDateLocal,
+        recentSessions: state.recentSessions,
+        upcomingEvents,
+        availableTimeMinutes: resolveAvailableTimeMinutes(
+          state.quickActions,
+          stagedValues
+        ),
+      });
+
+      setState((prev) => ({
+        ...prev,
+        adaptiveRecommendation: recommendation,
+      }));
+    } catch (error) {
+      console.error('Failed to resolve adaptive recommendation', error);
+      setState((prev) => ({ ...prev, adaptiveRecommendation: null }));
+    }
+  }, [
+    stagedValues,
+    state.adaptivePlan,
+    state.planningDateLocal,
+    state.quickActions,
+    state.recentSessions,
+    upcomingEvents,
+  ]);
 
   const fetchData = useCallback(async () => {
     refreshPlanningDate();

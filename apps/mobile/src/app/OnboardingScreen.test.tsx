@@ -6,7 +6,6 @@ import {
   type RenderAPI,
 } from '@testing-library/react-native';
 import { OnboardingScreen } from './OnboardingScreen';
-import { createStarterWeekSlots } from './services/starterWeekSlots';
 import { userRepository } from './db/repositories/UserRepository';
 
 const mockReset = jest.fn();
@@ -17,10 +16,6 @@ jest.mock('@react-navigation/native', () => ({
   }),
 }));
 
-jest.mock('./services/starterWeekSlots', () => ({
-  createStarterWeekSlots: jest.fn().mockResolvedValue([]),
-}));
-
 jest.mock('./db/repositories/UserRepository', () => ({
   userRepository: {
     saveTrainingBlueprint: jest.fn().mockResolvedValue(undefined),
@@ -28,8 +23,6 @@ jest.mock('./db/repositories/UserRepository', () => ({
   },
 }));
 
-const mockCreateStarterWeekSlots =
-  createStarterWeekSlots as jest.MockedFunction<typeof createStarterWeekSlots>;
 const mockUserRepository = userRepository as jest.Mocked<typeof userRepository>;
 
 type QueryResult = ReturnType<RenderAPI['getByText']>;
@@ -45,7 +38,7 @@ const completeQuestions = async (screen: RenderAPI) => {
   await press(screen.getByText('Next'));
   await press(screen.getByLabelText('Intermediate'));
   await press(screen.getByText('Next'));
-  await press(screen.getByText('See my week'));
+  await press(screen.getByText('See my plan'));
 };
 
 describe('OnboardingScreen', () => {
@@ -53,12 +46,12 @@ describe('OnboardingScreen', () => {
     jest.clearAllMocks();
   });
 
-  it('shows a recommended starter week after the three questions', async () => {
+  it('shows a recommended training plan after the three questions', async () => {
     const screen = render(<OnboardingScreen />);
 
     await completeQuestions(screen);
 
-    expect(screen.getByText('Your starter week')).toBeTruthy();
+    expect(screen.getByText('Your training plan')).toBeTruthy();
     expect(screen.getAllByText('Lift')).toHaveLength(3);
     expect(screen.getByText('Use this plan')).toBeTruthy();
   });
@@ -76,10 +69,10 @@ describe('OnboardingScreen', () => {
         'Assuming full gym access. You can fine-tune equipment later.'
       )
     ).toBeTruthy();
-    expect(screen.getByText('See my week')).toBeTruthy();
+    expect(screen.getByText('See my plan')).toBeTruthy();
   });
 
-  it('accepts the recommendation and creates starter slots', async () => {
+  it('accepts the recommendation and saves the adaptive plan seed', async () => {
     const screen = render(<OnboardingScreen />);
 
     await completeQuestions(screen);
@@ -88,16 +81,13 @@ describe('OnboardingScreen', () => {
     expect(mockUserRepository.saveTrainingBlueprint).toHaveBeenCalledWith(
       expect.objectContaining({ templateId: 'ppl-conditioning' })
     );
-    expect(mockCreateStarterWeekSlots).toHaveBeenCalledWith(
-      expect.objectContaining({ templateId: 'ppl-conditioning' })
-    );
     expect(mockReset).toHaveBeenCalledWith({
       index: 0,
       routes: [{ name: 'Home' }],
     });
   });
 
-  it('opens day editing from the starter week without saving', async () => {
+  it('opens day editing from the training plan without saving', async () => {
     const screen = render(<OnboardingScreen />);
 
     await completeQuestions(screen);
@@ -111,7 +101,7 @@ describe('OnboardingScreen', () => {
     expect(mockReset).not.toHaveBeenCalled();
   });
 
-  it('saves edited starter week roles and day-level duration', async () => {
+  it('saves edited plan roles and day-level duration', async () => {
     const screen = render(<OnboardingScreen />);
 
     await completeQuestions(screen);
@@ -123,18 +113,6 @@ describe('OnboardingScreen', () => {
     await press(screen.getByText('Use this plan'));
 
     expect(mockUserRepository.saveTrainingBlueprint).toHaveBeenCalledWith(
-      expect.objectContaining({
-        editStatus: 'adjusted',
-        slotSequence: expect.arrayContaining([
-          expect.objectContaining({
-            role: 'conditioning',
-            label: 'Cardio',
-            targetDurationMinutes: 30,
-          }),
-        ]),
-      })
-    );
-    expect(mockCreateStarterWeekSlots).toHaveBeenCalledWith(
       expect.objectContaining({
         editStatus: 'adjusted',
         slotSequence: expect.arrayContaining([
@@ -175,7 +153,7 @@ describe('OnboardingScreen', () => {
     );
   });
 
-  it('cancels day edits without changing the starter week', async () => {
+  it('cancels day edits without changing the training plan', async () => {
     const screen = render(<OnboardingScreen />);
 
     await completeQuestions(screen);

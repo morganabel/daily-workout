@@ -174,23 +174,27 @@ Seed starter-week planned workout slots with `seed_planned_events`. Use `kind: "
 }
 ```
 
-Exercise planned-slot generation with `generate_workout` by passing `plannedSlotIntent` in the normal generation request. `get_generation_context` can inspect the effective equipment, recent sessions, and nearby planned events that will be sent with the request:
+Exercise adaptive-plan generation with `generate_workout` by passing `adaptivePlanIntent` in the normal generation request. `get_generation_context` can inspect the effective equipment, recent sessions, and nearby planned events that will be sent with the request:
 
 ```json
 {
   "request": {
     "focus": "Pull",
-    "plannedSlotIntent": {
-      "role": "pull",
-      "label": "Pull",
-      "targetDurationMinutes": 45,
-      "plannedDate": "2026-04-15",
-      "templateId": "ppl-conditioning",
-      "slotId": "day-2-pull",
-      "equipmentLocationAssumptions": {
-        "environment": "gym",
-        "equipment": ["Gym"]
-      }
+    "adaptivePlanIntent": {
+      "planId": "plan-ppl",
+      "recommendationId": "rec-pull",
+      "sourceTemplateId": "ppl-conditioning",
+      "primaryBlock": {
+        "blockId": "pull",
+        "label": "Pull",
+        "category": "strength",
+        "role": "pull",
+        "targetDurationMinutes": 50,
+        "stressTags": ["upper-body", "pull"]
+      },
+      "addOnBlocks": [],
+      "targetRangeContext": [],
+      "rationale": []
     }
   },
   "scheduledDate": 1776218400000

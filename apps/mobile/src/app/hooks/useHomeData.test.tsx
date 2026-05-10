@@ -1,6 +1,7 @@
 import { renderHook, act, waitFor } from '@testing-library/react-native';
 import NetInfo from '@react-native-community/netinfo';
 import {
+  createAdaptiveTrainingPlanFromTemplate,
   createSessionSummaryMock,
   createTodayPlanMock,
   type QuickActionPreset,
@@ -51,7 +52,10 @@ jest.mock('../db/repositories/UserRepository', () => ({
 
 jest.mock('../db/repositories/PlannedEventRepository', () => ({
   plannedEventRepository: {
+    observeEvents: jest.fn(),
     observeEventsByLocalDate: jest.fn(),
+    observeUpcomingEventContext: jest.fn(),
+    listUpcomingEventContext: jest.fn(),
     toPlannedEvent: jest.fn((record) => record),
   },
 }));
@@ -87,7 +91,7 @@ const createObservableMock = <T,>() => {
 describe('useHomeData', () => {
   let versionStream: ReturnType<typeof createObservableMock<Workout[]>>;
   let sessionStream: ReturnType<typeof createObservableMock<Workout[]>>;
-  let plannedEventStream: ReturnType<typeof createObservableMock<unknown[]>>;
+  let upcomingEventStream: ReturnType<typeof createObservableMock<unknown[]>>;
   let mockPlan: ReturnType<typeof createTodayPlanMock>;
   let userStream: ReturnType<typeof createObservableMock<unknown>>;
 
@@ -95,7 +99,7 @@ describe('useHomeData', () => {
     jest.clearAllMocks();
     versionStream = createObservableMock<Workout[]>();
     sessionStream = createObservableMock<Workout[]>();
-    plannedEventStream = createObservableMock<unknown[]>();
+    upcomingEventStream = createObservableMock<unknown[]>();
     userStream = createObservableMock<unknown>();
     mockPlan = createTodayPlanMock({ id: 'server-plan' });
 
@@ -126,9 +130,10 @@ describe('useHomeData', () => {
     mockUserRepository.observeUser.mockReturnValue(
       userStream.observable as any
     );
-    mockPlannedEventRepository.observeEventsByLocalDate.mockReturnValue(
-      plannedEventStream.observable as any
+    mockPlannedEventRepository.observeUpcomingEventContext.mockReturnValue(
+      upcomingEventStream.observable as any
     );
+    mockPlannedEventRepository.listUpcomingEventContext.mockResolvedValue([]);
     mockNetInfo.addEventListener = jest.fn().mockImplementation((callback) => {
       callback({ isConnected: true, isInternetReachable: true });
       return () => {
@@ -170,47 +175,122 @@ describe('useHomeData', () => {
     expect(mockWorkoutRepository.toSessionSummary).toHaveBeenCalledTimes(2);
   });
 
-  it('hydrates today planned slot metadata from planned events', async () => {
+  it('loads adaptive plan state and resolves a Home recommendation', async () => {
+    const plan = createAdaptiveTrainingPlanFromTemplate('ppl-conditioning', {
+      id: 'plan-ppl',
+      activeFrom: '2026-04-15',
+      updatedAt: '2026-04-15T12:00:00.000Z',
+    });
+    if (!plan) {
+      throw new Error('Expected adaptive plan');
+    }
+    mockUserRepository.getPreferences.mockResolvedValue({
+      equipment: ['Gym'],
+      injuries: [],
+      focusBias: [],
+      avoid: [],
+      adaptiveTrainingPlan: plan,
+    });
+
     const { result } = renderHook(() => useHomeData());
 
+    await act(async () => {
+      userStream.emit({});
+    });
+
+    await waitFor(() => {
+      expect(result.current.adaptivePlan?.id).toBe('plan-ppl');
+      expect(result.current.adaptiveRecommendation?.primaryBlockId).toBe(
+        'push'
+      );
+    });
     expect(
-      mockPlannedEventRepository.observeEventsByLocalDate
-    ).toHaveBeenCalledWith(result.current.planningDateLocal);
+      mockPlannedEventRepository.observeUpcomingEventContext
+    ).toHaveBeenCalledWith({ startLocalDate: expect.any(String) });
+  });
+
+  it('uses staged available time when resolving adaptive add-ons', async () => {
+    const plan = createAdaptiveTrainingPlanFromTemplate('ppl-conditioning', {
+      id: 'plan-ppl',
+      activeFrom: '2026-04-15',
+      updatedAt: '2026-04-15T12:00:00.000Z',
+    });
+    if (!plan) {
+      throw new Error('Expected adaptive plan');
+    }
+    mockUserRepository.getPreferences.mockResolvedValue({
+      equipment: ['Gym'],
+      injuries: [],
+      focusBias: [],
+      avoid: [],
+      adaptiveTrainingPlan: plan,
+    });
+
+    const { result } = renderHook(() => useHomeData());
 
     await act(async () => {
-      plannedEventStream.emit([
+      userStream.emit({});
+    });
+
+    await waitFor(() => {
+      expect(result.current.adaptiveRecommendation?.addOnBlockIds).toEqual([]);
+    });
+
+    await act(async () => {
+      result.current.updateStagedValue('time', '75');
+    });
+
+    await waitFor(() => {
+      expect(result.current.adaptiveRecommendation?.addOnBlockIds).toContain(
+        'easy-cardio'
+      );
+    });
+  });
+
+  it('refreshes adaptive recommendations when upcoming events change', async () => {
+    const plan = createAdaptiveTrainingPlanFromTemplate('ppl-conditioning', {
+      id: 'plan-ppl',
+      activeFrom: '2026-04-15',
+      updatedAt: '2026-04-15T12:00:00.000Z',
+    });
+    if (!plan) {
+      throw new Error('Expected adaptive plan');
+    }
+    mockUserRepository.getPreferences.mockResolvedValue({
+      equipment: ['Gym'],
+      injuries: [],
+      focusBias: [],
+      avoid: [],
+      adaptiveTrainingPlan: plan,
+    });
+
+    renderHook(() => useHomeData());
+
+    await act(async () => {
+      userStream.emit({});
+    });
+
+    await waitFor(() => {
+      expect(
+        mockPlannedEventRepository.observeUpcomingEventContext
+      ).toHaveBeenCalledTimes(1);
+    });
+
+    await act(async () => {
+      upcomingEventStream.emit([
         {
-          status: 'planned',
-          metadata: {
-            schemaVersion: 1,
-            ownership: 'app',
-            source: 'training-blueprint',
-            templateId: 'ppl-conditioning',
-            slotId: 'day-1-pull',
-            slotRole: 'pull',
-            slotLabel: 'Upper Body',
-            plannedDate: result.current.planningDateLocal,
-            targetDurationMinutes: 45,
-            equipmentLocationAssumptions: {
-              environment: 'gym',
-              equipment: ['Gym'],
-            },
-            detailState: 'not-generated',
-            locked: false,
-            userEdited: false,
-          },
+          kind: 'run',
+          title: 'Same-day run',
+          localDate: new Date().toISOString().slice(0, 10),
+          intensity: 'high',
         },
       ]);
     });
 
     await waitFor(() => {
-      expect(result.current.plannedSlot).toEqual(
-        expect.objectContaining({
-          slotRole: 'pull',
-          slotLabel: 'Upper Body',
-          targetDurationMinutes: 45,
-        })
-      );
+      expect(
+        mockPlannedEventRepository.observeUpcomingEventContext
+      ).toHaveBeenCalledTimes(1);
     });
   });
 

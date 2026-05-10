@@ -138,8 +138,8 @@ describe('mobile debug MCP contracts', () => {
     expect(parsed.events[0].metadata?.source).toBe('training-blueprint');
   });
 
-  it('accepts planned-slot intent for generation', () => {
-    const parsed = mobileDebugGenerationInputSchema.parse({
+  it('rejects planned-slot intent for generation', () => {
+    const result = mobileDebugGenerationInputSchema.safeParse({
       request: {
         focus: 'Pull',
         plannedSlotIntent: {
@@ -158,7 +158,7 @@ describe('mobile debug MCP contracts', () => {
       scheduledDate: 1_776_218_400_000,
     });
 
-    expect(parsed.request.plannedSlotIntent?.role).toBe('pull');
+    expect(result.success).toBe(false);
   });
 
   it('requires explicit reset confirmation', () => {

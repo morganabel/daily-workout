@@ -5,8 +5,9 @@ import { HomeScreen } from './HomeScreen';
 import { useHomeData } from './hooks/useHomeData';
 import { userRepository } from './db/repositories/UserRepository';
 import {
+  createAdaptiveTrainingPlanFromTemplate,
   createTodayPlanMock,
-  type PlannedSlotMetadata,
+  type AdaptivePlanRecommendation,
   type QuickActionPreset,
   type TodayPlan,
 } from '@workout-agent/shared';
@@ -66,7 +67,8 @@ const baseHookState = {
   planVersions: [],
   activePlanVersions: [],
   pendingPlanSnapshot: null,
-  plannedSlot: null,
+  adaptivePlan: null,
+  adaptiveRecommendation: null,
   planningDateLocal: '2026-04-27',
   planningDateTimestamp: new Date('2026-04-27T00:00:00').getTime(),
   recentSessions: [],
@@ -139,27 +141,68 @@ const createSetupQuickActions = (overrides: {
   },
 ];
 
-const createPlannedSlot = (
-  overrides: Partial<PlannedSlotMetadata> = {}
-): PlannedSlotMetadata => ({
-  schemaVersion: 1,
-  ownership: 'app',
-  source: 'training-blueprint',
-  templateId: 'ppl-conditioning',
-  slotId: 'day-1-pull',
-  slotRole: 'pull',
-  slotLabel: 'Upper Body',
-  plannedDate: baseHookState.planningDateLocal,
-  targetDurationMinutes: 45,
-  equipmentLocationAssumptions: {
-    environment: 'gym',
-    equipment: ['Gym'],
-  },
-  detailState: 'not-generated',
-  locked: false,
-  userEdited: false,
-  ...overrides,
-});
+const createAdaptivePlanFixture = () => {
+  const plan = createAdaptiveTrainingPlanFromTemplate('ppl-conditioning', {
+    id: 'plan-ppl',
+    activeFrom: baseHookState.planningDateLocal,
+    updatedAt: '2026-04-27T12:00:00.000Z',
+  });
+  if (!plan) {
+    throw new Error('Expected adaptive plan');
+  }
+  const recommendation: AdaptivePlanRecommendation = {
+    id: 'rec-pull-cardio',
+    planId: plan.id,
+    planningDateLocal: baseHookState.planningDateLocal,
+    primaryBlockId: 'pull',
+    addOnBlockIds: ['easy-cardio'],
+    alternativeBlockIds: ['push', 'mobility'],
+    targetProgress: [
+      {
+        targetId: 'cardio',
+        label: 'Cardio',
+        count: 1,
+        minCount: 2,
+        maxCount: 3,
+        windowDays: 7,
+      },
+    ],
+    rationale: [
+      {
+        code: 'target-gap',
+        message: 'Cardio is due this week.',
+      },
+    ],
+    coachNotes: [],
+    projectionStatus: 'projected',
+  };
+  return { plan, recommendation };
+};
+
+const createRestRecommendationFixture = () => {
+  const { plan } = createAdaptivePlanFixture();
+  const recommendation: AdaptivePlanRecommendation = {
+    id: 'rec-rest',
+    planId: plan.id,
+    planningDateLocal: baseHookState.planningDateLocal,
+    primaryBlockId: 'rest',
+    addOnBlockIds: [],
+    alternativeBlockIds: ['mobility', 'push'],
+    targetProgress: [],
+    rationale: [
+      {
+        code: 'rest-fit',
+        message:
+          'Your main targets are covered. Recovery keeps the plan moving.',
+      },
+    ],
+    coachNotes: [
+      'Your main targets are covered. Recovery keeps the plan moving.',
+    ],
+    projectionStatus: 'projected',
+  };
+  return { plan, recommendation };
+};
 
 describe('HomeScreen', () => {
   beforeEach(() => {
@@ -197,7 +240,7 @@ describe('HomeScreen', () => {
       await Promise.resolve();
     });
 
-    expect(queryByText('Build your starter week')).toBeNull();
+    expect(queryByText('Build your training plan')).toBeNull();
   });
 
   it('shows profile equipment from quick actions in setup', async () => {
@@ -239,22 +282,33 @@ describe('HomeScreen', () => {
     );
   });
 
-  it('keeps Auto selected while passing today planned slot intent to generation', async () => {
+  it('shows adaptive recommendation and sends adaptive intent for Auto generation', async () => {
     const { generateWorkout } = require('./services/api');
     generateWorkout.mockResolvedValue(createTodayPlanMock());
+    const { plan, recommendation } = createAdaptivePlanFixture();
     mockUseHomeData.mockReturnValue({
       ...baseHookState,
-      plannedSlot: createPlannedSlot(),
-      quickActions: createSetupQuickActions({
-        focus: 'Upper Body',
-        equipment: 'Gym',
-      }),
+      adaptivePlan: plan,
+      adaptiveRecommendation: recommendation,
+      quickActions: createSetupQuickActions({ equipment: 'Gym' }),
     });
 
-    const { getByText } = render(<HomeScreen />);
+    const { getByText, queryByText } = render(<HomeScreen />);
     await act(async () => {
       await Promise.resolve();
     });
+
+    expect(getByText('COACH RECOMMENDS')).toBeTruthy();
+    expect(getByText("Today's Plan")).toBeTruthy();
+    expect(getByText('Your next session is ready.')).toBeTruthy();
+    expect(getByText('Pull + Easy Cardio')).toBeTruthy();
+    expect(getByText('75 min')).toBeTruthy();
+    expect(getByText('Gym')).toBeTruthy();
+    expect(queryByText('Projected')).toBeNull();
+    expect(queryByText('FOCUS')).toBeNull();
+    expect(queryByText('Customize recommendation')).toBeNull();
+    expect(getByText('Adjust details')).toBeTruthy();
+    expect(getByText('Cardio is due this week.')).toBeTruthy();
 
     await act(async () => {
       fireEvent.press(getByText("Generate today's workout"));
@@ -262,26 +316,63 @@ describe('HomeScreen', () => {
 
     expect(generateWorkout).toHaveBeenCalledWith(
       expect.objectContaining({
-        focus: 'Smart',
-        timeMinutes: 45,
-        plannedSlotIntent: expect.objectContaining({
-          role: 'pull',
-          label: 'Upper Body',
-          slotId: 'day-1-pull',
+        focus: 'Pull',
+        timeMinutes: 75,
+        adaptivePlanIntent: expect.objectContaining({
+          planId: 'plan-ppl',
+          recommendationId: 'rec-pull-cardio',
+          primaryBlock: expect.objectContaining({ blockId: 'pull' }),
+          addOnBlocks: [expect.objectContaining({ blockId: 'easy-cardio' })],
         }),
       }),
       expect.objectContaining({
         scheduledDate: baseHookState.planningDateTimestamp,
       })
     );
+    const request = generateWorkout.mock.calls[0][0];
+    expect(
+      request.adaptivePlanIntent.primaryBlock.targetDurationMinutes
+    ).toBeUndefined();
+    expect(
+      request.adaptivePlanIntent.addOnBlocks[0].targetDurationMinutes
+    ).toBeUndefined();
   });
 
-  it('preserves customized duration when Auto uses planned slot intent', async () => {
+  it('shows rest recommendations as recovery with an escape to choose a workout', async () => {
+    const { plan, recommendation } = createRestRecommendationFixture();
+    mockUseHomeData.mockReturnValue({
+      ...baseHookState,
+      adaptivePlan: plan,
+      adaptiveRecommendation: recommendation,
+      quickActions: createSetupQuickActions({ equipment: 'Gym' }),
+    });
+
+    const { getByText, queryByText } = render(<HomeScreen />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(getByText('COACH RECOMMENDS')).toBeTruthy();
+    expect(getByText("Today's Plan")).toBeTruthy();
+    expect(getByText('Recovery is the plan today.')).toBeTruthy();
+    expect(getByText('Take a rest day')).toBeTruthy();
+    expect(
+      getByText(
+        'Your main targets are covered. Recovery keeps the plan moving.'
+      )
+    ).toBeTruthy();
+    expect(getByText('No workout required')).toBeTruthy();
+    expect(getByText('Choose a workout instead')).toBeTruthy();
+    expect(queryByText("Generate today's workout")).toBeNull();
+    expect(queryByText('Gym')).toBeNull();
+    expect(queryByText('Moderate')).toBeNull();
+  });
+
+  it('preserves customized duration for one-off Auto generation', async () => {
     const { generateWorkout } = require('./services/api');
     generateWorkout.mockResolvedValue(createTodayPlanMock());
     mockUseHomeData.mockReturnValue({
       ...baseHookState,
-      plannedSlot: createPlannedSlot({ targetDurationMinutes: 45 }),
       quickActions: createSetupQuickActions({}),
     });
 
@@ -290,7 +381,7 @@ describe('HomeScreen', () => {
       await Promise.resolve();
     });
 
-    fireEvent.press(getByText('45 min'));
+    fireEvent.press(getByText(/60 min/));
     fireEvent.press(getByText('60'));
     await act(async () => {
       fireEvent.press(getByText('Generate workout'));
@@ -303,9 +394,6 @@ describe('HomeScreen', () => {
       expect.objectContaining({
         focus: 'Smart',
         timeMinutes: 60,
-        plannedSlotIntent: expect.objectContaining({
-          targetDurationMinutes: 45,
-        }),
       }),
       expect.objectContaining({
         scheduledDate: baseHookState.planningDateTimestamp,
@@ -318,7 +406,6 @@ describe('HomeScreen', () => {
     generateWorkout.mockResolvedValue(createTodayPlanMock());
     mockUseHomeData.mockReturnValue({
       ...baseHookState,
-      plannedSlot: createPlannedSlot(),
     });
 
     const { getByText } = render(<HomeScreen />);
@@ -340,7 +427,7 @@ describe('HomeScreen', () => {
       })
     );
     expect(generateWorkout).toHaveBeenCalledWith(
-      expect.not.objectContaining({ plannedSlotIntent: expect.anything() }),
+      expect.not.objectContaining({ adaptivePlanIntent: expect.anything() }),
       expect.anything()
     );
   });

@@ -1,6 +1,6 @@
 import type {
   AiProviderName,
-  PlannedSlotIntent,
+  AdaptivePlanIntent,
   PlanningLoadCeiling,
   PlanningStageOneActivation,
 } from '@workout-agent/shared';
@@ -15,7 +15,11 @@ export type {
   StageOnePlannerArtifact,
 } from '@workout-agent/shared';
 
-export type PlanningFocusMode = 'explicit' | 'smart' | 'planned-slot' | 'unset';
+export type PlanningFocusMode =
+  | 'explicit'
+  | 'smart'
+  | 'adaptive-plan'
+  | 'unset';
 export type PlanningVariationMode =
   | 'none'
   | 'preserve-intent'
@@ -58,7 +62,7 @@ export interface PlanningBrief {
   planningDateLocal?: string;
   requestedFocus?: string;
   focusMode: PlanningFocusMode;
-  plannedSlotIntent?: PlannedSlotIntent;
+  adaptivePlanIntent?: AdaptivePlanIntent;
   resolvedFocus: string;
   durationMinutes: number;
   availableEquipment: string[];

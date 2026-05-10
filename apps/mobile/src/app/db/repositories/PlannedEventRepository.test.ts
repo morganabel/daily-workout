@@ -1,3 +1,4 @@
+import type { UpcomingEventContext } from '@workout-agent/shared';
 import { database } from '../index';
 import { plannedEventRepository } from './PlannedEventRepository';
 import { formatLocalDate } from '../../utils/date';
@@ -92,10 +93,10 @@ describe('PlannedEventRepository', () => {
       createdAtTimezone: 'UTC',
     });
 
-    const upcoming = await plannedEventRepository.listUpcomingEventContext(
-      7,
-      10
-    );
+    const upcoming = await plannedEventRepository.listUpcomingEventContext({
+      daysAhead: 7,
+      limit: 10,
+    });
 
     expect(upcoming.some((event) => event.title === 'Tempo Run')).toBe(true);
     expect(upcoming.some((event) => event.title === 'Canceled rest')).toBe(
@@ -128,5 +129,50 @@ describe('PlannedEventRepository', () => {
     unsubscribe?.();
 
     expect(records.map((record) => record.title)).toEqual(['Today workout']);
+  });
+
+  it('observes upcoming event context for the planning window', async () => {
+    await plannedEventRepository.createPlannedEvent({
+      kind: 'run',
+      title: 'Same-day run',
+      localDate: '2026-04-15',
+      createdAtTimezone: 'UTC',
+    });
+    await plannedEventRepository.createPlannedEvent({
+      kind: 'hike',
+      title: 'Future hike',
+      localDate: '2026-04-17',
+      createdAtTimezone: 'UTC',
+    });
+    await plannedEventRepository.createPlannedEvent({
+      kind: 'rest',
+      title: 'Canceled rest',
+      localDate: '2026-04-16',
+      createdAtTimezone: 'UTC',
+      status: 'canceled',
+    });
+    await plannedEventRepository.createPlannedEvent({
+      kind: 'sport',
+      title: 'Later sport',
+      localDate: '2026-04-30',
+      createdAtTimezone: 'UTC',
+    });
+
+    let unsubscribe: (() => void) | undefined;
+    const records = await new Promise<UpcomingEventContext[]>((resolve) => {
+      const subscription = plannedEventRepository
+        .observeUpcomingEventContext({
+          startLocalDate: '2026-04-15',
+          daysAhead: 7,
+        })
+        .subscribe((value) => resolve(value));
+      unsubscribe = () => subscription.unsubscribe();
+    });
+    unsubscribe?.();
+
+    expect(records.map((record) => record.title)).toEqual([
+      'Same-day run',
+      'Future hike',
+    ]);
   });
 });

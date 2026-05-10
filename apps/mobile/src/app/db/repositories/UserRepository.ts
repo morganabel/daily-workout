@@ -2,13 +2,17 @@ import { database } from '../index';
 import User from '../models/User';
 import { Q } from '@nozbe/watermelondb';
 import {
+  adaptiveTrainingPlanSchema,
+  createAdaptiveTrainingPlanFromTemplate,
   trainingBlueprintSchema,
+  type AdaptiveTrainingPlan,
   type OnboardingAnswers,
   type OnboardingGoal,
   type TrainingBlueprint,
   type UserPreferences,
   userPreferencesSchema,
 } from '@workout-agent/shared';
+import { formatLocalDate } from '../../utils/date';
 
 const DEFAULT_PREFERENCES: UserPreferences = {
   equipment: [],
@@ -89,7 +93,7 @@ export class UserRepository {
     return (
       prefs.onboardingSetupStatus === 'completed' ||
       prefs.onboardingSetupStatus === 'skipped' ||
-      prefs.trainingBlueprint?.setupStatus === 'completed'
+      prefs.adaptiveTrainingPlan?.status === 'active'
     );
   }
 
@@ -120,16 +124,62 @@ export class UserRepository {
   }
 
   async saveTrainingBlueprint(blueprint: TrainingBlueprint): Promise<void> {
+    const adaptiveTrainingPlan = createAdaptiveTrainingPlanFromTemplate(
+      blueprint.templateId,
+      {
+        activeFrom: formatLocalDate(new Date()),
+        updatedAt: blueprint.updatedAt ?? new Date().toISOString(),
+      }
+    );
+
+    if (!adaptiveTrainingPlan) {
+      throw new Error('Selected template does not support adaptive planning');
+    }
+
     await this.updatePreferences({
       onboardingAnswers: blueprint.onboardingAnswers,
       onboardingSetupStatus: blueprint.setupStatus,
-      trainingBlueprint: blueprint,
+      adaptiveTrainingPlan,
       equipment: blueprint.equipmentLocationAssumptions.equipment,
       experienceLevel: blueprint.onboardingAnswers?.experienceLevel,
       primaryGoal: blueprint.onboardingAnswers?.goal
         ? ONBOARDING_GOAL_LABELS[blueprint.onboardingAnswers.goal]
         : undefined,
     });
+  }
+
+  async saveAdaptiveTrainingPlan(plan: AdaptiveTrainingPlan): Promise<void> {
+    const result = adaptiveTrainingPlanSchema.safeParse(plan);
+    if (!result.success) {
+      console.error('Invalid adaptive training plan:', result.error);
+      throw new Error('Invalid adaptive training plan data');
+    }
+
+    await this.updatePreferences({ adaptiveTrainingPlan: result.data });
+  }
+
+  async updateAdaptiveTrainingPlan(
+    updates: Partial<AdaptiveTrainingPlan>
+  ): Promise<AdaptiveTrainingPlan> {
+    const current = await this.getPreferences();
+    if (!current.adaptiveTrainingPlan) {
+      throw new Error('No adaptive training plan to update');
+    }
+
+    const result = adaptiveTrainingPlanSchema.safeParse({
+      ...current.adaptiveTrainingPlan,
+      ...updates,
+      updatedAt: updates.updatedAt ?? new Date().toISOString(),
+    });
+
+    if (!result.success) {
+      console.error('Invalid adaptive training plan update:', result.error);
+      throw new Error('Invalid adaptive training plan data');
+    }
+
+    await this.updatePreferences({ adaptiveTrainingPlan: result.data });
+
+    return result.data;
   }
 
   async updateTrainingBlueprint(

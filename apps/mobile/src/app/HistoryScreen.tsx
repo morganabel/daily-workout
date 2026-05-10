@@ -456,19 +456,7 @@ export const HistoryScreen = () => {
       timeMinutes: plannedSlot?.targetDurationMinutes ?? event.durationMinutes,
       energy,
       equipment: plannedSlot?.equipmentLocationAssumptions.equipment,
-      focus: plannedSlot ? 'Smart' : undefined,
-      plannedSlotIntent: plannedSlot
-        ? {
-            role: plannedSlot.slotRole,
-            label: plannedSlot.slotLabel,
-            targetDurationMinutes: plannedSlot.targetDurationMinutes,
-            equipmentLocationAssumptions:
-              plannedSlot.equipmentLocationAssumptions,
-            plannedDate: plannedSlot.plannedDate,
-            templateId: plannedSlot.templateId,
-            slotId: plannedSlot.slotId,
-          }
-        : undefined,
+      focus: plannedSlot?.slotLabel,
       notes: event.title ? `Planned workout: ${event.title}` : undefined,
     };
 

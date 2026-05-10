@@ -13,9 +13,12 @@ import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import {
+  type AdaptivePlanIntent,
+  type AdaptivePlanRecommendation,
+  type AdaptiveTrainingPlan,
+  type AdaptiveTrainingBlock,
   type TodayPlan,
   type GenerationRequest,
-  type PlannedSlotMetadata,
   type QuickActionPreset,
   type WorkoutEnergy,
   normalizeEquipmentSelection,
@@ -125,20 +128,100 @@ const resolveDurationSelection = (
 const resolveFocusSelection = (quickActions: QuickActionPreset[]): string =>
   normalizeFocusSelection(getQuickActionStagedValue(quickActions, 'focus'));
 
-const buildPlannedSlotIntent = (
-  plannedSlot: PlannedSlotMetadata | null
-): GenerationRequest['plannedSlotIntent'] =>
-  plannedSlot
-    ? {
-        role: plannedSlot.slotRole,
-        label: plannedSlot.slotLabel,
-        targetDurationMinutes: plannedSlot.targetDurationMinutes,
-        equipmentLocationAssumptions: plannedSlot.equipmentLocationAssumptions,
-        plannedDate: plannedSlot.plannedDate,
-        templateId: plannedSlot.templateId,
-        slotId: plannedSlot.slotId,
-      }
-    : undefined;
+const buildAdaptivePlanIntent = (
+  adaptivePlan: AdaptiveTrainingPlan | null,
+  recommendation: AdaptivePlanRecommendation | null
+): AdaptivePlanIntent | undefined => {
+  if (!adaptivePlan || !recommendation) {
+    return undefined;
+  }
+
+  const blocksById = new Map(
+    adaptivePlan.blocks.map((block) => [block.id, block] as const)
+  );
+  const primaryBlock = blocksById.get(recommendation.primaryBlockId);
+  if (!primaryBlock) {
+    return undefined;
+  }
+
+  const toBlockIntent = (block: AdaptiveTrainingBlock) => ({
+    blockId: block.id,
+    label: block.label,
+    category: block.category,
+    role: block.role,
+    stressTags: block.stressTags,
+  });
+
+  return {
+    planId: adaptivePlan.id,
+    recommendationId: recommendation.id,
+    sourceTemplateId: adaptivePlan.sourceTemplateId,
+    primaryBlock: toBlockIntent(primaryBlock),
+    addOnBlocks: recommendation.addOnBlockIds
+      .map((blockId) => blocksById.get(blockId))
+      .filter((block): block is AdaptiveTrainingBlock => Boolean(block))
+      .map(toBlockIntent),
+    targetRangeContext: recommendation.targetProgress,
+    rationale: recommendation.rationale,
+    projectionStatus: recommendation.projectionStatus,
+  };
+};
+
+const getAdaptiveRecommendationBlocks = (
+  adaptivePlan: AdaptiveTrainingPlan | null,
+  recommendation: AdaptivePlanRecommendation | null
+): {
+  primaryBlock: AdaptiveTrainingBlock;
+  addOnBlocks: AdaptiveTrainingBlock[];
+  alternativeBlocks: AdaptiveTrainingBlock[];
+} | null => {
+  if (!adaptivePlan || !recommendation) {
+    return null;
+  }
+
+  const blocksById = new Map(
+    adaptivePlan.blocks.map((block) => [block.id, block] as const)
+  );
+  const primaryBlock = blocksById.get(recommendation.primaryBlockId);
+  if (!primaryBlock) {
+    return null;
+  }
+
+  return {
+    primaryBlock,
+    addOnBlocks: recommendation.addOnBlockIds
+      .map((blockId) => blocksById.get(blockId))
+      .filter((block): block is AdaptiveTrainingBlock => Boolean(block)),
+    alternativeBlocks: recommendation.alternativeBlockIds
+      .map((blockId) => blocksById.get(blockId))
+      .filter((block): block is AdaptiveTrainingBlock => Boolean(block)),
+  };
+};
+
+const getAdaptiveRecommendationDuration = (
+  adaptivePlan: AdaptiveTrainingPlan | null,
+  recommendation: AdaptivePlanRecommendation | null
+): number | undefined => {
+  const blocks = getAdaptiveRecommendationBlocks(adaptivePlan, recommendation);
+  if (!blocks) {
+    return undefined;
+  }
+
+  return (
+    blocks.primaryBlock.defaultDurationMinutes +
+    blocks.addOnBlocks.reduce(
+      (total, block) => total + block.defaultDurationMinutes,
+      0
+    )
+  );
+};
+
+const isRestRecommendation = (
+  adaptivePlan: AdaptiveTrainingPlan | null,
+  recommendation: AdaptivePlanRecommendation | null
+): boolean =>
+  getAdaptiveRecommendationBlocks(adaptivePlan, recommendation)?.primaryBlock
+    .category === 'rest';
 
 const resolveIntensitySelection = (
   quickActions: QuickActionPreset[],
@@ -259,9 +342,9 @@ const SetupProfileCard = ({ onPress }: { onPress: () => void }) => (
       <Ionicons name="sparkles" size={24} color={palette.textInverse} />
     </View>
     <View style={styles.setupContent}>
-      <Text style={styles.setupTitle}>Build your starter week</Text>
+      <Text style={styles.setupTitle}>Build your training plan</Text>
       <Text style={styles.setupDescription}>
-        Answer three quick questions to get a recommended training rhythm.
+        Answer three quick questions to get a flexible weekly plan.
       </Text>
     </View>
     <Ionicons name="arrow-forward" size={20} color={palette.primary} />
@@ -317,6 +400,116 @@ const SetupSummaryRow = ({
         <Ionicons name="chevron-forward" size={20} color={palette.textMuted} />
       </View>
     </Pressable>
+  );
+};
+
+const AdaptiveRecommendationCard = ({
+  adaptivePlan,
+  recommendation,
+  equipment,
+  intensity,
+  onCustomize,
+}: {
+  adaptivePlan: AdaptiveTrainingPlan;
+  recommendation: AdaptivePlanRecommendation;
+  equipment: string[];
+  intensity: string;
+  onCustomize: () => void;
+}) => {
+  const blocks = getAdaptiveRecommendationBlocks(adaptivePlan, recommendation);
+
+  if (!blocks) {
+    return null;
+  }
+
+  const { primaryBlock, addOnBlocks, alternativeBlocks } = blocks;
+  const isRest = primaryBlock.category === 'rest';
+  const totalMinutes = getAdaptiveRecommendationDuration(
+    adaptivePlan,
+    recommendation
+  );
+
+  return (
+    <Card style={styles.recommendationCard}>
+      <View style={styles.recommendationHeader}>
+        <View style={styles.recommendationIcon}>
+          <Ionicons
+            name={isRest ? 'moon' : 'sparkles'}
+            size={18}
+            color={palette.textInverse}
+          />
+        </View>
+        <View style={styles.recommendationTitleGroup}>
+          <Text style={styles.sectionLabel}>COACH RECOMMENDS</Text>
+          <Text style={styles.recommendationTitle}>
+            {isRest ? 'Take a rest day' : primaryBlock.label}
+            {!isRest && addOnBlocks.length
+              ? ` + ${addOnBlocks.map((block) => block.label).join(' + ')}`
+              : ''}
+          </Text>
+        </View>
+      </View>
+
+      <View style={styles.recommendationPillRow}>
+        {isRest ? (
+          <View style={styles.recommendationPill}>
+            <Ionicons name="bed-outline" size={14} color={palette.primary} />
+            <Text style={styles.recommendationPillText}>
+              No workout required
+            </Text>
+          </View>
+        ) : (
+          <>
+            <View style={styles.recommendationPill}>
+              <Ionicons name="time-outline" size={14} color={palette.primary} />
+              <Text style={styles.recommendationPillText}>
+                {totalMinutes ?? primaryBlock.defaultDurationMinutes} min
+              </Text>
+            </View>
+            <View style={styles.recommendationPill}>
+              <Ionicons
+                name="barbell-outline"
+                size={14}
+                color={palette.primary}
+              />
+              <Text style={styles.recommendationPillText}>
+                {formatEquipment(equipment)}
+              </Text>
+            </View>
+            <View style={styles.recommendationPill}>
+              <Ionicons
+                name="speedometer-outline"
+                size={14}
+                color={palette.primary}
+              />
+              <Text style={styles.recommendationPillText}>{intensity}</Text>
+            </View>
+          </>
+        )}
+      </View>
+
+      <Text style={styles.recommendationRationale}>
+        {isRest
+          ? recommendation.coachNotes[0] ??
+            'Recovery keeps the plan moving. If you still want to train, choose any workout instead.'
+          : recommendation.coachNotes[0] ??
+            recommendation.rationale[0]?.message}
+      </Text>
+
+      {alternativeBlocks.length ? (
+        <Text style={styles.recommendationAlternatives}>
+          Alternatives:{' '}
+          {alternativeBlocks.map((block) => block.label).join(', ')}
+        </Text>
+      ) : null}
+
+      <Button
+        label={isRest ? 'Choose a workout instead' : 'Adjust details'}
+        variant="outline"
+        onPress={onCustomize}
+        style={styles.recommendationCustomizeButton}
+      />
+    </Card>
   );
 };
 
@@ -764,8 +957,9 @@ export const HomeScreen = () => {
   const {
     activePlan,
     activePlanVersions,
+    adaptivePlan,
+    adaptiveRecommendation,
     pendingPlanSnapshot,
-    plannedSlot,
     planningDateLocal,
     planningDateTimestamp,
     quickActions,
@@ -830,17 +1024,19 @@ export const HomeScreen = () => {
 
     try {
       const targetTimestamp = planningDateTimestamp;
-      const plannedSlotIntent =
-        focus === 'Smart' ? buildPlannedSlotIntent(plannedSlot) : undefined;
+      const adaptivePlanIntent =
+        focus === 'Smart'
+          ? buildAdaptivePlanIntent(adaptivePlan, adaptiveRecommendation)
+          : undefined;
       clearTransientPlanState();
       const request: GenerationRequest = {
         timeMinutes: duration,
         energy: intensity.toLowerCase() as WorkoutEnergy,
-        focus,
+        focus: adaptivePlanIntent?.primaryBlock.label ?? focus,
       };
 
-      if (plannedSlotIntent) {
-        request.plannedSlotIntent = plannedSlotIntent;
+      if (adaptivePlanIntent) {
+        request.adaptivePlanIntent = adaptivePlanIntent;
       }
 
       if (shouldSendEquipment) {
@@ -1015,6 +1211,18 @@ export const HomeScreen = () => {
   );
   const hasActivePlan = Boolean(displayPlan);
   const isPending = generating || generationStatus.state === 'pending';
+  const hasAdaptiveRecommendation = Boolean(
+    adaptivePlan && adaptiveRecommendation
+  );
+  const shouldShowCoachRecommendation =
+    hasAdaptiveRecommendation && focus === 'Smart';
+  const hasRestRecommendation =
+    isRestRecommendation(adaptivePlan, adaptiveRecommendation) &&
+    shouldShowCoachRecommendation;
+  const adaptiveRecommendationDuration = getAdaptiveRecommendationDuration(
+    adaptivePlan,
+    adaptiveRecommendation
+  );
   const regenerationError =
     generationStatus.state === 'error' && generationStatus.message
       ? generationStatus.message
@@ -1030,11 +1238,11 @@ export const HomeScreen = () => {
     }
 
     setDuration(
-      plannedSlot?.targetDurationMinutes ?? resolveDurationSelection(quickActions)
+      adaptiveRecommendationDuration ?? resolveDurationSelection(quickActions)
     );
     setFocus(resolveFocusSelection(quickActions));
     setIntensity(resolveIntensitySelection(quickActions));
-  }, [hasActivePlan, plannedSlot, quickActions]);
+  }, [adaptiveRecommendationDuration, hasActivePlan, quickActions]);
 
   useEffect(
     () => () => {
@@ -1051,7 +1259,8 @@ export const HomeScreen = () => {
       intensity,
       equipmentOverride,
       quickActions,
-      plannedSlot,
+      adaptivePlan,
+      adaptiveRecommendation,
       generationStatus,
       generating,
       showCustomizeSheet,
@@ -1062,6 +1271,8 @@ export const HomeScreen = () => {
     setDebugSelectedPlan(displayPlan);
   }, [
     customizeForRegeneration,
+    adaptivePlan,
+    adaptiveRecommendation,
     displayPlan,
     duration,
     equipmentOverride,
@@ -1070,7 +1281,6 @@ export const HomeScreen = () => {
     generationStatus,
     hasActivePlan,
     intensity,
-    plannedSlot,
     quickActions,
     showCustomizeSheet,
     showProfileSetup,
@@ -1081,11 +1291,19 @@ export const HomeScreen = () => {
       <View style={styles.topBar}>
         <View>
           <Text style={styles.headerTitle}>
-            {hasActivePlan ? "Today's Workout" : "Today's Setup"}
+            {hasActivePlan
+              ? "Today's Workout"
+              : shouldShowCoachRecommendation
+              ? "Today's Plan"
+              : "Today's Setup"}
           </Text>
           <Text style={styles.headerSubtitle}>
             {hasActivePlan
               ? 'Review the plan, then start.'
+              : hasRestRecommendation
+              ? 'Recovery is the plan today.'
+              : shouldShowCoachRecommendation
+              ? 'Your next session is ready.'
               : 'Personalize your session.'}
           </Text>
         </View>
@@ -1114,36 +1332,56 @@ export const HomeScreen = () => {
           />
         ) : (
           <>
-            <SetupSummaryRow
-              duration={duration}
-              equipment={displayEquipment}
-              intensity={intensity}
-              onPress={handleOpenSetupCustomize}
-            />
-
-            <FocusSelector
-              value={focus}
-              onChange={handleSetupFocusChange}
-              onMore={handleOpenSetupCustomize}
-            />
-
-            <View style={styles.actionContainer}>
-              <Button
-                label={isPending ? 'Generating...' : "Generate today's workout"}
-                onPress={handleGenerate}
-                loading={isPending}
-                icon={
-                  !isPending && (
-                    <Ionicons
-                      name="flash"
-                      size={20}
-                      color={palette.textInverse}
-                    />
-                  )
-                }
-                style={styles.generateButton}
+            {!shouldShowCoachRecommendation ? (
+              <SetupSummaryRow
+                duration={duration}
+                equipment={displayEquipment}
+                intensity={intensity}
+                onPress={handleOpenSetupCustomize}
               />
-            </View>
+            ) : null}
+
+            {shouldShowCoachRecommendation &&
+            adaptivePlan &&
+            adaptiveRecommendation ? (
+              <AdaptiveRecommendationCard
+                adaptivePlan={adaptivePlan}
+                recommendation={adaptiveRecommendation}
+                equipment={displayEquipment}
+                intensity={intensity}
+                onCustomize={handleOpenSetupCustomize}
+              />
+            ) : null}
+
+            {!shouldShowCoachRecommendation ? (
+              <FocusSelector
+                value={focus}
+                onChange={handleSetupFocusChange}
+                onMore={handleOpenSetupCustomize}
+              />
+            ) : null}
+
+            {!hasRestRecommendation ? (
+              <View style={styles.actionContainer}>
+                <Button
+                  label={
+                    isPending ? 'Generating...' : "Generate today's workout"
+                  }
+                  onPress={handleGenerate}
+                  loading={isPending}
+                  icon={
+                    !isPending && (
+                      <Ionicons
+                        name="flash"
+                        size={20}
+                        color={palette.textInverse}
+                      />
+                    )
+                  }
+                  style={styles.generateButton}
+                />
+              </View>
+            ) : null}
           </>
         )}
 
@@ -1278,6 +1516,69 @@ const styles = StyleSheet.create({
   },
   summaryChevron: {
     marginLeft: 8,
+  },
+  recommendationCard: {
+    padding: 18,
+    marginBottom: 24,
+    gap: 14,
+    borderRadius: 22,
+  },
+  recommendationHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  recommendationIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: palette.primary,
+  },
+  recommendationTitleGroup: {
+    flex: 1,
+  },
+  recommendationTitle: {
+    fontFamily: typography.fontFamilyExtraBold,
+    fontSize: 22,
+    color: palette.textPrimary,
+    marginTop: -4,
+  },
+  recommendationPillRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  recommendationPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingVertical: 7,
+    paddingHorizontal: 10,
+    borderRadius: 999,
+    backgroundColor: palette.cardSecondary,
+    borderWidth: 1,
+    borderColor: palette.border,
+  },
+  recommendationPillText: {
+    fontFamily: typography.fontFamilyBold,
+    fontSize: 12,
+    color: palette.textPrimary,
+  },
+  recommendationRationale: {
+    fontFamily: typography.fontFamily,
+    fontSize: 14,
+    color: palette.textSecondary,
+    lineHeight: 20,
+  },
+  recommendationAlternatives: {
+    fontFamily: typography.fontFamilyBold,
+    fontSize: 12,
+    color: palette.textMuted,
+  },
+  recommendationCustomizeButton: {
+    marginTop: 2,
   },
 
   // Section Shared

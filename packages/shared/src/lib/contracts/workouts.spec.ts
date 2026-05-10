@@ -1,10 +1,15 @@
 import {
+  ADAPTIVE_PPL_CONDITIONING_BLOCKS,
+  adaptivePlanIntentSchema,
+  adaptiveTrainingPlanSchema,
   buildGenerationRequestFromQuickActions,
+  createAdaptiveTrainingPlanFromTemplate,
   createTrainingBlueprintFromOnboarding,
   createTodayPlanMock,
   normalizeQuickActionValue,
   plannedSlotMetadataSchema,
   selectTrainingTemplateId,
+  supportsAdaptiveTrainingPlan,
   TRAINING_TEMPLATE_DEFINITIONS,
   workoutSetLogSchema,
   workoutExerciseLogSchema,
@@ -313,7 +318,7 @@ describe('generation request upcoming events', () => {
     expect(result.success).toBe(true);
   });
 
-  it('accepts planned-slot intent without changing the public plan contract', () => {
+  it('rejects planned-slot intent because generation uses adaptive intent only', () => {
     const result = generationRequestSchema.safeParse({
       planningDateLocal: '2026-04-15',
       plannedSlotIntent: {
@@ -327,6 +332,54 @@ describe('generation request upcoming events', () => {
           environment: 'gym',
           equipment: [GYM_EQUIPMENT],
         },
+      },
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it('accepts adaptive plan intent with combined blocks', () => {
+    const result = generationRequestSchema.safeParse({
+      planningDateLocal: '2026-04-15',
+      adaptivePlanIntent: {
+        planId: 'plan-ppl',
+        recommendationId: 'rec-1',
+        sourceTemplateId: 'ppl-conditioning',
+        primaryBlock: {
+          blockId: 'pull',
+          label: 'Pull',
+          category: 'strength',
+          role: 'pull',
+          targetDurationMinutes: 45,
+          stressTags: ['upper-body', 'pull'],
+        },
+        addOnBlocks: [
+          {
+            blockId: 'easy-cardio',
+            label: 'Easy Cardio',
+            category: 'cardio',
+            role: 'easy-cardio',
+            targetDurationMinutes: 20,
+            stressTags: ['low-impact', 'aerobic'],
+          },
+        ],
+        targetRangeContext: [
+          {
+            targetId: 'cardio',
+            label: 'Cardio',
+            count: 1,
+            minCount: 2,
+            maxCount: 3,
+            windowDays: 7,
+          },
+        ],
+        rationale: [
+          {
+            code: 'target-gap',
+            message: 'Cardio is below the target range.',
+          },
+        ],
+        projectionStatus: 'projected',
       },
     });
 
@@ -400,9 +453,165 @@ describe('training blueprint contracts', () => {
     expect(result.success).toBe(true);
     if (result.success) {
       expect(result.data.trainingBlueprint).toBeUndefined();
+      expect(result.data.adaptiveTrainingPlan).toBeUndefined();
       expect(result.data.injuries).toEqual([]);
       expect(result.data.avoid).toEqual([]);
     }
+  });
+
+  it('creates a valid adaptive PPL conditioning plan from template data', () => {
+    const plan = createAdaptiveTrainingPlanFromTemplate('ppl-conditioning', {
+      id: 'plan-ppl',
+      activeFrom: '2026-04-15',
+      updatedAt: '2026-04-15T12:00:00.000Z',
+    });
+
+    expect(plan).toBeDefined();
+    if (!plan) {
+      throw new Error('Expected adaptive plan');
+    }
+    const result = adaptiveTrainingPlanSchema.safeParse(plan);
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.blocks.map((block) => block.label)).toEqual(
+        expect.arrayContaining([
+          'Push',
+          'Pull',
+          'Legs',
+          'Easy Cardio',
+          'Sprint',
+          'Abs / Accessory',
+          'Mobility',
+          'Rest',
+        ]),
+      );
+      expect(result.data.targetRanges).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ label: 'Lift', minCount: 3, maxCount: 5 }),
+          expect.objectContaining({ label: 'Cardio', minCount: 2, maxCount: 3 }),
+          expect.objectContaining({ label: 'Sprint', minCount: 1, maxCount: 1 }),
+        ]),
+      );
+      expect(result.data.recommendationSettings.preferredRotationBlockIds).toEqual(
+        ['push', 'pull', 'legs'],
+      );
+    }
+  });
+
+  it('creates an adaptive plan for every onboarding template', () => {
+    Object.keys(TRAINING_TEMPLATE_DEFINITIONS).forEach((templateId) => {
+      const typedTemplateId = templateId as keyof typeof TRAINING_TEMPLATE_DEFINITIONS;
+      const plan = createAdaptiveTrainingPlanFromTemplate(typedTemplateId, {
+        id: `${templateId}-plan`,
+        activeFrom: '2026-04-15',
+        updatedAt: '2026-04-15T12:00:00.000Z',
+      });
+
+      expect(supportsAdaptiveTrainingPlan(typedTemplateId)).toBe(true);
+      expect(plan).toBeDefined();
+      expect(adaptiveTrainingPlanSchema.safeParse(plan).success).toBe(true);
+    });
+  });
+
+  it('rejects invalid adaptive target ranges', () => {
+    const plan = createAdaptiveTrainingPlanFromTemplate('ppl-conditioning', {
+      id: 'plan-ppl',
+      activeFrom: '2026-04-15',
+      updatedAt: '2026-04-15T12:00:00.000Z',
+    });
+    if (!plan) {
+      throw new Error('Expected adaptive plan');
+    }
+
+    const result = adaptiveTrainingPlanSchema.safeParse({
+      ...plan,
+      targetRanges: [
+        {
+          id: 'lift',
+          label: 'Lift',
+          appliesTo: {
+            blockIds: ['push'],
+            categories: ['strength'],
+            stressTags: [],
+          },
+          windowDays: 7,
+          minCount: 5,
+          maxCount: 3,
+          priority: 'primary',
+        },
+      ],
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects adaptive block compatibility references to unknown blocks', () => {
+    const plan = createAdaptiveTrainingPlanFromTemplate('ppl-conditioning', {
+      id: 'plan-ppl',
+      activeFrom: '2026-04-15',
+      updatedAt: '2026-04-15T12:00:00.000Z',
+    });
+    if (!plan) {
+      throw new Error('Expected adaptive plan');
+    }
+
+    const result = adaptiveTrainingPlanSchema.safeParse({
+      ...plan,
+      blocks: [
+        {
+          ...ADAPTIVE_PPL_CONDITIONING_BLOCKS[0],
+          compatibleAddOnBlockIds: ['unknown-block'],
+        },
+      ],
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects adaptive block target contributions to unknown targets', () => {
+    const plan = createAdaptiveTrainingPlanFromTemplate('ppl-conditioning', {
+      id: 'plan-ppl',
+      activeFrom: '2026-04-15',
+      updatedAt: '2026-04-15T12:00:00.000Z',
+    });
+    if (!plan) {
+      throw new Error('Expected adaptive plan');
+    }
+
+    const result = adaptiveTrainingPlanSchema.safeParse({
+      ...plan,
+      blocks: plan.blocks.map((block) =>
+        block.id === 'push'
+          ? {
+              ...block,
+              targetContributions: [{ targetId: 'unknown-target', count: 1 }],
+            }
+          : block,
+      ),
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it('validates standalone adaptive plan intent', () => {
+    const result = adaptivePlanIntentSchema.safeParse({
+      planId: 'plan-ppl',
+      primaryBlock: {
+        blockId: 'push',
+        label: 'Push',
+        category: 'strength',
+      },
+      addOnBlocks: [
+        {
+          blockId: 'abs-accessory',
+          label: 'Abs / Accessory',
+          category: 'accessory',
+        },
+      ],
+    });
+
+    expect(result.success).toBe(true);
   });
 
   it('validates minimal versioned planned-slot metadata', () => {

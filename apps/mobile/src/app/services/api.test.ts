@@ -278,8 +278,8 @@ describe('generateWorkout', () => {
     }
   });
 
-  it('passes planned-slot intent and slot assumptions into generation context', async () => {
-    const generatedPlan = createTodayPlanMock({ id: 'plan-slot-pull' });
+  it('uses profile equipment when no request equipment override is supplied', async () => {
+    const generatedPlan = createTodayPlanMock({ id: 'plan-profile-equipment' });
     (global.fetch as jest.Mock).mockResolvedValue({
       ok: true,
       json: jest.fn().mockResolvedValue(generatedPlan),
@@ -287,42 +287,84 @@ describe('generateWorkout', () => {
 
     await generateWorkout({
       focus: 'Pull',
-      plannedSlotIntent: {
-        role: 'pull',
-        label: 'Pull',
-        targetDurationMinutes: 45,
-        plannedDate: '2026-04-15',
-        templateId: 'ppl-conditioning',
-        slotId: 'day-2-pull',
-        equipmentLocationAssumptions: {
-          environment: 'gym',
-          equipment: ['Gym'],
-        },
-      },
     });
 
     const [, requestInit] = (global.fetch as jest.Mock).mock.calls[0];
     const payload = JSON.parse(requestInit.body as string);
 
-    expect(payload.plannedSlotIntent).toEqual(
-      expect.objectContaining({
-        role: 'pull',
-        targetDurationMinutes: 45,
-        plannedDate: '2026-04-15',
-      })
-    );
     expect(payload.context.environment).toEqual(
       expect.objectContaining({
-        equipment: ['Gym'],
-        location: 'gym',
+        equipment: ['Dumbbells'],
       })
     );
     expect(mockWorkoutRepository.saveGeneratedPlan).toHaveBeenCalledWith(
       generatedPlan,
       expect.objectContaining({
         generationRequest: expect.objectContaining({
-          plannedSlotIntent: expect.objectContaining({ role: 'pull' }),
+          focus: 'Pull',
         }),
+      })
+    );
+  });
+
+  it('passes adaptive plan intent through generation payload and trace', async () => {
+    const generatedPlan = createTodayPlanMock({ id: 'plan-adaptive-pull' });
+    (global.fetch as jest.Mock).mockResolvedValue({
+      ok: true,
+      json: jest.fn().mockResolvedValue(generatedPlan),
+    });
+
+    await generateWorkout({
+      focus: 'Pull',
+      timeMinutes: 70,
+      adaptivePlanIntent: {
+        planId: 'plan-ppl',
+        recommendationId: 'rec-pull-cardio',
+        sourceTemplateId: 'ppl-conditioning',
+        primaryBlock: {
+          blockId: 'pull',
+          label: 'Pull',
+          category: 'strength',
+          role: 'pull',
+          targetDurationMinutes: 50,
+          stressTags: ['upper-body', 'pull'],
+        },
+        addOnBlocks: [
+          {
+            blockId: 'easy-cardio',
+            label: 'Easy Cardio',
+            category: 'cardio',
+            role: 'easy-cardio',
+            targetDurationMinutes: 25,
+            stressTags: ['low-impact'],
+          },
+        ],
+        targetRangeContext: [],
+        rationale: [],
+        projectionStatus: 'projected',
+      },
+    });
+
+    const [, requestInit] = (global.fetch as jest.Mock).mock.calls[0];
+    const payload = JSON.parse(requestInit.body as string);
+
+    expect(payload.adaptivePlanIntent).toEqual(
+      expect.objectContaining({
+        planId: 'plan-ppl',
+        primaryBlock: expect.objectContaining({ blockId: 'pull' }),
+      })
+    );
+    expect(mockWorkoutRepository.saveGeneratedPlan).toHaveBeenCalledWith(
+      generatedPlan,
+      expect.objectContaining({
+        generationRequest: expect.objectContaining({
+          adaptivePlanIntent: expect.objectContaining({ planId: 'plan-ppl' }),
+        }),
+      })
+    );
+    expect(getDebugStateSnapshot().lastGenerationTrace?.request).toEqual(
+      expect.objectContaining({
+        adaptivePlanIntent: expect.objectContaining({ planId: 'plan-ppl' }),
       })
     );
   });
