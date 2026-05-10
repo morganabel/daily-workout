@@ -3,77 +3,82 @@
 ## Purpose
 
 Define the local training blueprint that maps simple onboarding answers into editable starter-week plans and planned workout slots.
-
 ## Requirements
-
 ### Requirement: Template-Based Training Blueprint
-The system MUST create a local training blueprint from simple onboarding answers instead of requiring users to manually design a weekly plan during first-run setup. The blueprint MUST identify a recommended training template, inferred weekly rhythm, default duration assumptions, equipment/location assumptions, starter-week slot roles, horizon settings, and whether the user accepted, adjusted, skipped, or later edited the recommendation.
+The system MUST create an adaptive training plan from simple onboarding answers instead of requiring users to manually design a weekly plan during first-run setup. The setup MUST identify a recommended training template, inferred rhythm, default duration assumptions, equipment/location assumptions, reusable blocks, target ranges, and whether the user accepted, adjusted, skipped, or later edited the recommendation.
 
-#### Scenario: Onboarding answers map to a starter template
+#### Scenario: Onboarding answers map to an adaptive template
 - **WHEN** a user completes onboarding with a goal, experience level, and training environment/equipment
-- **THEN** the system maps those answers to one recommended training template and stores the resulting training blueprint locally
+- **THEN** the system maps those answers to one recommended training template and stores the resulting adaptive training plan locally
 
 #### Scenario: Power-user structure is not required during onboarding
 - **WHEN** a user completes the standard onboarding flow
-- **THEN** the user is not required to choose strength-day counts, cardio-day counts, split type, preferred training windows, or slot ordering before seeing the recommended starter week
+- **THEN** the user is not required to choose strength-day counts, cardio-day counts, split type, preferred training windows, or slot ordering before seeing the recommended training plan
 
-#### Scenario: Blueprint remains editable after onboarding
+#### Scenario: Adaptive rhythm remains editable after onboarding
 - **WHEN** a user opens plan settings after onboarding
-- **THEN** they can adjust the template-derived rhythm and default assumptions without re-running onboarding
-
-#### Scenario: Blueprint stores horizon settings
-- **WHEN** a blueprint is created
-- **THEN** it records the starter horizon length, defaulting to 7 days for v1 while allowing a later 14-day coach horizon without changing ownership semantics
+- **THEN** they can adjust weekly guidance and inspect the template-derived plan without re-running onboarding
 
 #### Scenario: Skipped onboarding does not block app use
 - **WHEN** a user skips onboarding
 - **THEN** the system records skipped setup state and preserves the existing one-off Today generation path
 
 ### Requirement: Starter-Week Planned Workout Slots
-The system MUST create lightweight planned workout slots from the accepted training blueprint. V1 MUST create a 7-day starter week. The slots MUST be represented as app-owned planned workout events that describe intent such as pull, push, legs, sprint, conditioning, mobility, recovery, full body, or flexible.
+The system MUST NOT create app-owned starter-week planned workout slots from onboarding. Planned events are user-owned schedule context or later explicit projections, not compatibility artifacts for template onboarding.
 
-#### Scenario: Accepted blueprint creates starter slots
-- **WHEN** a user accepts a recommended starter week
-- **THEN** the system creates app-owned planned workout events for the 7-day starter week according to the blueprint
-
-#### Scenario: Planned slot metadata is minimal and versioned
-- **WHEN** the starter-week service creates a blueprint-owned planned workout event
-- **THEN** the event metadata includes schema version, ownership/source marker, template id, slot id, slot role or label, planned date, target duration, equipment/location assumptions, detail state, and locked/user-edited marker
+#### Scenario: Accepted template does not create starter slots
+- **WHEN** a user accepts a recommended training plan
+- **THEN** the system stores an adaptive training plan and does not create app-owned planned workout events for a fixed 7-day starter week
 
 #### Scenario: User-owned events are preserved
-- **WHEN** starter-week slots are created or updated
-- **THEN** the system does not overwrite planned events that lack blueprint ownership metadata or that the user manually edited
-
-#### Scenario: Linked detailed workout stays attached
-- **WHEN** a planned workout slot has a linked generated workout
-- **THEN** the system preserves that link when reading or updating blueprint-owned slot metadata
+- **WHEN** adaptive recommendations read planned events for context
+- **THEN** the system does not overwrite planned events that were created by the user or imported as life events
 
 ### Requirement: Template Rhythm And Spacing
-The starter-week service MUST select planned slot roles based on the training blueprint and template defaults rather than blindly repeating the same daily focus. For split templates, the service MUST use the template's ordered role sequence. For conditioning templates, the service MUST preserve intended cardio or sprint frequency when feasible.
+The resolver MUST select recommended blocks based on the adaptive training plan, target ranges, preferred rotation, recent history, and upcoming events rather than blindly repeating fixed daily slots. For split templates, the resolver MUST use the template's preferred rotation. For conditioning templates, the resolver MUST preserve intended cardio or sprint frequency when feasible.
 
 #### Scenario: PPL template includes push pull legs rhythm
-- **WHEN** the blueprint uses a push/pull/legs rhythm
-- **THEN** the recommended starter week includes push, pull, and legs slots in the template-defined order
+- **WHEN** the adaptive plan uses a push/pull/legs rhythm
+- **THEN** recommendations include push, pull, and legs blocks in the template-informed rotation when recovery and schedule context allow
 
-#### Scenario: Sprint day is preserved when feasible
-- **WHEN** the blueprint includes one sprint or high-intensity cardio day per week
-- **THEN** the starter week includes one sprint or equivalent conditioning slot when spacing allows
+#### Scenario: Sprint exposure is preserved when feasible
+- **WHEN** the adaptive plan targets one sprint or high-intensity cardio exposure per week
+- **THEN** recommendations include one sprint or equivalent conditioning block when spacing allows
 
-#### Scenario: Sprint avoids adjacent leg day
-- **WHEN** the service places a sprint slot and a legs slot in the same starter week
-- **THEN** it avoids scheduling them on adjacent days when another valid placement exists
+#### Scenario: Sprint avoids adjacent leg stress
+- **WHEN** the resolver recommends sprint and legs inside the same rolling window
+- **THEN** it avoids stacking them when another valid placement exists
 
 ### Requirement: Planned Slot Detail Generation
-The system MUST support turning a planned workout slot into a concrete workout using the existing workout generation flow. The concrete workout generation request MUST include optional planned-slot intent, planning date, equipment/location assumptions, recent sessions, user constraints, and nearby planned events.
+The system MUST NOT require planned-slot generation intent. Concrete workout generation from the adaptive plan MUST use adaptive plan intent, planning date, equipment assumptions, recent sessions, user constraints, and nearby planned events.
 
-#### Scenario: Slot generation passes slot intent
-- **WHEN** a user generates a detailed workout from a pull planned slot
-- **THEN** the generation request includes pull slot intent so the resulting planning brief resolves to a pull-oriented workout unless safety or explicit user changes override it
+#### Scenario: Adaptive generation passes block intent
+- **WHEN** a user generates a detailed workout from a Pull recommendation
+- **THEN** the generation request includes Pull block intent so the resulting planning brief resolves to a pull-oriented workout unless safety or explicit user changes override it
 
-#### Scenario: Generated workout links back to planned slot
-- **WHEN** a detailed workout is generated from a planned slot
-- **THEN** the resulting planned workout is linked to the source planned event so the starter-week surface can open it later
+#### Scenario: Planned slots remain unnecessary for workout generation
+- **WHEN** adaptive recommendations are computed
+- **THEN** the system does not call an AI provider or create planned-slot records solely to place starter-week workouts
 
-#### Scenario: Planned slots remain cheaper than workout generation
-- **WHEN** the starter-week planned slots are created or updated
-- **THEN** the system does not call an AI provider solely to place planned workout slots
+### Requirement: Adaptive Plan Seeding From Templates
+The system MUST allow template-based onboarding to seed an adaptive training plan for every selectable template.
+
+#### Scenario: Template seeds adaptive plan
+- **WHEN** onboarding selects any training template
+- **THEN** the resulting setup creates an active adaptive training plan with reusable blocks, target ranges, typical week preferences, and recommendation settings
+
+#### Scenario: Starter-week planned slots are not created
+- **WHEN** onboarding saves a template-derived plan
+- **THEN** the system does not create app-owned starter-week planned events for compatibility
+
+### Requirement: Template Definitions Support Plan Blueprints
+Training template definitions MUST be able to produce plan blueprints that include blocks, target ranges, typical week preferences, and recommendation rules.
+
+#### Scenario: Template can describe ranges
+- **WHEN** a template represents flexible fitness training
+- **THEN** it can define target ranges such as 3-5 lift exposures and 2-3 cardio exposures over a rolling planning window
+
+#### Scenario: Template can describe flexible ordering
+- **WHEN** a template includes a preferred rotation such as Push, Pull, Legs
+- **THEN** it can mark the rotation as coach-flexible rather than strict calendar ordering
+

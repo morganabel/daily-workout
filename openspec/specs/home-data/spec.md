@@ -3,9 +3,7 @@
 ## Purpose
 
 TBD - created by archiving change add-mobile-home-data-pipeline. Update Purpose after archive.
-
 ## Requirements
-
 ### Requirement: Home Snapshot Endpoint
 
 The backend MUST expose a single authenticated endpoint that returns today's plan, quick-action presets, and the last three session summaries. Snapshot responses SHALL now include a `generationStatus` object describing the latest generation attempt (`state: 'idle' | 'pending' | 'error'`, `submittedAt`, optional `etaSeconds` + `message`) so the client can mirror pending/error states even if the plan is still the previous one.
@@ -91,17 +89,17 @@ The system MUST accept quick-action parameters and route the generation request 
 
 ### Requirement: Planning-Date And Baseline-Aware Generation Requests
 
-The workout generation flow MUST accept the operational request inputs needed by the planning layer, including an optional planning date, explicit regeneration baseline workout context, and optional planned-slot intent. Regeneration and planned-slot requests MUST be able to include full merged context rather than assuming provider-side memory.
+The workout generation flow MUST accept the operational request inputs needed by the planning layer, including an optional planning date, explicit regeneration baseline workout context, and optional adaptive plan intent. Regeneration and adaptive-plan requests MUST be able to include full merged context rather than assuming provider-side memory.
 
 #### Scenario: Scheduled generation can plan for a future day
 
 - **WHEN** the client requests workout generation for a specific future local date
 - **THEN** the generation request includes that planning date so the server can evaluate recent history and upcoming events relative to the intended workout day
 
-#### Scenario: Planned-slot generation includes slot intent
+#### Scenario: Adaptive recommendation generation includes block intent
 
-- **WHEN** the client requests workout generation from a blueprint-owned planned slot
-- **THEN** the generation request includes the slot role, target duration, equipment/location assumptions, and planning date so the server can plan the concrete workout for that slot
+- **WHEN** the client requests workout generation from an adaptive plan recommendation
+- **THEN** the generation request includes the primary block, optional add-ons, target range context, rationale, and planning date so the server can plan the concrete workout for that recommendation
 
 #### Scenario: Regeneration request includes explicit baseline workout data
 
@@ -440,3 +438,26 @@ The workout generation pipeline MUST normalize LLM responses into the canonical 
 - **GIVEN** the LLM output cannot be mapped or validated (e.g., missing required block structure)
 - **WHEN** the transformer detects the failure
 - **THEN** it treats the request as a provider failure: logs the mapping error, sets `generationStatus` to `error`, and triggers the existing deterministic/mock fallback rules (respecting hosted BYOK enforcement)
+
+### Requirement: Home Adaptive Plan State
+Home data MUST expose the active adaptive plan state when available, including target range progress, recent relevant exposures, upcoming schedule constraints, projected or pinned sessions for the active date, and the current recommendation.
+
+#### Scenario: Home loads recommendation from plan state
+- **WHEN** a user with an adaptive plan opens Home
+- **THEN** Home data includes the recommended primary block, optional add-on blocks, rationale, and alternatives for the active planning date
+
+#### Scenario: Home falls back without adaptive plan
+- **WHEN** a user has no adaptive plan
+- **THEN** Home shows the one-off Today setup flow without hydrating starter planned-slot metadata
+
+### Requirement: Home Generation Uses Adaptive Recommendation
+When a user generates from an adaptive recommendation, Home MUST build a generation request containing structured adaptive plan intent derived from the recommendation.
+
+#### Scenario: Generate from combined recommendation
+- **WHEN** Home recommends Pull plus Easy Cardio and the user taps Generate
+- **THEN** the generation request includes the primary Pull block and Easy Cardio add-on intent
+
+#### Scenario: User override beats recommendation
+- **WHEN** the user explicitly changes the focus before generation
+- **THEN** Home sends the explicit focus while retaining adaptive plan context only as background context where applicable
+
