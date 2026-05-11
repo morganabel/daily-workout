@@ -2,6 +2,7 @@ import {
   createAdaptiveTrainingPlanFromTemplate,
   type AdaptivePlanTargetProgress,
   type AdaptiveTrainingPlan,
+  type TrainingTemplateId,
   type WorkoutSessionSummary,
 } from '@workout-agent/shared';
 import {
@@ -18,6 +19,22 @@ const createPlan = (): AdaptiveTrainingPlan => {
 
   if (!plan) {
     throw new Error('Expected adaptive PPL plan');
+  }
+
+  return plan;
+};
+
+const createTemplatePlan = (
+  templateId: TrainingTemplateId
+): AdaptiveTrainingPlan => {
+  const plan = createAdaptiveTrainingPlanFromTemplate(templateId, {
+    id: `plan-${templateId}`,
+    activeFrom: '2026-04-13',
+    updatedAt: '2026-04-13T12:00:00.000Z',
+  });
+
+  if (!plan) {
+    throw new Error(`Expected adaptive ${templateId} plan`);
   }
 
   return plan;
@@ -89,6 +106,129 @@ const session = (
 });
 
 describe('adaptive training plan resolver', () => {
+  it('recommends sensible first blocks for expanded templates', () => {
+    const cases: Array<{
+      templateId: TrainingTemplateId;
+      expectedBlockId: string;
+    }> = [
+      {
+        templateId: 'balanced-foundation',
+        expectedBlockId: 'full-body-strength',
+      },
+      { templateId: 'strength-foundation', expectedBlockId: 'strength-heavy' },
+      {
+        templateId: 'hypertrophy-foundation',
+        expectedBlockId: 'upper-hypertrophy',
+      },
+      {
+        templateId: 'fat-loss-conditioning',
+        expectedBlockId: 'strength-circuit',
+      },
+      { templateId: 'endurance-support', expectedBlockId: 'easy-cardio' },
+      { templateId: 'mobility-foundation', expectedBlockId: 'mobility-flow' },
+      { templateId: 'busy-travel', expectedBlockId: 'quick-strength' },
+    ];
+
+    cases.forEach(({ templateId, expectedBlockId }) => {
+      const recommendation = resolveAdaptiveTrainingRecommendation({
+        plan: createTemplatePlan(templateId),
+        planningDateLocal: '2026-04-13',
+        recentSessions: [],
+      });
+
+      expect(recommendation.primaryBlockId).toBe(expectedBlockId);
+    });
+  });
+
+  it('advances rotations for expanded templates after recent sessions', () => {
+    const cases: Array<{
+      templateId: TrainingTemplateId;
+      completedBlockLabel: string;
+      completedAt: string;
+      planningDateLocal: string;
+      expectedBlockId: string;
+    }> = [
+      {
+        templateId: 'hypertrophy-foundation',
+        completedBlockLabel: 'Upper Hypertrophy',
+        completedAt: '2026-04-13T12:00:00.000Z',
+        planningDateLocal: '2026-04-15',
+        expectedBlockId: 'lower-hypertrophy',
+      },
+      {
+        templateId: 'fat-loss-conditioning',
+        completedBlockLabel: 'Strength Circuit',
+        completedAt: '2026-04-13T12:00:00.000Z',
+        planningDateLocal: '2026-04-14',
+        expectedBlockId: 'zone2-cardio',
+      },
+      {
+        templateId: 'endurance-support',
+        completedBlockLabel: 'Easy Cardio',
+        completedAt: '2026-04-13T12:00:00.000Z',
+        planningDateLocal: '2026-04-15',
+        expectedBlockId: 'strength-support',
+      },
+      {
+        templateId: 'mobility-foundation',
+        completedBlockLabel: 'Mobility Flow',
+        completedAt: '2026-04-13T12:00:00.000Z',
+        planningDateLocal: '2026-04-15',
+        expectedBlockId: 'stability-strength',
+      },
+      {
+        templateId: 'busy-travel',
+        completedBlockLabel: 'Quick Strength',
+        completedAt: '2026-04-13T12:00:00.000Z',
+        planningDateLocal: '2026-04-17',
+        expectedBlockId: 'quick-conditioning',
+      },
+    ];
+
+    cases.forEach(
+      ({
+        templateId,
+        completedBlockLabel,
+        completedAt,
+        planningDateLocal,
+        expectedBlockId,
+      }) => {
+        const recommendation = resolveAdaptiveTrainingRecommendation({
+          plan: createTemplatePlan(templateId),
+          planningDateLocal,
+          recentSessions: [session(templateId, completedBlockLabel, completedAt)],
+        });
+
+        expect(recommendation.primaryBlockId).toBe(expectedBlockId);
+      }
+    );
+  });
+
+  it('counts fractional target contributions from expanded templates', () => {
+    const progress = computeAdaptiveTargetProgress({
+      plan: createTemplatePlan('mobility-foundation'),
+      planningDateLocal: '2026-04-20',
+      recentSessions: [
+        session(
+          'stability-strength',
+          'Stability Strength',
+          '2026-04-18T12:00:00.000Z'
+        ),
+      ],
+    });
+
+    expect(
+      progress.find(
+        (target: AdaptivePlanTargetProgress) => target.targetId === 'strength'
+      )?.count
+    ).toBe(1);
+    expect(
+      progress.find(
+        (target: AdaptivePlanTargetProgress) => target.targetId === 'mobility'
+      )?.count
+    ).toBe(0.5);
+  });
+
   it('recommends the next useful PPL block from recent rotation', () => {
     const recommendation = resolveAdaptiveTrainingRecommendation({
       plan: createPlan(),

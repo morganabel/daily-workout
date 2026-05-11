@@ -59,11 +59,36 @@ describe('UserRepository blueprint preferences', () => {
       mode: 'adaptive',
       status: 'active',
     });
-    expect(preferences.adaptiveTrainingPlan?.blocks.map((block) => block.id)).toEqual(
+    expect(
+      preferences.adaptiveTrainingPlan?.blocks.map((block) => block.id)
+    ).toEqual(
       expect.arrayContaining(['push', 'pull', 'legs', 'easy-cardio', 'sprint'])
     );
-    await expect(userRepository.hasCompletedOrSkippedOnboarding()).resolves.toBe(
-      true
+    await expect(
+      userRepository.hasCompletedOrSkippedOnboarding()
+    ).resolves.toBe(true);
+  });
+
+  it('seeds expanded adaptive plan outcomes from onboarding', async () => {
+    const blueprint = createTrainingBlueprintFromOnboarding({
+      goal: 'lose-fat',
+      experienceLevel: 'intermediate',
+      environment: 'home',
+      equipment: ['Bodyweight'],
+    });
+
+    await userRepository.saveTrainingBlueprint(blueprint);
+
+    const preferences = await userRepository.getPreferences();
+    expect(preferences.adaptiveTrainingPlan).toMatchObject({
+      sourceTemplateId: 'fat-loss-conditioning',
+      mode: 'adaptive',
+      status: 'active',
+    });
+    expect(
+      preferences.adaptiveTrainingPlan?.blocks.map((block) => block.id)
+    ).toEqual(
+      expect.arrayContaining(['strength-circuit', 'zone2-cardio', 'intervals'])
     );
   });
 
@@ -126,8 +151,8 @@ describe('UserRepository blueprint preferences', () => {
 
     const preferences = await userRepository.getPreferences();
     expect(preferences.onboardingSetupStatus).toBe('skipped');
-    await expect(userRepository.hasCompletedOrSkippedOnboarding()).resolves.toBe(
-      true
-    );
+    await expect(
+      userRepository.hasCompletedOrSkippedOnboarding()
+    ).resolves.toBe(true);
   });
 });

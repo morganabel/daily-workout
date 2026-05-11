@@ -32,7 +32,7 @@ import {
 } from './workouts';
 
 const createPreset = (
-  overrides: Partial<QuickActionPreset>,
+  overrides: Partial<QuickActionPreset>
 ): QuickActionPreset =>
   ({
     key: 'time',
@@ -41,12 +41,12 @@ const createPreset = (
     description: '30 minutes',
     stagedValue: null,
     ...overrides,
-  }) as QuickActionPreset;
+  } as QuickActionPreset);
 
 describe('quick action helpers', () => {
   it('normalizes individual quick action values', () => {
     const timeResult = normalizeQuickActionValue(
-      createPreset({ key: 'time', stagedValue: '95' }),
+      createPreset({ key: 'time', stagedValue: '95' })
     );
     expect(timeResult).toEqual({ timeMinutes: 95 });
 
@@ -54,7 +54,7 @@ describe('quick action helpers', () => {
       createPreset({
         key: 'focus',
         stagedValue: '  Lower Body  ',
-      }),
+      })
     );
     expect(focusResult).toEqual({ focus: 'Lower Body' });
 
@@ -62,19 +62,19 @@ describe('quick action helpers', () => {
       createPreset({
         key: 'equipment',
         stagedValue: 'Dumbbells, Bands,  Bench ',
-      }),
+      })
     );
     expect(equipmentResult).toEqual({
       equipment: ['Dumbbells', 'Bands', 'Bench'],
     });
 
     const energyResult = normalizeQuickActionValue(
-      createPreset({ key: 'energy', stagedValue: 'Intense' }),
+      createPreset({ key: 'energy', stagedValue: 'Intense' })
     );
     expect(energyResult).toEqual({ energy: 'intense' });
 
     const backfillResult = normalizeQuickActionValue(
-      createPreset({ key: 'backfill', stagedValue: 'YES' }),
+      createPreset({ key: 'backfill', stagedValue: 'YES' })
     );
     expect(backfillResult).toEqual({ backfill: true });
 
@@ -82,7 +82,7 @@ describe('quick action helpers', () => {
       createPreset({
         key: 'focus',
         stagedValue: 'Smart',
-      }),
+      })
     );
     expect(smartFocusResult).toEqual({ focus: 'Smart' });
   });
@@ -129,7 +129,7 @@ describe('quick action helpers', () => {
         key: 'equipment',
         value: 'Dumbbells', // display value
         stagedValue: null, // user didn't explicitly select
-      }),
+      })
     );
     expect(equipmentWithDefaultOnly).toEqual({});
 
@@ -139,7 +139,7 @@ describe('quick action helpers', () => {
         key: 'time',
         value: '30',
         stagedValue: null,
-      }),
+      })
     );
     expect(timeWithDefaultOnly).toEqual({ timeMinutes: 30 });
   });
@@ -151,7 +151,7 @@ describe('quick action helpers', () => {
       createPreset({
         key: 'equipment',
         stagedValue: 'Gym',
-      }),
+      })
     );
 
     expect(equipmentResult).toEqual({ equipment: ['Gym'] });
@@ -159,7 +159,7 @@ describe('quick action helpers', () => {
 
   it('normalizes Gym as mutually exclusive equipment', () => {
     expect(
-      normalizeEquipmentSelection(['Gym', 'Dumbbells', 'Resistance Bands']),
+      normalizeEquipmentSelection(['Gym', 'Dumbbells', 'Resistance Bands'])
     ).toEqual([GYM_EQUIPMENT]);
     expect(normalizeEquipmentSelection(['  Dumbbells ', 'Bench'])).toEqual([
       'Dumbbells',
@@ -252,7 +252,7 @@ describe('generation request upcoming events', () => {
         kind: 'hike',
         title: `Trail ${index + 1}`,
         localDate: '2025-06-0' + ((index % 9) + 1),
-      }),
+      })
     );
 
     const result = generationRequestSchema.safeParse({
@@ -270,7 +270,7 @@ describe('generation request upcoming events', () => {
         kind: 'run',
         title: `Run ${index + 1}`,
         localDate: '2025-06-15',
-      }),
+      })
     );
 
     const result = generationRequestSchema.safeParse({ upcomingEvents });
@@ -391,11 +391,29 @@ describe('training blueprint contracts', () => {
   it('selects deterministic templates from onboarding answers', () => {
     expect(
       selectTrainingTemplateId({
+        goal: 'general-fitness',
+        experienceLevel: 'intermediate',
+        environment: 'home',
+        equipment: ['Dumbbells'],
+      })
+    ).toBe('balanced-foundation');
+
+    expect(
+      selectTrainingTemplateId({
+        goal: 'build-muscle',
+        experienceLevel: 'beginner',
+        environment: 'gym',
+        equipment: [GYM_EQUIPMENT],
+      })
+    ).toBe('hypertrophy-foundation');
+
+    expect(
+      selectTrainingTemplateId({
         goal: 'build-muscle',
         experienceLevel: 'intermediate',
         environment: 'gym',
         equipment: [GYM_EQUIPMENT],
-      }),
+      })
     ).toBe('ppl-conditioning');
 
     expect(
@@ -404,8 +422,53 @@ describe('training blueprint contracts', () => {
         experienceLevel: 'beginner',
         environment: 'home',
         equipment: ['Bodyweight'],
-      }),
+      })
     ).toBe('endurance-support');
+
+    expect(
+      selectTrainingTemplateId({
+        goal: 'lose-fat',
+        experienceLevel: 'intermediate',
+        environment: 'home',
+        equipment: ['Bodyweight'],
+      })
+    ).toBe('fat-loss-conditioning');
+
+    expect(
+      selectTrainingTemplateId({
+        goal: 'mobility',
+        experienceLevel: 'beginner',
+        environment: 'home',
+        equipment: ['Bodyweight'],
+      })
+    ).toBe('mobility-foundation');
+
+    expect(
+      selectTrainingTemplateId({
+        goal: 'mobility',
+        experienceLevel: 'beginner',
+        environment: 'travel',
+        equipment: ['Bodyweight'],
+      })
+    ).toBe('mobility-foundation');
+
+    expect(
+      selectTrainingTemplateId({
+        goal: 'run-cardio',
+        experienceLevel: 'intermediate',
+        environment: 'travel',
+        equipment: ['Bodyweight'],
+      })
+    ).toBe('busy-travel');
+
+    expect(
+      selectTrainingTemplateId({
+        goal: 'build-muscle',
+        experienceLevel: 'beginner',
+        environment: 'home',
+        equipment: ['Bodyweight'],
+      })
+    ).toBe('busy-travel');
 
     expect(
       selectTrainingTemplateId({
@@ -413,7 +476,7 @@ describe('training blueprint contracts', () => {
         experienceLevel: 'advanced',
         environment: 'travel',
         equipment: ['Bodyweight'],
-      }),
+      })
     ).toBe('busy-travel');
   });
 
@@ -425,7 +488,7 @@ describe('training blueprint contracts', () => {
         environment: 'home',
         equipment: ['Dumbbells'],
       },
-      { updatedAt: '2026-04-15T12:00:00.000Z' },
+      { updatedAt: '2026-04-15T12:00:00.000Z' }
     );
 
     expect(blueprint).toMatchObject({
@@ -439,7 +502,7 @@ describe('training blueprint contracts', () => {
       },
     });
     expect(blueprint.slotSequence).toEqual(
-      TRAINING_TEMPLATE_DEFINITIONS['strength-foundation'].slotSequence,
+      TRAINING_TEMPLATE_DEFINITIONS['strength-foundation'].slotSequence
     );
   });
 
@@ -484,24 +547,71 @@ describe('training blueprint contracts', () => {
           'Abs / Accessory',
           'Mobility',
           'Rest',
-        ]),
+        ])
       );
       expect(result.data.targetRanges).toEqual(
         expect.arrayContaining([
           expect.objectContaining({ label: 'Lift', minCount: 3, maxCount: 5 }),
-          expect.objectContaining({ label: 'Cardio', minCount: 2, maxCount: 3 }),
-          expect.objectContaining({ label: 'Sprint', minCount: 1, maxCount: 1 }),
-        ]),
+          expect.objectContaining({
+            label: 'Cardio',
+            minCount: 2,
+            maxCount: 3,
+          }),
+          expect.objectContaining({
+            label: 'Sprint',
+            minCount: 1,
+            maxCount: 1,
+          }),
+        ])
       );
-      expect(result.data.recommendationSettings.preferredRotationBlockIds).toEqual(
-        ['push', 'pull', 'legs'],
-      );
+      expect(
+        result.data.recommendationSettings.preferredRotationBlockIds
+      ).toEqual(['push', 'pull', 'legs']);
     }
   });
 
-  it('creates an adaptive plan for every onboarding template', () => {
-    Object.keys(TRAINING_TEMPLATE_DEFINITIONS).forEach((templateId) => {
-      const typedTemplateId = templateId as keyof typeof TRAINING_TEMPLATE_DEFINITIONS;
+  it('creates a distinct adaptive plan for every onboarding template', () => {
+    const expectedTemplateSummaries = {
+      'balanced-foundation': {
+        blocks: ['full-body-strength', 'conditioning', 'flexible-movement'],
+        primaryTargets: ['strength'],
+      },
+      'strength-foundation': {
+        blocks: ['strength-heavy', 'strength-volume', 'lower-strength'],
+        primaryTargets: ['strength'],
+      },
+      'hypertrophy-foundation': {
+        blocks: ['upper-hypertrophy', 'lower-hypertrophy', 'full-body-pump'],
+        primaryTargets: ['hypertrophy'],
+      },
+      'ppl-conditioning': {
+        blocks: ['push', 'pull', 'legs', 'sprint'],
+        primaryTargets: ['lift'],
+      },
+      'fat-loss-conditioning': {
+        blocks: ['strength-circuit', 'zone2-cardio', 'intervals'],
+        primaryTargets: ['conditioning'],
+      },
+      'endurance-support': {
+        blocks: ['easy-cardio', 'intervals', 'strength-support'],
+        primaryTargets: ['cardio'],
+      },
+      'mobility-foundation': {
+        blocks: ['mobility-flow', 'stability-strength', 'easy-cardio'],
+        primaryTargets: ['mobility'],
+      },
+      'busy-travel': {
+        blocks: ['quick-strength', 'quick-conditioning', 'flexible-movement'],
+        primaryTargets: ['strength'],
+      },
+    } satisfies Record<
+      keyof typeof TRAINING_TEMPLATE_DEFINITIONS,
+      { blocks: string[]; primaryTargets: string[] }
+    >;
+
+    Object.keys(expectedTemplateSummaries).forEach((templateId) => {
+      const typedTemplateId =
+        templateId as keyof typeof TRAINING_TEMPLATE_DEFINITIONS;
       const plan = createAdaptiveTrainingPlanFromTemplate(typedTemplateId, {
         id: `${templateId}-plan`,
         activeFrom: '2026-04-15',
@@ -511,6 +621,20 @@ describe('training blueprint contracts', () => {
       expect(supportsAdaptiveTrainingPlan(typedTemplateId)).toBe(true);
       expect(plan).toBeDefined();
       expect(adaptiveTrainingPlanSchema.safeParse(plan).success).toBe(true);
+      expect(plan.blocks.map((block) => block.id)).toEqual(
+        expect.arrayContaining(
+          expectedTemplateSummaries[typedTemplateId].blocks
+        )
+      );
+      expect(
+        plan.targetRanges
+          .filter((target) => target.priority === 'primary')
+          .map((target) => target.id)
+      ).toEqual(
+        expect.arrayContaining(
+          expectedTemplateSummaries[typedTemplateId].primaryTargets
+        )
+      );
     });
   });
 
@@ -587,7 +711,7 @@ describe('training blueprint contracts', () => {
               ...block,
               targetContributions: [{ targetId: 'unknown-target', count: 1 }],
             }
-          : block,
+          : block
       ),
     });
 
@@ -649,7 +773,7 @@ describe('today plan provenance', () => {
           provider: 'gemini',
           responseId: 'resp-generated',
         },
-      }),
+      })
     );
 
     expect(result.success).toBe(true);

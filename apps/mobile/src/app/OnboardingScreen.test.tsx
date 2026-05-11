@@ -167,8 +167,8 @@ describe('OnboardingScreen', () => {
         editStatus: 'accepted',
         slotSequence: expect.arrayContaining([
           expect.objectContaining({
-            role: 'full-body',
-            label: 'Lift',
+            role: 'push',
+            label: 'Push',
           }),
         ]),
       })

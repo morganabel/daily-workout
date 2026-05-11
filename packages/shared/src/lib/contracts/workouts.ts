@@ -215,8 +215,11 @@ export type OnboardingAnswers = z.infer<typeof onboardingAnswersSchema>;
 export const trainingTemplateIdSchema = z.enum([
   'balanced-foundation',
   'strength-foundation',
+  'hypertrophy-foundation',
   'ppl-conditioning',
+  'fat-loss-conditioning',
   'endurance-support',
+  'mobility-foundation',
   'busy-travel',
 ]);
 export type TrainingTemplateId = z.infer<typeof trainingTemplateIdSchema>;
@@ -774,6 +777,470 @@ const createSlot = (
   targetDurationMinutes,
 });
 
+export const ADAPTIVE_BALANCED_FOUNDATION_BLOCKS = [
+  {
+    id: 'full-body-strength',
+    label: 'Full Body Strength',
+    role: 'full-body-strength',
+    category: 'strength',
+    stressTags: ['full-body', 'strength'],
+    defaultDurationMinutes: 35,
+    targetContributions: [{ targetId: 'strength', count: 1 }],
+    compatibleAddOnBlockIds: ['mobility'],
+    conflictsWithBlockIds: [],
+  },
+  {
+    id: 'conditioning',
+    label: 'Conditioning',
+    role: 'conditioning',
+    category: 'conditioning',
+    stressTags: ['aerobic'],
+    defaultDurationMinutes: 30,
+    targetContributions: [{ targetId: 'conditioning', count: 1 }],
+    compatibleAddOnBlockIds: ['mobility'],
+    conflictsWithBlockIds: [],
+  },
+  {
+    id: 'mobility',
+    label: 'Mobility',
+    role: 'mobility',
+    category: 'mobility',
+    stressTags: ['recovery'],
+    defaultDurationMinutes: 20,
+    targetContributions: [{ targetId: 'recovery', count: 1 }],
+    compatibleAddOnBlockIds: ['full-body-strength', 'conditioning'],
+    conflictsWithBlockIds: [],
+  },
+  {
+    id: 'flexible-movement',
+    label: 'Flexible Movement',
+    role: 'flexible-movement',
+    category: 'conditioning',
+    stressTags: ['flexible', 'low-impact'],
+    defaultDurationMinutes: 30,
+    targetContributions: [{ targetId: 'conditioning', count: 0.5 }],
+    compatibleAddOnBlockIds: ['mobility'],
+    conflictsWithBlockIds: [],
+  },
+  {
+    id: 'rest',
+    label: 'Rest',
+    role: 'rest',
+    category: 'rest',
+    stressTags: ['recovery'],
+    defaultDurationMinutes: 15,
+    targetContributions: [{ targetId: 'recovery', count: 1 }],
+    compatibleAddOnBlockIds: [],
+    conflictsWithBlockIds: [
+      'full-body-strength',
+      'conditioning',
+      'flexible-movement',
+    ],
+  },
+] satisfies AdaptiveTrainingBlock[];
+
+export const ADAPTIVE_BALANCED_FOUNDATION_TARGET_RANGES = [
+  {
+    id: 'strength',
+    label: 'Strength',
+    appliesTo: {
+      blockIds: ['full-body-strength'],
+      categories: ['strength'],
+      stressTags: [],
+    },
+    windowDays: 7,
+    minCount: 2,
+    maxCount: 4,
+    idealCount: 2,
+    priority: 'primary',
+  },
+  {
+    id: 'conditioning',
+    label: 'Conditioning',
+    appliesTo: {
+      blockIds: ['conditioning', 'flexible-movement'],
+      categories: ['conditioning'],
+      stressTags: [],
+    },
+    windowDays: 7,
+    minCount: 1,
+    maxCount: 3,
+    idealCount: 2,
+    priority: 'secondary',
+  },
+  {
+    id: 'recovery',
+    label: 'Recovery',
+    appliesTo: {
+      blockIds: ['mobility', 'rest'],
+      categories: ['mobility', 'rest'],
+      stressTags: [],
+    },
+    windowDays: 7,
+    minCount: 1,
+    maxCount: 3,
+    idealCount: 2,
+    priority: 'optional',
+  },
+] satisfies AdaptiveTargetRange[];
+
+export const ADAPTIVE_BALANCED_FOUNDATION_TYPICAL_WEEK = [
+  {
+    dayOfWeek: 'monday',
+    preferredBlockIds: ['full-body-strength'],
+    flexibility: 'preferred',
+  },
+  {
+    dayOfWeek: 'wednesday',
+    preferredBlockIds: ['conditioning'],
+    flexibility: 'flexible',
+  },
+  {
+    dayOfWeek: 'friday',
+    preferredBlockIds: ['full-body-strength'],
+    flexibility: 'preferred',
+  },
+  {
+    dayOfWeek: 'saturday',
+    preferredBlockIds: ['flexible-movement'],
+    flexibility: 'flexible',
+  },
+] satisfies AdaptiveTypicalWeekPreference[];
+
+export const ADAPTIVE_BALANCED_FOUNDATION_RECOMMENDATION_SETTINGS = {
+  preferredRotationBlockIds: [
+    'full-body-strength',
+    'conditioning',
+    'flexible-movement',
+  ],
+  allowCompatibleAddOns: true,
+  protectUpcomingLowerBodyDays: 1,
+} satisfies AdaptiveRecommendationSettings;
+
+export const ADAPTIVE_STRENGTH_FOUNDATION_BLOCKS = [
+  {
+    id: 'strength-heavy',
+    label: 'Strength Heavy',
+    role: 'strength-heavy',
+    category: 'strength',
+    stressTags: ['full-body', 'strength', 'heavy'],
+    defaultDurationMinutes: 50,
+    targetContributions: [{ targetId: 'strength', count: 1 }],
+    compatibleAddOnBlockIds: ['mobility'],
+    conflictsWithBlockIds: [],
+    recoveryGuidance:
+      'Keep heavy strength away from the day before hard lower-body events.',
+  },
+  {
+    id: 'strength-volume',
+    label: 'Strength Volume',
+    role: 'strength-volume',
+    category: 'strength',
+    stressTags: ['full-body', 'strength', 'volume'],
+    defaultDurationMinutes: 45,
+    targetContributions: [{ targetId: 'strength', count: 1 }],
+    compatibleAddOnBlockIds: ['mobility'],
+    conflictsWithBlockIds: [],
+  },
+  {
+    id: 'lower-strength',
+    label: 'Lower Strength',
+    role: 'lower-strength',
+    category: 'strength',
+    stressTags: ['lower-body', 'strength', 'heavy'],
+    defaultDurationMinutes: 45,
+    targetContributions: [{ targetId: 'strength', count: 1 }],
+    compatibleAddOnBlockIds: ['mobility'],
+    conflictsWithBlockIds: ['conditioning'],
+    recoveryGuidance:
+      'Avoid stacking hard conditioning after lower-body strength.',
+  },
+  {
+    id: 'conditioning',
+    label: 'Conditioning',
+    role: 'conditioning',
+    category: 'cardio',
+    stressTags: ['aerobic'],
+    defaultDurationMinutes: 30,
+    targetContributions: [{ targetId: 'conditioning', count: 1 }],
+    compatibleAddOnBlockIds: ['mobility'],
+    conflictsWithBlockIds: ['lower-strength'],
+  },
+  {
+    id: 'mobility',
+    label: 'Mobility',
+    role: 'mobility',
+    category: 'mobility',
+    stressTags: ['recovery'],
+    defaultDurationMinutes: 20,
+    targetContributions: [{ targetId: 'recovery', count: 1 }],
+    compatibleAddOnBlockIds: [
+      'strength-heavy',
+      'strength-volume',
+      'lower-strength',
+      'conditioning',
+    ],
+    conflictsWithBlockIds: [],
+  },
+  {
+    id: 'rest',
+    label: 'Rest',
+    role: 'rest',
+    category: 'rest',
+    stressTags: ['recovery'],
+    defaultDurationMinutes: 15,
+    targetContributions: [{ targetId: 'recovery', count: 1 }],
+    compatibleAddOnBlockIds: [],
+    conflictsWithBlockIds: [
+      'strength-heavy',
+      'strength-volume',
+      'lower-strength',
+      'conditioning',
+    ],
+  },
+] satisfies AdaptiveTrainingBlock[];
+
+export const ADAPTIVE_STRENGTH_FOUNDATION_TARGET_RANGES = [
+  {
+    id: 'strength',
+    label: 'Strength',
+    appliesTo: {
+      blockIds: ['strength-heavy', 'strength-volume', 'lower-strength'],
+      categories: ['strength'],
+      stressTags: [],
+    },
+    windowDays: 7,
+    minCount: 3,
+    maxCount: 4,
+    idealCount: 3,
+    priority: 'primary',
+  },
+  {
+    id: 'conditioning',
+    label: 'Conditioning',
+    appliesTo: {
+      blockIds: ['conditioning'],
+      categories: ['cardio'],
+      stressTags: [],
+    },
+    windowDays: 7,
+    minCount: 1,
+    maxCount: 2,
+    idealCount: 1,
+    priority: 'secondary',
+  },
+  {
+    id: 'recovery',
+    label: 'Recovery',
+    appliesTo: {
+      blockIds: ['mobility', 'rest'],
+      categories: ['mobility', 'rest'],
+      stressTags: [],
+    },
+    windowDays: 7,
+    minCount: 1,
+    maxCount: 3,
+    idealCount: 2,
+    priority: 'optional',
+  },
+] satisfies AdaptiveTargetRange[];
+
+export const ADAPTIVE_STRENGTH_FOUNDATION_TYPICAL_WEEK = [
+  {
+    dayOfWeek: 'monday',
+    preferredBlockIds: ['strength-heavy'],
+    flexibility: 'preferred',
+  },
+  {
+    dayOfWeek: 'wednesday',
+    preferredBlockIds: ['strength-volume'],
+    flexibility: 'preferred',
+  },
+  {
+    dayOfWeek: 'friday',
+    preferredBlockIds: ['lower-strength'],
+    flexibility: 'preferred',
+  },
+  {
+    dayOfWeek: 'saturday',
+    preferredBlockIds: ['mobility'],
+    flexibility: 'flexible',
+  },
+] satisfies AdaptiveTypicalWeekPreference[];
+
+export const ADAPTIVE_STRENGTH_FOUNDATION_RECOMMENDATION_SETTINGS = {
+  preferredRotationBlockIds: [
+    'strength-heavy',
+    'strength-volume',
+    'lower-strength',
+  ],
+  allowCompatibleAddOns: true,
+  protectUpcomingLowerBodyDays: 1,
+} satisfies AdaptiveRecommendationSettings;
+
+export const ADAPTIVE_HYPERTROPHY_FOUNDATION_BLOCKS = [
+  {
+    id: 'upper-hypertrophy',
+    label: 'Upper Hypertrophy',
+    role: 'upper-hypertrophy',
+    category: 'strength',
+    stressTags: ['upper-body', 'hypertrophy', 'volume'],
+    defaultDurationMinutes: 50,
+    targetContributions: [{ targetId: 'hypertrophy', count: 1 }],
+    compatibleAddOnBlockIds: ['easy-cardio', 'mobility'],
+    conflictsWithBlockIds: [],
+  },
+  {
+    id: 'lower-hypertrophy',
+    label: 'Lower Hypertrophy',
+    role: 'lower-hypertrophy',
+    category: 'strength',
+    stressTags: ['lower-body', 'hypertrophy', 'volume'],
+    defaultDurationMinutes: 50,
+    targetContributions: [{ targetId: 'hypertrophy', count: 1 }],
+    compatibleAddOnBlockIds: ['mobility'],
+    conflictsWithBlockIds: [],
+    recoveryGuidance:
+      'Keep lower-body volume away from hard intervals when possible.',
+  },
+  {
+    id: 'full-body-pump',
+    label: 'Full Body Pump',
+    role: 'full-body-pump',
+    category: 'strength',
+    stressTags: ['full-body', 'hypertrophy', 'accessory'],
+    defaultDurationMinutes: 45,
+    targetContributions: [{ targetId: 'hypertrophy', count: 1 }],
+    compatibleAddOnBlockIds: ['easy-cardio', 'mobility'],
+    conflictsWithBlockIds: [],
+  },
+  {
+    id: 'easy-cardio',
+    label: 'Easy Cardio',
+    role: 'easy-cardio',
+    category: 'cardio',
+    stressTags: ['aerobic', 'low-impact'],
+    defaultDurationMinutes: 25,
+    targetContributions: [{ targetId: 'cardio', count: 1 }],
+    compatibleAddOnBlockIds: [
+      'upper-hypertrophy',
+      'full-body-pump',
+      'mobility',
+    ],
+    conflictsWithBlockIds: [],
+  },
+  {
+    id: 'mobility',
+    label: 'Mobility',
+    role: 'mobility',
+    category: 'mobility',
+    stressTags: ['recovery'],
+    defaultDurationMinutes: 20,
+    targetContributions: [{ targetId: 'recovery', count: 1 }],
+    compatibleAddOnBlockIds: [
+      'upper-hypertrophy',
+      'lower-hypertrophy',
+      'full-body-pump',
+      'easy-cardio',
+    ],
+    conflictsWithBlockIds: [],
+  },
+  {
+    id: 'rest',
+    label: 'Rest',
+    role: 'rest',
+    category: 'rest',
+    stressTags: ['recovery'],
+    defaultDurationMinutes: 15,
+    targetContributions: [{ targetId: 'recovery', count: 1 }],
+    compatibleAddOnBlockIds: [],
+    conflictsWithBlockIds: [
+      'upper-hypertrophy',
+      'lower-hypertrophy',
+      'full-body-pump',
+      'easy-cardio',
+    ],
+  },
+] satisfies AdaptiveTrainingBlock[];
+
+export const ADAPTIVE_HYPERTROPHY_FOUNDATION_TARGET_RANGES = [
+  {
+    id: 'hypertrophy',
+    label: 'Hypertrophy',
+    appliesTo: {
+      blockIds: ['upper-hypertrophy', 'lower-hypertrophy', 'full-body-pump'],
+      categories: ['strength'],
+      stressTags: ['hypertrophy'],
+    },
+    windowDays: 7,
+    minCount: 3,
+    maxCount: 4,
+    idealCount: 3,
+    priority: 'primary',
+  },
+  {
+    id: 'cardio',
+    label: 'Cardio',
+    appliesTo: {
+      blockIds: ['easy-cardio'],
+      categories: ['cardio'],
+      stressTags: [],
+    },
+    windowDays: 7,
+    minCount: 1,
+    maxCount: 2,
+    idealCount: 1,
+    priority: 'secondary',
+  },
+  {
+    id: 'recovery',
+    label: 'Recovery',
+    appliesTo: {
+      blockIds: ['mobility', 'rest'],
+      categories: ['mobility', 'rest'],
+      stressTags: [],
+    },
+    windowDays: 7,
+    minCount: 1,
+    maxCount: 3,
+    idealCount: 2,
+    priority: 'optional',
+  },
+] satisfies AdaptiveTargetRange[];
+
+export const ADAPTIVE_HYPERTROPHY_FOUNDATION_TYPICAL_WEEK = [
+  {
+    dayOfWeek: 'monday',
+    preferredBlockIds: ['upper-hypertrophy'],
+    flexibility: 'preferred',
+  },
+  {
+    dayOfWeek: 'wednesday',
+    preferredBlockIds: ['lower-hypertrophy'],
+    flexibility: 'preferred',
+  },
+  {
+    dayOfWeek: 'friday',
+    preferredBlockIds: ['full-body-pump'],
+    flexibility: 'preferred',
+  },
+  {
+    dayOfWeek: 'saturday',
+    preferredBlockIds: ['easy-cardio'],
+    flexibility: 'flexible',
+  },
+] satisfies AdaptiveTypicalWeekPreference[];
+
+export const ADAPTIVE_HYPERTROPHY_FOUNDATION_RECOMMENDATION_SETTINGS = {
+  preferredRotationBlockIds: [
+    'upper-hypertrophy',
+    'lower-hypertrophy',
+    'full-body-pump',
+  ],
+  allowCompatibleAddOns: true,
+  protectUpcomingLowerBodyDays: 1,
+} satisfies AdaptiveRecommendationSettings;
+
 export const ADAPTIVE_PPL_CONDITIONING_BLOCKS = [
   {
     id: 'push',
@@ -985,6 +1452,596 @@ export const ADAPTIVE_PPL_CONDITIONING_RECOMMENDATION_SETTINGS = {
   protectUpcomingLowerBodyDays: 1,
 } satisfies AdaptiveRecommendationSettings;
 
+export const ADAPTIVE_FAT_LOSS_CONDITIONING_BLOCKS = [
+  {
+    id: 'strength-circuit',
+    label: 'Strength Circuit',
+    role: 'strength-circuit',
+    category: 'strength',
+    stressTags: ['full-body', 'strength', 'circuit'],
+    defaultDurationMinutes: 40,
+    targetContributions: [{ targetId: 'strength', count: 1 }],
+    compatibleAddOnBlockIds: ['mobility'],
+    conflictsWithBlockIds: [],
+  },
+  {
+    id: 'zone2-cardio',
+    label: 'Zone 2 Cardio',
+    role: 'zone2-cardio',
+    category: 'cardio',
+    stressTags: ['aerobic', 'low-impact'],
+    defaultDurationMinutes: 35,
+    targetContributions: [{ targetId: 'conditioning', count: 1 }],
+    compatibleAddOnBlockIds: ['mobility'],
+    conflictsWithBlockIds: [],
+  },
+  {
+    id: 'intervals',
+    label: 'Intervals',
+    role: 'intervals',
+    category: 'conditioning',
+    stressTags: ['high-impact', 'intense'],
+    defaultDurationMinutes: 25,
+    targetContributions: [
+      { targetId: 'conditioning', count: 1 },
+      { targetId: 'intervals', count: 1 },
+    ],
+    compatibleAddOnBlockIds: ['mobility'],
+    conflictsWithBlockIds: [],
+    recoveryGuidance:
+      'Use low-impact intervals when joints or lower-body fatigue are limiting.',
+  },
+  {
+    id: 'mobility',
+    label: 'Mobility',
+    role: 'mobility',
+    category: 'mobility',
+    stressTags: ['recovery'],
+    defaultDurationMinutes: 20,
+    targetContributions: [{ targetId: 'recovery', count: 1 }],
+    compatibleAddOnBlockIds: ['strength-circuit', 'zone2-cardio', 'intervals'],
+    conflictsWithBlockIds: [],
+  },
+  {
+    id: 'flexible-conditioning',
+    label: 'Flexible Conditioning',
+    role: 'flexible-conditioning',
+    category: 'conditioning',
+    stressTags: ['flexible', 'low-impact'],
+    defaultDurationMinutes: 25,
+    targetContributions: [{ targetId: 'conditioning', count: 0.5 }],
+    compatibleAddOnBlockIds: ['mobility'],
+    conflictsWithBlockIds: [],
+  },
+  {
+    id: 'rest',
+    label: 'Rest',
+    role: 'rest',
+    category: 'rest',
+    stressTags: ['recovery'],
+    defaultDurationMinutes: 15,
+    targetContributions: [{ targetId: 'recovery', count: 1 }],
+    compatibleAddOnBlockIds: [],
+    conflictsWithBlockIds: [
+      'strength-circuit',
+      'zone2-cardio',
+      'intervals',
+      'flexible-conditioning',
+    ],
+  },
+] satisfies AdaptiveTrainingBlock[];
+
+export const ADAPTIVE_FAT_LOSS_CONDITIONING_TARGET_RANGES = [
+  {
+    id: 'conditioning',
+    label: 'Conditioning',
+    appliesTo: {
+      blockIds: ['zone2-cardio', 'intervals', 'flexible-conditioning'],
+      categories: ['cardio', 'conditioning'],
+      stressTags: [],
+    },
+    windowDays: 7,
+    minCount: 3,
+    maxCount: 5,
+    idealCount: 3,
+    priority: 'primary',
+  },
+  {
+    id: 'strength',
+    label: 'Strength',
+    appliesTo: {
+      blockIds: ['strength-circuit'],
+      categories: ['strength'],
+      stressTags: [],
+    },
+    windowDays: 7,
+    minCount: 2,
+    maxCount: 3,
+    idealCount: 2,
+    priority: 'secondary',
+  },
+  {
+    id: 'intervals',
+    label: 'Intervals',
+    appliesTo: {
+      blockIds: ['intervals'],
+      categories: ['conditioning'],
+      stressTags: ['intense'],
+    },
+    windowDays: 7,
+    minCount: 1,
+    maxCount: 2,
+    idealCount: 1,
+    priority: 'secondary',
+  },
+  {
+    id: 'recovery',
+    label: 'Recovery',
+    appliesTo: {
+      blockIds: ['mobility', 'rest'],
+      categories: ['mobility', 'rest'],
+      stressTags: [],
+    },
+    windowDays: 7,
+    minCount: 1,
+    maxCount: 3,
+    idealCount: 2,
+    priority: 'optional',
+  },
+] satisfies AdaptiveTargetRange[];
+
+export const ADAPTIVE_FAT_LOSS_CONDITIONING_TYPICAL_WEEK = [
+  {
+    dayOfWeek: 'monday',
+    preferredBlockIds: ['strength-circuit'],
+    flexibility: 'preferred',
+  },
+  {
+    dayOfWeek: 'tuesday',
+    preferredBlockIds: ['zone2-cardio'],
+    flexibility: 'flexible',
+  },
+  {
+    dayOfWeek: 'thursday',
+    preferredBlockIds: ['strength-circuit'],
+    flexibility: 'preferred',
+  },
+  {
+    dayOfWeek: 'saturday',
+    preferredBlockIds: ['intervals'],
+    flexibility: 'flexible',
+  },
+] satisfies AdaptiveTypicalWeekPreference[];
+
+export const ADAPTIVE_FAT_LOSS_CONDITIONING_RECOMMENDATION_SETTINGS = {
+  preferredRotationBlockIds: ['strength-circuit', 'zone2-cardio', 'intervals'],
+  allowCompatibleAddOns: true,
+  protectUpcomingLowerBodyDays: 1,
+} satisfies AdaptiveRecommendationSettings;
+
+export const ADAPTIVE_ENDURANCE_SUPPORT_BLOCKS = [
+  {
+    id: 'easy-cardio',
+    label: 'Easy Cardio',
+    role: 'easy-cardio',
+    category: 'cardio',
+    stressTags: ['aerobic', 'low-impact'],
+    defaultDurationMinutes: 40,
+    targetContributions: [{ targetId: 'cardio', count: 1 }],
+    compatibleAddOnBlockIds: ['mobility'],
+    conflictsWithBlockIds: [],
+  },
+  {
+    id: 'intervals',
+    label: 'Intervals',
+    role: 'intervals',
+    category: 'conditioning',
+    stressTags: ['high-impact', 'intense'],
+    defaultDurationMinutes: 30,
+    targetContributions: [
+      { targetId: 'cardio', count: 1 },
+      { targetId: 'intervals', count: 1 },
+    ],
+    compatibleAddOnBlockIds: ['mobility'],
+    conflictsWithBlockIds: ['strength-support'],
+    recoveryGuidance:
+      'Avoid hard intervals directly after lower-body strength or sport.',
+  },
+  {
+    id: 'strength-support',
+    label: 'Strength Support',
+    role: 'strength-support',
+    category: 'strength',
+    stressTags: ['full-body', 'strength'],
+    defaultDurationMinutes: 35,
+    targetContributions: [{ targetId: 'strength', count: 1 }],
+    compatibleAddOnBlockIds: ['mobility'],
+    conflictsWithBlockIds: [],
+  },
+  {
+    id: 'mobility',
+    label: 'Mobility',
+    role: 'mobility',
+    category: 'mobility',
+    stressTags: ['recovery'],
+    defaultDurationMinutes: 20,
+    targetContributions: [{ targetId: 'recovery', count: 1 }],
+    compatibleAddOnBlockIds: ['easy-cardio', 'intervals', 'strength-support'],
+    conflictsWithBlockIds: [],
+  },
+  {
+    id: 'rest',
+    label: 'Rest',
+    role: 'rest',
+    category: 'rest',
+    stressTags: ['recovery'],
+    defaultDurationMinutes: 15,
+    targetContributions: [{ targetId: 'recovery', count: 1 }],
+    compatibleAddOnBlockIds: [],
+    conflictsWithBlockIds: ['easy-cardio', 'intervals', 'strength-support'],
+  },
+] satisfies AdaptiveTrainingBlock[];
+
+export const ADAPTIVE_ENDURANCE_SUPPORT_TARGET_RANGES = [
+  {
+    id: 'cardio',
+    label: 'Cardio',
+    appliesTo: {
+      blockIds: ['easy-cardio', 'intervals'],
+      categories: ['cardio', 'conditioning'],
+      stressTags: [],
+    },
+    windowDays: 7,
+    minCount: 2,
+    maxCount: 4,
+    idealCount: 2,
+    priority: 'primary',
+  },
+  {
+    id: 'strength',
+    label: 'Strength Support',
+    appliesTo: {
+      blockIds: ['strength-support'],
+      categories: ['strength'],
+      stressTags: [],
+    },
+    windowDays: 7,
+    minCount: 1,
+    maxCount: 2,
+    idealCount: 2,
+    priority: 'secondary',
+  },
+  {
+    id: 'intervals',
+    label: 'Intervals',
+    appliesTo: {
+      blockIds: ['intervals'],
+      categories: ['conditioning'],
+      stressTags: ['intense'],
+    },
+    windowDays: 7,
+    minCount: 1,
+    maxCount: 1,
+    idealCount: 1,
+    priority: 'secondary',
+  },
+  {
+    id: 'recovery',
+    label: 'Recovery',
+    appliesTo: {
+      blockIds: ['mobility', 'rest'],
+      categories: ['mobility', 'rest'],
+      stressTags: [],
+    },
+    windowDays: 7,
+    minCount: 1,
+    maxCount: 3,
+    idealCount: 2,
+    priority: 'optional',
+  },
+] satisfies AdaptiveTargetRange[];
+
+export const ADAPTIVE_ENDURANCE_SUPPORT_TYPICAL_WEEK = [
+  {
+    dayOfWeek: 'monday',
+    preferredBlockIds: ['easy-cardio'],
+    flexibility: 'preferred',
+  },
+  {
+    dayOfWeek: 'wednesday',
+    preferredBlockIds: ['strength-support'],
+    flexibility: 'preferred',
+  },
+  {
+    dayOfWeek: 'friday',
+    preferredBlockIds: ['intervals'],
+    flexibility: 'flexible',
+  },
+  {
+    dayOfWeek: 'saturday',
+    preferredBlockIds: ['strength-support'],
+    flexibility: 'flexible',
+  },
+] satisfies AdaptiveTypicalWeekPreference[];
+
+export const ADAPTIVE_ENDURANCE_SUPPORT_RECOMMENDATION_SETTINGS = {
+  preferredRotationBlockIds: ['easy-cardio', 'strength-support', 'intervals'],
+  allowCompatibleAddOns: true,
+  protectUpcomingLowerBodyDays: 1,
+} satisfies AdaptiveRecommendationSettings;
+
+export const ADAPTIVE_MOBILITY_FOUNDATION_BLOCKS = [
+  {
+    id: 'mobility-flow',
+    label: 'Mobility Flow',
+    role: 'mobility-flow',
+    category: 'mobility',
+    stressTags: ['mobility', 'recovery'],
+    defaultDurationMinutes: 25,
+    targetContributions: [{ targetId: 'mobility', count: 1 }],
+    compatibleAddOnBlockIds: ['stability-strength'],
+    conflictsWithBlockIds: [],
+  },
+  {
+    id: 'stability-strength',
+    label: 'Stability Strength',
+    role: 'stability-strength',
+    category: 'strength',
+    stressTags: ['stability', 'full-body', 'low-impact'],
+    defaultDurationMinutes: 30,
+    targetContributions: [
+      { targetId: 'strength', count: 1 },
+      { targetId: 'mobility', count: 0.5 },
+    ],
+    compatibleAddOnBlockIds: ['mobility-flow'],
+    conflictsWithBlockIds: [],
+  },
+  {
+    id: 'easy-cardio',
+    label: 'Easy Cardio',
+    role: 'easy-cardio',
+    category: 'cardio',
+    stressTags: ['aerobic', 'low-impact'],
+    defaultDurationMinutes: 25,
+    targetContributions: [{ targetId: 'cardio', count: 1 }],
+    compatibleAddOnBlockIds: ['mobility-flow'],
+    conflictsWithBlockIds: [],
+  },
+  {
+    id: 'recovery',
+    label: 'Recovery',
+    role: 'recovery',
+    category: 'recovery',
+    stressTags: ['recovery'],
+    defaultDurationMinutes: 15,
+    targetContributions: [{ targetId: 'mobility', count: 0.5 }],
+    compatibleAddOnBlockIds: [],
+    conflictsWithBlockIds: [
+      'mobility-flow',
+      'stability-strength',
+      'easy-cardio',
+    ],
+  },
+] satisfies AdaptiveTrainingBlock[];
+
+export const ADAPTIVE_MOBILITY_FOUNDATION_TARGET_RANGES = [
+  {
+    id: 'mobility',
+    label: 'Mobility',
+    appliesTo: {
+      blockIds: ['mobility-flow', 'stability-strength', 'recovery'],
+      categories: ['mobility', 'recovery'],
+      stressTags: ['mobility'],
+    },
+    windowDays: 7,
+    minCount: 3,
+    maxCount: 5,
+    idealCount: 3,
+    priority: 'primary',
+  },
+  {
+    id: 'strength',
+    label: 'Stability Strength',
+    appliesTo: {
+      blockIds: ['stability-strength'],
+      categories: ['strength'],
+      stressTags: ['stability'],
+    },
+    windowDays: 7,
+    minCount: 1,
+    maxCount: 2,
+    idealCount: 1,
+    priority: 'secondary',
+  },
+  {
+    id: 'cardio',
+    label: 'Easy Cardio',
+    appliesTo: {
+      blockIds: ['easy-cardio'],
+      categories: ['cardio'],
+      stressTags: [],
+    },
+    windowDays: 7,
+    minCount: 0,
+    maxCount: 2,
+    idealCount: 1,
+    priority: 'optional',
+  },
+] satisfies AdaptiveTargetRange[];
+
+export const ADAPTIVE_MOBILITY_FOUNDATION_TYPICAL_WEEK = [
+  {
+    dayOfWeek: 'monday',
+    preferredBlockIds: ['mobility-flow'],
+    flexibility: 'preferred',
+  },
+  {
+    dayOfWeek: 'wednesday',
+    preferredBlockIds: ['stability-strength'],
+    flexibility: 'preferred',
+  },
+  {
+    dayOfWeek: 'friday',
+    preferredBlockIds: ['mobility-flow'],
+    flexibility: 'preferred',
+  },
+  {
+    dayOfWeek: 'saturday',
+    preferredBlockIds: ['easy-cardio'],
+    flexibility: 'flexible',
+  },
+] satisfies AdaptiveTypicalWeekPreference[];
+
+export const ADAPTIVE_MOBILITY_FOUNDATION_RECOMMENDATION_SETTINGS = {
+  preferredRotationBlockIds: [
+    'mobility-flow',
+    'stability-strength',
+    'easy-cardio',
+  ],
+  allowCompatibleAddOns: true,
+  protectUpcomingLowerBodyDays: 1,
+} satisfies AdaptiveRecommendationSettings;
+
+export const ADAPTIVE_BUSY_TRAVEL_BLOCKS = [
+  {
+    id: 'quick-strength',
+    label: 'Quick Strength',
+    role: 'quick-strength',
+    category: 'strength',
+    stressTags: ['full-body', 'minimal-equipment'],
+    defaultDurationMinutes: 25,
+    targetContributions: [{ targetId: 'strength', count: 1 }],
+    compatibleAddOnBlockIds: ['mobility'],
+    conflictsWithBlockIds: [],
+  },
+  {
+    id: 'quick-conditioning',
+    label: 'Quick Conditioning',
+    role: 'quick-conditioning',
+    category: 'conditioning',
+    stressTags: ['minimal-equipment', 'aerobic'],
+    defaultDurationMinutes: 20,
+    targetContributions: [{ targetId: 'movement', count: 1 }],
+    compatibleAddOnBlockIds: ['mobility'],
+    conflictsWithBlockIds: [],
+  },
+  {
+    id: 'mobility',
+    label: 'Mobility',
+    role: 'mobility',
+    category: 'mobility',
+    stressTags: ['recovery'],
+    defaultDurationMinutes: 15,
+    targetContributions: [{ targetId: 'recovery', count: 1 }],
+    compatibleAddOnBlockIds: ['quick-strength', 'quick-conditioning'],
+    conflictsWithBlockIds: [],
+  },
+  {
+    id: 'flexible-movement',
+    label: 'Flexible Movement',
+    role: 'flexible-movement',
+    category: 'conditioning',
+    stressTags: ['flexible', 'minimal-equipment'],
+    defaultDurationMinutes: 20,
+    targetContributions: [{ targetId: 'movement', count: 0.5 }],
+    compatibleAddOnBlockIds: ['mobility'],
+    conflictsWithBlockIds: [],
+  },
+  {
+    id: 'rest',
+    label: 'Rest',
+    role: 'rest',
+    category: 'rest',
+    stressTags: ['recovery'],
+    defaultDurationMinutes: 15,
+    targetContributions: [{ targetId: 'recovery', count: 1 }],
+    compatibleAddOnBlockIds: [],
+    conflictsWithBlockIds: [
+      'quick-strength',
+      'quick-conditioning',
+      'flexible-movement',
+    ],
+  },
+] satisfies AdaptiveTrainingBlock[];
+
+export const ADAPTIVE_BUSY_TRAVEL_TARGET_RANGES = [
+  {
+    id: 'strength',
+    label: 'Strength',
+    appliesTo: {
+      blockIds: ['quick-strength'],
+      categories: ['strength'],
+      stressTags: [],
+    },
+    windowDays: 7,
+    minCount: 2,
+    maxCount: 4,
+    idealCount: 2,
+    priority: 'primary',
+  },
+  {
+    id: 'movement',
+    label: 'Movement',
+    appliesTo: {
+      blockIds: ['quick-conditioning', 'flexible-movement'],
+      categories: ['conditioning'],
+      stressTags: ['minimal-equipment'],
+    },
+    windowDays: 7,
+    minCount: 1,
+    maxCount: 4,
+    idealCount: 2,
+    priority: 'secondary',
+  },
+  {
+    id: 'recovery',
+    label: 'Recovery',
+    appliesTo: {
+      blockIds: ['mobility', 'rest'],
+      categories: ['mobility', 'rest'],
+      stressTags: [],
+    },
+    windowDays: 7,
+    minCount: 1,
+    maxCount: 4,
+    idealCount: 2,
+    priority: 'optional',
+  },
+] satisfies AdaptiveTargetRange[];
+
+export const ADAPTIVE_BUSY_TRAVEL_TYPICAL_WEEK = [
+  {
+    dayOfWeek: 'monday',
+    preferredBlockIds: ['quick-strength'],
+    flexibility: 'flexible',
+  },
+  {
+    dayOfWeek: 'wednesday',
+    preferredBlockIds: ['mobility'],
+    flexibility: 'flexible',
+  },
+  {
+    dayOfWeek: 'friday',
+    preferredBlockIds: ['quick-conditioning'],
+    flexibility: 'flexible',
+  },
+  {
+    dayOfWeek: 'saturday',
+    preferredBlockIds: ['flexible-movement'],
+    flexibility: 'flexible',
+  },
+] satisfies AdaptiveTypicalWeekPreference[];
+
+export const ADAPTIVE_BUSY_TRAVEL_RECOMMENDATION_SETTINGS = {
+  preferredRotationBlockIds: [
+    'quick-strength',
+    'quick-conditioning',
+    'flexible-movement',
+  ],
+  allowCompatibleAddOns: true,
+  protectUpcomingLowerBodyDays: 1,
+} satisfies AdaptiveRecommendationSettings;
+
 type AdaptivePlanTemplateDefinition = NonNullable<
   TrainingTemplateDefinition['adaptivePlanTemplate']
 >;
@@ -1090,7 +2147,12 @@ const roleToAdaptiveBlock = (slot: StarterWeekSlot): AdaptiveTrainingBlock => {
 const targetLabelById: Record<string, string> = {
   strength: 'Strength',
   cardio: 'Cardio',
+  conditioning: 'Conditioning',
   sprint: 'Sprint',
+  intervals: 'Intervals',
+  hypertrophy: 'Hypertrophy',
+  mobility: 'Mobility',
+  movement: 'Movement',
   recovery: 'Recovery',
   flexible: 'Flexible',
 };
@@ -1203,6 +2265,13 @@ export const TRAINING_TEMPLATE_DEFINITIONS: Record<
       createSlot(5, 'flexible', 'Flexible workout', 30),
       createSlot(6, 'recovery', 'Recovery', 20),
     ],
+    adaptivePlanTemplate: {
+      blocks: ADAPTIVE_BALANCED_FOUNDATION_BLOCKS,
+      targetRanges: ADAPTIVE_BALANCED_FOUNDATION_TARGET_RANGES,
+      typicalWeekPreferences: ADAPTIVE_BALANCED_FOUNDATION_TYPICAL_WEEK,
+      recommendationSettings:
+        ADAPTIVE_BALANCED_FOUNDATION_RECOMMENDATION_SETTINGS,
+    },
   },
   'strength-foundation': {
     id: 'strength-foundation',
@@ -1220,6 +2289,37 @@ export const TRAINING_TEMPLATE_DEFINITIONS: Record<
       createSlot(5, 'mobility', 'Mobility', 20),
       createSlot(6, 'recovery', 'Recovery', 20),
     ],
+    adaptivePlanTemplate: {
+      blocks: ADAPTIVE_STRENGTH_FOUNDATION_BLOCKS,
+      targetRanges: ADAPTIVE_STRENGTH_FOUNDATION_TARGET_RANGES,
+      typicalWeekPreferences: ADAPTIVE_STRENGTH_FOUNDATION_TYPICAL_WEEK,
+      recommendationSettings:
+        ADAPTIVE_STRENGTH_FOUNDATION_RECOMMENDATION_SETTINGS,
+    },
+  },
+  'hypertrophy-foundation': {
+    id: 'hypertrophy-foundation',
+    name: 'Hypertrophy foundation',
+    summary: 'Simple muscle-building exposures with recovery and light cardio.',
+    weeklyRhythm:
+      '3 hypertrophy days, 1 easy cardio day, mobility and recovery',
+    durationAssumptions: { targetMinutes: 45, minimumUsefulMinutes: 30 },
+    slotSequence: [
+      createSlot(0, 'full-body', 'Upper lift', 45),
+      createSlot(1, 'mobility', 'Mobility', 20),
+      createSlot(2, 'full-body', 'Lower lift', 45),
+      createSlot(3, 'recovery', 'Recovery', 20),
+      createSlot(4, 'full-body', 'Full body pump', 45),
+      createSlot(5, 'conditioning', 'Easy cardio', 25),
+      createSlot(6, 'recovery', 'Recovery', 20),
+    ],
+    adaptivePlanTemplate: {
+      blocks: ADAPTIVE_HYPERTROPHY_FOUNDATION_BLOCKS,
+      targetRanges: ADAPTIVE_HYPERTROPHY_FOUNDATION_TARGET_RANGES,
+      typicalWeekPreferences: ADAPTIVE_HYPERTROPHY_FOUNDATION_TYPICAL_WEEK,
+      recommendationSettings:
+        ADAPTIVE_HYPERTROPHY_FOUNDATION_RECOMMENDATION_SETTINGS,
+    },
   },
   'ppl-conditioning': {
     id: 'ppl-conditioning',
@@ -1228,9 +2328,9 @@ export const TRAINING_TEMPLATE_DEFINITIONS: Record<
     weeklyRhythm: '3 lift days plus one sprint day',
     durationAssumptions: { targetMinutes: 50, minimumUsefulMinutes: 35 },
     slotSequence: [
-      createSlot(0, 'full-body', 'Lift', 50),
-      createSlot(1, 'full-body', 'Lift', 50),
-      createSlot(2, 'full-body', 'Lift', 50),
+      createSlot(0, 'push', 'Push', 50),
+      createSlot(1, 'pull', 'Pull', 50),
+      createSlot(2, 'legs', 'Legs', 50),
       createSlot(3, 'recovery', 'Recovery', 20),
       createSlot(4, 'sprint', 'Sprint conditioning', 30),
       createSlot(5, 'mobility', 'Mobility', 20),
@@ -1241,6 +2341,30 @@ export const TRAINING_TEMPLATE_DEFINITIONS: Record<
       targetRanges: ADAPTIVE_PPL_CONDITIONING_TARGET_RANGES,
       typicalWeekPreferences: ADAPTIVE_PPL_CONDITIONING_TYPICAL_WEEK,
       recommendationSettings: ADAPTIVE_PPL_CONDITIONING_RECOMMENDATION_SETTINGS,
+    },
+  },
+  'fat-loss-conditioning': {
+    id: 'fat-loss-conditioning',
+    name: 'Fat-loss conditioning',
+    summary: 'Conditioning-first training with enough strength to hold muscle.',
+    weeklyRhythm:
+      '2 strength circuits, 2 conditioning days, mobility and recovery',
+    durationAssumptions: { targetMinutes: 35, minimumUsefulMinutes: 20 },
+    slotSequence: [
+      createSlot(0, 'full-body', 'Strength circuit', 35),
+      createSlot(1, 'conditioning', 'Zone 2 cardio', 35),
+      createSlot(2, 'mobility', 'Mobility', 20),
+      createSlot(3, 'full-body', 'Strength circuit', 35),
+      createSlot(4, 'sprint', 'Intervals', 25),
+      createSlot(5, 'flexible', 'Flexible conditioning', 25),
+      createSlot(6, 'recovery', 'Recovery', 20),
+    ],
+    adaptivePlanTemplate: {
+      blocks: ADAPTIVE_FAT_LOSS_CONDITIONING_BLOCKS,
+      targetRanges: ADAPTIVE_FAT_LOSS_CONDITIONING_TARGET_RANGES,
+      typicalWeekPreferences: ADAPTIVE_FAT_LOSS_CONDITIONING_TYPICAL_WEEK,
+      recommendationSettings:
+        ADAPTIVE_FAT_LOSS_CONDITIONING_RECOMMENDATION_SETTINGS,
     },
   },
   'endurance-support': {
@@ -1259,6 +2383,37 @@ export const TRAINING_TEMPLATE_DEFINITIONS: Record<
       createSlot(5, 'full-body', 'Strength support', 35),
       createSlot(6, 'recovery', 'Recovery', 20),
     ],
+    adaptivePlanTemplate: {
+      blocks: ADAPTIVE_ENDURANCE_SUPPORT_BLOCKS,
+      targetRanges: ADAPTIVE_ENDURANCE_SUPPORT_TARGET_RANGES,
+      typicalWeekPreferences: ADAPTIVE_ENDURANCE_SUPPORT_TYPICAL_WEEK,
+      recommendationSettings:
+        ADAPTIVE_ENDURANCE_SUPPORT_RECOMMENDATION_SETTINGS,
+    },
+  },
+  'mobility-foundation': {
+    id: 'mobility-foundation',
+    name: 'Mobility foundation',
+    summary: 'Mobility-led training with stability strength and easy movement.',
+    weeklyRhythm:
+      '3 mobility sessions, 1 stability strength day, optional easy cardio',
+    durationAssumptions: { targetMinutes: 25, minimumUsefulMinutes: 15 },
+    slotSequence: [
+      createSlot(0, 'mobility', 'Mobility flow', 25),
+      createSlot(1, 'recovery', 'Recovery', 15),
+      createSlot(2, 'full-body', 'Stability strength', 30),
+      createSlot(3, 'mobility', 'Mobility flow', 25),
+      createSlot(4, 'conditioning', 'Easy cardio', 25),
+      createSlot(5, 'flexible', 'Flexible movement', 20),
+      createSlot(6, 'recovery', 'Recovery', 15),
+    ],
+    adaptivePlanTemplate: {
+      blocks: ADAPTIVE_MOBILITY_FOUNDATION_BLOCKS,
+      targetRanges: ADAPTIVE_MOBILITY_FOUNDATION_TARGET_RANGES,
+      typicalWeekPreferences: ADAPTIVE_MOBILITY_FOUNDATION_TYPICAL_WEEK,
+      recommendationSettings:
+        ADAPTIVE_MOBILITY_FOUNDATION_RECOMMENDATION_SETTINGS,
+    },
   },
   'busy-travel': {
     id: 'busy-travel',
@@ -1277,6 +2432,12 @@ export const TRAINING_TEMPLATE_DEFINITIONS: Record<
       createSlot(5, 'flexible', 'Flexible movement', 20),
       createSlot(6, 'recovery', 'Recovery', 15),
     ],
+    adaptivePlanTemplate: {
+      blocks: ADAPTIVE_BUSY_TRAVEL_BLOCKS,
+      targetRanges: ADAPTIVE_BUSY_TRAVEL_TARGET_RANGES,
+      typicalWeekPreferences: ADAPTIVE_BUSY_TRAVEL_TYPICAL_WEEK,
+      recommendationSettings: ADAPTIVE_BUSY_TRAVEL_RECOMMENDATION_SETTINGS,
+    },
   },
 };
 
@@ -1299,8 +2460,20 @@ export const selectTrainingTemplateId = (
     answers.equipment.length > 0 &&
     answers.equipment.every((item) => minimalEquipment.has(item));
 
+  if (answers.goal === 'mobility') {
+    return 'mobility-foundation';
+  }
+
+  if (answers.environment === 'travel') {
+    return 'busy-travel';
+  }
+
   if (answers.goal === 'run-cardio') {
     return 'endurance-support';
+  }
+
+  if (answers.goal === 'lose-fat') {
+    return 'fat-loss-conditioning';
   }
 
   if (answers.goal === 'build-strength') {
@@ -1315,11 +2488,11 @@ export const selectTrainingTemplateId = (
     return 'ppl-conditioning';
   }
 
-  if (answers.goal === 'mobility') {
-    return 'busy-travel';
+  if (answers.goal === 'build-muscle') {
+    return onlyMinimalEquipment ? 'busy-travel' : 'hypertrophy-foundation';
   }
 
-  if (answers.environment === 'travel' || onlyMinimalEquipment) {
+  if (onlyMinimalEquipment) {
     return 'busy-travel';
   }
 
