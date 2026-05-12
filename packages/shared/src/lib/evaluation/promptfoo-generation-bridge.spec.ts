@@ -89,6 +89,19 @@ describe('Promptfoo generation bridge', () => {
     expect(summary.warnings.join('\n')).toContain('cost and quota');
   });
 
+  it('distinguishes unknown provider availability from missing access', () => {
+    const scenarios = selectPromptfooGenerationScenarios({ limit: 1 });
+    const summary = buildPromptfooGenerationPreflightSummary({
+      scenarios,
+      providers: ['openai'],
+      runs: 1,
+      edition: 'CE',
+    });
+
+    expect(summary.warnings.join('\n')).toContain('openai access was not checked');
+    expect(summary.warnings.join('\n')).not.toContain('openai has no configured access');
+  });
+
   it('finds explicit secret leaks in nested Promptfoo artifacts', () => {
     const leaks = findPromptfooSecretLeaks(
       {

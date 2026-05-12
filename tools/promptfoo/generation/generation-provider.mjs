@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { mkdir } from 'node:fs/promises';
 import { spawnSync } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -114,7 +115,14 @@ export default class WorkoutGenerationEvaluationProvider {
     );
     const outputDir = path.join(
       outputRoot,
-      `${Date.now()}-${sanitizeSegment(vars.scenarioId)}-${sanitizeSegment(vars.provider)}-${vars.runIndex}`,
+      [
+        Date.now(),
+        process.pid,
+        randomUUID(),
+        sanitizeSegment(vars.scenarioId),
+        sanitizeSegment(vars.provider),
+        vars.runIndex,
+      ].join('-'),
     );
     await mkdir(outputDir, { recursive: true });
 

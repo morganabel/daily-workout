@@ -4,6 +4,8 @@ import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
+const PROMPTFOO_TEST_FAILURE_EXIT_CODE = 100;
+
 function loadRepoEnv() {
   const candidates = [
     path.join(process.cwd(), '.env'),
@@ -761,6 +763,10 @@ async function main() {
       shell: false,
     },
   );
+  const promptfooExitedForTestFailures =
+    result.status === PROMPTFOO_TEST_FAILURE_EXIT_CODE;
+  const promptfooRuntimeFailed =
+    result.status !== 0 && !promptfooExitedForTestFailures;
 
   const comparisonArtifacts = await writeComparisonArtifacts({
     outputDir: options.outputDir,
@@ -784,7 +790,13 @@ async function main() {
     console.log(`Workout comparison markdown: ${comparisonArtifacts.markdown}`);
   }
 
-  if (result.status !== 0) {
+  if (promptfooExitedForTestFailures && !options.ci) {
+    console.log(
+      'Promptfoo reported failed tests; continuing because --ci was not set.',
+    );
+  }
+
+  if (promptfooRuntimeFailed) {
     process.exit(result.status ?? 1);
   }
 
@@ -794,6 +806,9 @@ async function main() {
       throw new Error(
         `Promptfoo CI gate failed: ${stats.failures} failures, ${stats.errors} errors.`,
       );
+    }
+    if (promptfooExitedForTestFailures) {
+      process.exit(PROMPTFOO_TEST_FAILURE_EXIT_CODE);
     }
   }
 }

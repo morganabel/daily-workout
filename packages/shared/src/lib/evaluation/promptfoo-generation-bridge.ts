@@ -184,12 +184,18 @@ export function buildPromptfooGenerationPreflightSummary(params: {
 
   liveProviders.forEach((provider) => {
     const hasAccess = params.providerAvailability?.[provider];
-    if (params.edition === 'CE' && !hasAccess) {
+    if (hasAccess === undefined) {
+      warnings.push(
+        `${provider} access was not checked; live Promptfoo runs may fail if provider credentials are unavailable.`,
+      );
+      return;
+    }
+    if (params.edition === 'CE' && hasAccess === false) {
       warnings.push(
         `${provider} has no configured access in CE; matching Promptfoo runs will be mock or plumbing-oriented unless keys are provided.`,
       );
     }
-    if (params.edition === 'HOSTED' && !hasAccess) {
+    if (params.edition === 'HOSTED' && hasAccess === false) {
       warnings.push(
         `${provider} has no configured access in HOSTED mode; live Promptfoo runs should fail or be stopped before broad execution.`,
       );
