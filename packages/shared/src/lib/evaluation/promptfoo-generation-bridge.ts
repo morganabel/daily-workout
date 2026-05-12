@@ -26,10 +26,14 @@ export type PromptfooGenerationTestOptions = PromptfooGenerationSelectionOptions
 
 export type PromptfooGenerationTestCase = {
   description: string;
+  metadata: {
+    scenarioTitle: string;
+    scenarioTags: EvaluationScenarioTag[];
+    scenarioMode: GenerationEvaluationScenario['mode'];
+  };
   vars: {
     scenarioId: EvaluationScenarioId;
     scenarioTitle: string;
-    scenarioTags: EvaluationScenarioTag[];
     scenarioMode: GenerationEvaluationScenario['mode'];
     provider: GenerationEvaluationProvider;
     runIndex: number;
@@ -135,10 +139,14 @@ export function buildPromptfooGenerationTestCases(
     options.providers.flatMap((provider) =>
       Array.from({ length: options.runs }, (_, index) => ({
         description: `${scenario.id} / ${provider} / run ${index + 1} / ${variantLabel}`,
+        metadata: {
+          scenarioTitle: scenario.title,
+          scenarioTags: scenario.tags,
+          scenarioMode: scenario.mode,
+        },
         vars: {
           scenarioId: scenario.id,
           scenarioTitle: scenario.title,
-          scenarioTags: scenario.tags,
           scenarioMode: scenario.mode,
           provider,
           runIndex: index + 1,

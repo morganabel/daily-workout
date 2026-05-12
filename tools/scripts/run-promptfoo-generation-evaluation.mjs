@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
@@ -44,7 +44,7 @@ Options:
   --ci                      fail after Promptfoo if output reports failures/errors
   --config-only             write Promptfoo config without running Promptfoo
   --output-dir <path>       output directory (default: reports/promptfoo-generation/<timestamp>)
-  --open                    open the HTML report after generation (macOS)
+  --open                    open the comparison report after generation (macOS)
   --help                    show this help message
 `);
 }
@@ -363,6 +363,326 @@ function parsePromptfooFailures(outputPath) {
   return { failures, errors };
 }
 
+function reportUrl(reportPath) {
+  return pathToFileURL(reportPath).href;
+}
+
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function escapeMarkdownTable(value) {
+  return String(value ?? '')
+    .replace(/\|/g, '\\|')
+    .replace(/\r?\n/g, '<br>');
+}
+
+function findFiles(rootDir, fileName) {
+  if (!existsSync(rootDir)) {
+    return [];
+  }
+
+  return readdirSync(rootDir, { withFileTypes: true }).flatMap((entry) => {
+    const entryPath = path.join(rootDir, entry.name);
+    if (entry.isDirectory()) {
+      return findFiles(entryPath, fileName);
+    }
+    return entry.name === fileName ? [entryPath] : [];
+  });
+}
+
+function hardFailureNames(entry) {
+  return (entry.hardChecks ?? [])
+    .filter((check) => check.status === 'fail')
+    .map((check) => check.name);
+}
+
+function summarizeExercises(plan) {
+  return (plan?.blocks ?? []).flatMap((block) =>
+    (block.exercises ?? []).map((exercise) => ({
+      blockTitle: block.title,
+      name: exercise.name,
+      prescription: exercise.prescription,
+    })),
+  );
+}
+
+function readPromptfooStats(outputJsonPath) {
+  if (!existsSync(outputJsonPath)) {
+    return null;
+  }
+
+  const parsed = JSON.parse(readFileSync(outputJsonPath, 'utf8'));
+  return parsed.results?.stats ?? null;
+}
+
+function readComparisonRows(outputDir) {
+  const providerReportsDir = path.join(outputDir, 'provider-calls');
+
+  return findFiles(providerReportsDir, 'report.json')
+    .flatMap((reportJsonPath) => {
+      const report = JSON.parse(readFileSync(reportJsonPath, 'utf8'));
+      return (report.entries ?? []).map((entry) => {
+        const reportDir = path.dirname(reportJsonPath);
+        const detailHtmlPath = path.join(reportDir, 'report.html');
+        const exercises = summarizeExercises(entry.plan);
+        const failures = hardFailureNames(entry);
+
+        return {
+          scenarioId: entry.scenarioId,
+          scenarioTitle: entry.scenarioTitle,
+          scenarioMode: entry.scenarioMode,
+          provider: entry.provider,
+          executionSource: entry.executionSource,
+          status: entry.status,
+          runId: entry.runId,
+          pass: entry.status === 'success' && failures.length === 0,
+          failures,
+          latencyMs: entry.latencyMs?.totalRequestMs,
+          plannerUsed: Boolean(entry.plannerSummary?.usedStageOne),
+          summary: entry.plan?.summary ?? entry.errorMessage ?? 'No plan summary available.',
+          durationMinutes: entry.plan?.durationMinutes,
+          focus: entry.plan?.focus,
+          equipment: entry.plan?.equipment ?? [],
+          exercises,
+          detailHtmlPath: existsSync(detailHtmlPath) ? detailHtmlPath : undefined,
+        };
+      });
+    })
+    .sort(
+      (a, b) =>
+        a.scenarioId.localeCompare(b.scenarioId) ||
+        a.provider.localeCompare(b.provider) ||
+        a.runId.localeCompare(b.runId),
+    );
+}
+
+function average(values) {
+  const numeric = values.filter((value) => typeof value === 'number');
+  if (numeric.length === 0) {
+    return undefined;
+  }
+  return numeric.reduce((sum, value) => sum + value, 0) / numeric.length;
+}
+
+function buildProviderSummaries(rows) {
+  const providers = [...new Set(rows.map((row) => row.provider))].sort();
+
+  return providers.map((provider) => {
+    const providerRows = rows.filter((row) => row.provider === provider);
+    const failedRows = providerRows.filter((row) => !row.pass);
+    return {
+      provider,
+      entries: providerRows.length,
+      cleanEntries: providerRows.length - failedRows.length,
+      failedEntries: failedRows.length,
+      avgLatencyMs: average(providerRows.map((row) => row.latencyMs)),
+      hardFailures: [
+        ...new Set(providerRows.flatMap((row) => row.failures)),
+      ].sort(),
+    };
+  });
+}
+
+function formatMs(value) {
+  return typeof value === 'number' ? `${Math.round(value)} ms` : 'n/a';
+}
+
+function formatPass(row) {
+  if (row.pass) {
+    return 'Pass';
+  }
+  if (row.failures.length > 0) {
+    return `Fail: ${row.failures.join(', ')}`;
+  }
+  return `Fail: ${row.status}`;
+}
+
+function formatExerciseSummary(row) {
+  if (row.exercises.length === 0) {
+    return 'No exercises captured.';
+  }
+
+  const shown = row.exercises
+    .slice(0, 6)
+    .map((exercise) => `${exercise.name}${exercise.prescription ? ` (${exercise.prescription})` : ''}`);
+  const suffix = row.exercises.length > shown.length ? `; +${row.exercises.length - shown.length} more` : '';
+  return `${shown.join('; ')}${suffix}`;
+}
+
+function renderComparisonMarkdown(params) {
+  const providerSummaries = buildProviderSummaries(params.rows);
+  const promptfooStats = params.promptfooStats;
+  const cleanEntries = params.rows.filter((row) => row.pass).length;
+
+  const lines = [
+    '# Workout Generation Comparison',
+    '',
+    `Generated: ${new Date().toISOString()}`,
+    `Variant: ${params.options.variantLabel}`,
+    `Planner mode: ${params.options.plannerMode}`,
+    '',
+    'This is the repo-specific summary. Use the raw Promptfoo report only when you need the generic eval table or CI/JUnit details.',
+    '',
+    '## At a Glance',
+    '',
+    `- Provider-call entries: ${params.rows.length}`,
+    `- Clean entries: ${cleanEntries}`,
+    `- Entries with failures: ${params.rows.length - cleanEntries}`,
+    `- Promptfoo pass/fail: ${promptfooStats ? `${promptfooStats.successes ?? 0} passed, ${promptfooStats.failures ?? 0} failed, ${promptfooStats.errors ?? 0} errors` : 'n/a'}`,
+    `- Raw Promptfoo report: [report.html](${reportUrl(params.promptfooReportHtmlPath)})`,
+    '',
+    '## Provider Summary',
+    '',
+    '| Provider | Clean / Total | Avg Latency | Hard Failures |',
+    '| --- | ---: | ---: | --- |',
+    ...providerSummaries.map((summary) =>
+      [
+        summary.provider,
+        `${summary.cleanEntries} / ${summary.entries}`,
+        formatMs(summary.avgLatencyMs),
+        summary.hardFailures.length > 0 ? summary.hardFailures.join(', ') : 'none',
+      ]
+        .map(escapeMarkdownTable)
+        .join(' | '),
+    ).map((line) => `| ${line} |`),
+    '',
+    '## Scenario Results',
+    '',
+    '| Scenario | Provider | Source | Result | Latency | Workout Summary | Exercises | Detail |',
+    '| --- | --- | --- | --- | ---: | --- | --- | --- |',
+    ...params.rows.map((row) =>
+      [
+        row.scenarioId,
+        row.provider,
+        row.executionSource,
+        formatPass(row),
+        formatMs(row.latencyMs),
+        row.summary,
+        formatExerciseSummary(row),
+        row.detailHtmlPath ? `[canonical report](${reportUrl(row.detailHtmlPath)})` : 'n/a',
+      ]
+        .map(escapeMarkdownTable)
+        .join(' | '),
+    ).map((line) => `| ${line} |`),
+    '',
+  ];
+
+  return `${lines.join('\n')}\n`;
+}
+
+function renderComparisonHtml(params) {
+  const providerSummaries = buildProviderSummaries(params.rows);
+  const promptfooStats = params.promptfooStats;
+  const cleanEntries = params.rows.filter((row) => row.pass).length;
+
+  const providerRows = providerSummaries
+    .map(
+      (summary) => `<tr>
+        <td>${escapeHtml(summary.provider)}</td>
+        <td>${summary.cleanEntries} / ${summary.entries}</td>
+        <td>${escapeHtml(formatMs(summary.avgLatencyMs))}</td>
+        <td>${escapeHtml(summary.hardFailures.length > 0 ? summary.hardFailures.join(', ') : 'none')}</td>
+      </tr>`,
+    )
+    .join('\n');
+
+  const scenarioRows = params.rows
+    .map(
+      (row) => `<tr>
+        <td><strong>${escapeHtml(row.scenarioId)}</strong><div>${escapeHtml(row.scenarioTitle)}</div></td>
+        <td>${escapeHtml(row.provider)}</td>
+        <td>${escapeHtml(row.executionSource)}</td>
+        <td><span class="${row.pass ? 'pass' : 'fail'}">${escapeHtml(formatPass(row))}</span></td>
+        <td>${escapeHtml(formatMs(row.latencyMs))}</td>
+        <td>${escapeHtml(row.summary)}</td>
+        <td>${escapeHtml(formatExerciseSummary(row))}</td>
+        <td>${row.detailHtmlPath ? `<a href="${reportUrl(row.detailHtmlPath)}">canonical report</a>` : 'n/a'}</td>
+      </tr>`,
+    )
+    .join('\n');
+
+  return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Workout Generation Comparison</title>
+  <style>
+    body { margin: 0; font: 14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #172033; background: #f8fafc; }
+    main { max-width: 1180px; margin: 0 auto; padding: 32px 24px 48px; }
+    h1 { margin: 0 0 8px; font-size: 28px; }
+    h2 { margin-top: 28px; font-size: 18px; }
+    .muted { color: #64748b; }
+    .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin: 20px 0; }
+    .stat { background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px; }
+    .stat strong { display: block; font-size: 22px; }
+    table { width: 100%; border-collapse: collapse; background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; }
+    th, td { padding: 10px 12px; border-bottom: 1px solid #e2e8f0; text-align: left; vertical-align: top; }
+    th { background: #eef2f7; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: #475569; }
+    tr:last-child td { border-bottom: 0; }
+    a { color: #0369a1; }
+    .pass { color: #047857; font-weight: 700; }
+    .fail { color: #b91c1c; font-weight: 700; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Workout Generation Comparison</h1>
+    <p class="muted">Generated ${escapeHtml(new Date().toISOString())} · Variant ${escapeHtml(params.options.variantLabel)} · Planner ${escapeHtml(params.options.plannerMode)}</p>
+    <p>This is the repo-specific summary. Use the raw <a href="${reportUrl(params.promptfooReportHtmlPath)}">Promptfoo report</a> only when you need the generic eval table or CI/JUnit details.</p>
+
+    <section class="stats">
+      <div class="stat"><strong>${params.rows.length}</strong><span>Provider-call entries</span></div>
+      <div class="stat"><strong>${cleanEntries}</strong><span>Clean entries</span></div>
+      <div class="stat"><strong>${params.rows.length - cleanEntries}</strong><span>Entries with failures</span></div>
+      <div class="stat"><strong>${promptfooStats ? `${promptfooStats.successes ?? 0}/${(promptfooStats.successes ?? 0) + (promptfooStats.failures ?? 0) + (promptfooStats.errors ?? 0)}` : 'n/a'}</strong><span>Promptfoo pass count</span></div>
+    </section>
+
+    <h2>Provider Summary</h2>
+    <table>
+      <thead><tr><th>Provider</th><th>Clean / Total</th><th>Avg Latency</th><th>Hard Failures</th></tr></thead>
+      <tbody>${providerRows}</tbody>
+    </table>
+
+    <h2>Scenario Results</h2>
+    <table>
+      <thead><tr><th>Scenario</th><th>Provider</th><th>Source</th><th>Result</th><th>Latency</th><th>Workout Summary</th><th>Exercises</th><th>Detail</th></tr></thead>
+      <tbody>${scenarioRows}</tbody>
+    </table>
+  </main>
+</body>
+</html>
+`;
+}
+
+async function writeComparisonArtifacts(params) {
+  const rows = readComparisonRows(params.outputDir);
+  if (rows.length === 0) {
+    return null;
+  }
+
+  const artifacts = {
+    markdown: path.join(params.outputDir, 'comparison.md'),
+    html: path.join(params.outputDir, 'comparison.html'),
+  };
+  const comparisonParams = {
+    rows,
+    options: params.options,
+    promptfooStats: readPromptfooStats(params.outputJsonPath),
+    promptfooReportHtmlPath: params.promptfooReportHtmlPath,
+  };
+
+  await writeFile(artifacts.markdown, renderComparisonMarkdown(comparisonParams), 'utf8');
+  await writeFile(artifacts.html, renderComparisonHtml(comparisonParams), 'utf8');
+
+  return artifacts;
+}
+
 async function main() {
   const loadedEnvFiles = loadRepoEnv();
   const options = parseArgs(process.argv.slice(2));
@@ -373,6 +693,8 @@ async function main() {
   const summaryPath = path.join(options.outputDir, 'summary.json');
   const outputJsonPath = path.join(options.outputDir, 'promptfoo-output.json');
   const reportHtmlPath = path.join(options.outputDir, 'report.html');
+  const comparisonMarkdownPath = path.join(options.outputDir, 'comparison.md');
+  const comparisonHtmlPath = path.join(options.outputDir, 'comparison.html');
   const junitPath = path.join(options.outputDir, 'promptfoo.junit.xml');
   const config = buildPromptfooConfig(options, options.outputDir, bridgeData.tests);
 
@@ -391,6 +713,10 @@ async function main() {
           config: configPath,
           outputJson: outputJsonPath,
           reportHtml: reportHtmlPath,
+          reportHtmlUrl: reportUrl(reportHtmlPath),
+          comparisonMarkdown: comparisonMarkdownPath,
+          comparisonHtml: comparisonHtmlPath,
+          comparisonHtmlUrl: reportUrl(comparisonHtmlPath),
           junit: junitPath,
         },
       },
@@ -402,6 +728,8 @@ async function main() {
 
   console.log(`Promptfoo config: ${configPath}`);
   console.log(`Promptfoo summary: ${summaryPath}`);
+  console.log(`Promptfoo HTML report: ${reportHtmlPath}`);
+  console.log(`Promptfoo HTML report URL: ${reportUrl(reportHtmlPath)}`);
   if (loadedEnvFiles.length > 0) {
     console.log(`Loaded env files: ${loadedEnvFiles.join(', ')}`);
   }
@@ -434,8 +762,26 @@ async function main() {
     },
   );
 
-  if (options.openReport && process.platform === 'darwin' && existsSync(reportHtmlPath)) {
-    spawnSync('open', [reportHtmlPath], { stdio: 'ignore', shell: false });
+  const comparisonArtifacts = await writeComparisonArtifacts({
+    outputDir: options.outputDir,
+    outputJsonPath,
+    promptfooReportHtmlPath: reportHtmlPath,
+    options,
+  });
+
+  const openPath = comparisonArtifacts?.html ?? reportHtmlPath;
+  if (options.openReport && process.platform === 'darwin' && existsSync(openPath)) {
+    spawnSync('open', [openPath], { stdio: 'ignore', shell: false });
+  }
+
+  if (existsSync(reportHtmlPath)) {
+    console.log(`Promptfoo HTML report ready: ${reportHtmlPath}`);
+    console.log(`Promptfoo HTML report URL: ${reportUrl(reportHtmlPath)}`);
+  }
+  if (comparisonArtifacts) {
+    console.log(`Workout comparison summary ready: ${comparisonArtifacts.html}`);
+    console.log(`Workout comparison summary URL: ${reportUrl(comparisonArtifacts.html)}`);
+    console.log(`Workout comparison markdown: ${comparisonArtifacts.markdown}`);
   }
 
   if (result.status !== 0) {

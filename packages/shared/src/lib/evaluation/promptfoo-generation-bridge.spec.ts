@@ -61,6 +61,14 @@ describe('Promptfoo generation bridge', () => {
     expect(tests[0]?.vars.variantLabel).toBe('candidate-prompt');
     expect(tests[0]?.vars.plannerMode).toBe('disabled');
     expect(tests[0]?.vars.softReview).toBe(true);
+    expect(tests[0]?.vars).not.toHaveProperty('scenarioTags');
+    expect(tests[0]?.metadata.scenarioTags).toEqual([
+      'beginner',
+      'bodyweight',
+      'easy',
+      'short',
+      'initial',
+    ]);
   });
 
   it('builds warnings for mock-only, missing live access, and broad live runs', () => {

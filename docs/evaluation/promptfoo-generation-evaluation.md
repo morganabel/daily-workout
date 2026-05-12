@@ -49,16 +49,20 @@ Promptfoo generation artifacts are written under `reports/promptfoo-generation/<
 
 - `promptfooconfig.json`: generated Promptfoo configuration
 - `summary.json`: selected scenarios, providers, preflight warnings, and artifact paths
+- `comparison.html`: repo-specific provider/scenario comparison summary; start here for human review
+- `comparison.md`: markdown version of the comparison summary
 - `promptfoo-output.json`: Promptfoo JSON output when the run completes
-- `report.html`: Promptfoo HTML report when the run completes
+- `report.html`: raw Promptfoo HTML report for generic eval-table and CI debugging
 - `promptfoo.junit.xml`: JUnit output when the run completes
 - `provider-calls/`: per-scenario canonical generation-evaluation reports produced by the custom provider bridge
 
-Open the latest HTML report on macOS:
+Open the latest comparison report on macOS:
 
 ```sh
 npm run promptfoo:generation:view
 ```
+
+Promptfoo runs print both the local comparison report path and a `file://` URL. The view command opens `comparison.html` by default and falls back to the raw Promptfoo `report.html` when no comparison summary exists.
 
 ## Hard Checks And Gates
 
