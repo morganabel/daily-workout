@@ -22,6 +22,9 @@
     "validate:generation-scenarios": "nx test @workout-agent/shared --testPathPatterns=src/lib/evaluation/workout-generation-scenarios.spec.ts",
     "evaluate:generation": "node ./tools/scripts/run-generation-evaluation.mjs",
     "review:generation": "node ./tools/scripts/review-generation-report.mjs",
+    "promptfoo:generation": "node ./tools/scripts/run-promptfoo-generation-evaluation.mjs",
+    "promptfoo:generation:view": "node ./tools/scripts/view-promptfoo-generation-report.mjs",
+    "promptfoo:generation:redteam": "node ./tools/scripts/run-promptfoo-generation-redteam.mjs",
     "build": "nx run-many --target=build --all"
   },
   "private": true,
