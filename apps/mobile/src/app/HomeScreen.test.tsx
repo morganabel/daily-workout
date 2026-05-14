@@ -359,6 +359,78 @@ describe('HomeScreen', () => {
     expect(getByText('Pull + Easy Cardio')).toBeTruthy();
   });
 
+  it('uses coach intent when a submitted sheet focus switches back to Auto', async () => {
+    const { generateWorkout } = require('./services/api');
+    generateWorkout.mockResolvedValue(createTodayPlanMock());
+    const { plan, recommendation } = createAdaptivePlanFixture();
+    mockUseHomeData.mockReturnValue({
+      ...baseHookState,
+      adaptivePlan: plan,
+      adaptiveRecommendation: recommendation,
+      quickActions: createSetupQuickActions({ equipment: 'Gym' }),
+    });
+
+    const { getByText } = render(<HomeScreen />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    fireEvent.press(getByText('Adjust details'));
+    fireEvent.press(getByText('Upper Body'));
+    await act(async () => {
+      fireEvent.press(getByText('Apply'));
+    });
+
+    fireEvent.press(getByText('Upper Body'));
+    fireEvent.press(getByText('Auto'));
+    await act(async () => {
+      fireEvent.press(getByText('Apply & Generate'));
+    });
+
+    expect(generateWorkout).toHaveBeenCalledWith(
+      expect.objectContaining({
+        focus: 'Pull',
+        adaptivePlanIntent: expect.objectContaining({
+          planId: 'plan-ppl',
+          recommendationId: 'rec-pull-cardio',
+        }),
+      }),
+      expect.objectContaining({
+        scheduledDate: baseHookState.planningDateTimestamp,
+      })
+    );
+  });
+
+  it('does not generate from setup customize while offline', async () => {
+    const { generateWorkout } = require('./services/api');
+    generateWorkout.mockResolvedValue(createTodayPlanMock());
+    const setGenerationStatus = jest.fn();
+    mockUseHomeData.mockReturnValue({
+      ...baseHookState,
+      isOffline: true,
+      offlineHint: { offline: true, requiresApiKey: false },
+      quickActions: createSetupQuickActions({}),
+      setGenerationStatus,
+    });
+
+    const { getByText } = render(<HomeScreen />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    fireEvent.press(getByText(/60 min/));
+    fireEvent.press(getByText('45'));
+    await act(async () => {
+      fireEvent.press(getByText('Apply & Generate'));
+    });
+
+    expect(generateWorkout).not.toHaveBeenCalled();
+    expect(setGenerationStatus).not.toHaveBeenCalledWith(
+      expect.objectContaining({ state: 'pending' })
+    );
+    expect(getByText('Apply & Generate')).toBeTruthy();
+  });
+
   it('shows rest recommendations as recovery with an escape to choose a workout', async () => {
     const { plan, recommendation } = createRestRecommendationFixture();
     mockUseHomeData.mockReturnValue({

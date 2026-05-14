@@ -1035,8 +1035,9 @@ export const HomeScreen = () => {
         adaptivePlan,
         adaptiveRecommendation
       );
+      const submittedFocus = request.focus ?? focus;
       const shouldUseCoachIntent =
-        focus === 'Smart' &&
+        submittedFocus === 'Smart' &&
         Boolean(adaptivePlanIntent) &&
         (!request.focus ||
           request.focus === 'Smart' ||
@@ -1080,6 +1081,11 @@ export const HomeScreen = () => {
         setIntensity(formatEnergyLabel(request.energy));
       }
       setFocus(request.focus ?? 'Smart');
+
+      if (generating || isOffline) {
+        return;
+      }
+
       setShowCustomizeSheet(false);
       setGenerating(true);
       setGenerationStatus({
