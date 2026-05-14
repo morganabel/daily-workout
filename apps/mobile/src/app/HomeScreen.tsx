@@ -216,6 +216,25 @@ const getAdaptiveRecommendationDuration = (
   );
 };
 
+const getAdaptiveRecommendationLabel = (
+  adaptivePlan: AdaptiveTrainingPlan | null,
+  recommendation: AdaptivePlanRecommendation | null
+): string | null => {
+  const blocks = getAdaptiveRecommendationBlocks(adaptivePlan, recommendation);
+  if (!blocks) {
+    return null;
+  }
+
+  return [blocks.primaryBlock, ...blocks.addOnBlocks]
+    .map((block) => block.label)
+    .join(' + ');
+};
+
+const getFocusDisplayLabel = (focus: string): string => {
+  const option = FOCUS_OPTIONS.find((item) => item.id === focus);
+  return option?.label ?? focus;
+};
+
 const isRestRecommendation = (
   adaptivePlan: AdaptiveTrainingPlan | null,
   recommendation: AdaptivePlanRecommendation | null
@@ -351,69 +370,23 @@ const SetupProfileCard = ({ onPress }: { onPress: () => void }) => (
   </Pressable>
 );
 
-const SetupSummaryRow = ({
-  duration,
-  equipment,
-  intensity,
-  onPress,
-}: {
-  duration: number;
-  equipment: string[];
-  intensity: string;
-  onPress: () => void;
-}) => {
-  const equipmentText =
-    equipment.length > 0 ? equipment.join(', ') : 'Bodyweight';
-  const truncatedEquipment =
-    equipmentText.length > 20
-      ? equipmentText.substring(0, 20) + '...'
-      : equipmentText;
-
-  return (
-    <Pressable style={styles.summaryRow} onPress={onPress}>
-      <View style={styles.summaryContent}>
-        <View style={styles.summaryLine}>
-          <Ionicons
-            name="time-outline"
-            size={16}
-            color={palette.textSecondary}
-          />
-          <Text style={styles.summaryText}>{duration} min</Text>
-          <Text style={styles.summaryDot}>•</Text>
-          <Ionicons
-            name="barbell-outline"
-            size={16}
-            color={palette.textSecondary}
-          />
-          <Text style={styles.summaryText}>{truncatedEquipment}</Text>
-        </View>
-        <View style={styles.summaryLine}>
-          <Ionicons
-            name="speedometer-outline"
-            size={16}
-            color={palette.textSecondary}
-          />
-          <Text style={styles.summaryText}>{intensity} intensity</Text>
-        </View>
-      </View>
-      <View style={styles.summaryChevron}>
-        <Ionicons name="chevron-forward" size={20} color={palette.textMuted} />
-      </View>
-    </Pressable>
-  );
-};
-
 const AdaptiveRecommendationCard = ({
   adaptivePlan,
   recommendation,
+  duration,
+  focusLabel,
   equipment,
   intensity,
+  isPending,
   onCustomize,
 }: {
   adaptivePlan: AdaptiveTrainingPlan;
   recommendation: AdaptivePlanRecommendation;
+  duration: number;
+  focusLabel: string;
   equipment: string[];
   intensity: string;
+  isPending: boolean;
   onCustomize: () => void;
 }) => {
   const blocks = getAdaptiveRecommendationBlocks(adaptivePlan, recommendation);
@@ -422,13 +395,8 @@ const AdaptiveRecommendationCard = ({
     return null;
   }
 
-  const { primaryBlock, addOnBlocks, alternativeBlocks } = blocks;
+  const { primaryBlock, alternativeBlocks } = blocks;
   const isRest = primaryBlock.category === 'rest';
-  const totalMinutes = getAdaptiveRecommendationDuration(
-    adaptivePlan,
-    recommendation
-  );
-
   return (
     <Card style={styles.recommendationCard}>
       <View style={styles.recommendationHeader}>
@@ -442,50 +410,34 @@ const AdaptiveRecommendationCard = ({
         <View style={styles.recommendationTitleGroup}>
           <Text style={styles.sectionLabel}>COACH RECOMMENDS</Text>
           <Text style={styles.recommendationTitle}>
-            {isRest ? 'Take a rest day' : primaryBlock.label}
-            {!isRest && addOnBlocks.length
-              ? ` + ${addOnBlocks.map((block) => block.label).join(' + ')}`
-              : ''}
+            {isRest ? 'Take a rest day' : focusLabel}
           </Text>
         </View>
       </View>
 
       <View style={styles.recommendationPillRow}>
-        {isRest ? (
-          <View style={styles.recommendationPill}>
-            <Ionicons name="bed-outline" size={14} color={palette.primary} />
-            <Text style={styles.recommendationPillText}>
-              No workout required
-            </Text>
-          </View>
-        ) : (
-          <>
-            <View style={styles.recommendationPill}>
-              <Ionicons name="time-outline" size={14} color={palette.primary} />
-              <Text style={styles.recommendationPillText}>
-                {totalMinutes ?? primaryBlock.defaultDurationMinutes} min
-              </Text>
-            </View>
-            <View style={styles.recommendationPill}>
-              <Ionicons
-                name="barbell-outline"
-                size={14}
-                color={palette.primary}
-              />
-              <Text style={styles.recommendationPillText}>
-                {formatEquipment(equipment)}
-              </Text>
-            </View>
-            <View style={styles.recommendationPill}>
-              <Ionicons
-                name="speedometer-outline"
-                size={14}
-                color={palette.primary}
-              />
-              <Text style={styles.recommendationPillText}>{intensity}</Text>
-            </View>
-          </>
-        )}
+        <View style={styles.recommendationPill}>
+          <Ionicons name="time-outline" size={14} color={palette.primary} />
+          <Text style={styles.recommendationPillText}>{duration} min</Text>
+        </View>
+        <View style={styles.recommendationPill}>
+          <Ionicons
+            name="barbell-outline"
+            size={14}
+            color={palette.primary}
+          />
+          <Text style={styles.recommendationPillText}>
+            {formatEquipment(equipment)}
+          </Text>
+        </View>
+        <View style={styles.recommendationPill}>
+          <Ionicons
+            name="speedometer-outline"
+            size={14}
+            color={palette.primary}
+          />
+          <Text style={styles.recommendationPillText}>{intensity}</Text>
+        </View>
       </View>
 
       <Text style={styles.recommendationRationale}>
@@ -507,119 +459,87 @@ const AdaptiveRecommendationCard = ({
         label={isRest ? 'Choose a workout instead' : 'Adjust details'}
         variant="outline"
         onPress={onCustomize}
+        disabled={isPending}
         style={styles.recommendationCustomizeButton}
       />
     </Card>
   );
 };
 
-const FocusSelector = ({
-  value,
-  onChange,
-  onMore,
+const GenerationInputs = ({
+  duration,
+  focusLabel,
+  equipment,
+  intensity,
+  hasStagedValues,
+  isPending,
+  isRestRecommendation,
+  onCustomize,
+  onGenerate,
 }: {
-  value: string;
-  onChange: (v: string) => void;
-  onMore: () => void;
+  duration: number;
+  focusLabel: string;
+  equipment: string[];
+  intensity: string;
+  hasStagedValues: boolean;
+  isPending: boolean;
+  isRestRecommendation: boolean;
+  onCustomize: () => void;
+  onGenerate: () => void;
 }) => {
-  const isAutoSelected = value === 'Smart';
+  const chips = [
+    { label: `${duration} min`, icon: 'time-outline' as const },
+    { label: focusLabel, icon: 'sparkles-outline' as const },
+    { label: formatEquipment(equipment), icon: 'barbell-outline' as const },
+    { label: intensity, icon: 'speedometer-outline' as const },
+  ];
 
   return (
-    <View style={styles.sectionContainer}>
-      <Text style={styles.sectionLabel}>FOCUS</Text>
-      <View style={styles.focusContainer}>
-        {/* Auto / Smart Option */}
-        <Pressable
-          style={[
-            styles.focusCardLarge,
-            isAutoSelected && styles.focusCardSelected,
-          ]}
-          onPress={() => onChange('Smart')}
-        >
-          <View style={styles.focusHeader}>
-            <View style={styles.focusTitleRow}>
-              <Ionicons
-                name="sparkles"
-                size={20}
-                color={isAutoSelected ? palette.textInverse : palette.primary}
-              />
-              <Text
-                style={[
-                  styles.focusCardTitle,
-                  isAutoSelected && styles.focusCardTitleSelected,
-                ]}
-              >
-                Auto
-              </Text>
-            </View>
-            <View
-              style={[
-                styles.smartBadge,
-                isAutoSelected && styles.smartBadgeSelected,
-              ]}
-            >
-              <Text style={styles.smartBadgeText}>SMART</Text>
-            </View>
-          </View>
-          <Text
-            style={[
-              styles.focusCardDesc,
-              isAutoSelected && styles.focusCardDescSelected,
+    <View style={styles.generationInputSection}>
+      <View style={styles.generationChipGrid}>
+        {chips.map((chip) => (
+          <Pressable
+            key={chip.icon}
+            accessibilityRole="button"
+            accessibilityLabel={`Edit ${chip.label}`}
+            onPress={onCustomize}
+            disabled={isPending}
+            style={({ pressed }) => [
+              styles.generationChip,
+              pressed && styles.generationChipPressed,
+              isPending && styles.generationChipDisabled,
             ]}
           >
-            Picks the best focus based on your recent training.
-          </Text>
-        </Pressable>
-
-        {/* Grid for other options */}
-        <View style={styles.focusGrid}>
-          {FOCUS_OPTIONS.slice(1).map((opt) => {
-            const isSelected = value === opt.id;
-            return (
-              <Pressable
-                key={opt.id}
-                style={[
-                  styles.focusCardSmall,
-                  isSelected && styles.focusCardSelected,
-                ]}
-                onPress={() => onChange(opt.id)}
-              >
-                <Ionicons
-                  name={opt.icon as any}
-                  size={20}
-                  color={
-                    isSelected ? palette.textInverse : palette.textSecondary
-                  }
-                />
-                <Text
-                  style={[
-                    styles.focusCardTitleSmall,
-                    isSelected && styles.focusCardTitleSelected,
-                  ]}
-                >
-                  {opt.label}
-                </Text>
-                {isSelected && (
-                  <Ionicons
-                    name="checkmark-circle"
-                    size={16}
-                    color={palette.textInverse}
-                    style={styles.checkIcon}
-                  />
-                )}
-              </Pressable>
-            );
-          })}
-          {/* More button */}
-          <Pressable style={styles.focusCardSmall} onPress={onMore}>
-            <Ionicons
-              name="ellipsis-horizontal"
-              size={20}
-              color={palette.textSecondary}
-            />
-            <Text style={styles.focusCardTitleSmall}>More</Text>
+            <Ionicons name={chip.icon} size={16} color={palette.primary} />
+            <Text style={styles.generationChipText} numberOfLines={1}>
+              {chip.label}
+            </Text>
+            {hasStagedValues ? <View style={styles.generationChipDot} /> : null}
           </Pressable>
-        </View>
+        ))}
+      </View>
+
+      <View style={styles.generationActionRow}>
+        <Button
+          label={isPending ? 'Updating…' : 'Customize'}
+          onPress={onCustomize}
+          variant="outline"
+          disabled={isPending}
+          style={styles.customizeActionButton}
+        />
+        {!isRestRecommendation ? (
+          <Button
+            label={isPending ? 'Generating...' : "Generate today's workout"}
+            onPress={onGenerate}
+            loading={isPending}
+            icon={
+              !isPending && (
+                <Ionicons name="flash" size={20} color={palette.textInverse} />
+              )
+            }
+            style={styles.generateActionButton}
+          />
+        ) : null}
       </View>
     </View>
   );
@@ -972,6 +892,7 @@ export const HomeScreen = () => {
     refreshPlanningDate,
     generationStatus,
     updateStagedValue,
+    clearStagedValues,
     setGenerationStatus,
   } = useHomeData();
 
@@ -1046,6 +967,7 @@ export const HomeScreen = () => {
       console.log('Generating workout:', request);
       await generateWorkout(request, { scheduledDate: targetTimestamp });
       await refetch();
+      clearStagedValues();
 
       setGenerationStatus({ state: 'idle', submittedAt: null });
     } catch (err) {
@@ -1083,6 +1005,7 @@ export const HomeScreen = () => {
         });
         setOptimisticPlanForDate(newPlan, targetDateLocal);
         await refetch();
+        clearStagedValues();
         setGenerationStatus({ state: 'idle', submittedAt: null });
       } catch (err) {
         const apiError = err as ApiError;
@@ -1102,7 +1025,45 @@ export const HomeScreen = () => {
         setCustomizeTargetDate(null);
       }
     } else {
-      // Initial customization - just update local state
+      const targetTimestamp =
+        customizeTargetDate?.timestamp ?? planningDateTimestamp;
+      const adaptivePlanIntent = buildAdaptivePlanIntent(
+        adaptivePlan,
+        adaptiveRecommendation
+      );
+      const coachFocusLabel = getAdaptiveRecommendationLabel(
+        adaptivePlan,
+        adaptiveRecommendation
+      );
+      const shouldUseCoachIntent =
+        focus === 'Smart' &&
+        Boolean(adaptivePlanIntent) &&
+        (!request.focus ||
+          request.focus === 'Smart' ||
+          request.focus === adaptivePlanIntent?.primaryBlock.label ||
+          request.focus === coachFocusLabel);
+      const generationRequest: GenerationRequest = {
+        ...request,
+        ...(shouldUseCoachIntent && adaptivePlanIntent
+          ? {
+              adaptivePlanIntent,
+              focus: adaptivePlanIntent.primaryBlock.label,
+            }
+          : {}),
+      };
+
+      if (
+        generationRequest.equipment &&
+        !equipmentOverride &&
+        !hasChangedStagedEquipment(quickActions) &&
+        equipmentSelectionsEqual(
+          generationRequest.equipment,
+          resolveBaseEquipmentSelection(quickActions)
+        )
+      ) {
+        delete generationRequest.equipment;
+      }
+
       hasEditedSetupRef.current = true;
       if (request.timeMinutes) setDuration(request.timeMinutes);
       if (request.equipment) {
@@ -1120,7 +1081,34 @@ export const HomeScreen = () => {
       }
       setFocus(request.focus ?? 'Smart');
       setShowCustomizeSheet(false);
-      setCustomizeTargetDate(null);
+      setGenerating(true);
+      setGenerationStatus({
+        state: 'pending',
+        submittedAt: new Date().toISOString(),
+      });
+
+      try {
+        clearTransientPlanState();
+        await generateWorkout(generationRequest, {
+          scheduledDate: targetTimestamp,
+        });
+        await refetch();
+        clearStagedValues();
+        setGenerationStatus({ state: 'idle', submittedAt: null });
+      } catch (err) {
+        const apiError = err as ApiError;
+        console.error('Failed to generate:', apiError);
+        setGenerationStatus({
+          state: 'error',
+          submittedAt: new Date().toISOString(),
+          message: apiError.message,
+        });
+        Alert.alert('Error', apiError.message || 'Failed to generate workout');
+      } finally {
+        setGenerating(false);
+        setCustomizeForRegeneration(false);
+        setCustomizeTargetDate(null);
+      }
     }
   };
 
@@ -1193,11 +1181,6 @@ export const HomeScreen = () => {
     setShowCustomizeSheet(true);
   };
 
-  const handleSetupFocusChange = (nextFocus: string) => {
-    hasEditedSetupRef.current = true;
-    setFocus(nextFocus);
-  };
-
   const handleSelectVersion = (version: TodayPlan) => {
     contentScrollRef.current?.scrollTo({ y: 0, animated: true });
     void selectWorkoutVersionPlan(version);
@@ -1216,12 +1199,23 @@ export const HomeScreen = () => {
   );
   const shouldShowCoachRecommendation =
     hasAdaptiveRecommendation && focus === 'Smart';
+  const coachFocusLabel = shouldShowCoachRecommendation
+    ? getAdaptiveRecommendationLabel(adaptivePlan, adaptiveRecommendation)
+    : null;
   const hasRestRecommendation =
     isRestRecommendation(adaptivePlan, adaptiveRecommendation) &&
     shouldShowCoachRecommendation;
   const adaptiveRecommendationDuration = getAdaptiveRecommendationDuration(
     adaptivePlan,
     adaptiveRecommendation
+  );
+  const displayDuration =
+    shouldShowCoachRecommendation && adaptiveRecommendationDuration
+      ? adaptiveRecommendationDuration
+      : duration;
+  const displayFocusLabel = coachFocusLabel ?? getFocusDisplayLabel(focus);
+  const hasStagedValues = quickActions.some((action) =>
+    Boolean(action.stagedValue?.trim())
   );
   const regenerationError =
     generationStatus.state === 'error' && generationStatus.message
@@ -1332,56 +1326,57 @@ export const HomeScreen = () => {
           />
         ) : (
           <>
-            {!shouldShowCoachRecommendation ? (
-              <SetupSummaryRow
-                duration={duration}
-                equipment={displayEquipment}
-                intensity={intensity}
-                onPress={handleOpenSetupCustomize}
-              />
-            ) : null}
-
             {shouldShowCoachRecommendation &&
             adaptivePlan &&
             adaptiveRecommendation ? (
-              <AdaptiveRecommendationCard
-                adaptivePlan={adaptivePlan}
-                recommendation={adaptiveRecommendation}
+              <>
+                <AdaptiveRecommendationCard
+                  adaptivePlan={adaptivePlan}
+                  recommendation={adaptiveRecommendation}
+                  duration={displayDuration}
+                  focusLabel={displayFocusLabel}
+                  equipment={displayEquipment}
+                  intensity={intensity}
+                  isPending={isPending}
+                  onCustomize={handleOpenSetupCustomize}
+                />
+                {!hasRestRecommendation ? (
+                  <View style={styles.actionContainer}>
+                    <Button
+                      label={
+                        isPending
+                          ? 'Generating...'
+                          : "Generate today's workout"
+                      }
+                      onPress={handleGenerate}
+                      loading={isPending}
+                      icon={
+                        !isPending && (
+                          <Ionicons
+                            name="flash"
+                            size={20}
+                            color={palette.textInverse}
+                          />
+                        )
+                      }
+                      style={styles.generateButton}
+                    />
+                  </View>
+                ) : null}
+              </>
+            ) : (
+              <GenerationInputs
+                duration={displayDuration}
+                focusLabel={displayFocusLabel}
                 equipment={displayEquipment}
                 intensity={intensity}
+                hasStagedValues={hasStagedValues}
+                isPending={isPending}
+                isRestRecommendation={hasRestRecommendation}
                 onCustomize={handleOpenSetupCustomize}
+                onGenerate={handleGenerate}
               />
-            ) : null}
-
-            {!shouldShowCoachRecommendation ? (
-              <FocusSelector
-                value={focus}
-                onChange={handleSetupFocusChange}
-                onMore={handleOpenSetupCustomize}
-              />
-            ) : null}
-
-            {!hasRestRecommendation ? (
-              <View style={styles.actionContainer}>
-                <Button
-                  label={
-                    isPending ? 'Generating...' : "Generate today's workout"
-                  }
-                  onPress={handleGenerate}
-                  loading={isPending}
-                  icon={
-                    !isPending && (
-                      <Ionicons
-                        name="flash"
-                        size={20}
-                        color={palette.textInverse}
-                      />
-                    )
-                  }
-                  style={styles.generateButton}
-                />
-              </View>
-            ) : null}
+            )}
           </>
         )}
 
@@ -1395,7 +1390,7 @@ export const HomeScreen = () => {
         visible={showCustomizeSheet}
         currentPlan={customizeForRegeneration ? activePlan : null}
         loading={generating}
-        initialDuration={duration}
+        initialDuration={displayDuration}
         initialEquipment={displayEquipment}
         initialEnergy={
           intensity.toLowerCase() as 'easy' | 'moderate' | 'intense'
@@ -1579,6 +1574,61 @@ const styles = StyleSheet.create({
   },
   recommendationCustomizeButton: {
     marginTop: 2,
+  },
+
+  // Generation Inputs
+  generationInputSection: {
+    gap: 14,
+  },
+  generationChipGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  generationChip: {
+    width: '48.5%',
+    minHeight: 50,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: palette.border,
+    backgroundColor: palette.card,
+    paddingHorizontal: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  generationChipPressed: {
+    opacity: 0.75,
+  },
+  generationChipDisabled: {
+    opacity: 0.55,
+  },
+  generationChipText: {
+    flex: 1,
+    fontFamily: typography.fontFamilyBold,
+    fontSize: 13,
+    color: palette.textPrimary,
+  },
+  generationChipDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: palette.primary,
+  },
+  generationActionRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  customizeActionButton: {
+    flex: 0.85,
+  },
+  generateActionButton: {
+    flex: 1.35,
+    shadowColor: palette.primary,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.24,
+    shadowRadius: 14,
+    elevation: 7,
   },
 
   // Section Shared

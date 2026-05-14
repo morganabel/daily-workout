@@ -218,13 +218,14 @@ describe('HomeScreen', () => {
   it('renders setup view when no plan exists', async () => {
     mockUseHomeData.mockReturnValue(baseHookState);
 
-    const { getByText } = render(<HomeScreen />);
+    const { getByText, getByLabelText, queryByText } = render(<HomeScreen />);
     await act(async () => {
       await Promise.resolve();
     });
 
     expect(getByText(/Today's Setup/i)).toBeTruthy();
-    expect(getByText('FOCUS')).toBeTruthy();
+    expect(queryByText('FOCUS')).toBeNull();
+    expect(getByLabelText('Edit 30 min')).toBeTruthy();
     expect(getByText('Auto')).toBeTruthy();
     expect(getByText(/\d+ min/)).toBeTruthy();
     expect(getByText('Bodyweight')).toBeTruthy();
@@ -338,6 +339,26 @@ describe('HomeScreen', () => {
     ).toBeUndefined();
   });
 
+  it('opens coach customization with Auto selected instead of the recommendation label', async () => {
+    const { plan, recommendation } = createAdaptivePlanFixture();
+    mockUseHomeData.mockReturnValue({
+      ...baseHookState,
+      adaptivePlan: plan,
+      adaptiveRecommendation: recommendation,
+      quickActions: createSetupQuickActions({ equipment: 'Gym' }),
+    });
+
+    const { getByLabelText, getByText } = render(<HomeScreen />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    fireEvent.press(getByText('Adjust details'));
+
+    expect(getByLabelText('Auto').props.accessibilityState?.checked).toBe(true);
+    expect(getByText('Pull + Easy Cardio')).toBeTruthy();
+  });
+
   it('shows rest recommendations as recovery with an escape to choose a workout', async () => {
     const { plan, recommendation } = createRestRecommendationFixture();
     mockUseHomeData.mockReturnValue({
@@ -361,11 +382,10 @@ describe('HomeScreen', () => {
         'Your main targets are covered. Recovery keeps the plan moving.'
       )
     ).toBeTruthy();
-    expect(getByText('No workout required')).toBeTruthy();
     expect(getByText('Choose a workout instead')).toBeTruthy();
     expect(queryByText("Generate today's workout")).toBeNull();
-    expect(queryByText('Gym')).toBeNull();
-    expect(queryByText('Moderate')).toBeNull();
+    expect(getByText('Gym')).toBeTruthy();
+    expect(getByText('Intense')).toBeTruthy();
   });
 
   it('preserves customized duration for one-off Auto generation', async () => {
@@ -382,18 +402,15 @@ describe('HomeScreen', () => {
     });
 
     fireEvent.press(getByText(/60 min/));
-    fireEvent.press(getByText('60'));
+    fireEvent.press(getByText('45'));
     await act(async () => {
-      fireEvent.press(getByText('Generate workout'));
-    });
-    await act(async () => {
-      fireEvent.press(getByText("Generate today's workout"));
+      fireEvent.press(getByText('Apply & Generate'));
     });
 
     expect(generateWorkout).toHaveBeenCalledWith(
       expect.objectContaining({
         focus: 'Smart',
-        timeMinutes: 60,
+        timeMinutes: 45,
       }),
       expect.objectContaining({
         scheduledDate: baseHookState.planningDateTimestamp,
@@ -413,9 +430,10 @@ describe('HomeScreen', () => {
       await Promise.resolve();
     });
 
+    fireEvent.press(getByText('Auto'));
     fireEvent.press(getByText('Upper Body'));
     await act(async () => {
-      fireEvent.press(getByText("Generate today's workout"));
+      fireEvent.press(getByText('Apply & Generate'));
     });
 
     expect(generateWorkout).toHaveBeenCalledWith(
@@ -476,14 +494,11 @@ describe('HomeScreen', () => {
     });
 
     expect(getByText('60 min')).toBeTruthy();
-    expect(getByText('Intense intensity')).toBeTruthy();
+    expect(getByText('Intense')).toBeTruthy();
 
     fireEvent.press(getByText('Dumbbells, Bench'));
     await act(async () => {
-      fireEvent.press(getByText('Generate workout'));
-    });
-    await act(async () => {
-      fireEvent.press(getByText("Generate today's workout"));
+      fireEvent.press(getByText('Apply & Generate'));
     });
 
     expect(generateWorkout).toHaveBeenCalledWith(
@@ -514,10 +529,7 @@ describe('HomeScreen', () => {
     fireEvent.press(getByText('Dumbbells, Bench'));
     fireEvent.press(getByText('45'));
     await act(async () => {
-      fireEvent.press(getByText('Generate workout'));
-    });
-    await act(async () => {
-      fireEvent.press(getByText("Generate today's workout"));
+      fireEvent.press(getByText('Apply & Generate'));
     });
 
     expect(generateWorkout).toHaveBeenCalledWith(
@@ -547,10 +559,7 @@ describe('HomeScreen', () => {
     fireEvent.press(getByText('Bodyweight'));
     fireEvent.press(getByText('Cable Machine'));
     await act(async () => {
-      fireEvent.press(getByText('Generate workout'));
-    });
-    await act(async () => {
-      fireEvent.press(getByText("Generate today's workout"));
+      fireEvent.press(getByText('Apply & Generate'));
     });
 
     expect(generateWorkout).toHaveBeenCalledWith(
@@ -576,10 +585,7 @@ describe('HomeScreen', () => {
     fireEvent.press(getByText('Bodyweight'));
     fireEvent.press(getByText('Gym'));
     await act(async () => {
-      fireEvent.press(getByText('Generate workout'));
-    });
-    await act(async () => {
-      fireEvent.press(getByText("Generate today's workout"));
+      fireEvent.press(getByText('Apply & Generate'));
     });
 
     expect(generateWorkout).toHaveBeenCalledWith(
@@ -604,10 +610,7 @@ describe('HomeScreen', () => {
     fireEvent.press(getByText('Gym'));
     fireEvent.press(getByText('Cable Machine'));
     await act(async () => {
-      fireEvent.press(getByText('Generate workout'));
-    });
-    await act(async () => {
-      fireEvent.press(getByText("Generate today's workout"));
+      fireEvent.press(getByText('Apply & Generate'));
     });
 
     expect(generateWorkout).toHaveBeenCalledWith(
