@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Modal,
   Pressable,
@@ -44,6 +44,11 @@ const FEEDBACK_OPTIONS: { value: RegenerationFeedback; label: string }[] = [
   { value: 'different-exercises', label: 'Different exercises' },
   { value: 'just-try-again', label: 'Just try again' },
 ];
+
+const getFocusOptionLabel = (value: string): string => {
+  const match = FOCUS_OPTIONS.find((option) => option.id === value);
+  return match?.label ?? value;
+};
 
 // ... (Helpers remain the same)
 const getQuickActionValue = (
@@ -137,6 +142,8 @@ export const CustomizeSheet = ({
   const showFeedback = Boolean(currentResponseId);
   const primaryLabel = isRegeneration
     ? 'Regenerate workout'
+    : onUpdateStagedValue
+    ? 'Apply & Generate'
     : 'Generate workout';
   const canStageValues = Boolean(onUpdateStagedValue);
 
@@ -147,6 +154,15 @@ export const CustomizeSheet = ({
   const [energy, setEnergy] = useState<WorkoutEnergy>('moderate');
   const [notes, setNotes] = useState('');
   const [freeFormMode, setFreeFormMode] = useState(false);
+
+  const focusOptions = useMemo(() => {
+    const hasCurrentFocus = FOCUS_OPTIONS.some((option) => option.id === focus);
+    if (hasCurrentFocus || !focus.trim()) {
+      return FOCUS_OPTIONS;
+    }
+
+    return [{ id: focus, label: getFocusOptionLabel(focus) }, ...FOCUS_OPTIONS];
+  }, [focus]);
 
   useEffect(() => {
     if (!visible) return;
@@ -300,7 +316,14 @@ export const CustomizeSheet = ({
         <View style={styles.sheet}>
           <View style={styles.handle} />
           <View style={styles.headerRow}>
-            <Text style={styles.title}>Customize</Text>
+            <View style={styles.headerCopy}>
+              <Text style={styles.title}>Customize workout</Text>
+              <Text style={styles.subtitle}>
+                {isRegeneration
+                  ? 'Update this workout using your changes.'
+                  : 'Changes apply to the next generated workout.'}
+              </Text>
+            </View>
             <View style={styles.headerAction}>
               <Text style={styles.freeFormLabel}>Free form</Text>
               <Switch
@@ -359,7 +382,7 @@ export const CustomizeSheet = ({
                 <View style={styles.section}>
                   <Text style={styles.sectionTitle}>Focus</Text>
                   <View style={styles.chipsRow}>
-                    {FOCUS_OPTIONS.map((f) => (
+                    {focusOptions.map((f) => (
                       <Chip
                         key={f.id}
                         label={f.label}
@@ -428,7 +451,7 @@ export const CustomizeSheet = ({
           <View style={styles.actions}>
             {canStageValues && (
               <Button
-                label="Save for next"
+                label="Apply"
                 onPress={handleApply}
                 disabled={loading}
                 variant="secondary"
@@ -503,6 +526,13 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontFamily: typography.fontFamilyExtraBold,
   },
+  subtitle: {
+    color: palette.textMuted,
+    fontSize: 13,
+    fontFamily: typography.fontFamily,
+    lineHeight: 18,
+    marginTop: 2,
+  },
   headerRow: {
     paddingHorizontal: 20,
     paddingTop: 12,
@@ -511,6 +541,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 12,
+  },
+  headerCopy: {
+    flex: 1,
   },
   headerAction: {
     flexDirection: 'row',
