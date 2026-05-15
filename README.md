@@ -125,14 +125,13 @@ When keys are available, use the HTML and JSON reports to compare hard-check del
 ## API surface
 
 - `GET /api/meta` → server capabilities (auth methods, protocol version). Does not require auth.
-- `GET /api/home/snapshot` → returns today’s plan (or null), quick actions, and recent sessions. Requires `Authorization: Bearer <token>` (Better Auth session token in DB-backed mode; any non-empty token in stub mode).
 - `POST /api/workouts/generate` → generates a `TodayPlan` using the selected provider; respects BYOK headers and falls back to mock data in CE mode.
 - `POST /api/workouts/{id}/log` → records a workout session summary (currently stubbed pending persistence).
 
 ## Current limitations before going public
 
 - DB-backed auth is still early: local dev uses Postgres via Docker and Better Auth sessions; persistence beyond auth tables is still limited.
-- Workout logging/persistence is not implemented; snapshot recent sessions are mocked.
+- Server-side workout logging/persistence is not implemented; the mobile app uses local persistence for Home state, workout versions, and recent activity.
 - Several API handlers contain TODOs for ownership checks and persistence—review before relying on them in production.
 
 ## License & Ownership

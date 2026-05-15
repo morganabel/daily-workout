@@ -13,7 +13,6 @@ import {
   InMemoryGenerationStore,
   NoOpUsagePolicy,
   NoOpMeteringSink,
-  createSnapshotHandler,
   createGenerateHandler,
   createLogWorkoutHandler,
   type GenerateHandlerConfig,
@@ -102,7 +101,6 @@ const buildConfig = (): GenerateHandlerConfig => {
 const config = buildConfig();
 
 // Create handlers using the factories
-export const snapshotHandler = createSnapshotHandler({ auth, store });
 export const generateHandler = createGenerateHandler({
   auth,
   store,

@@ -5,11 +5,6 @@
  */
 
 export {
-  createSnapshotHandler,
-  type SnapshotHandlerDeps,
-} from './snapshot';
-
-export {
   createGenerateHandler,
   type GenerateHandlerDeps,
   type GenerateHandlerConfig,

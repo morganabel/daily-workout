@@ -2,11 +2,14 @@ import { z } from 'zod';
 
 import {
   generationRequestSchema,
+  generationStatusSchema,
+  offlineHintSchema,
   plannedEventInputSchema,
+  quickActionPresetSchema,
   todayPlanSchema,
   userPreferencesSchema,
+  workoutSessionSummarySchema,
 } from './workouts';
-import { homeSnapshotSchema } from './home-snapshot';
 
 export const MOBILE_DEBUG_MCP_PROTOCOL_VERSION = 1;
 export const MOBILE_DEBUG_MCP_RESET_CONFIRMATION = 'reset-debug-data';
@@ -161,7 +164,16 @@ export type MobileDebugAppState = z.infer<typeof mobileDebugAppStateSchema>;
 
 export const mobileDebugHomeStateSchema = z
   .object({
-    snapshot: homeSnapshotSchema.partial().optional(),
+    snapshot: z
+      .object({
+        plan: todayPlanSchema.nullable().optional(),
+        recentSessions: z.array(workoutSessionSummarySchema).optional(),
+        quickActions: z.array(quickActionPresetSchema).optional(),
+        offlineHint: offlineHintSchema.optional(),
+        generationStatus: generationStatusSchema.optional(),
+      })
+      .strict()
+      .optional(),
     planVersions: z.array(todayPlanSchema).optional(),
     ui: z.record(z.string(), z.unknown()).optional(),
   })

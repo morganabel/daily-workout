@@ -9,7 +9,7 @@ This package provides the framework-agnostic business logic for the Workout Agen
 - **Handler Factories**: Create `Request → Response` handlers for API routes
 - **Dependency Interfaces**: `AuthProvider`, `GenerationStore`, `ModelRouter`, `UsagePolicy`, `MeteringSink`
 - **CE Defaults**: Stub implementations for Community Edition deployments
-- **Utilities**: Error handling, context loading, quick actions
+- **Utilities**: Error handling, context loading, generation planning
 
 ## Usage in Community Edition
 
@@ -19,7 +19,6 @@ import {
   InMemoryGenerationStore,
   NoOpUsagePolicy,
   NoOpMeteringSink,
-  createSnapshotHandler,
   createGenerateHandler,
   createLogWorkoutHandler,
 } from '@workout-agent-ce/server-core';
@@ -33,7 +32,6 @@ const policy = new NoOpUsagePolicy();
 const metering = new NoOpMeteringSink();
 
 // Create handlers
-const snapshotHandler = createSnapshotHandler({ auth, store });
 const generateHandler = createGenerateHandler({
   auth,
   store,
@@ -51,8 +49,8 @@ const generateHandler = createGenerateHandler({
 const logWorkoutHandler = createLogWorkoutHandler({ auth, store });
 
 // Use in Next.js routes
-export async function GET(request: Request) {
-  return snapshotHandler(request);
+export async function POST(request: Request) {
+  return generateHandler(request);
 }
 ```
 
@@ -62,7 +60,6 @@ Replace the CE defaults with production implementations:
 
 ```typescript
 import {
-  createSnapshotHandler,
   createGenerateHandler,
   createLogWorkoutHandler,
 } from '@workout-agent-ce/server-core';

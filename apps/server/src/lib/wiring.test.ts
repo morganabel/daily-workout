@@ -9,7 +9,6 @@ jest.mock('@workout-agent-ce/server-core', () => ({
   InMemoryGenerationStore: jest.fn(() => ({ name: 'store' })),
   NoOpUsagePolicy: jest.fn(() => ({ name: 'policy' })),
   NoOpMeteringSink: jest.fn(() => ({ name: 'metering' })),
-  createSnapshotHandler: jest.fn(() => jest.fn()),
   createGenerateHandler,
   createLogWorkoutHandler: jest.fn(() => jest.fn()),
 }));

@@ -140,7 +140,7 @@ The mobile app MUST provide a dedicated preview view of the suggested workout be
 - **THEN** the app returns to the Home screen without starting the workout
 
 ### Requirement: Home CTA Execution
-The hero buttons and quick log affordances MUST invoke real data mutations and keep the UI state in sync with the latest snapshot.
+The hero buttons and quick log affordances MUST invoke real data mutations and keep the UI state in sync with the local data layer.
 
 #### Scenario: Generate workout submits context
 - **GIVEN** the user taps `Generate workout` (or `Customize ➝ Generate`)
@@ -150,12 +150,12 @@ The hero buttons and quick log affordances MUST invoke real data mutations and k
 #### Scenario: Log done refreshes activity list
 - **GIVEN** a plan is in `ready` state
 - **WHEN** the user taps `Log done`
-- **THEN** the app marks the workout complete via the logging endpoint, shows a transient loading state, and updates the Recent Activity list with the new entry
+- **THEN** the app marks the local workout complete, shows a transient loading state, and updates the Recent Activity list with the new entry
 
 #### Scenario: Quick log bottom bar entry
 - **GIVEN** the user taps `Quick log`
 - **WHEN** they submit a bodyweight/cardio entry without an active plan
-- **THEN** the app posts a short workout summary, clears the sheet, and prepends the response to Recent Activity
+- **THEN** the app writes a local workout summary, clears the sheet, and prepends the response to Recent Activity
 
 #### Scenario: Offline or BYOK missing
 - **GIVEN** the user taps any networked CTA while offline or without an API key
@@ -202,8 +202,8 @@ The mobile hero experience MUST provide perceivable progress, disable conflictin
 - **WHEN** the user returns to the home screen
 - **THEN** the hero card shows inline error text, the chips retain their staged values, and the Generate button becomes a `Retry` CTA that reuses the staged context
 
-#### Scenario: Successful generation hydrates from snapshot
-- **GIVEN** a generation completes and the client refetches `/api/home/snapshot`
+#### Scenario: Successful generation hydrates from local data
+- **GIVEN** a generation completes and the client saves the returned plan locally
 - **WHEN** the screen refreshes
 - **THEN** the hero card renders the persisted plan without requiring another manual fetch, and the Preview/Log buttons operate on that plan even after an app restart
 

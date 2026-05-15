@@ -2,60 +2,57 @@
 
 ## Purpose
 
-TBD - created by archiving change add-mobile-home-data-pipeline. Update Purpose after archive.
+Home data is local-first. The mobile app derives Home state from local repositories for planned workouts, workout versions, recent sessions, preferences, planned events, and transient generation UI state. The backend remains responsible for AI workout generation and provider policy, not for serving an authoritative Home snapshot.
 ## Requirements
-### Requirement: Home Snapshot Endpoint
+### Requirement: Local-First Home Data
 
-The backend MUST expose a single authenticated endpoint that returns today's plan, quick-action presets, and the last three session summaries. Snapshot responses SHALL now include a `generationStatus` object describing the latest generation attempt (`state: 'idle' | 'pending' | 'error'`, `submittedAt`, optional `etaSeconds` + `message`) so the client can mirror pending/error states even if the plan is still the previous one.
+The mobile app MUST derive Home state from local data sources rather than calling a backend Home snapshot endpoint. Home state SHALL include today's selected generated workout, generated workout versions for that day, quick-action presets derived from local preferences, recent session summaries, offline hints, and transient generation status (`state: 'idle' | 'pending' | 'error'`, `submittedAt`, optional `etaSeconds` + `message`).
 
-**Reason**: We are moving to a local-first architecture where the home screen state is derived from the local database, not a server snapshot.
-**Migration**: The endpoint will be deprecated or repurposed for sync only. The client will no longer call this on load.
+#### Scenario: Home derives plan from local data
 
-#### Scenario: Snapshot exposes pending generation state
+- **GIVEN** the user has one or more planned generated workouts for the current local date
+- **WHEN** the Home screen loads
+- **THEN** it selects the locally marked version and exposes the full local version group without calling `/api/home/snapshot`
 
-- **GIVEN** the user triggered generation within the last 30 seconds and the AI call is still running
-- **WHEN** the snapshot endpoint responds
-- **THEN** it includes `{ generationStatus: { state: 'pending', submittedAt, etaSeconds } }` plus the most recently available plan (if any) so the client can show progress without losing the previous plan
+#### Scenario: Local pending generation state
 
-#### Scenario: Snapshot surfaces persisted plan
+- **GIVEN** the user triggered generation and the AI call is still running
+- **WHEN** the Home screen renders
+- **THEN** local UI state exposes `{ generationStatus: { state: 'pending', submittedAt, etaSeconds? } }` while keeping the previous local plan visible when available
 
-- **GIVEN** the latest generation completed successfully
-- **WHEN** the client fetches the snapshot after a reload
-- **THEN** the `plan` field contains the stored `TodayPlan` (until it is logged/cleared) and `generationStatus.state` returns to `idle`
+#### Scenario: Local generation error state
 
-#### Scenario: Snapshot reports last error
+- **GIVEN** the last generation failed
+- **WHEN** the Home screen renders
+- **THEN** local UI state exposes `{ generationStatus: { state: 'error', message } }` while leaving the last good local plan available so the UI can prompt a retry without discarding context
 
-- **GIVEN** the last generation failed (e.g., provider timeout)
-- **WHEN** the snapshot endpoint responds
-- **THEN** it sets `generationStatus` to `{ state: 'error', message }` while leaving the last good plan untouched so the UI can prompt a retry without discarding context
+#### Scenario: Quick actions are derived locally
 
-#### Scenario: Snapshot quick actions stay deterministic
-
-- **GIVEN** no server-side storage of quick-action overrides
-- **WHEN** the snapshot endpoint responds
-- **THEN** it returns the default quick action presets (or ones derived from the stored plan) so the mobile client can layer its locally staged values on top deterministically
+- **GIVEN** local user preferences contain equipment and focus defaults
+- **WHEN** Home builds quick actions
+- **THEN** it derives deterministic presets locally and layers any locally staged values on top
 
 ### Requirement: Workout Generation Endpoint
 
-The system MUST accept quick-action parameters and route the generation request to a selectable AI provider (OpenAI or Gemini) using either a managed key or BYOK. It SHALL validate structured output against `TodayPlan`, update per-device generation status before and after the call, and fall back to a deterministic mock when no key or a provider error occurs (except when hosted mode requires BYOK).
+The system MUST accept generation parameters and route the generation request to a selectable AI provider (OpenAI or Gemini) using either a managed key or BYOK. It SHALL validate structured output against `TodayPlan`, return the generated plan to the client, and fall back to a deterministic mock when no key or a provider error occurs (except when hosted mode requires BYOK). The mobile client is responsible for persisting the returned plan locally.
 
 #### Scenario: Status transitions to pending
 
 - **GIVEN** a valid generation request
 - **WHEN** the server begins processing it
-- **THEN** it immediately records `{ state: 'pending', submittedAt=now }` in the store so any concurrent snapshot reflects the in-flight status
+- **THEN** it records pending status for internal generation state and observability while the mobile client maintains its own local pending UI state
 
-#### Scenario: Successful generation persists plan
+#### Scenario: Successful generation returns plan
 
 - **GIVEN** the selected provider returns a valid `TodayPlan`
 - **WHEN** the route completes
-- **THEN** the plan (with IDs) is stored against the DeviceToken, `generationStatus` resets to `idle`, and the response body matches the stored plan
+- **THEN** the response body contains the generated plan with IDs and provenance needed for local persistence and later regeneration
 
 #### Scenario: Provider failure retains context
 
 - **GIVEN** the provider call throws or returns invalid JSON
 - **WHEN** the route handles the error
-- **THEN** it logs the failure, sets `generationStatus.state` to `error` with a human-readable message, keeps the last good plan available, and returns the deterministic mock plan (unless hosted BYOK enforcement blocks it)
+- **THEN** it logs the failure and returns an appropriate generation error or deterministic fallback plan according to edition and provider policy
 
 #### Scenario: Default provider selection
 
@@ -186,37 +183,37 @@ By default, generation-facing candidate-pool queries SHALL use only exercises wh
 - **WHEN** the built exercise library contains imported records that are only `raw`, `derived`, or `curated`
 - **THEN** the default generation candidate-pool path excludes those records unless an internal non-production workflow explicitly requests them
 
-### Requirement: Workout Logging Endpoint
+### Requirement: Local Workout Logging
 
-Users MUST be able to mark a plan complete or quick-log an ad-hoc session, and the response refreshes recent activity.
+Users MUST be able to mark a plan complete or quick-log an ad-hoc session through the mobile local data layer, and Home recent activity MUST update from local repository emissions.
 
 #### Scenario: Log generated plan
 
-- **GIVEN** a plan ID returned by the snapshot
-- **WHEN** the client POSTs to `/api/workouts/{id}/log`
-- **THEN** the server writes a `WorkoutSession`, timestamps `completedAt`, and returns the updated session summary list
+- **GIVEN** a locally persisted generated workout
+- **WHEN** the user completes it
+- **THEN** the app marks the local workout completed, timestamps `completedAt`, and refreshes recent activity from local data
 
 #### Scenario: Quick log without plan
 
 - **GIVEN** no active plan
 - **WHEN** the user submits a quick log payload (focus, duration, note)
-- **THEN** the server creates a manual session and returns it at the top of `recentSessions`
+- **THEN** the app creates a local manual session and recent activity includes it at the top
 
 ### Requirement: Preview Payload Persistence
 
-The snapshot MUST include enough detail to render the workout preview offline within the same session.
+Generated workouts MUST include enough detail for the mobile app to persist and render the workout preview offline.
 
 #### Scenario: Preview fields shipped
 
 - **GIVEN** a generated plan contains blocks/exercises
-- **WHEN** the snapshot or generation endpoint returns the plan
+- **WHEN** the generation endpoint returns the plan
 - **THEN** it includes `blocks` data (title, focus, duration, exercises with prescription/detail) so the mobile app can render the preview screen without another fetch
 
-#### Scenario: Cache invalidation after log
+#### Scenario: Local active plan clears after log
 
-- **GIVEN** a plan is logged via the logging endpoint
-- **WHEN** the client requests a new snapshot
-- **THEN** `plan` becomes `null` (or next generated plan), and the completed session appears in `recentSessions`
+- **GIVEN** a plan is logged locally
+- **WHEN** local repository observers emit
+- **THEN** the active planned workout updates and the completed session appears in recent activity
 
 ### Requirement: Local Data Persistence
 
@@ -273,9 +270,9 @@ The home data layer SHALL support archiving (soft delete) and permanent deletion
 
 #### Scenario: Archive workout session
 
-- **GIVEN** a completed workout session appears in `recentSessions` on the Home snapshot
+- **GIVEN** a completed workout session appears in local recent activity
 - **WHEN** the client sends a request to archive that session
-- **THEN** the system marks the session as archived, removes it from `recentSessions` and other default snapshot activity lists, and ensures it is not included in any future `GenerationContext.recentSessions`
+- **THEN** the system marks the session as archived, removes it from `recentSessions` and other default local activity lists, and ensures it is not included in any future `GenerationContext.recentSessions`
 
 #### Scenario: Unarchive workout session
 
@@ -287,7 +284,7 @@ The home data layer SHALL support archiving (soft delete) and permanent deletion
 
 - **GIVEN** a workout session exists in storage (archived or not)
 - **WHEN** the client sends a request to delete that session
-- **THEN** the system permanently removes the session from the backing store (or marks it as deleted such that it is never returned), and it no longer appears in snapshot responses, history lists, or `GenerationContext.recentSessions`
+- **THEN** the system permanently removes the session from the backing store (or marks it as deleted such that it is never returned), and it no longer appears in history lists, local recent activity, or `GenerationContext.recentSessions`
 
 #### Scenario: History queries exclude archived by default
 
@@ -460,4 +457,3 @@ When a user generates from an adaptive recommendation, Home MUST build a generat
 #### Scenario: User override beats recommendation
 - **WHEN** the user explicitly changes the focus before generation
 - **THEN** Home sends the explicit focus while retaining adaptive plan context only as background context where applicable
-

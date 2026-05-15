@@ -1,11 +1,11 @@
 # @workout-agent/shared
 
-Shared contracts for the Workout Agent monorepo. The Zod schemas exported from this package are the single source of truth for the home snapshot payload, workout plans, and quick-action/generation inputs.
+Shared contracts for the Workout Agent monorepo. The Zod schemas exported from this package are the single source of truth for workout plans, generation inputs, debug payloads, and local-first mobile data contracts.
 
 ## Usage
 
-- **Server** (`apps/server`): import from `@workout-agent/shared` inside API route handlers to validate request bodies (`generationRequestSchema`) and ensure responses match `homeSnapshotSchema`.
-- **Mobile** (`apps/mobile`): import the associated TypeScript types (e.g., `HomeSnapshot`, `TodayPlan`) to type hooks/components instead of duplicating interfaces, and reuse `createHomeSnapshotMock` for mocks/storybook fixtures.
+- **Server** (`apps/server`): import from `@workout-agent/shared` inside API route handlers to validate request bodies (`generationRequestSchema`) and generated workout responses (`todayPlanSchema`).
+- **Mobile** (`apps/mobile`): import the associated TypeScript types (e.g., `TodayPlan`, `QuickActionPreset`, `GenerationStatus`) to type hooks/components instead of duplicating interfaces.
 - Quick action flows can call `normalizeQuickActionValue` / `buildGenerationRequestFromQuickActions` to sanitize staged chip values before issuing a generation request, ensuring time/focus/equipment/energy inputs stay within supported bounds.
 
 ## Building
