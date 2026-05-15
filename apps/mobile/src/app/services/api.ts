@@ -3,7 +3,6 @@
  */
 
 import type {
-  HomeSnapshot,
   TodayPlan,
   GenerationRequest,
   GenerationRequestPayload,
@@ -164,15 +163,6 @@ async function apiRequest<T>(
   const data = await response.json();
   console.log('[API] Success:', data);
   return data;
-}
-
-/**
- * Fetch home snapshot
- */
-export async function fetchHomeSnapshot(): Promise<HomeSnapshot> {
-  return apiRequest<HomeSnapshot>('/api/home/snapshot', {
-    method: 'GET',
-  });
 }
 
 /**

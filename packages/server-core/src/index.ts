@@ -49,10 +49,8 @@ export {
 
 // Export handler factories
 export {
-  createSnapshotHandler,
   createGenerateHandler,
   createLogWorkoutHandler,
-  type SnapshotHandlerDeps,
   type GenerateHandlerDeps,
   type GenerateHandlerConfig,
   type LogWorkoutHandlerDeps,
@@ -61,7 +59,6 @@ export {
 // Export utilities
 export {
   createErrorResponse,
-  buildQuickActions,
   buildExerciseCandidatePool,
   rerankExerciseCandidatePool,
   determineStageOnePlanningActivation,

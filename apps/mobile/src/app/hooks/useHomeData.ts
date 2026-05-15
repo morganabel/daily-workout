@@ -1,6 +1,5 @@
 /**
- * Hook to fetch and manage home snapshot data
- * Replaces useMockedHomeData with real API calls
+ * Hook to derive Home data from local app repositories.
  */
 
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
@@ -10,12 +9,13 @@ import type {
   AdaptivePlanRecommendation,
   AdaptiveTrainingPlan,
   GenerationStatus,
-  HomeSnapshot,
+  OfflineHint,
   TodayPlan,
   QuickActionKey,
   QuickActionPreset,
   UpcomingEventContext,
   UserPreferences,
+  WorkoutSessionSummary,
 } from '@workout-agent/shared';
 import NetInfo from '@react-native-community/netinfo';
 import { workoutRepository } from '../db/repositories/WorkoutRepository';
@@ -150,16 +150,16 @@ export type HomeDataState = {
   pendingPlanSnapshot: TodayPlan | null;
   adaptivePlan: AdaptiveTrainingPlan | null;
   adaptiveRecommendation: AdaptivePlanRecommendation | null;
-  recentSessions: HomeSnapshot['recentSessions'];
-  quickActions: HomeSnapshot['quickActions'];
-  offlineHint: HomeSnapshot['offlineHint'];
+  recentSessions: WorkoutSessionSummary[];
+  quickActions: QuickActionPreset[];
+  offlineHint: OfflineHint;
   isOffline: boolean;
   error: unknown | null;
   generationStatus: GenerationStatus;
 };
 
 /**
- * Hook that fetches home snapshot, caches results, and refetches after mutations
+ * Hook that observes local Home data and refetches repository-backed values after mutations.
  */
 export function useHomeData(): HomeDataState & {
   refetch: () => Promise<void>;

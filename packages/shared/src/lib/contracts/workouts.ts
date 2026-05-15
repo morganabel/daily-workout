@@ -2636,6 +2636,21 @@ export const workoutLogPayloadSchema = z
   .strict();
 export type WorkoutLogPayload = z.infer<typeof workoutLogPayloadSchema>;
 
+export const offlineHintSchema = z.object({
+  offline: z.boolean().default(false),
+  requiresApiKey: z.boolean().default(false),
+  message: z.string().optional(),
+});
+export type OfflineHint = z.infer<typeof offlineHintSchema>;
+
+export const generationStatusSchema = z.object({
+  state: z.enum(['idle', 'pending', 'error']),
+  submittedAt: z.string().nullable(),
+  etaSeconds: z.number().int().positive().optional(),
+  message: z.string().optional(),
+});
+export type GenerationStatus = z.infer<typeof generationStatusSchema>;
+
 export const quickActionKeySchema = z.enum([
   'time',
   'focus',

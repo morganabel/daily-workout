@@ -10,7 +10,6 @@
 
 ## 3. Extract Core + DI
 - [x] 3.1 Move request parsing + shared route logic into `packages/server-core`, exposing handler factories for:
-  - `GET /api/home/snapshot`
   - `POST /api/workouts/generate`
   - `POST /api/workouts/:id/log`
 - [x] 3.2 Introduce interfaces in `packages/server-core` for `AuthProvider`, `GenerationStore`, `ModelRouter`, `UsagePolicy` (with optional `getEntitlements`), and `MeteringSink`.
