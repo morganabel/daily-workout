@@ -14,13 +14,15 @@ Workout generation quality is currently hard to improve quickly because the syst
 ## Capabilities
 
 ### New Capabilities
+
 - `generation-evaluation`: Defines a large-scale, scenario-driven workflow for evaluating workout generation quality, safety, and usefulness across many backend input combinations
 
 ### Modified Capabilities
+
 - `home-data`: Clarify which generation inputs and outcomes must remain inspectable and reusable by evaluation tooling when exercising the workout-generation flow
 
 ## Impact
 
 - Affected code: `packages/shared`, `packages/server-core`, `packages/server-ai`, `apps/server`, and supporting scripts/tooling for evaluation runs and reporting
 - Affected APIs: `POST /api/workouts/generate` evaluation coverage, request/context inspection, and any dev-only reporting surface or script output introduced by implementation
-- Affected systems: provider usage during evaluation, CE mock fallback behavior, hosted quota/billing visibility, and developer workflows for prompt/context iteration
+- Affected systems: provider usage during evaluation, CE provider-configuration errors, hosted quota/billing visibility, and developer workflows for prompt/context iteration

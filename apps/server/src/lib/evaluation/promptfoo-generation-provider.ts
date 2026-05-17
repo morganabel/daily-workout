@@ -44,7 +44,7 @@ export type PromptfooGradingResult = {
 };
 
 export function parsePromptfooGenerationProviderVars(
-  vars: Record<string, unknown>,
+  vars: Record<string, unknown>
 ): PromptfooGenerationProviderVars {
   const scenarioId = vars.scenarioId;
   if (typeof scenarioId !== 'string' || scenarioId.trim().length === 0) {
@@ -56,14 +56,25 @@ export function parsePromptfooGenerationProviderVars(
   const edition = vars.edition;
   const plannerMode = vars.plannerMode;
 
-  if (provider !== undefined && provider !== 'mock' && provider !== 'openai' && provider !== 'gemini') {
-    throw new Error(`Unsupported Promptfoo generation provider: ${String(provider)}`);
+  if (
+    provider !== undefined &&
+    provider !== 'fixture' &&
+    provider !== 'openai' &&
+    provider !== 'gemini'
+  ) {
+    throw new Error(
+      `Unsupported Promptfoo generation provider: ${String(provider)}`
+    );
   }
   if (!Number.isInteger(runIndex) || runIndex < 1) {
-    throw new Error('Promptfoo generation provider vars.runIndex must be an integer >= 1.');
+    throw new Error(
+      'Promptfoo generation provider vars.runIndex must be an integer >= 1.'
+    );
   }
   if (edition !== undefined && edition !== 'CE' && edition !== 'HOSTED') {
-    throw new Error(`Unsupported Promptfoo generation edition: ${String(edition)}`);
+    throw new Error(
+      `Unsupported Promptfoo generation edition: ${String(edition)}`
+    );
   }
   if (
     plannerMode !== undefined &&
@@ -71,7 +82,9 @@ export function parsePromptfooGenerationProviderVars(
     plannerMode !== 'enabled' &&
     plannerMode !== 'disabled'
   ) {
-    throw new Error(`Unsupported Promptfoo generation planner mode: ${String(plannerMode)}`);
+    throw new Error(
+      `Unsupported Promptfoo generation planner mode: ${String(plannerMode)}`
+    );
   }
 
   return {
@@ -80,7 +93,8 @@ export function parsePromptfooGenerationProviderVars(
     runIndex,
     edition: edition as 'CE' | 'HOSTED' | undefined,
     variantLabel:
-      typeof vars.variantLabel === 'string' && vars.variantLabel.trim().length > 0
+      typeof vars.variantLabel === 'string' &&
+      vars.variantLabel.trim().length > 0
         ? vars.variantLabel.trim()
         : undefined,
     plannerMode: plannerMode as 'default' | 'enabled' | 'disabled' | undefined,
@@ -96,7 +110,7 @@ export function buildPromptfooGenerationProviderOutput(params: {
   promptfooRunId?: string;
 }): PromptfooGenerationProviderOutput {
   const failedHardChecks = params.entry.hardChecks.filter(
-    (check) => check.status === 'fail',
+    (check) => check.status === 'fail'
   );
   const variantLabel = params.variantLabel?.trim() || 'default';
   const plannerMode = params.plannerMode ?? 'default';
@@ -129,13 +143,15 @@ export function buildPromptfooGenerationProviderOutput(params: {
 }
 
 export function gradePromptfooGenerationOutput(
-  output: PromptfooGenerationProviderOutput,
+  output: PromptfooGenerationProviderOutput
 ): PromptfooGradingResult {
   if (output.status !== 'success') {
     return {
       pass: false,
       score: 0,
-      reason: output.errorMessage ?? `Generation failed with status ${output.status}.`,
+      reason:
+        output.errorMessage ??
+        `Generation failed with status ${output.status}.`,
     };
   }
 
@@ -157,7 +173,7 @@ export function gradePromptfooGenerationOutput(
 }
 
 export function parsePromptfooGenerationOutput(
-  raw: unknown,
+  raw: unknown
 ): PromptfooGenerationProviderOutput {
   if (typeof raw !== 'string') {
     return raw as PromptfooGenerationProviderOutput;

@@ -28,21 +28,22 @@ describe('Promptfoo generation bridge', () => {
     expect(
       scenarios.every(
         (scenario) =>
-          scenario.tags.includes('beginner') && scenario.tags.includes('bodyweight'),
-      ),
+          scenario.tags.includes('beginner') &&
+          scenario.tags.includes('bodyweight')
+      )
     ).toBe(true);
   });
 
   it('fails before provider execution for unknown scenario ids', () => {
     expect(() =>
-      selectPromptfooGenerationScenarios({ scenarioIds: ['missing-scenario'] }),
+      selectPromptfooGenerationScenarios({ scenarioIds: ['missing-scenario'] })
     ).toThrow(/Unknown generation evaluation scenario id/);
   });
 
   it('builds Promptfoo tests across providers and repeated runs', () => {
     const tests = buildPromptfooGenerationTestCases({
       scenarioIds: ['beginner-bodyweight-easy-15'],
-      providers: ['mock', 'openai'],
+      providers: ['fixture', 'openai'],
       runs: 2,
       edition: 'CE',
       variantLabel: 'candidate-prompt',
@@ -52,8 +53,8 @@ describe('Promptfoo generation bridge', () => {
 
     expect(tests).toHaveLength(4);
     expect(tests.map((test) => test.vars.provider)).toEqual([
-      'mock',
-      'mock',
+      'fixture',
+      'fixture',
       'openai',
       'openai',
     ]);
@@ -71,11 +72,11 @@ describe('Promptfoo generation bridge', () => {
     ]);
   });
 
-  it('builds warnings for mock-only, missing live access, and broad live runs', () => {
+  it('builds warnings for fixture-only, missing live access, and broad live runs', () => {
     const scenarios = selectPromptfooGenerationScenarios({ limit: 60 });
     const summary = buildPromptfooGenerationPreflightSummary({
       scenarios,
-      providers: ['mock', 'openai'],
+      providers: ['fixture', 'openai'],
       runs: 2,
       edition: 'CE',
       providerAvailability: { openai: false },
@@ -85,7 +86,9 @@ describe('Promptfoo generation bridge', () => {
     expect(summary.selectedScenarioCount).toBe(60);
     expect(summary.liveProviderCount).toBe(1);
     expect(summary.liveAttemptCount).toBeGreaterThanOrEqual(120);
-    expect(summary.warnings.join('\n')).toContain('openai has no configured access in CE');
+    expect(summary.warnings.join('\n')).toContain(
+      'openai has no configured access in CE'
+    );
     expect(summary.warnings.join('\n')).toContain('cost and quota');
   });
 
@@ -98,8 +101,12 @@ describe('Promptfoo generation bridge', () => {
       edition: 'CE',
     });
 
-    expect(summary.warnings.join('\n')).toContain('openai access was not checked');
-    expect(summary.warnings.join('\n')).not.toContain('openai has no configured access');
+    expect(summary.warnings.join('\n')).toContain(
+      'openai access was not checked'
+    );
+    expect(summary.warnings.join('\n')).not.toContain(
+      'openai has no configured access'
+    );
   });
 
   it('finds explicit secret leaks in nested Promptfoo artifacts', () => {
@@ -115,7 +122,7 @@ describe('Promptfoo generation bridge', () => {
           ],
         },
       },
-      [{ label: 'bearer token', value: 'test-device-token' }],
+      [{ label: 'bearer token', value: 'test-device-token' }]
     );
 
     expect(leaks).toEqual([
@@ -135,8 +142,8 @@ describe('Promptfoo generation bridge', () => {
         [
           { label: 'bearer token', value: 'test-device-token' },
           { label: 'openai key', value: 'sk-test-secret' },
-        ],
-      ),
+        ]
+      )
     ).not.toThrow();
   });
 });

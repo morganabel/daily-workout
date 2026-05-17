@@ -1,7 +1,5 @@
-import {
-  createTodayPlanMock,
-  type WorkoutSessionSummary,
-} from '@workout-agent/shared';
+import type { WorkoutSessionSummary } from '@workout-agent/shared';
+import { createTodayPlanFixture } from '@workout-agent/shared/testing';
 import {
   buildGenerationContext,
   generateWorkout,
@@ -154,7 +152,7 @@ describe('generateWorkout', () => {
   });
 
   it('sends full context, planning date, and baseline workout during regeneration', async () => {
-    const baselineWorkout = createTodayPlanMock({
+    const baselineWorkout = createTodayPlanFixture({
       id: 'plan-existing',
       responseId: 'resp-baseline',
       generationProvenance: {
@@ -162,7 +160,7 @@ describe('generateWorkout', () => {
         responseId: 'resp-baseline',
       },
     });
-    const generatedPlan = createTodayPlanMock({
+    const generatedPlan = createTodayPlanFixture({
       id: 'plan-new',
       generationProvenance: {
         provider: 'openai',
@@ -228,7 +226,7 @@ describe('generateWorkout', () => {
     jest.useFakeTimers();
     jest.setSystemTime(new Date('2026-04-24T10:00:00'));
     try {
-      const generatedPlan = createTodayPlanMock({ id: 'plan-default' });
+      const generatedPlan = createTodayPlanFixture({ id: 'plan-default' });
 
       (global.fetch as jest.Mock).mockResolvedValue({
         ok: true,
@@ -279,7 +277,9 @@ describe('generateWorkout', () => {
   });
 
   it('uses profile equipment when no request equipment override is supplied', async () => {
-    const generatedPlan = createTodayPlanMock({ id: 'plan-profile-equipment' });
+    const generatedPlan = createTodayPlanFixture({
+      id: 'plan-profile-equipment',
+    });
     (global.fetch as jest.Mock).mockResolvedValue({
       ok: true,
       json: jest.fn().mockResolvedValue(generatedPlan),
@@ -308,7 +308,7 @@ describe('generateWorkout', () => {
   });
 
   it('passes adaptive plan intent through generation payload and trace', async () => {
-    const generatedPlan = createTodayPlanMock({ id: 'plan-adaptive-pull' });
+    const generatedPlan = createTodayPlanFixture({ id: 'plan-adaptive-pull' });
     (global.fetch as jest.Mock).mockResolvedValue({
       ok: true,
       json: jest.fn().mockResolvedValue(generatedPlan),
@@ -373,7 +373,7 @@ describe('generateWorkout', () => {
     const consoleSpy = jest
       .spyOn(console, 'error')
       .mockImplementation(() => undefined);
-    const generatedPlan = createTodayPlanMock({ id: 'plan-prune-error' });
+    const generatedPlan = createTodayPlanFixture({ id: 'plan-prune-error' });
     mockWorkoutRepository.pruneRejectedWorkoutVersions.mockRejectedValueOnce(
       new Error('prune failed')
     );
@@ -403,11 +403,11 @@ describe('generateWorkout', () => {
     (global.fetch as jest.Mock).mockResolvedValue({
       ok: false,
       clone: jest.fn().mockReturnValue({
-        text: jest.fn().mockResolvedValue('BYOK required'),
+        text: jest.fn().mockResolvedValue('AI provider not configured'),
       }),
       json: jest.fn().mockResolvedValue({
-        code: 'BYOK_REQUIRED',
-        message: 'API key required',
+        code: 'AI_PROVIDER_NOT_CONFIGURED',
+        message: 'AI provider not configured',
       }),
     });
 
@@ -419,8 +419,8 @@ describe('generateWorkout', () => {
         notes: 'private note',
       })
     ).rejects.toEqual({
-      code: 'BYOK_REQUIRED',
-      message: 'API key required',
+      code: 'AI_PROVIDER_NOT_CONFIGURED',
+      message: 'AI provider not configured',
     });
 
     expect(getDebugStateSnapshot().lastGenerationTrace).toEqual(
@@ -431,8 +431,8 @@ describe('generateWorkout', () => {
           notes: 'private note',
         }),
         error: {
-          code: 'BYOK_REQUIRED',
-          message: 'API key required',
+          code: 'AI_PROVIDER_NOT_CONFIGURED',
+          message: 'AI provider not configured',
         },
       })
     );

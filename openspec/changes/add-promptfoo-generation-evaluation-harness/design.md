@@ -1,6 +1,6 @@
 ## Context
 
-The repository already has a workout-generation evaluation suite with a versioned TypeScript scenario corpus, deterministic hard checks, real generation-handler execution, provider prompt capture, planner artifact capture, and custom HTML/JSON/Markdown reports. That suite is valuable because it understands product semantics such as available equipment, injuries, upcoming events, regeneration baselines, CE mock fallback, and hosted BYOK behavior.
+The repository already has a workout-generation evaluation suite with a versioned TypeScript scenario corpus, deterministic hard checks, real generation-handler execution, provider prompt capture, planner artifact capture, and custom HTML/JSON/Markdown reports. That suite is valuable because it understands product semantics such as available equipment, injuries, upcoming events, regeneration baselines, CE provider-configuration errors, explicit fixture runs, and hosted BYOK behavior.
 
 Promptfoo solves a different layer of the problem. It provides a mature LLM-evaluation harness for model and prompt comparisons, assertion scoring, CI outputs, caching, a web viewer, model-graded rubrics, and red-team scans. The design should use Promptfoo to improve evaluation operations without moving domain truth out of the existing shared contracts and hard-check implementation.
 
@@ -124,5 +124,5 @@ Alternatives considered:
 
 - Should Promptfoo be added as a pinned dev dependency, or should scripts use `npx promptfoo@latest` initially?
 - Should the custom provider call the existing evaluation runner directly, or should it call a smaller shared helper extracted from the runner?
-- Which scenario slice should be the default CI gate: mock-only smoke, targeted live provider slice, or both?
+- Which scenario slice should be the default CI gate: fixture-only smoke, targeted live provider slice, or both?
 - Should Promptfoo red-team results be stored in the same reports directory as generation evaluation reports or in a separate `reports/red-team` tree?

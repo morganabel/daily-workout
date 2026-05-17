@@ -211,7 +211,7 @@ export type GenerationEvaluationCorpus = z.infer<
 export const generationEvaluationProviderSchema = z.enum([
   'openai',
   'gemini',
-  'mock',
+  'fixture',
 ]);
 export type GenerationEvaluationProvider = z.infer<
   typeof generationEvaluationProviderSchema
@@ -229,8 +229,7 @@ export type GenerationEvaluationRunStatus = z.infer<
 
 export const generationEvaluationExecutionSourceSchema = z.enum([
   'live',
-  'mock-fallback',
-  'mock-requested',
+  'fixture',
 ]);
 export type GenerationEvaluationExecutionSource = z.infer<
   typeof generationEvaluationExecutionSourceSchema
@@ -372,16 +371,16 @@ export const generationEvaluationReportSchema = z
         successfulEntries: z.number().int().nonnegative(),
         failedEntries: z.number().int().nonnegative(),
         liveEntries: z.number().int().nonnegative(),
-        mockEntries: z.number().int().nonnegative(),
+        fixtureEntries: z.number().int().nonnegative(),
         executionSourceCounts: z.record(
           z.string(),
-          z.number().int().nonnegative(),
+          z.number().int().nonnegative()
         ),
         hardFailureCounts: z.record(z.string(), z.number().int().nonnegative()),
         averageLatencyMs: generationEvaluationAverageLatencySchema,
         averageLatencyByProvider: z.record(
           z.string(),
-          generationEvaluationAverageLatencySchema,
+          generationEvaluationAverageLatencySchema
         ),
       })
       .strict(),
@@ -393,7 +392,7 @@ export type GenerationEvaluationReport = z.infer<
 >;
 
 export function validateGenerationEvaluationCorpus(
-  corpus: unknown,
+  corpus: unknown
 ): GenerationEvaluationCorpus {
   return generationEvaluationCorpusSchema.parse(corpus);
 }

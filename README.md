@@ -100,10 +100,10 @@ The evaluator writes three report formats to `reports/generation-evaluation/<tim
 
 Notes:
 
-- In `CE`, live providers without configured keys automatically warn and fall back to mock behavior.
+- In `CE`, live providers without configured keys warn and fail with `AI_PROVIDER_NOT_CONFIGURED`; use `--provider fixture` only for explicit plumbing checks.
 - In `HOSTED`, missing keys warn that runs are expected to fail with BYOK requirements.
-- The evaluator reuses the real generation handler, so request validation, context merging, provider routing, and fallback semantics match the production flow.
-- The report now explicitly calls out mock-only runs vs mixed/live coverage so it is harder to mistake plumbing validation for real model evaluation.
+- The evaluator reuses the real generation handler, so request validation, context merging, provider routing, and configuration errors match the production flow.
+- The report explicitly calls out fixture-only runs vs mixed/live coverage so it is harder to mistake plumbing validation for real model evaluation.
 
 ## Two-stage planner notes
 
@@ -113,7 +113,7 @@ The generation flow now supports an optional stage-1 planner pass before the fin
 - Stage 1 is advisory only. Hard constraints such as equipment, contraindications, avoid lists, and planner-safe candidate filtering remain server-owned.
 - Disable the feature with `ENABLE_STAGE_ONE_PLANNER=false` to force the legacy single-pass path for comparison or rollback.
 - Planner model defaults are intentionally cheaper than the final generation model: `OPENAI_PLANNER_MODEL` defaults to `gpt-5.4-nano` and `GEMINI_PLANNER_MODEL` defaults to `gemini-3.1-flash-lite-preview`.
-- In `HOSTED`, eligible requests may incur an extra provider call and extra latency because stage 1 runs before stage 2. In `CE`, the staged path still follows the same BYOK/mock-fallback rules as normal generation.
+- In `HOSTED`, eligible requests may incur an extra provider call and extra latency because stage 1 runs before stage 2. In `CE`, the staged path follows the same provider-configuration requirements as normal generation.
 
 For staged-vs-single-pass comparisons, run the evaluator twice against the same live slice, once with the default config and once with stage 1 disabled:
 

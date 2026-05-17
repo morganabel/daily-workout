@@ -6,7 +6,7 @@ import {
   clearStoredPlan,
   resetGenerationStore,
 } from './generation-store';
-import { createTodayPlanMock } from '@workout-agent/shared';
+import { createTodayPlanFixture } from '@workout-agent/shared/testing';
 
 const DEVICE_TOKEN = 'device-test-token';
 
@@ -27,7 +27,7 @@ describe('generation-store', () => {
     expect(state.generationStatus.state).toBe('pending');
     expect(state.generationStatus.etaSeconds).toBe(20);
 
-    const plan = createTodayPlanMock({ id: 'plan-123' });
+    const plan = createTodayPlanFixture({ id: 'plan-123' });
     persistGeneratedPlan(DEVICE_TOKEN, plan);
 
     state = getGenerationState(DEVICE_TOKEN);
@@ -36,7 +36,7 @@ describe('generation-store', () => {
   });
 
   it('records errors without overwriting stored plan', () => {
-    const plan = createTodayPlanMock({ id: 'plan-existing' });
+    const plan = createTodayPlanFixture({ id: 'plan-existing' });
     persistGeneratedPlan(DEVICE_TOKEN, plan);
 
     setGenerationError(DEVICE_TOKEN, 'provider failure');
@@ -48,7 +48,7 @@ describe('generation-store', () => {
   });
 
   it('clears plan on request', () => {
-    const plan = createTodayPlanMock({ id: 'plan-existing' });
+    const plan = createTodayPlanFixture({ id: 'plan-existing' });
     persistGeneratedPlan(DEVICE_TOKEN, plan);
 
     clearStoredPlan(DEVICE_TOKEN);
@@ -58,7 +58,7 @@ describe('generation-store', () => {
   });
 
   it('records and clears transformation metadata with plan updates', () => {
-    const planA = createTodayPlanMock({ id: 'plan-a' });
+    const planA = createTodayPlanFixture({ id: 'plan-a' });
     persistGeneratedPlan(DEVICE_TOKEN, planA, { schemaVersion: 'v1-current' });
 
     let state = getGenerationState(DEVICE_TOKEN);
@@ -66,7 +66,7 @@ describe('generation-store', () => {
     expect(typeof state.transformationMetadata?.transformedAt).toBe('string');
 
     // Persist a mock/legacy plan (no schemaVersion) and ensure metadata is cleared
-    const planB = createTodayPlanMock({ id: 'plan-b' });
+    const planB = createTodayPlanFixture({ id: 'plan-b' });
     persistGeneratedPlan(DEVICE_TOKEN, planB);
 
     state = getGenerationState(DEVICE_TOKEN);

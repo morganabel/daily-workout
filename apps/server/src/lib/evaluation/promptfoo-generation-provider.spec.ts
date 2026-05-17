@@ -7,7 +7,7 @@ import {
 } from './promptfoo-generation-provider';
 
 function createEntry(
-  overrides: Partial<GenerationEvaluationReportEntry> = {},
+  overrides: Partial<GenerationEvaluationReportEntry> = {}
 ): GenerationEvaluationReportEntry {
   return {
     scenarioId: 'beginner-bodyweight-easy-15',
@@ -15,9 +15,9 @@ function createEntry(
     scenarioDescription: 'A short beginner bodyweight session.',
     scenarioTags: ['beginner', 'bodyweight', 'initial'],
     scenarioMode: 'initial',
-    runId: 'beginner-bodyweight-easy-15-mock-1',
-    provider: 'mock',
-    executionSource: 'mock-requested',
+    runId: 'beginner-bodyweight-easy-15-fixture-1',
+    provider: 'fixture',
+    executionSource: 'fixture',
     status: 'success',
     request: {
       timeMinutes: 15,
@@ -25,7 +25,11 @@ function createEntry(
     },
     hardChecks: [
       { name: 'schema-validity', status: 'pass' },
-      { name: 'duration-fit', status: 'pass', message: 'Target 15 min, got 15 min.' },
+      {
+        name: 'duration-fit',
+        status: 'pass',
+        message: 'Target 15 min, got 15 min.',
+      },
       { name: 'focus-fit', status: 'pass' },
       { name: 'equipment-fit', status: 'pass' },
       { name: 'injury-safety', status: 'not-applicable' },
@@ -68,7 +72,7 @@ describe('Promptfoo generation provider helpers', () => {
   it('parses provider variables with defaults', () => {
     const vars = parsePromptfooGenerationProviderVars({
       scenarioId: 'beginner-bodyweight-easy-15',
-      provider: 'mock',
+      provider: 'fixture',
       runIndex: 2,
       edition: 'CE',
       variantLabel: 'current',
@@ -77,7 +81,7 @@ describe('Promptfoo generation provider helpers', () => {
 
     expect(vars).toEqual({
       scenarioId: 'beginner-bodyweight-easy-15',
-      provider: 'mock',
+      provider: 'fixture',
       runIndex: 2,
       edition: 'CE',
       variantLabel: 'current',
@@ -87,9 +91,9 @@ describe('Promptfoo generation provider helpers', () => {
   });
 
   it('rejects missing scenario variables before execution', () => {
-    expect(() => parsePromptfooGenerationProviderVars({ provider: 'mock' })).toThrow(
-      /requires vars.scenarioId/,
-    );
+    expect(() =>
+      parsePromptfooGenerationProviderVars({ provider: 'fixture' })
+    ).toThrow(/requires vars.scenarioId/);
   });
 
   it('maps successful entries with passing hard checks to Promptfoo pass output', () => {
@@ -97,13 +101,13 @@ describe('Promptfoo generation provider helpers', () => {
       entry: createEntry(),
       variantLabel: 'current-prompt',
       plannerMode: 'default',
-      warnings: ['mock-only'],
+      warnings: ['fixture-only'],
     });
 
     expect(output.pass).toBe(true);
     expect(output.failedHardChecks).toEqual([]);
     expect(output.variantLabel).toBe('current-prompt');
-    expect(output.warnings).toEqual(['mock-only']);
+    expect(output.warnings).toEqual(['fixture-only']);
     expect(gradePromptfooGenerationOutput(output)).toEqual({
       pass: true,
       score: 1,

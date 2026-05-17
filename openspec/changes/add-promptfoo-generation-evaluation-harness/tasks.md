@@ -9,7 +9,7 @@
 - [x] 2.1 Add a scenario bridge that exposes canonical workout-generation evaluation scenarios to Promptfoo by id, tag, mode, request, context, baseline plan, and hard expectations
 - [x] 2.2 Add validation so invalid scenario ids or tag filters fail before provider calls are launched
 - [x] 2.3 Implement a custom Promptfoo provider that executes scenarios through the existing generation handler or a shared helper preserving production generation semantics
-- [x] 2.4 Preserve regeneration priming, baseline-plan handling, provider selection, CE mock fallback, hosted BYOK behavior, and stage-one planner metadata in the provider bridge
+- [x] 2.4 Preserve regeneration priming, baseline-plan handling, provider selection, CE provider-configuration errors, hosted BYOK behavior, and stage-one planner metadata in the provider bridge
 - [x] 2.5 Add unit tests for scenario selection, invalid scenario handling, and provider bridge execution against mock generation paths
 
 ## 3. Domain Hard Checks And Metrics

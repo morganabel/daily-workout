@@ -4,7 +4,6 @@ import {
   validateGenerationEvaluationCorpus,
 } from '../contracts/generation-evaluation';
 import {
-  createTodayPlanMock,
   type ExperienceLevel,
   type GenerationContext,
   type GenerationRequest,
@@ -12,6 +11,7 @@ import {
   type UpcomingEventContext,
   type WorkoutEnergy,
 } from '../contracts/workouts';
+import { createTodayPlanFixture } from '../testing/workout-fixtures';
 
 export const WORKOUT_GENERATION_EVALUATION_CORPUS_VERSION = '2026-04-v1';
 export const WORKOUT_GENERATION_EVALUATION_RUBRIC_VERSION = '2026-04-v1';
@@ -126,7 +126,7 @@ function buildEvent(params: {
 }
 
 function buildExpectations(
-  overrides: Partial<GenerationEvaluationScenario['hardExpectations']> = {},
+  overrides: Partial<GenerationEvaluationScenario['hardExpectations']> = {}
 ): GenerationEvaluationScenario['hardExpectations'] {
   return {
     requireSchemaValidity: true,
@@ -143,9 +143,9 @@ function buildExpectations(
 }
 
 function createBaselinePlan(
-  overrides: Partial<GenerationEvaluationScenario['baselinePlan']>,
+  overrides: Partial<GenerationEvaluationScenario['baselinePlan']>
 ) {
-  return createTodayPlanMock(overrides ?? {});
+  return createTodayPlanFixture(overrides ?? {});
 }
 
 function createScenario(
@@ -153,7 +153,7 @@ function createScenario(
     hardExpectations?: Partial<
       GenerationEvaluationScenario['hardExpectations']
     >;
-  },
+  }
 ): GenerationEvaluationScenario {
   return {
     ...scenario,
@@ -165,7 +165,7 @@ function createRegenerationRequest(
   request: Omit<GenerationRequest, 'provider'> & {
     previousResponseId: string;
     feedback: RegenerationFeedback[];
-  },
+  }
 ): GenerationRequest {
   return request;
 }

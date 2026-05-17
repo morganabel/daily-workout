@@ -1,7 +1,7 @@
 import React from 'react';
 import { render, fireEvent, act } from '@testing-library/react-native';
 import { ActiveWorkoutScreen } from './ActiveWorkoutScreen';
-import { createTodayPlanMock } from '@workout-agent/shared';
+import { createTodayPlanFixture } from '@workout-agent/shared/testing';
 import { Alert } from 'react-native';
 
 const mockReset = jest.fn();
@@ -9,8 +9,8 @@ const mockAddListener = jest.fn(() => jest.fn());
 
 jest.mock('@react-navigation/native', () => {
   const actual = jest.requireActual('@react-navigation/native');
-  const { createTodayPlanMock: planMockFactory } = jest.requireActual(
-    '@workout-agent/shared'
+  const { createTodayPlanFixture: planMockFactory } = jest.requireActual(
+    '@workout-agent/shared/testing'
   );
   return {
     ...actual,
@@ -25,12 +25,12 @@ jest.mock('@react-navigation/native', () => {
 });
 
 jest.mock('./db/repositories/WorkoutRepository', () => {
-  const { createWorkoutExerciseLogMock } = jest.requireActual(
-    '@workout-agent/shared'
+  const { createWorkoutExerciseLogFixture } = jest.requireActual(
+    '@workout-agent/shared/testing'
   );
   const mockWorkout = { id: 'workout-123' };
   const mockExerciseLogs = [
-    createWorkoutExerciseLogMock({ id: 'exercise-1', order: 0 }),
+    createWorkoutExerciseLogFixture({ id: 'exercise-1', order: 0 }),
   ];
 
   return {
