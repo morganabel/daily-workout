@@ -142,10 +142,10 @@ The Promptfoo harness MUST keep evaluation reports secret-safe and cost-aware. I
 - **WHEN** a Promptfoo curated or red-team run uses env keys, BYOK-style headers, bearer tokens, cookies, or provider credentials
 - **THEN** report artifacts do not contain those secret values
 
-#### Scenario: CE mock run is allowed
+#### Scenario: CE fixture run is allowed
 
 - **WHEN** an evaluator runs the Promptfoo curated workflow in CE without configured provider keys
-- **THEN** the workflow can execute a mock or plumbing-oriented slice and labels the execution source so users do not mistake it for live model quality
+- **THEN** the workflow can execute an explicit fixture or plumbing-oriented slice and labels the execution source so users do not mistake it for live model quality
 
 #### Scenario: Hosted missing key is surfaced early
 

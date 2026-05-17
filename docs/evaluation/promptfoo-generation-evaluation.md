@@ -104,7 +104,7 @@ The generated red-team config focuses on prompt injection, unsafe medical or inj
 
 ## Provider Access And Cost Controls
 
-CE runs can use `mock`, configured env keys, or live providers. When CE has no live provider key, the workflow warns that live-provider selections are mock or plumbing-oriented unless keys are configured.
+CE runs can use the explicit `fixture` provider, configured env keys, or live providers. When CE has no live provider key, live-provider selections are expected to fail with provider-configuration errors unless keys are configured.
 
 Hosted-style runs should use `--edition HOSTED`. If required provider access is missing, the preflight summary warns before broad execution. Broad live runs also warn when scenario count, provider count, regeneration priming, and run count imply high provider cost or quota pressure.
 

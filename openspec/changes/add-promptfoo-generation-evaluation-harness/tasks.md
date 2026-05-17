@@ -44,7 +44,7 @@
 
 - [x] 7.1 Add redaction tests proving API keys, BYOK headers, bearer tokens, cookies, device tokens, session tokens, and secret-like headers are not written to Promptfoo artifacts
 - [x] 7.2 Add preflight checks or warnings for broad live-provider runs based on provider count, scenario count, variant count, and run count
-- [x] 7.3 Ensure CE runs without provider keys are clearly labeled as mock or plumbing-oriented runs
+- [x] 7.3 Ensure CE runs without provider keys are clearly labeled as fixture or plumbing-oriented runs
 - [x] 7.4 Ensure hosted-style runs without required BYOK/provider access fail or warn before broad execution instead of silently producing misleading mock quality results
 
 ## 8. Documentation And Validation

@@ -481,7 +481,9 @@ describe('createGenerateHandler', () => {
   });
 
   it('returns a provider configuration error in CE when no key is available', async () => {
+    const policy = createPolicyMock();
     const { handler, router, store } = createHandler({
+      policy,
       config: { edition: 'CE', defaultProvider: 'openai', defaultApiKeys: {} },
     });
 
@@ -496,6 +498,7 @@ describe('createGenerateHandler', () => {
 
     expect(response.status).toBe(503);
     expect(json.code).toBe('AI_PROVIDER_NOT_CONFIGURED');
+    expect(policy.canGenerate).not.toHaveBeenCalled();
     expect(router.generate).not.toHaveBeenCalled();
     expect(store.markPending).not.toHaveBeenCalled();
     expect(store.persistPlan).not.toHaveBeenCalled();

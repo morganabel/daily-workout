@@ -2,15 +2,9 @@
  * Structured error responses for API endpoints
  */
 
-export type ApiErrorCode =
-  | 'BYOK_REQUIRED'
-  | 'AI_PROVIDER_NOT_CONFIGURED'
-  | 'QUOTA_EXCEEDED'
-  | 'UNAUTHORIZED'
-  | 'VALIDATION_ERROR'
-  | 'NOT_FOUND'
-  | 'NOT_IMPLEMENTED'
-  | 'INVALID_PROVIDER';
+import type { ApiErrorCode } from '@workout-agent-ce/server-core';
+
+export type { ApiErrorCode };
 
 export interface ApiError {
   code: ApiErrorCode;

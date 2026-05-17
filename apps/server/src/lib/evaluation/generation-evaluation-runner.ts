@@ -230,7 +230,7 @@ function createHandlerBundle(
   const planner = new PromptCapturingStageOnePlanner();
   const useVertexAi = process.env.GOOGLE_GENAI_USE_VERTEXAI === 'true';
   const enableStageOnePlanner =
-    process.env.ENABLE_STAGE_ONE_PLANNER !== 'false';
+    !isFixtureProvider && process.env.ENABLE_STAGE_ONE_PLANNER !== 'false';
   const hasGeminiAccess = Boolean(process.env.GEMINI_API_KEY) || useVertexAi;
   const hasConfiguredAccess = isFixtureProvider
     ? true
@@ -248,12 +248,13 @@ function createHandlerBundle(
         edition,
         defaultProvider: isFixtureProvider ? 'openai' : provider,
         defaultApiKeys: isFixtureProvider
-          ? { openai: 'fixture-provider-key' }
+          ? {}
           : {
               openai: process.env.OPENAI_API_KEY,
               gemini: process.env.GEMINI_API_KEY,
             },
         enableStageOnePlanner,
+        allowUnconfiguredProvider: isFixtureProvider,
         useVertexAi,
         googleCloudProject: process.env.GOOGLE_CLOUD_PROJECT,
         googleCloudLocation: process.env.GOOGLE_CLOUD_LOCATION,
@@ -314,14 +315,10 @@ function buildPrimingRequest(scenario: GenerationEvaluationScenario) {
   return scenario.context ? { ...request, context: scenario.context } : request;
 }
 
-function executionSourceForRun(params: {
-  provider: GenerationEvaluationProvider;
-  edition: 'CE' | 'HOSTED';
-  hasConfiguredAccess: boolean;
-  responseStatus: number;
-  stateHasPlan: boolean;
-}): GenerationEvaluationExecutionSource {
-  if (params.provider === 'fixture') {
+function executionSourceForRun(
+  provider: GenerationEvaluationProvider
+): GenerationEvaluationExecutionSource {
+  if (provider === 'fixture') {
     return 'fixture';
   }
   return 'live';
@@ -330,7 +327,6 @@ function executionSourceForRun(params: {
 async function executeScenarioRequest(params: {
   bundle: HandlerBundle;
   provider: GenerationEvaluationProvider;
-  edition: 'CE' | 'HOSTED';
   token: string;
   body: unknown;
 }): Promise<ExecutedScenarioResult> {
@@ -353,13 +349,7 @@ async function executeScenarioRequest(params: {
   return {
     responseStatus: response.status,
     payload,
-    executionSource: executionSourceForRun({
-      provider: params.provider,
-      edition: params.edition,
-      hasConfiguredAccess: params.bundle.hasConfiguredAccess,
-      responseStatus: response.status,
-      stateHasPlan: Boolean(state.plan),
-    }),
+    executionSource: executionSourceForRun(params.provider),
     stateHasPlan: Boolean(state.plan),
     latencyMs: {
       totalRequestMs,
@@ -1557,7 +1547,6 @@ export async function runGenerationEvaluation(
             const primingResult = await executeScenarioRequest({
               bundle,
               provider,
-              edition: options.edition,
               token: `${runId}-prime`,
               body: buildPrimingRequest(scenario),
             });
@@ -1596,7 +1585,6 @@ export async function runGenerationEvaluation(
         const executed = await executeScenarioRequest({
           bundle,
           provider,
-          edition: options.edition,
           token: runId,
           body: requestBody,
         });

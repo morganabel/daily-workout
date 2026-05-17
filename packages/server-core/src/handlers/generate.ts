@@ -74,6 +74,11 @@ export interface GenerateHandlerConfig {
    * Enables the optional stage-one planner path.
    */
   enableStageOnePlanner?: boolean;
+
+  /**
+   * Allows evaluation fixture routers to run without live provider access.
+   */
+  allowUnconfiguredProvider?: boolean;
 }
 
 /**
@@ -266,13 +271,29 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
     const isByok = Boolean(
       openaiKeyHeader || geminiKeyHeader || genericKeyHeader
     );
+    const allowUnconfiguredProvider = Boolean(
+      deps.config.allowUnconfiguredProvider
+    );
 
     // Check BYOK requirement for hosted edition
-    if (!apiKey && !useVertexAi && deps.config.edition === 'HOSTED') {
+    if (
+      !apiKey &&
+      !useVertexAi &&
+      deps.config.edition === 'HOSTED' &&
+      !allowUnconfiguredProvider
+    ) {
       return errorResponse(
         'BYOK_REQUIRED',
         `API key required for ${provider} provider in hosted mode`,
         402
+      );
+    }
+
+    if (!apiKey && !useVertexAi && !allowUnconfiguredProvider) {
+      return errorResponse(
+        'AI_PROVIDER_NOT_CONFIGURED',
+        `No API key or server-managed ${provider} provider configuration is available`,
+        503
       );
     }
 
@@ -289,14 +310,6 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
           policyResult.statusCode ?? 429
         );
       }
-    }
-
-    if (!apiKey && !useVertexAi) {
-      return errorResponse(
-        'AI_PROVIDER_NOT_CONFIGURED',
-        `No API key or server-managed ${provider} provider configuration is available`,
-        503
-      );
     }
 
     const context = await loadGenerationContext(auth.userId, generationRequest);
