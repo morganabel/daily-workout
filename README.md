@@ -112,7 +112,7 @@ The generation flow now supports an optional stage-1 planner pass before the fin
 - Activation is ambiguous-only in v1. The extra planner call is considered for Smart focus, recent-session plus upcoming-event conflicts, dense free-form notes, and regeneration requests with feedback.
 - Stage 1 is advisory only. Hard constraints such as equipment, contraindications, avoid lists, and planner-safe candidate filtering remain server-owned.
 - Disable the feature with `ENABLE_STAGE_ONE_PLANNER=false` to force the legacy single-pass path for comparison or rollback.
-- Planner model defaults are intentionally cheaper than the final generation model: `OPENAI_PLANNER_MODEL` defaults to `gpt-5.4-nano` and `GEMINI_PLANNER_MODEL` defaults to `gemini-3.1-flash-lite-preview`.
+- Planner model defaults are intentionally cheaper than the final generation model: `OPENAI_PLANNER_MODEL` defaults to `gpt-5.4-nano` and `GEMINI_PLANNER_MODEL` defaults to `gemini-3.1-flash-lite`.
 - In `HOSTED`, eligible requests may incur an extra provider call and extra latency because stage 1 runs before stage 2. In `CE`, the staged path follows the same provider-configuration requirements as normal generation.
 
 For staged-vs-single-pass comparisons, run the evaluator twice against the same live slice, once with the default config and once with stage 1 disabled:
