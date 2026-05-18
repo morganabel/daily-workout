@@ -1,11 +1,13 @@
 import {
-  createGenerationContextMock,
-  createTodayPlanMock,
   type GenerationContext,
   type GenerationRequest,
   type GenerationRequestPayload,
   type TodayPlan,
 } from '@workout-agent/shared';
+import {
+  createGenerationContextFixture,
+  createTodayPlanFixture,
+} from '@workout-agent/shared/testing';
 import type { ExerciseLibrary } from '@workout-agent-ce/server-exercise-library';
 
 import { createGenerateHandler } from './generate';
@@ -22,7 +24,7 @@ import type {
 
 function createRequest(
   body: unknown,
-  headers: Record<string, string> = {},
+  headers: Record<string, string> = {}
 ): Request {
   return new Request('http://localhost/api/workouts/generate', {
     method: 'POST',
@@ -54,7 +56,7 @@ function createAuthResult(): AuthResult {
 }
 
 function createStoreMock(
-  plan: TodayPlan | null = null,
+  plan: TodayPlan | null = null
 ): jest.Mocked<GenerationStore> {
   return {
     getState: jest.fn().mockResolvedValue({
@@ -69,7 +71,7 @@ function createStoreMock(
 }
 
 function createRouterMock(
-  plan = createTodayPlanMock(),
+  plan = createTodayPlanFixture()
 ): jest.Mocked<ModelRouter> {
   return {
     generate: jest.fn().mockResolvedValue({
@@ -80,14 +82,14 @@ function createRouterMock(
     isSupportedProvider: jest
       .fn()
       .mockImplementation((provider: string) =>
-        ['openai', 'gemini'].includes(provider),
+        ['openai', 'gemini'].includes(provider)
       ),
     getDefaultProvider: jest.fn().mockReturnValue('openai'),
   };
 }
 
 function createAuthMock(
-  authResult: AuthResult | null = createAuthResult(),
+  authResult: AuthResult | null = createAuthResult()
 ): jest.Mocked<AuthProvider> {
   return {
     authenticate: jest.fn().mockResolvedValue(authResult),
@@ -119,7 +121,7 @@ function createPolicyMock(allowed = true): jest.Mocked<UsagePolicy> {
       .mockResolvedValue(
         allowed
           ? { allowed: true }
-          : { allowed: false, reason: 'Limit reached', statusCode: 429 },
+          : { allowed: false, reason: 'Limit reached', statusCode: 429 }
       ),
   };
 }
@@ -141,7 +143,7 @@ function createHandler(
     exerciseLibrary?: ExerciseLibrary;
     loadExerciseLibrary?: jest.Mock<Promise<ExerciseLibrary | undefined>>;
     config?: Parameters<typeof createGenerateHandler>[0]['config'];
-  } = {},
+  } = {}
 ) {
   const auth = overrides.auth ?? createAuthMock();
   const store = overrides.store ?? createStoreMock();
@@ -162,6 +164,7 @@ function createHandler(
     config: {
       edition: 'CE',
       defaultProvider: 'openai',
+      defaultApiKeys: { openai: 'server-openai-key' },
       ...overrides.config,
     },
   });
@@ -197,7 +200,7 @@ const baseContext: GenerationContext = {
 
 function createPlanningRequest(
   body: Partial<GenerationRequestPayload> = {},
-  headers: Record<string, string> = {},
+  headers: Record<string, string> = {}
 ): Request {
   return createRequest(
     {
@@ -209,7 +212,7 @@ function createPlanningRequest(
     {
       'x-openai-key': 'test-key',
       ...headers,
-    },
+    }
   );
 }
 
@@ -372,7 +375,9 @@ describe('createGenerateHandler', () => {
   });
 
   it('merges client context with request-level overrides before generation', async () => {
-    const router = createRouterMock(createTodayPlanMock({ id: 'merged-plan' }));
+    const router = createRouterMock(
+      createTodayPlanFixture({ id: 'merged-plan' })
+    );
     const { handler } = createHandler({
       router,
       config: {
@@ -382,7 +387,7 @@ describe('createGenerateHandler', () => {
       },
     });
 
-    const context = createGenerationContextMock({
+    const context = createGenerationContextFixture({
       userProfile: {
         experienceLevel: 'intermediate',
         primaryGoal: 'Build muscle',
@@ -431,7 +436,7 @@ describe('createGenerateHandler', () => {
   it('uses legacy x-openai-key inference and records metering without leaking api keys', async () => {
     const metering = createMeteringMock();
     const router = createRouterMock(
-      createTodayPlanMock({ id: 'legacy-openai-plan' }),
+      createTodayPlanFixture({ id: 'legacy-openai-plan' })
     );
     const { handler, store } = createHandler({ router, metering });
 
@@ -445,8 +450,8 @@ describe('createGenerateHandler', () => {
           previousResponseId: 'resp-old',
           feedback: ['just-try-again'],
         },
-        { 'x-openai-key': 'sk-test-123456789' },
-      ),
+        { 'x-openai-key': 'sk-test-123456789' }
+      )
     );
 
     expect(response.status).toBe(200);
@@ -456,7 +461,7 @@ describe('createGenerateHandler', () => {
       expect.objectContaining({
         provider: 'openai',
         apiKey: 'sk-test-123456789',
-      }),
+      })
     );
     expect(store.markPending).toHaveBeenCalledWith('device-123', 18);
     expect(metering.recordUsage).toHaveBeenCalledWith(
@@ -468,16 +473,18 @@ describe('createGenerateHandler', () => {
           responseId: 'resp-123',
           schemaVersion: 'v2-flat',
         },
-      }),
+      })
     );
 
     const meteringPayload = metering.recordUsage.mock.calls[0][0];
     expect(JSON.stringify(meteringPayload)).not.toContain('sk-test-123456789');
   });
 
-  it('uses a persisted mock fallback in CE when no key is available', async () => {
+  it('returns a provider configuration error in CE when no key is available', async () => {
+    const policy = createPolicyMock();
     const { handler, router, store } = createHandler({
-      config: { edition: 'CE', defaultProvider: 'openai' },
+      policy,
+      config: { edition: 'CE', defaultProvider: 'openai', defaultApiKeys: {} },
     });
 
     const response = await handler(
@@ -485,25 +492,25 @@ describe('createGenerateHandler', () => {
         timeMinutes: 20,
         focus: 'Smart',
         energy: 'easy',
-      }),
+      })
     );
-    const json = (await response.json()) as TodayPlan;
+    const json = (await response.json()) as { code: string; message: string };
 
-    expect(response.status).toBe(200);
+    expect(response.status).toBe(503);
+    expect(json.code).toBe('AI_PROVIDER_NOT_CONFIGURED');
+    expect(policy.canGenerate).not.toHaveBeenCalled();
     expect(router.generate).not.toHaveBeenCalled();
-    expect(json.durationMinutes).toBe(20);
-    expect(json.focus).toBe('Full Body');
-    expect(json.energy).toBe('easy');
-    expect(store.persistPlan).toHaveBeenCalledWith(
-      'device-123',
-      expect.objectContaining({ durationMinutes: 20, focus: 'Full Body' }),
-      { schemaVersion: undefined },
-    );
+    expect(store.markPending).not.toHaveBeenCalled();
+    expect(store.persistPlan).not.toHaveBeenCalled();
   });
 
   it('blocks hosted requests without a key', async () => {
     const { handler, router, store } = createHandler({
-      config: { edition: 'HOSTED', defaultProvider: 'openai' },
+      config: {
+        edition: 'HOSTED',
+        defaultProvider: 'openai',
+        defaultApiKeys: {},
+      },
     });
 
     const response = await handler(createRequest({ timeMinutes: 30 }));
@@ -532,7 +539,7 @@ describe('createGenerateHandler', () => {
   it('returns an error response on provider failure and sanitizes logged errors', async () => {
     const router = createRouterMock();
     router.generate.mockRejectedValueOnce(
-      new Error('provider exploded with key sk-live-should-not-appear'),
+      new Error('provider exploded with key sk-live-should-not-appear')
     );
 
     const { handler, store } = createHandler({
@@ -549,7 +556,7 @@ describe('createGenerateHandler', () => {
         timeMinutes: 25,
         focus: 'Upper Body',
         equipment: ['Dumbbells'],
-      }),
+      })
     );
     const json = (await response.json()) as { code: string; message: string };
 
@@ -557,7 +564,7 @@ describe('createGenerateHandler', () => {
     expect(json.code).toBe('AI_GENERATION_ERROR');
     expect(store.setError).toHaveBeenCalledWith(
       'device-123',
-      'We could not generate a workout plan. Please try again.',
+      'We could not generate a workout plan. Please try again.'
     );
     expect(store.persistPlan).not.toHaveBeenCalled();
 
@@ -568,13 +575,13 @@ describe('createGenerateHandler', () => {
 
   it('builds a candidate pool on normal generation without changing the public response', async () => {
     const router = createRouterMock(
-      createTodayPlanMock({ id: 'candidate-plan' }),
+      createTodayPlanFixture({ id: 'candidate-plan' })
     );
     const exerciseLibrary = createExerciseLibrary();
     const { handler } = createHandler({ router, exerciseLibrary });
 
     const response = await handler(
-      createPlanningRequest({ equipment: ['Dumbbells', 'Resistance Bands'] }),
+      createPlanningRequest({ equipment: ['Dumbbells', 'Resistance Bands'] })
     );
     const payload = (await response.json()) as TodayPlan & {
       candidateExercises?: unknown;
@@ -586,12 +593,12 @@ describe('createGenerateHandler', () => {
       expect.objectContaining({
         availableEquipment: ['Dumbbells', 'Resistance Bands'],
         searchText: expect.not.stringContaining('Dumbbells'),
-      }),
+      })
     );
     expect(exerciseLibrary.listEligibleExercises).toHaveBeenCalledWith(
       expect.objectContaining({
         searchText: expect.not.stringContaining('Resistance Bands'),
-      }),
+      })
     );
     expect(exerciseLibrary.listVariationCandidates).not.toHaveBeenCalled();
     expect(router.generate).toHaveBeenCalledWith(
@@ -604,7 +611,7 @@ describe('createGenerateHandler', () => {
           ],
           searchText: expect.any(String),
         }),
-      }),
+      })
     );
     expect(payload.focus).toBeDefined();
     expect(payload.candidateExercises).toBeUndefined();
@@ -612,7 +619,7 @@ describe('createGenerateHandler', () => {
 
   it('normalizes returned equipment to the effective request equipment', async () => {
     const router = createRouterMock(
-      createTodayPlanMock({
+      createTodayPlanFixture({
         id: 'gym-plan',
         equipment: [
           'Dumbbells',
@@ -620,12 +627,12 @@ describe('createGenerateHandler', () => {
           'Resistance Bands',
           'Cable Machine',
         ],
-      }),
+      })
     );
     const { handler, store } = createHandler({ router });
 
     const response = await handler(
-      createPlanningRequest({ equipment: ['Gym', 'Dumbbells'] }),
+      createPlanningRequest({ equipment: ['Gym', 'Dumbbells'] })
     );
     const payload = (await response.json()) as TodayPlan;
 
@@ -634,13 +641,13 @@ describe('createGenerateHandler', () => {
     expect(store.persistPlan).toHaveBeenCalledWith(
       'device-123',
       expect.objectContaining({ equipment: ['Gym'] }),
-      expect.anything(),
+      expect.anything()
     );
   });
 
   it('loads the exercise library lazily for AI generation when a loader is provided', async () => {
     const router = createRouterMock(
-      createTodayPlanMock({ id: 'lazy-candidate-plan' }),
+      createTodayPlanFixture({ id: 'lazy-candidate-plan' })
     );
     const exerciseLibrary = createExerciseLibrary();
     const loadExerciseLibrary = jest
@@ -662,13 +669,13 @@ describe('createGenerateHandler', () => {
             expect.objectContaining({ id: 'fedb:pushups', name: 'Pushups' }),
           ],
         }),
-      }),
+      })
     );
   });
 
   it('continues generation when lazy exercise-library loading fails', async () => {
     const router = createRouterMock(
-      createTodayPlanMock({ id: 'lazy-loader-fallback-plan' }),
+      createTodayPlanFixture({ id: 'lazy-loader-fallback-plan' })
     );
     const loadExerciseLibrary = jest
       .fn<Promise<ExerciseLibrary | undefined>, []>()
@@ -682,31 +689,34 @@ describe('createGenerateHandler', () => {
     expect(router.generate).toHaveBeenCalledWith(
       expect.anything(),
       expect.anything(),
-      expect.objectContaining({ candidatePool: undefined }),
+      expect.objectContaining({ candidatePool: undefined })
     );
 
     const loggedWarnings = warnSpy.mock.calls.map((call) => String(call[0]));
     expect(loggedWarnings.join(' ')).toContain(
-      'exercise candidate pool unavailable',
+      'exercise candidate pool unavailable'
     );
     expect(loggedWarnings.join(' ')).toContain('sqlite bindings unavailable');
   });
 
-  it('does not lazy-load the exercise library for CE mock fallback requests', async () => {
+  it('does not lazy-load the exercise library when provider configuration is missing', async () => {
     const loadExerciseLibrary = jest
       .fn<Promise<ExerciseLibrary | undefined>, []>()
       .mockResolvedValue(createExerciseLibrary());
-    const { handler, router } = createHandler({ loadExerciseLibrary });
+    const { handler, router } = createHandler({
+      loadExerciseLibrary,
+      config: { defaultApiKeys: {} },
+    });
 
     const response = await handler(
       createRequest({
         timeMinutes: 20,
         focus: 'Smart',
         energy: 'easy',
-      }),
+      })
     );
 
-    expect(response.status).toBe(200);
+    expect(response.status).toBe(503);
     expect(router.generate).not.toHaveBeenCalled();
     expect(loadExerciseLibrary).not.toHaveBeenCalled();
   });
@@ -736,12 +746,12 @@ describe('createGenerateHandler', () => {
           fallbackMode: 'strict-library',
           fallbackReasons: ['unsupported_equipment'],
         }),
-      }),
+      })
     );
   });
 
   it('reuses the variation query path for regeneration without exposing candidate metadata', async () => {
-    const previousPlan = createTodayPlanMock({
+    const previousPlan = createTodayPlanFixture({
       blocks: [
         {
           id: 'block-1',
@@ -765,7 +775,7 @@ describe('createGenerateHandler', () => {
     const { handler } = createHandler({ store, router, exerciseLibrary });
 
     const response = await handler(
-      createPlanningRequest({ previousResponseId: 'previous-response-id' }),
+      createPlanningRequest({ previousResponseId: 'previous-response-id' })
     );
     const payload = (await response.json()) as TodayPlan & {
       baselineExerciseIds?: unknown;
@@ -774,14 +784,14 @@ describe('createGenerateHandler', () => {
     expect(response.status).toBe(200);
     expect(exerciseLibrary.listVariationCandidates).toHaveBeenCalledTimes(1);
     expect(exerciseLibrary.listVariationCandidates).toHaveBeenCalledWith(
-      expect.objectContaining({ baselineExerciseIds: ['fedb:pushups'] }),
+      expect.objectContaining({ baselineExerciseIds: ['fedb:pushups'] })
     );
     expect(payload.baselineExerciseIds).toBeUndefined();
   });
 
   it('accepts planning-date and baseline workout inputs and records provider provenance', async () => {
     const router = createRouterMock();
-    const baselineWorkout = createTodayPlanMock({
+    const baselineWorkout = createTodayPlanFixture({
       responseId: 'resp-baseline',
       generationProvenance: {
         provider: 'openai',
@@ -795,7 +805,7 @@ describe('createGenerateHandler', () => {
         planningDateLocal: '2026-04-15',
         previousResponseId: 'resp-baseline',
         baselineWorkout,
-      }),
+      })
     );
     const payload = (await response.json()) as TodayPlan;
 
@@ -813,10 +823,10 @@ describe('createGenerateHandler', () => {
           planningDateLocal: '2026-04-15',
           resolvedFocus: expect.any(String),
           regeneration: expect.objectContaining({
-            baselineWorkoutId: 'plan-mock',
+            baselineWorkoutId: 'plan-fixture',
           }),
         }),
-      }),
+      })
     );
     expect(payload.generationProvenance).toEqual({
       provider: 'openai',
@@ -830,7 +840,7 @@ describe('createGenerateHandler', () => {
           responseId: 'resp-123',
         },
       }),
-      expect.anything(),
+      expect.anything()
     );
   });
 
@@ -852,7 +862,7 @@ describe('createGenerateHandler', () => {
             intensity: 'high',
           },
         ],
-      }),
+      })
     );
 
     expect(response.status).toBe(200);
@@ -867,7 +877,7 @@ describe('createGenerateHandler', () => {
             reasons: expect.arrayContaining(['smart-focus']),
           }),
         }),
-      }),
+      })
     );
   });
 
@@ -897,7 +907,7 @@ describe('createGenerateHandler', () => {
             intensity: 'high',
           },
         ],
-      }),
+      })
     );
 
     expect(response.status).toBe(200);
@@ -909,7 +919,7 @@ describe('createGenerateHandler', () => {
         planningBrief: expect.objectContaining({
           stagedPlanning: expect.objectContaining({ shouldRun: true }),
         }),
-      }),
+      })
     );
     expect(router.generate).toHaveBeenCalledWith(
       expect.anything(),
@@ -919,7 +929,7 @@ describe('createGenerateHandler', () => {
           mode: 'llm-assisted',
           resolvedFocus: 'Upper Body',
         }),
-      }),
+      })
     );
   });
 
@@ -949,7 +959,7 @@ describe('createGenerateHandler', () => {
             intensity: 'high',
           },
         ],
-      }),
+      })
     );
 
     expect(response.status).toBe(200);
@@ -965,14 +975,14 @@ describe('createGenerateHandler', () => {
             reasons: expect.arrayContaining(['smart-focus']),
           }),
         }),
-      }),
+      })
     );
   });
 
   it('passes the stage-one artifact through stateful OpenAI regeneration when provenance matches', async () => {
     const router = createRouterMock();
     const planner = createStageOnePlannerMock();
-    const baselineWorkout = createTodayPlanMock({
+    const baselineWorkout = createTodayPlanFixture({
       responseId: 'resp-openai',
       generationProvenance: {
         provider: 'openai',
@@ -994,7 +1004,7 @@ describe('createGenerateHandler', () => {
         previousResponseId: 'resp-openai',
         baselineWorkout,
         feedback: ['different-exercises'],
-      }),
+      })
     );
 
     expect(response.status).toBe(200);
@@ -1009,7 +1019,7 @@ describe('createGenerateHandler', () => {
         planningBrief: expect.objectContaining({
           regeneration: expect.objectContaining({ mode: 'stateful' }),
         }),
-      }),
+      })
     );
     expect(router.generate).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -1026,14 +1036,14 @@ describe('createGenerateHandler', () => {
         planningBrief: expect.objectContaining({
           regeneration: expect.objectContaining({ mode: 'stateful' }),
         }),
-      }),
+      })
     );
   });
 
   it('passes the stage-one artifact through stateless Gemini regeneration when provider continuity is unavailable', async () => {
     const router = createRouterMock();
     const planner = createStageOnePlannerMock();
-    const baselineWorkout = createTodayPlanMock({
+    const baselineWorkout = createTodayPlanFixture({
       responseId: 'resp-openai',
       generationProvenance: {
         provider: 'openai',
@@ -1061,8 +1071,8 @@ describe('createGenerateHandler', () => {
           'x-ai-provider': 'gemini',
           'x-gemini-key': 'gemini-key',
           'x-openai-key': '',
-        },
-      ),
+        }
+      )
     );
 
     expect(response.status).toBe(200);
@@ -1077,7 +1087,7 @@ describe('createGenerateHandler', () => {
         planningBrief: expect.objectContaining({
           regeneration: expect.objectContaining({ mode: 'stateless' }),
         }),
-      }),
+      })
     );
     expect(router.generate).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -1094,7 +1104,7 @@ describe('createGenerateHandler', () => {
         planningBrief: expect.objectContaining({
           regeneration: expect.objectContaining({ mode: 'stateless' }),
         }),
-      }),
+      })
     );
   });
 
@@ -1177,7 +1187,7 @@ describe('createGenerateHandler', () => {
       createPlanningRequest({
         focus: 'Smart',
         notes: 'Keep it upper-body focused and athletic.',
-      }),
+      })
     );
 
     expect(response.status).toBe(200);
@@ -1191,13 +1201,13 @@ describe('createGenerateHandler', () => {
             expect.objectContaining({ id: 'fedb:squat' }),
           ],
         }),
-      }),
+      })
     );
   });
 
   it('uses stateless regeneration when provider continuity does not match the active provider', async () => {
     const router = createRouterMock();
-    const baselineWorkout = createTodayPlanMock({
+    const baselineWorkout = createTodayPlanFixture({
       responseId: 'resp-openai',
       generationProvenance: {
         provider: 'openai',
@@ -1220,8 +1230,8 @@ describe('createGenerateHandler', () => {
           'x-ai-provider': 'gemini',
           'x-gemini-key': 'gemini-key',
           'x-openai-key': '',
-        },
-      ),
+        }
+      )
     );
 
     expect(router.generate).toHaveBeenCalledWith(
@@ -1235,13 +1245,13 @@ describe('createGenerateHandler', () => {
         planningBrief: expect.objectContaining({
           regeneration: expect.objectContaining({ mode: 'stateless' }),
         }),
-      }),
+      })
     );
   });
 
   it('uses stateless regeneration when prior response provenance does not match the requested response id', async () => {
     const router = createRouterMock();
-    const baselineWorkout = createTodayPlanMock({
+    const baselineWorkout = createTodayPlanFixture({
       responseId: 'resp-openai',
       generationProvenance: {
         provider: 'openai',
@@ -1263,8 +1273,8 @@ describe('createGenerateHandler', () => {
         {
           'x-ai-provider': 'openai',
           'x-openai-key': 'openai-key',
-        },
-      ),
+        }
+      )
     );
 
     expect(router.generate).toHaveBeenCalledWith(
@@ -1278,7 +1288,7 @@ describe('createGenerateHandler', () => {
         planningBrief: expect.objectContaining({
           regeneration: expect.objectContaining({ mode: 'stateless' }),
         }),
-      }),
+      })
     );
   });
 });

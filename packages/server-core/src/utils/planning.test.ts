@@ -1,8 +1,8 @@
 import {
-  createTodayPlanMock,
   type AdaptivePlanIntent,
   type GenerationContext,
 } from '@workout-agent/shared';
+import { createTodayPlanFixture } from '@workout-agent/shared/testing';
 import {
   derivePlanningBrief,
   determineStageOnePlanningActivation,
@@ -79,7 +79,7 @@ describe('derivePlanningBrief', () => {
         focus: 'Upper Body',
         timeMinutes: 45,
         previousResponseId: 'resp-1',
-        baselineWorkout: createTodayPlanMock({ id: 'plan-1' }),
+        baselineWorkout: createTodayPlanFixture({ id: 'plan-1' }),
         feedback: ['different-exercises'],
       },
       context: createContext(),

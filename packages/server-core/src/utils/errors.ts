@@ -6,10 +6,12 @@ import { redactSensitiveStrings } from './logging';
 
 export type ApiErrorCode =
   | 'BYOK_REQUIRED'
+  | 'AI_PROVIDER_NOT_CONFIGURED'
   | 'QUOTA_EXCEEDED'
   | 'UNAUTHORIZED'
   | 'VALIDATION_ERROR'
   | 'NOT_FOUND'
+  | 'NOT_IMPLEMENTED'
   | 'INVALID_PROVIDER'
   | 'AI_GENERATION_ERROR';
 

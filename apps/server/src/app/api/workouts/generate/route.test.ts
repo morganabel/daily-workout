@@ -11,9 +11,12 @@ jest.mock('@/lib/wiring');
 
 import { POST } from './route';
 import { generateHandler } from '@/lib/wiring';
-import { createTodayPlanMock, todayPlanSchema } from '@workout-agent/shared';
+import { todayPlanSchema } from '@workout-agent/shared';
+import { createTodayPlanFixture } from '@workout-agent/shared/testing';
 
-const mockGenerateHandler = generateHandler as jest.MockedFunction<typeof generateHandler>;
+const mockGenerateHandler = generateHandler as jest.MockedFunction<
+  typeof generateHandler
+>;
 
 describe('POST /api/workouts/generate', () => {
   beforeEach(() => {
@@ -21,7 +24,7 @@ describe('POST /api/workouts/generate', () => {
   });
 
   it('should delegate to generateHandler', async () => {
-    const plan = createTodayPlanMock({
+    const plan = createTodayPlanFixture({
       id: 'plan-123',
       focus: 'Full Body',
       durationMinutes: 30,
@@ -102,7 +105,7 @@ describe('POST /api/workouts/generate', () => {
   });
 
   it('should return generated plan', async () => {
-    const plan = createTodayPlanMock({
+    const plan = createTodayPlanFixture({
       id: 'plan-456',
       focus: 'Upper Body',
       durationMinutes: 45,

@@ -20,9 +20,7 @@ import {
 } from '../utils/exercise-library';
 import {
   generationRequestPayloadSchema,
-  isAutoFocus,
   todayPlanSchema,
-  createTodayPlanMock,
   type TodayPlan,
 } from '@workout-agent/shared';
 import type { ExerciseLibrary } from '@workout-agent-ce/server-exercise-library';
@@ -76,6 +74,11 @@ export interface GenerateHandlerConfig {
    * Enables the optional stage-one planner path.
    */
   enableStageOnePlanner?: boolean;
+
+  /**
+   * Allows evaluation fixture routers to run without live provider access.
+   */
+  allowUnconfiguredProvider?: boolean;
 }
 
 /**
@@ -103,7 +106,7 @@ function sanitizeErrorMessage(message: string): string {
 function canUseProviderContinuity(
   request: GenerationRequestWithContext,
   provider: 'openai' | 'gemini',
-  previousPlan: TodayPlan | null,
+  previousPlan: TodayPlan | null
 ): boolean {
   if (!request.previousResponseId || provider !== 'openai') {
     return false;
@@ -122,7 +125,7 @@ function canUseProviderContinuity(
 function createProviderRequest(
   request: GenerationRequestWithContext,
   provider: 'openai' | 'gemini',
-  previousPlan: TodayPlan | null,
+  previousPlan: TodayPlan | null
 ): GenerationRequestWithContext {
   if (canUseProviderContinuity(request, provider, previousPlan)) {
     return request;
@@ -151,13 +154,13 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
   return async function generateHandler(request: Request): Promise<Response> {
     const { requestId, urlPath, startedAt, log } = createRequestContext(
       request,
-      'workouts.generate',
+      'workouts.generate'
     );
 
     const errorResponse = (
       code: Parameters<typeof createErrorResponse>[0],
       message: string,
-      status: number,
+      status: number
     ): Response => {
       const response = createErrorResponse(code, message, status);
       attachRequestId(response, requestId);
@@ -190,7 +193,7 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
       return errorResponse(
         'VALIDATION_ERROR',
         'Invalid JSON in request body',
-        400,
+        400
       );
     }
 
@@ -204,7 +207,7 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
       return errorResponse(
         'VALIDATION_ERROR',
         `Invalid request: ${parseResult.error.message}`,
-        400,
+        400
       );
     }
 
@@ -226,7 +229,7 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
         return errorResponse(
           'INVALID_PROVIDER',
           `Unsupported provider: ${providerHeader}. Supported providers: openai, gemini`,
-          400,
+          400
         );
       }
       provider = providerHeader as 'openai' | 'gemini';
@@ -243,9 +246,9 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
     // Determine if Vertex AI should be used
     const useVertexAi = Boolean(
       provider === 'gemini' &&
-      deps.config.useVertexAi &&
-      deps.config.googleCloudProject &&
-      deps.config.googleCloudLocation,
+        deps.config.useVertexAi &&
+        deps.config.googleCloudProject &&
+        deps.config.googleCloudLocation
     );
 
     // Extract API key based on provider
@@ -266,15 +269,31 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
     }
 
     const isByok = Boolean(
-      openaiKeyHeader || geminiKeyHeader || genericKeyHeader,
+      openaiKeyHeader || geminiKeyHeader || genericKeyHeader
+    );
+    const allowUnconfiguredProvider = Boolean(
+      deps.config.allowUnconfiguredProvider
     );
 
     // Check BYOK requirement for hosted edition
-    if (!apiKey && !useVertexAi && deps.config.edition === 'HOSTED') {
+    if (
+      !apiKey &&
+      !useVertexAi &&
+      deps.config.edition === 'HOSTED' &&
+      !allowUnconfiguredProvider
+    ) {
       return errorResponse(
         'BYOK_REQUIRED',
         `API key required for ${provider} provider in hosted mode`,
-        402,
+        402
+      );
+    }
+
+    if (!apiKey && !useVertexAi && !allowUnconfiguredProvider) {
+      return errorResponse(
+        'AI_PROVIDER_NOT_CONFIGURED',
+        `No API key or server-managed ${provider} provider configuration is available`,
+        503
       );
     }
 
@@ -282,31 +301,20 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
     if (deps.policy) {
       const policyResult = await deps.policy.canGenerate(
         auth.userId,
-        generationRequest,
+        generationRequest
       );
       if (!policyResult.allowed) {
         return errorResponse(
           'QUOTA_EXCEEDED',
           policyResult.reason ?? 'Quota exceeded',
-          policyResult.statusCode ?? 429,
+          policyResult.statusCode ?? 429
         );
       }
     }
 
-    const mockPlan = () =>
-      createTodayPlanMock({
-        durationMinutes: generationRequest.timeMinutes ?? 30,
-        focus:
-          generationRequest.focus && !isAutoFocus(generationRequest.focus)
-            ? generationRequest.focus
-            : 'Full Body',
-        equipment: generationRequest.equipment ?? ['Bodyweight'],
-        energy: generationRequest.energy ?? 'moderate',
-      });
-
     const context = await loadGenerationContext(auth.userId, generationRequest);
     const isRegeneration = Boolean(
-      generationRequest.previousResponseId || generationRequest.baselineWorkout,
+      generationRequest.previousResponseId || generationRequest.baselineWorkout
     );
     let previousState: GenerationState | null = null;
 
@@ -323,7 +331,7 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
     const providerRequest = createProviderRequest(
       generationRequest,
       provider,
-      previousState?.plan ?? null,
+      previousState?.plan ?? null
     );
     const planningBrief = derivePlanningBrief({
       request: providerRequest,
@@ -388,7 +396,7 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
     ) {
       try {
         stageOneArtifact = await deps.planner.plan(providerRequest, context, {
-          apiKey: useVertexAi ? undefined : (apiKey ?? undefined),
+          apiKey: useVertexAi ? undefined : apiKey ?? undefined,
           candidatePool,
           planningBrief: effectivePlanningBrief,
           provider,
@@ -405,7 +413,7 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
         if (candidatePool) {
           candidatePool = rerankExerciseCandidatePool(
             candidatePool,
-            stageOneArtifact,
+            stageOneArtifact
           );
         }
       } catch (error) {
@@ -436,51 +444,47 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
     // Use principalId for device-scoped state (GenerationStore)
     await deps.store.markPending(
       auth.principalId,
-      DEFAULT_GENERATION_ETA_SECONDS,
+      DEFAULT_GENERATION_ETA_SECONDS
     );
 
     let plan: TodayPlan;
     let responseId: string | undefined;
     let schemaVersion: string | undefined;
 
-    if (apiKey) {
-      try {
-        const result = await deps.router.generate(providerRequest, context, {
-          apiKey: useVertexAi ? undefined : (apiKey ?? undefined),
-          candidatePool,
-          planningBrief: effectivePlanningBrief,
-          stageOneArtifact,
-          provider,
-          useVertexAi,
-        });
-        plan = result.plan;
-        responseId = result.responseId;
-        schemaVersion = result.schemaVersion;
+    try {
+      const result = await deps.router.generate(providerRequest, context, {
+        apiKey: useVertexAi ? undefined : apiKey ?? undefined,
+        candidatePool,
+        planningBrief: effectivePlanningBrief,
+        stageOneArtifact,
+        provider,
+        useVertexAi,
+      });
+      plan = result.plan;
+      responseId = result.responseId;
+      schemaVersion = result.schemaVersion;
 
-        const providerResponseId = plan.responseId ?? responseId;
-        plan = {
-          ...plan,
-          responseId: providerResponseId,
-          generationProvenance: {
-            provider,
-            ...(providerResponseId ? { responseId: providerResponseId } : {}),
-          },
-        };
-      } catch (error) {
-        const sanitizedMessage = sanitizeErrorMessage((error as Error).message);
-        log.warn('ai generation failed', {
+      const providerResponseId = plan.responseId ?? responseId;
+      plan = {
+        ...plan,
+        responseId: providerResponseId,
+        generationProvenance: {
           provider,
-          message: sanitizedMessage,
-          error,
-        });
-        await deps.store.setError(
-          auth.principalId,
-          'We could not generate a workout plan. Please try again.',
-        );
-        return errorResponse('AI_GENERATION_ERROR', sanitizedMessage, 502);
-      }
-    } else {
-      plan = mockPlan();
+          ...(providerResponseId ? { responseId: providerResponseId } : {}),
+        },
+      };
+    } catch (error) {
+      const sanitizedMessage = sanitizeErrorMessage((error as Error).message);
+      log.warn('ai generation failed', {
+        provider,
+        message: sanitizedMessage,
+        error,
+      });
+      await deps.store.setError(
+        auth.principalId,
+        'We could not generate a workout plan. Please try again.'
+      );
+      return errorResponse('AI_GENERATION_ERROR', sanitizedMessage, 502);
     }
 
     plan = {
@@ -495,7 +499,7 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
     });
     log.info('generation completed', {
       durationMs: Date.now() - startedAt,
-      source: apiKey ? 'ai' : 'mock',
+      source: 'ai',
       isRegeneration,
       responseId,
       schemaVersion,

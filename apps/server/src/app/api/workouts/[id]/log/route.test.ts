@@ -7,10 +7,8 @@ jest.mock('@/lib/wiring');
 
 import { POST } from './route';
 import { logWorkoutHandler } from '@/lib/wiring';
-import {
-  createSessionSummaryMock,
-  workoutSessionSummarySchema,
-} from '@workout-agent/shared';
+import { workoutSessionSummarySchema } from '@workout-agent/shared';
+import { createSessionSummaryFixture } from '@workout-agent/shared/testing';
 
 const mockLogWorkoutHandler = logWorkoutHandler as jest.MockedFunction<
   typeof logWorkoutHandler
@@ -22,11 +20,13 @@ describe('POST /api/workouts/:id/log', () => {
   });
 
   it('should delegate to logWorkoutHandler with planId', async () => {
-    const session = createSessionSummaryMock({
+    const session = createSessionSummaryFixture({
       id: 'session-123',
       completedAt: new Date().toISOString(),
     });
-    const mockResponse = Response.json(workoutSessionSummarySchema.parse(session));
+    const mockResponse = Response.json(
+      workoutSessionSummarySchema.parse(session)
+    );
     mockLogWorkoutHandler.mockResolvedValue(mockResponse);
 
     const request = new Request(
@@ -47,10 +47,12 @@ describe('POST /api/workouts/:id/log', () => {
   });
 
   it('should handle Promise params (Next.js 15 compatibility)', async () => {
-    const session = createSessionSummaryMock({
+    const session = createSessionSummaryFixture({
       id: 'session-456',
     });
-    const mockResponse = Response.json(workoutSessionSummarySchema.parse(session));
+    const mockResponse = Response.json(
+      workoutSessionSummarySchema.parse(session)
+    );
     mockLogWorkoutHandler.mockResolvedValue(mockResponse);
 
     const request = new Request(
@@ -93,12 +95,14 @@ describe('POST /api/workouts/:id/log', () => {
   });
 
   it('should return session summary on success', async () => {
-    const session = createSessionSummaryMock({
+    const session = createSessionSummaryFixture({
       id: 'session-789',
       completedAt: '2024-01-15T10:30:00Z',
       source: 'ai',
     });
-    const mockResponse = Response.json(workoutSessionSummarySchema.parse(session));
+    const mockResponse = Response.json(
+      workoutSessionSummarySchema.parse(session)
+    );
     mockLogWorkoutHandler.mockResolvedValue(mockResponse);
 
     const request = new Request(

@@ -1,10 +1,8 @@
 import * as React from 'react';
 import { render } from '@testing-library/react-native';
 import { useHomeData } from './hooks/useHomeData';
-import {
-  createTodayPlanMock,
-  type QuickActionPreset,
-} from '@workout-agent/shared';
+import type { QuickActionPreset } from '@workout-agent/shared';
+import { createTodayPlanFixture } from '@workout-agent/shared/testing';
 import App from './App';
 
 jest.mock('./hooks/useHomeData', () => ({
@@ -148,7 +146,7 @@ const createBaseQuickActions = (): QuickActionPreset[] => [
   },
 ];
 
-const basePlan = createTodayPlanMock();
+const basePlan = createTodayPlanFixture();
 
 const baseHookState = {
   status: 'ready' as const,

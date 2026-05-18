@@ -34,7 +34,7 @@ Usage:
   npm run promptfoo:generation -- [options]
 
 Options:
-  --provider <value>        mock | openai | gemini | live | all (repeatable)
+  --provider <value>        fixture | openai | gemini | live | all (repeatable)
   --runs <number>           repeated runs per scenario/provider (default: 1)
   --tag <value>             filter scenarios by tag (repeatable)
   --scenario <id>           run only selected scenario id (repeatable)
@@ -70,10 +70,10 @@ function expandProviders(values) {
   const expanded = values.flatMap((value) => {
     switch (value) {
       case 'all':
-        return ['mock', 'openai', 'gemini'];
+        return ['openai', 'gemini'];
       case 'live':
         return ['openai', 'gemini'];
-      case 'mock':
+      case 'fixture':
       case 'openai':
       case 'gemini':
         return [value];
@@ -92,7 +92,12 @@ function parseArgs(argv) {
   const scenarioIds = [];
   let runs = 1;
   let edition = 'CE';
-  let outputDir = path.join(process.cwd(), 'reports', 'promptfoo-generation', timestamp);
+  let outputDir = path.join(
+    process.cwd(),
+    'reports',
+    'promptfoo-generation',
+    timestamp
+  );
   let limit;
   let variantLabel = 'default';
   let plannerMode = 'default';
@@ -155,7 +160,9 @@ function parseArgs(argv) {
     }
     if (arg === '--planner' && next) {
       if (next !== 'default' && next !== 'enabled' && next !== 'disabled') {
-        throw new Error(`--planner must be default, enabled, or disabled. Received: ${next}`);
+        throw new Error(
+          `--planner must be default, enabled, or disabled. Received: ${next}`
+        );
       }
       plannerMode = next;
       index += 1;
@@ -179,7 +186,9 @@ function parseArgs(argv) {
   }
 
   return {
-    providers: expandProviders(providerArgs.length > 0 ? providerArgs : ['mock']),
+    providers: expandProviders(
+      providerArgs.length > 0 ? providerArgs : ['openai']
+    ),
     runs,
     edition,
     outputDir,
@@ -248,15 +257,21 @@ function loadBridgeData(options) {
       env: {
         ...process.env,
         PROMPTFOO_GENERATION_OPTIONS_JSON: JSON.stringify(options),
-        PROMPTFOO_GENERATION_AVAILABILITY_JSON: JSON.stringify(providerAvailability()),
+        PROMPTFOO_GENERATION_AVAILABILITY_JSON: JSON.stringify(
+          providerAvailability()
+        ),
       },
       encoding: 'utf8',
       shell: false,
-    },
+    }
   );
 
   if (result.status !== 0) {
-    throw new Error(result.stderr || result.stdout || 'Failed to load Promptfoo generation bridge data.');
+    throw new Error(
+      result.stderr ||
+        result.stdout ||
+        'Failed to load Promptfoo generation bridge data.'
+    );
   }
 
   return JSON.parse(result.stdout);
@@ -310,14 +325,14 @@ function buildPromptfooConfig(options, outputDir, tests) {
     'tools',
     'promptfoo',
     'generation',
-    'generation-provider.mjs',
+    'generation-provider.mjs'
   );
   const assertPath = path.join(
     process.cwd(),
     'tools',
     'promptfoo',
     'generation',
-    'assert-domain-hard-checks.cjs',
+    'assert-domain-hard-checks.cjs'
   );
   const testCases = tests.map((test) => ({
     ...test,
@@ -339,7 +354,10 @@ function buildPromptfooConfig(options, outputDir, tests) {
         id: pathToFileURL(providerPath).href,
         label: 'workout-generation-evaluation',
         config: {
-          outputRoot: path.relative(process.cwd(), path.join(outputDir, 'provider-calls')),
+          outputRoot: path.relative(
+            process.cwd(),
+            path.join(outputDir, 'provider-calls')
+          ),
         },
       },
     ],
@@ -410,7 +428,7 @@ function summarizeExercises(plan) {
       blockTitle: block.title,
       name: exercise.name,
       prescription: exercise.prescription,
-    })),
+    }))
   );
 }
 
@@ -447,12 +465,17 @@ function readComparisonRows(outputDir) {
           failures,
           latencyMs: entry.latencyMs?.totalRequestMs,
           plannerUsed: Boolean(entry.plannerSummary?.usedStageOne),
-          summary: entry.plan?.summary ?? entry.errorMessage ?? 'No plan summary available.',
+          summary:
+            entry.plan?.summary ??
+            entry.errorMessage ??
+            'No plan summary available.',
           durationMinutes: entry.plan?.durationMinutes,
           focus: entry.plan?.focus,
           equipment: entry.plan?.equipment ?? [],
           exercises,
-          detailHtmlPath: existsSync(detailHtmlPath) ? detailHtmlPath : undefined,
+          detailHtmlPath: existsSync(detailHtmlPath)
+            ? detailHtmlPath
+            : undefined,
         };
       });
     })
@@ -460,7 +483,7 @@ function readComparisonRows(outputDir) {
       (a, b) =>
         a.scenarioId.localeCompare(b.scenarioId) ||
         a.provider.localeCompare(b.provider) ||
-        a.runId.localeCompare(b.runId),
+        a.runId.localeCompare(b.runId)
     );
 }
 
@@ -512,8 +535,16 @@ function formatExerciseSummary(row) {
 
   const shown = row.exercises
     .slice(0, 6)
-    .map((exercise) => `${exercise.name}${exercise.prescription ? ` (${exercise.prescription})` : ''}`);
-  const suffix = row.exercises.length > shown.length ? `; +${row.exercises.length - shown.length} more` : '';
+    .map(
+      (exercise) =>
+        `${exercise.name}${
+          exercise.prescription ? ` (${exercise.prescription})` : ''
+        }`
+    );
+  const suffix =
+    row.exercises.length > shown.length
+      ? `; +${row.exercises.length - shown.length} more`
+      : '';
   return `${shown.join('; ')}${suffix}`;
 }
 
@@ -536,42 +567,58 @@ function renderComparisonMarkdown(params) {
     `- Provider-call entries: ${params.rows.length}`,
     `- Clean entries: ${cleanEntries}`,
     `- Entries with failures: ${params.rows.length - cleanEntries}`,
-    `- Promptfoo pass/fail: ${promptfooStats ? `${promptfooStats.successes ?? 0} passed, ${promptfooStats.failures ?? 0} failed, ${promptfooStats.errors ?? 0} errors` : 'n/a'}`,
-    `- Raw Promptfoo report: [report.html](${reportUrl(params.promptfooReportHtmlPath)})`,
+    `- Promptfoo pass/fail: ${
+      promptfooStats
+        ? `${promptfooStats.successes ?? 0} passed, ${
+            promptfooStats.failures ?? 0
+          } failed, ${promptfooStats.errors ?? 0} errors`
+        : 'n/a'
+    }`,
+    `- Raw Promptfoo report: [report.html](${reportUrl(
+      params.promptfooReportHtmlPath
+    )})`,
     '',
     '## Provider Summary',
     '',
     '| Provider | Clean / Total | Avg Latency | Hard Failures |',
     '| --- | ---: | ---: | --- |',
-    ...providerSummaries.map((summary) =>
-      [
-        summary.provider,
-        `${summary.cleanEntries} / ${summary.entries}`,
-        formatMs(summary.avgLatencyMs),
-        summary.hardFailures.length > 0 ? summary.hardFailures.join(', ') : 'none',
-      ]
-        .map(escapeMarkdownTable)
-        .join(' | '),
-    ).map((line) => `| ${line} |`),
+    ...providerSummaries
+      .map((summary) =>
+        [
+          summary.provider,
+          `${summary.cleanEntries} / ${summary.entries}`,
+          formatMs(summary.avgLatencyMs),
+          summary.hardFailures.length > 0
+            ? summary.hardFailures.join(', ')
+            : 'none',
+        ]
+          .map(escapeMarkdownTable)
+          .join(' | ')
+      )
+      .map((line) => `| ${line} |`),
     '',
     '## Scenario Results',
     '',
     '| Scenario | Provider | Source | Result | Latency | Workout Summary | Exercises | Detail |',
     '| --- | --- | --- | --- | ---: | --- | --- | --- |',
-    ...params.rows.map((row) =>
-      [
-        row.scenarioId,
-        row.provider,
-        row.executionSource,
-        formatPass(row),
-        formatMs(row.latencyMs),
-        row.summary,
-        formatExerciseSummary(row),
-        row.detailHtmlPath ? `[canonical report](${reportUrl(row.detailHtmlPath)})` : 'n/a',
-      ]
-        .map(escapeMarkdownTable)
-        .join(' | '),
-    ).map((line) => `| ${line} |`),
+    ...params.rows
+      .map((row) =>
+        [
+          row.scenarioId,
+          row.provider,
+          row.executionSource,
+          formatPass(row),
+          formatMs(row.latencyMs),
+          row.summary,
+          formatExerciseSummary(row),
+          row.detailHtmlPath
+            ? `[canonical report](${reportUrl(row.detailHtmlPath)})`
+            : 'n/a',
+        ]
+          .map(escapeMarkdownTable)
+          .join(' | ')
+      )
+      .map((line) => `| ${line} |`),
     '',
   ];
 
@@ -589,23 +636,35 @@ function renderComparisonHtml(params) {
         <td>${escapeHtml(summary.provider)}</td>
         <td>${summary.cleanEntries} / ${summary.entries}</td>
         <td>${escapeHtml(formatMs(summary.avgLatencyMs))}</td>
-        <td>${escapeHtml(summary.hardFailures.length > 0 ? summary.hardFailures.join(', ') : 'none')}</td>
-      </tr>`,
+        <td>${escapeHtml(
+          summary.hardFailures.length > 0
+            ? summary.hardFailures.join(', ')
+            : 'none'
+        )}</td>
+      </tr>`
     )
     .join('\n');
 
   const scenarioRows = params.rows
     .map(
       (row) => `<tr>
-        <td><strong>${escapeHtml(row.scenarioId)}</strong><div>${escapeHtml(row.scenarioTitle)}</div></td>
+        <td><strong>${escapeHtml(row.scenarioId)}</strong><div>${escapeHtml(
+        row.scenarioTitle
+      )}</div></td>
         <td>${escapeHtml(row.provider)}</td>
         <td>${escapeHtml(row.executionSource)}</td>
-        <td><span class="${row.pass ? 'pass' : 'fail'}">${escapeHtml(formatPass(row))}</span></td>
+        <td><span class="${row.pass ? 'pass' : 'fail'}">${escapeHtml(
+        formatPass(row)
+      )}</span></td>
         <td>${escapeHtml(formatMs(row.latencyMs))}</td>
         <td>${escapeHtml(row.summary)}</td>
         <td>${escapeHtml(formatExerciseSummary(row))}</td>
-        <td>${row.detailHtmlPath ? `<a href="${reportUrl(row.detailHtmlPath)}">canonical report</a>` : 'n/a'}</td>
-      </tr>`,
+        <td>${
+          row.detailHtmlPath
+            ? `<a href="${reportUrl(row.detailHtmlPath)}">canonical report</a>`
+            : 'n/a'
+        }</td>
+      </tr>`
     )
     .join('\n');
 
@@ -635,14 +694,32 @@ function renderComparisonHtml(params) {
 <body>
   <main>
     <h1>Workout Generation Comparison</h1>
-    <p class="muted">Generated ${escapeHtml(new Date().toISOString())} · Variant ${escapeHtml(params.options.variantLabel)} · Planner ${escapeHtml(params.options.plannerMode)}</p>
-    <p>This is the repo-specific summary. Use the raw <a href="${reportUrl(params.promptfooReportHtmlPath)}">Promptfoo report</a> only when you need the generic eval table or CI/JUnit details.</p>
+    <p class="muted">Generated ${escapeHtml(
+      new Date().toISOString()
+    )} · Variant ${escapeHtml(
+    params.options.variantLabel
+  )} · Planner ${escapeHtml(params.options.plannerMode)}</p>
+    <p>This is the repo-specific summary. Use the raw <a href="${reportUrl(
+      params.promptfooReportHtmlPath
+    )}">Promptfoo report</a> only when you need the generic eval table or CI/JUnit details.</p>
 
     <section class="stats">
-      <div class="stat"><strong>${params.rows.length}</strong><span>Provider-call entries</span></div>
+      <div class="stat"><strong>${
+        params.rows.length
+      }</strong><span>Provider-call entries</span></div>
       <div class="stat"><strong>${cleanEntries}</strong><span>Clean entries</span></div>
-      <div class="stat"><strong>${params.rows.length - cleanEntries}</strong><span>Entries with failures</span></div>
-      <div class="stat"><strong>${promptfooStats ? `${promptfooStats.successes ?? 0}/${(promptfooStats.successes ?? 0) + (promptfooStats.failures ?? 0) + (promptfooStats.errors ?? 0)}` : 'n/a'}</strong><span>Promptfoo pass count</span></div>
+      <div class="stat"><strong>${
+        params.rows.length - cleanEntries
+      }</strong><span>Entries with failures</span></div>
+      <div class="stat"><strong>${
+        promptfooStats
+          ? `${promptfooStats.successes ?? 0}/${
+              (promptfooStats.successes ?? 0) +
+              (promptfooStats.failures ?? 0) +
+              (promptfooStats.errors ?? 0)
+            }`
+          : 'n/a'
+      }</strong><span>Promptfoo pass count</span></div>
     </section>
 
     <h2>Provider Summary</h2>
@@ -679,8 +756,16 @@ async function writeComparisonArtifacts(params) {
     promptfooReportHtmlPath: params.promptfooReportHtmlPath,
   };
 
-  await writeFile(artifacts.markdown, renderComparisonMarkdown(comparisonParams), 'utf8');
-  await writeFile(artifacts.html, renderComparisonHtml(comparisonParams), 'utf8');
+  await writeFile(
+    artifacts.markdown,
+    renderComparisonMarkdown(comparisonParams),
+    'utf8'
+  );
+  await writeFile(
+    artifacts.html,
+    renderComparisonHtml(comparisonParams),
+    'utf8'
+  );
 
   return artifacts;
 }
@@ -698,7 +783,11 @@ async function main() {
   const comparisonMarkdownPath = path.join(options.outputDir, 'comparison.md');
   const comparisonHtmlPath = path.join(options.outputDir, 'comparison.html');
   const junitPath = path.join(options.outputDir, 'promptfoo.junit.xml');
-  const config = buildPromptfooConfig(options, options.outputDir, bridgeData.tests);
+  const config = buildPromptfooConfig(
+    options,
+    options.outputDir,
+    bridgeData.tests
+  );
 
   await writeFile(configPath, `${JSON.stringify(config, null, 2)}\n`, 'utf8');
   await writeFile(
@@ -723,9 +812,9 @@ async function main() {
         },
       },
       null,
-      2,
+      2
     )}\n`,
-    'utf8',
+    'utf8'
   );
 
   console.log(`Promptfoo config: ${configPath}`);
@@ -735,7 +824,9 @@ async function main() {
   if (loadedEnvFiles.length > 0) {
     console.log(`Loaded env files: ${loadedEnvFiles.join(', ')}`);
   }
-  bridgeData.preflight.warnings.forEach((warning) => console.log(`Warning: ${warning}`));
+  bridgeData.preflight.warnings.forEach((warning) =>
+    console.log(`Warning: ${warning}`)
+  );
 
   if (options.configOnly) {
     return;
@@ -761,7 +852,7 @@ async function main() {
       env: process.env,
       stdio: 'inherit',
       shell: false,
-    },
+    }
   );
   const promptfooExitedForTestFailures =
     result.status === PROMPTFOO_TEST_FAILURE_EXIT_CODE;
@@ -776,7 +867,11 @@ async function main() {
   });
 
   const openPath = comparisonArtifacts?.html ?? reportHtmlPath;
-  if (options.openReport && process.platform === 'darwin' && existsSync(openPath)) {
+  if (
+    options.openReport &&
+    process.platform === 'darwin' &&
+    existsSync(openPath)
+  ) {
     spawnSync('open', [openPath], { stdio: 'ignore', shell: false });
   }
 
@@ -785,14 +880,18 @@ async function main() {
     console.log(`Promptfoo HTML report URL: ${reportUrl(reportHtmlPath)}`);
   }
   if (comparisonArtifacts) {
-    console.log(`Workout comparison summary ready: ${comparisonArtifacts.html}`);
-    console.log(`Workout comparison summary URL: ${reportUrl(comparisonArtifacts.html)}`);
+    console.log(
+      `Workout comparison summary ready: ${comparisonArtifacts.html}`
+    );
+    console.log(
+      `Workout comparison summary URL: ${reportUrl(comparisonArtifacts.html)}`
+    );
     console.log(`Workout comparison markdown: ${comparisonArtifacts.markdown}`);
   }
 
   if (promptfooExitedForTestFailures && !options.ci) {
     console.log(
-      'Promptfoo reported failed tests; continuing because --ci was not set.',
+      'Promptfoo reported failed tests; continuing because --ci was not set.'
     );
   }
 
@@ -804,7 +903,7 @@ async function main() {
     const stats = parsePromptfooFailures(outputJsonPath);
     if (stats && (stats.failures > 0 || stats.errors > 0)) {
       throw new Error(
-        `Promptfoo CI gate failed: ${stats.failures} failures, ${stats.errors} errors.`,
+        `Promptfoo CI gate failed: ${stats.failures} failures, ${stats.errors} errors.`
       );
     }
     if (promptfooExitedForTestFailures) {

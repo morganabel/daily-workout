@@ -6,7 +6,7 @@
 
 ## 2. Deterministic Generation Plumbing Coverage
 
-- [x] 2.1 Add `server-core` tests for generate-handler behavior covering validation, context merge, provider selection, pending/error transitions, and mock fallback semantics
+- [x] 2.1 Add `server-core` tests for generate-handler behavior covering validation, context merge, provider selection, pending/error transitions, and missing-provider configuration semantics
 - [x] 2.2 Add tests for prompt and regeneration-message construction so fixed scenario inputs map to the expected provider payload shape without relying on exact model output
 - [x] 2.3 Add tests that evaluation-visible metadata stays sanitized and never includes API keys or other secrets
 

@@ -16,7 +16,6 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
 import type { TodayPlan, GenerationRequest } from '@workout-agent/shared';
 import { Ionicons } from '@expo/vector-icons';
-import { createTodayPlanMock } from '@workout-agent/shared';
 import { RootStackParamList } from './navigation';
 import { generateWorkout, type ApiError } from './services/api';
 import { workoutRepository } from './db/repositories/WorkoutRepository';
@@ -36,8 +35,8 @@ export const WorkoutPreviewScreen = () => {
   const route = useRoute<WorkoutPreviewRoute>();
   const [regenerating, setRegenerating] = useState(false);
   const [customizeSheetVisible, setCustomizeSheetVisible] = useState(false);
-  const [plan, setPlan] = useState<TodayPlan>(
-    route.params?.plan ?? createTodayPlanMock()
+  const [plan, setPlan] = useState<TodayPlan | null>(
+    route.params?.plan ?? null
   );
 
   // Refresh plan from DB when screen is focused to ensure we have the latest
@@ -61,21 +60,57 @@ export const WorkoutPreviewScreen = () => {
     }, [])
   );
 
+  if (!plan) {
+    return (
+      <View style={styles.screen}>
+        <View style={styles.header}>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => navigation.goBack()}
+            style={({ pressed }) => [
+              styles.backButton,
+              pressed && { opacity: 0.8 },
+            ]}
+          >
+            <Text style={styles.backButtonText}>‹ Back</Text>
+          </Pressable>
+          <Text style={styles.headerTitle}>Preview workout</Text>
+          <View style={styles.headerSpacer} />
+        </View>
+        <View style={styles.emptyState}>
+          <Text style={styles.emptyTitle}>No workout selected</Text>
+          <Text style={styles.emptyText}>
+            Generate or choose a workout before opening the preview.
+          </Text>
+          <Button
+            label="Back to home"
+            onPress={() => navigation.navigate('Home')}
+            variant="primary"
+          />
+        </View>
+      </View>
+    );
+  }
+
   const equipmentList = plan.equipment.join(' • ');
   const sourceLabel = plan.source === 'ai' ? 'AI generated' : 'Manual entry';
 
   const handleDiscard = () => {
-    Alert.alert('Discard Workout', 'Are you sure you want to discard this workout?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Discard',
-        style: 'destructive',
-        onPress: async () => {
-          await workoutRepository.discardPlannedWorkout();
-          navigation.navigate('Home');
+    Alert.alert(
+      'Discard Workout',
+      'Are you sure you want to discard this workout?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Discard',
+          style: 'destructive',
+          onPress: async () => {
+            await workoutRepository.discardPlannedWorkout();
+            navigation.navigate('Home');
+          },
         },
-      },
-    ]);
+      ]
+    );
   };
 
   const handleRegenerate = async (request: GenerationRequest) => {
@@ -194,7 +229,13 @@ export const WorkoutPreviewScreen = () => {
             onPress={handleDiscard}
             disabled={regenerating}
             variant="ghost"
-            icon={<Ionicons name="trash-outline" size={18} color={palette.textSecondary} />}
+            icon={
+              <Ionicons
+                name="trash-outline"
+                size={18}
+                color={palette.textSecondary}
+              />
+            }
           />
         </View>
       </ScrollView>
@@ -243,6 +284,23 @@ const styles = StyleSheet.create({
   },
   headerSpacer: {
     width: 60,
+  },
+  emptyState: {
+    flex: 1,
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+    gap: 14,
+  },
+  emptyTitle: {
+    color: palette.textPrimary,
+    fontSize: 24,
+    fontFamily: typography.fontFamilyExtraBold,
+  },
+  emptyText: {
+    color: palette.textSecondary,
+    fontSize: 15,
+    lineHeight: 22,
+    fontFamily: typography.fontFamily,
   },
   scrollContent: {
     paddingHorizontal: 20,

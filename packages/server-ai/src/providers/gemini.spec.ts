@@ -24,7 +24,7 @@ jest.mock('../llm-transformer', () => {
     getDefaultSchemaVersion: jest.fn(() => 'v1-current'),
     getSchemaForVersion: jest.fn((version: string) => {
       const { llmTodayPlanSchema } = jest.requireActual(
-        '@workout-agent/shared',
+        '@workout-agent/shared'
       );
       return llmTodayPlanSchema;
     }),
@@ -110,13 +110,13 @@ describe('GeminiProvider', () => {
     provider = new GeminiProvider();
 
     (getDefaultSchemaVersion as unknown as jest.Mock).mockReturnValue(
-      'v1-current',
+      'v1-current'
     );
 
     const transformedPlan = {
       id: 'mock-plan-id',
       ...mockLlmPlan,
-      source: 'mock',
+      source: 'ai',
       blocks: mockLlmPlan.blocks.map((block, i: number) => ({
         id: `mock-block-${i}`,
         ...block,
@@ -140,7 +140,7 @@ describe('GeminiProvider', () => {
           models: {
             generateContent: mockGenerateContent,
           },
-        }) as unknown as InstanceType<typeof GoogleGenAI>,
+        } as unknown as InstanceType<typeof GoogleGenAI>)
     );
   });
 
@@ -160,7 +160,7 @@ describe('GeminiProvider', () => {
         expect.objectContaining({
           model: 'gemini-3.1-flash-lite-preview',
           contents: expect.any(String),
-        }),
+        })
       );
     });
 
@@ -202,7 +202,7 @@ describe('GeminiProvider', () => {
             responseMimeType: 'application/json',
             responseSchema: expect.any(Object),
           },
-        }),
+        })
       );
     });
 
@@ -219,7 +219,7 @@ describe('GeminiProvider', () => {
       expect(mockGenerateContent).toHaveBeenCalledWith(
         expect.objectContaining({
           model: 'gemini-2.0-pro',
-        }),
+        })
       );
     });
 
@@ -238,7 +238,7 @@ describe('GeminiProvider', () => {
           httpOptions: expect.objectContaining({
             baseUrl: 'https://custom-api.example.com',
           }),
-        }),
+        })
       );
     });
 
@@ -260,7 +260,7 @@ describe('GeminiProvider', () => {
         expect.objectContaining({
           project: 'test-project',
           location: 'us-central1',
-        }),
+        })
       );
 
       process.env.GOOGLE_CLOUD_PROJECT = oldProject;
@@ -285,7 +285,7 @@ describe('GeminiProvider', () => {
       expect(mockGenerateContent).toHaveBeenCalledWith(
         expect.objectContaining({
           contents: expect.any(String),
-        }),
+        })
       );
     });
 
@@ -307,7 +307,7 @@ describe('GeminiProvider', () => {
 
     it('should throw NO_API_KEY error when API key is missing and not using Vertex AI', async () => {
       await expect(
-        provider.generate(mockRequest, mockContext, {}),
+        provider.generate(mockRequest, mockContext, {})
       ).rejects.toThrow(AiGenerationError);
 
       try {
@@ -324,7 +324,7 @@ describe('GeminiProvider', () => {
       await expect(
         provider.generate(mockRequest, mockContext, {
           apiKey: 'test-api-key',
-        }),
+        })
       ).rejects.toThrow(AiGenerationError);
 
       try {
@@ -345,7 +345,7 @@ describe('GeminiProvider', () => {
       await expect(
         provider.generate(mockRequest, mockContext, {
           apiKey: 'test-api-key',
-        }),
+        })
       ).rejects.toThrow(AiGenerationError);
 
       try {
@@ -366,7 +366,7 @@ describe('GeminiProvider', () => {
       await expect(
         provider.generate(mockRequest, mockContext, {
           apiKey: 'test-api-key',
-        }),
+        })
       ).rejects.toThrow(AiGenerationError);
 
       try {
@@ -387,7 +387,7 @@ describe('GeminiProvider', () => {
       await expect(
         provider.generate(mockRequest, mockContext, {
           apiKey: 'test-api-key',
-        }),
+        })
       ).rejects.toThrow(AiGenerationError);
 
       try {

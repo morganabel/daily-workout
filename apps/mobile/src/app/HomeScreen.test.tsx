@@ -6,11 +6,11 @@ import { useHomeData } from './hooks/useHomeData';
 import { userRepository } from './db/repositories/UserRepository';
 import {
   createAdaptiveTrainingPlanFromTemplate,
-  createTodayPlanMock,
   type AdaptivePlanRecommendation,
   type QuickActionPreset,
   type TodayPlan,
 } from '@workout-agent/shared';
+import { createTodayPlanFixture } from '@workout-agent/shared/testing';
 
 jest.mock('./hooks/useHomeData', () => ({
   useHomeData: jest.fn(),
@@ -260,7 +260,7 @@ describe('HomeScreen', () => {
 
   it('does not send profile equipment as a request override on default generation', async () => {
     const { generateWorkout } = require('./services/api');
-    generateWorkout.mockResolvedValue(createTodayPlanMock());
+    generateWorkout.mockResolvedValue(createTodayPlanFixture());
     mockUseHomeData.mockReturnValue({
       ...baseHookState,
       quickActions: createQuickActions('Dumbbells, Bench'),
@@ -285,7 +285,7 @@ describe('HomeScreen', () => {
 
   it('shows adaptive recommendation and sends adaptive intent for Auto generation', async () => {
     const { generateWorkout } = require('./services/api');
-    generateWorkout.mockResolvedValue(createTodayPlanMock());
+    generateWorkout.mockResolvedValue(createTodayPlanFixture());
     const { plan, recommendation } = createAdaptivePlanFixture();
     mockUseHomeData.mockReturnValue({
       ...baseHookState,
@@ -361,7 +361,7 @@ describe('HomeScreen', () => {
 
   it('uses coach intent when a submitted sheet focus switches back to Auto', async () => {
     const { generateWorkout } = require('./services/api');
-    generateWorkout.mockResolvedValue(createTodayPlanMock());
+    generateWorkout.mockResolvedValue(createTodayPlanFixture());
     const { plan, recommendation } = createAdaptivePlanFixture();
     mockUseHomeData.mockReturnValue({
       ...baseHookState,
@@ -403,7 +403,7 @@ describe('HomeScreen', () => {
 
   it('does not generate from setup customize while offline', async () => {
     const { generateWorkout } = require('./services/api');
-    generateWorkout.mockResolvedValue(createTodayPlanMock());
+    generateWorkout.mockResolvedValue(createTodayPlanFixture());
     const setGenerationStatus = jest.fn();
     mockUseHomeData.mockReturnValue({
       ...baseHookState,
@@ -462,7 +462,7 @@ describe('HomeScreen', () => {
 
   it('preserves customized duration for one-off Auto generation', async () => {
     const { generateWorkout } = require('./services/api');
-    generateWorkout.mockResolvedValue(createTodayPlanMock());
+    generateWorkout.mockResolvedValue(createTodayPlanFixture());
     mockUseHomeData.mockReturnValue({
       ...baseHookState,
       quickActions: createSetupQuickActions({}),
@@ -492,7 +492,7 @@ describe('HomeScreen', () => {
 
   it('treats manual focus selection as an explicit override', async () => {
     const { generateWorkout } = require('./services/api');
-    generateWorkout.mockResolvedValue(createTodayPlanMock());
+    generateWorkout.mockResolvedValue(createTodayPlanFixture());
     mockUseHomeData.mockReturnValue({
       ...baseHookState,
     });
@@ -524,7 +524,7 @@ describe('HomeScreen', () => {
 
   it('does not send equipment when staged equipment matches profile equipment', async () => {
     const { generateWorkout } = require('./services/api');
-    generateWorkout.mockResolvedValue(createTodayPlanMock());
+    generateWorkout.mockResolvedValue(createTodayPlanFixture());
     mockUseHomeData.mockReturnValue({
       ...baseHookState,
       quickActions: createQuickActions('Dumbbells, Bench', 'Dumbbells, Bench'),
@@ -549,7 +549,7 @@ describe('HomeScreen', () => {
 
   it('opens setup customize with the same values shown on the setup card', async () => {
     const { generateWorkout } = require('./services/api');
-    generateWorkout.mockResolvedValue(createTodayPlanMock());
+    generateWorkout.mockResolvedValue(createTodayPlanFixture());
     mockUseHomeData.mockReturnValue({
       ...baseHookState,
       quickActions: createSetupQuickActions({
@@ -587,7 +587,7 @@ describe('HomeScreen', () => {
 
   it('keeps profile equipment as fallback after duration-only customization', async () => {
     const { generateWorkout } = require('./services/api');
-    generateWorkout.mockResolvedValue(createTodayPlanMock());
+    generateWorkout.mockResolvedValue(createTodayPlanFixture());
     mockUseHomeData.mockReturnValue({
       ...baseHookState,
       quickActions: createQuickActions('Dumbbells, Bench'),
@@ -620,7 +620,7 @@ describe('HomeScreen', () => {
 
   it('sends equipment when the setup selection is explicitly customized', async () => {
     const { generateWorkout } = require('./services/api');
-    generateWorkout.mockResolvedValue(createTodayPlanMock());
+    generateWorkout.mockResolvedValue(createTodayPlanFixture());
     mockUseHomeData.mockReturnValue(baseHookState);
 
     const { getByText } = render(<HomeScreen />);
@@ -646,7 +646,7 @@ describe('HomeScreen', () => {
 
   it('sends Gym as a compact preset when explicitly selected', async () => {
     const { generateWorkout } = require('./services/api');
-    generateWorkout.mockResolvedValue(createTodayPlanMock());
+    generateWorkout.mockResolvedValue(createTodayPlanFixture());
     mockUseHomeData.mockReturnValue(baseHookState);
 
     const { getByText } = render(<HomeScreen />);
@@ -670,7 +670,7 @@ describe('HomeScreen', () => {
 
   it('keeps Gym mutually exclusive with individual equipment selections', async () => {
     const { generateWorkout } = require('./services/api');
-    generateWorkout.mockResolvedValue(createTodayPlanMock());
+    generateWorkout.mockResolvedValue(createTodayPlanFixture());
     mockUseHomeData.mockReturnValue(baseHookState);
 
     const { getByText } = render(<HomeScreen />);
@@ -699,8 +699,8 @@ describe('HomeScreen', () => {
 
   it('normalizes mixed Gym equipment from an existing plan during regeneration', async () => {
     const { generateWorkout } = require('./services/api');
-    generateWorkout.mockResolvedValue(createTodayPlanMock());
-    const plan = createTodayPlanMock({
+    generateWorkout.mockResolvedValue(createTodayPlanFixture());
+    const plan = createTodayPlanFixture({
       equipment: ['Gym', 'Dumbbells'],
       responseId: 'resp-mixed-gym',
       generationProvenance: {
@@ -778,7 +778,7 @@ describe('HomeScreen', () => {
   });
 
   it('renders active plan view when plan exists', async () => {
-    const plan = createTodayPlanMock();
+    const plan = createTodayPlanFixture();
     mockUseHomeData.mockReturnValue({
       ...baseHookState,
       plan,
@@ -797,7 +797,7 @@ describe('HomeScreen', () => {
   });
 
   it('keeps active plan card visible while status is loading', async () => {
-    const plan = createTodayPlanMock();
+    const plan = createTodayPlanFixture();
     mockUseHomeData.mockReturnValue({
       ...baseHookState,
       status: 'loading',
@@ -817,7 +817,7 @@ describe('HomeScreen', () => {
   });
 
   it('navigates to ActiveWorkout when Start Workout is pressed', async () => {
-    const plan = createTodayPlanMock();
+    const plan = createTodayPlanFixture();
     mockUseHomeData.mockReturnValue({
       ...baseHookState,
       plan,
@@ -845,7 +845,7 @@ describe('HomeScreen', () => {
       () => new Promise<void>((resolve) => setTimeout(resolve, 200))
     );
 
-    const plan = createTodayPlanMock({
+    const plan = createTodayPlanFixture({
       responseId: 'resp-regen',
       generationProvenance: {
         provider: 'openai',
@@ -883,7 +883,7 @@ describe('HomeScreen', () => {
       () => new Promise<void>((resolve) => setTimeout(resolve, 300))
     );
 
-    const seededPlan = createTodayPlanMock({
+    const seededPlan = createTodayPlanFixture({
       responseId: 'resp-transient',
       generationProvenance: {
         provider: 'openai',
@@ -891,8 +891,9 @@ describe('HomeScreen', () => {
       },
     });
 
-    let currentPlan: ReturnType<typeof createTodayPlanMock> | null = seededPlan;
-    let currentPendingPlan: ReturnType<typeof createTodayPlanMock> | null =
+    let currentPlan: ReturnType<typeof createTodayPlanFixture> | null =
+      seededPlan;
+    let currentPendingPlan: ReturnType<typeof createTodayPlanFixture> | null =
       null;
     mockUseHomeData.mockImplementation(() => ({
       ...baseHookState,
@@ -932,7 +933,7 @@ describe('HomeScreen', () => {
       () => new Promise<void>((resolve) => setTimeout(resolve, 500))
     );
 
-    const plan = createTodayPlanMock({
+    const plan = createTodayPlanFixture({
       responseId: 'resp-regen-2',
       generationProvenance: {
         provider: 'openai',
@@ -971,7 +972,7 @@ describe('HomeScreen', () => {
       () => new Promise<void>((resolve) => setTimeout(resolve, 100))
     );
 
-    const plan = createTodayPlanMock({
+    const plan = createTodayPlanFixture({
       responseId: 'resp-done',
       generationProvenance: {
         provider: 'openai',
@@ -1005,7 +1006,7 @@ describe('HomeScreen', () => {
 
   it('shows the returned regenerated plan before hook data catches up', async () => {
     const { generateWorkout } = require('./services/api');
-    const oldPlan = createTodayPlanMock({
+    const oldPlan = createTodayPlanFixture({
       id: 'old-plan',
       summary: 'Old workout summary',
       responseId: 'resp-old',
@@ -1014,7 +1015,7 @@ describe('HomeScreen', () => {
         responseId: 'resp-old',
       },
     });
-    const newPlan = createTodayPlanMock({
+    const newPlan = createTodayPlanFixture({
       id: 'new-plan',
       focus: 'Strength',
       durationMinutes: 60,
@@ -1061,7 +1062,7 @@ describe('HomeScreen', () => {
 
   it('uses the optimistic regenerated plan as the next regeneration baseline', async () => {
     const { generateWorkout } = require('./services/api');
-    const oldPlan = createTodayPlanMock({
+    const oldPlan = createTodayPlanFixture({
       id: 'old-plan',
       responseId: 'resp-old',
       generationProvenance: {
@@ -1069,7 +1070,7 @@ describe('HomeScreen', () => {
         responseId: 'resp-old',
       },
     });
-    const newPlan = createTodayPlanMock({
+    const newPlan = createTodayPlanFixture({
       id: 'new-plan',
       focus: 'Strength',
       responseId: 'resp-new',
@@ -1080,7 +1081,7 @@ describe('HomeScreen', () => {
     });
     generateWorkout
       .mockResolvedValueOnce(newPlan)
-      .mockResolvedValueOnce(createTodayPlanMock({ id: 'newer-plan' }));
+      .mockResolvedValueOnce(createTodayPlanFixture({ id: 'newer-plan' }));
 
     let currentPlan = oldPlan;
     const setOptimisticPlanForDate = jest.fn((plan) => {
@@ -1128,18 +1129,18 @@ describe('HomeScreen', () => {
   });
 
   it('selects saved workout versions from the active card', async () => {
-    const selectedPlan = createTodayPlanMock({
+    const selectedPlan = createTodayPlanFixture({
       id: 'version-2',
       focus: 'Selected focus',
       summary: 'Selected version',
     });
-    const olderPlan = createTodayPlanMock({
+    const olderPlan = createTodayPlanFixture({
       id: 'version-1',
       focus: 'Original focus',
       summary: 'Older version',
     });
     const easierPlan = {
-      ...createTodayPlanMock({
+      ...createTodayPlanFixture({
         id: 'version-easy',
         focus: 'Easier focus',
         summary: 'Easier version',
@@ -1172,17 +1173,17 @@ describe('HomeScreen', () => {
   });
 
   it('shows the active saved version position when it is not latest', async () => {
-    const olderPlan = createTodayPlanMock({
+    const olderPlan = createTodayPlanFixture({
       id: 'version-1',
       focus: 'Original focus',
       summary: 'Older version',
     });
-    const middlePlan = createTodayPlanMock({
+    const middlePlan = createTodayPlanFixture({
       id: 'version-2',
       focus: 'Middle focus',
       summary: 'Middle version',
     });
-    const latestPlan = createTodayPlanMock({
+    const latestPlan = createTodayPlanFixture({
       id: 'version-3',
       focus: 'Latest focus',
       summary: 'Latest version',
@@ -1205,12 +1206,12 @@ describe('HomeScreen', () => {
   });
 
   it('clears selected version override when the current plan disappears', async () => {
-    const selectedPlan = createTodayPlanMock({
+    const selectedPlan = createTodayPlanFixture({
       id: 'version-2',
       focus: 'Selected focus',
       summary: 'Selected version',
     });
-    const olderPlan = createTodayPlanMock({
+    const olderPlan = createTodayPlanFixture({
       id: 'version-1',
       focus: 'Original focus',
       summary: 'Older version',
@@ -1271,7 +1272,7 @@ describe('HomeScreen', () => {
     generateWorkout.mockRejectedValue({ message: 'Regen failed' });
 
     const setGenerationStatus = jest.fn();
-    const plan = createTodayPlanMock({
+    const plan = createTodayPlanFixture({
       responseId: 'resp-err',
       generationProvenance: {
         provider: 'openai',
@@ -1311,7 +1312,7 @@ describe('HomeScreen', () => {
   });
 
   it('shows inline error banner when generation status is error', async () => {
-    const plan = createTodayPlanMock({
+    const plan = createTodayPlanFixture({
       responseId: 'resp-ui',
       generationProvenance: {
         provider: 'openai',

@@ -29,4 +29,4 @@ We want a two-stage planner now so the system can use a cheap stage-1 model only
 - Affected code: `packages/server-core`, `packages/server-ai`, `packages/shared`, `apps/server`, and evaluation/reporting paths that inspect generation behavior
 - Affected APIs: no required public request or response changes in v1; generation remains behind `POST /api/workouts/generate`
 - Affected systems: provider routing, prompt construction, regeneration behavior, candidate-pool shaping, evaluation runner, and generation report artifacts
-- Hosted/CE impact: both editions keep the same functional behavior and BYOK rules; hosted may see extra cost/latency for eligible staged-planner requests while CE still supports BYOK and deterministic mock fallback where applicable
+- Hosted/CE impact: both editions keep the same functional behavior and BYOK rules; hosted may see extra cost/latency for eligible staged-planner requests while CE requires BYOK or managed provider credentials for generation

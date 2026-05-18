@@ -15,14 +15,15 @@ export type PromptfooGenerationSelectionOptions = {
   limit?: number;
 };
 
-export type PromptfooGenerationTestOptions = PromptfooGenerationSelectionOptions & {
-  providers: GenerationEvaluationProvider[];
-  runs: number;
-  edition: PromptfooGenerationEdition;
-  variantLabel?: string;
-  plannerMode?: 'default' | 'enabled' | 'disabled';
-  softReview?: boolean;
-};
+export type PromptfooGenerationTestOptions =
+  PromptfooGenerationSelectionOptions & {
+    providers: GenerationEvaluationProvider[];
+    runs: number;
+    edition: PromptfooGenerationEdition;
+    variantLabel?: string;
+    plannerMode?: 'default' | 'enabled' | 'disabled';
+    softReview?: boolean;
+  };
 
 export type PromptfooGenerationTestCase = {
   description: string;
@@ -45,7 +46,7 @@ export type PromptfooGenerationTestCase = {
 };
 
 export type PromptfooGenerationProviderAvailability = Partial<
-  Record<Exclude<GenerationEvaluationProvider, 'mock'>, boolean>
+  Record<Exclude<GenerationEvaluationProvider, 'fixture'>, boolean>
 >;
 
 export type PromptfooGenerationPreflightSummary = {
@@ -64,7 +65,9 @@ export type PromptfooSecretCandidate = {
 const DEFAULT_LIVE_ATTEMPT_WARNING_THRESHOLD = 100;
 
 function uniqueValues(values: string[] | undefined): string[] {
-  return [...new Set((values ?? []).map((value) => value.trim()).filter(Boolean))];
+  return [
+    ...new Set((values ?? []).map((value) => value.trim()).filter(Boolean)),
+  ];
 }
 
 function assertPositiveInteger(value: number | undefined, name: string): void {
@@ -76,28 +79,36 @@ function assertPositiveInteger(value: number | undefined, name: string): void {
   }
 }
 
-function assertSupportedProviders(providers: GenerationEvaluationProvider[]): void {
+function assertSupportedProviders(
+  providers: GenerationEvaluationProvider[]
+): void {
   if (providers.length === 0) {
     throw new Error('At least one Promptfoo generation provider is required.');
   }
 
-  providers.forEach((provider) => generationEvaluationProviderSchema.parse(provider));
+  providers.forEach((provider) =>
+    generationEvaluationProviderSchema.parse(provider)
+  );
 }
 
 export function selectPromptfooGenerationScenarios(
-  options: PromptfooGenerationSelectionOptions = {},
+  options: PromptfooGenerationSelectionOptions = {}
 ): GenerationEvaluationScenario[] {
   const scenarioIds = uniqueValues(options.scenarioIds);
   const tags = uniqueValues(options.tags);
   assertPositiveInteger(options.limit, 'limit');
 
   const allScenarioIds = new Set(
-    workoutGenerationEvaluationScenarios.map((scenario) => scenario.id),
+    workoutGenerationEvaluationScenarios.map((scenario) => scenario.id)
   );
-  const missingScenarioIds = scenarioIds.filter((id) => !allScenarioIds.has(id));
+  const missingScenarioIds = scenarioIds.filter(
+    (id) => !allScenarioIds.has(id)
+  );
   if (missingScenarioIds.length > 0) {
     throw new Error(
-      `Unknown generation evaluation scenario id(s): ${missingScenarioIds.join(', ')}`,
+      `Unknown generation evaluation scenario id(s): ${missingScenarioIds.join(
+        ', '
+      )}`
     );
   }
 
@@ -110,7 +121,7 @@ export function selectPromptfooGenerationScenarios(
 
   if (tags.length > 0) {
     scenarios = scenarios.filter((scenario) =>
-      tags.every((tag) => scenario.tags.includes(tag)),
+      tags.every((tag) => scenario.tags.includes(tag))
     );
   }
 
@@ -119,14 +130,16 @@ export function selectPromptfooGenerationScenarios(
   }
 
   if (scenarios.length === 0) {
-    throw new Error('No generation evaluation scenarios matched the provided Promptfoo filters.');
+    throw new Error(
+      'No generation evaluation scenarios matched the provided Promptfoo filters.'
+    );
   }
 
   return scenarios;
 }
 
 export function buildPromptfooGenerationTestCases(
-  options: PromptfooGenerationTestOptions,
+  options: PromptfooGenerationTestOptions
 ): PromptfooGenerationTestCase[] {
   assertSupportedProviders(options.providers);
   assertPositiveInteger(options.runs, 'runs');
@@ -138,7 +151,9 @@ export function buildPromptfooGenerationTestCases(
   return scenarios.flatMap((scenario) =>
     options.providers.flatMap((provider) =>
       Array.from({ length: options.runs }, (_, index) => ({
-        description: `${scenario.id} / ${provider} / run ${index + 1} / ${variantLabel}`,
+        description: `${scenario.id} / ${provider} / run ${
+          index + 1
+        } / ${variantLabel}`,
         metadata: {
           scenarioTitle: scenario.title,
           scenarioTags: scenario.tags,
@@ -155,8 +170,8 @@ export function buildPromptfooGenerationTestCases(
           plannerMode,
           softReview: Boolean(options.softReview),
         },
-      })),
-    ),
+      }))
+    )
   );
 }
 
@@ -171,9 +186,11 @@ export function buildPromptfooGenerationPreflightSummary(params: {
   assertSupportedProviders(params.providers);
   assertPositiveInteger(params.runs, 'runs');
 
-  const liveProviders = params.providers.filter((provider) => provider !== 'mock');
+  const liveProviders = params.providers.filter(
+    (provider) => provider !== 'fixture'
+  );
   const regenerationScenarioCount = params.scenarios.filter(
-    (scenario) => scenario.mode === 'regeneration',
+    (scenario) => scenario.mode === 'regeneration'
   ).length;
   const regenerationPrimingAttemptCount =
     regenerationScenarioCount * params.runs * liveProviders.length;
@@ -186,34 +203,35 @@ export function buildPromptfooGenerationPreflightSummary(params: {
     const hasAccess = params.providerAvailability?.[provider];
     if (hasAccess === undefined) {
       warnings.push(
-        `${provider} access was not checked; live Promptfoo runs may fail if provider credentials are unavailable.`,
+        `${provider} access was not checked; live Promptfoo runs may fail if provider credentials are unavailable.`
       );
       return;
     }
     if (params.edition === 'CE' && hasAccess === false) {
       warnings.push(
-        `${provider} has no configured access in CE; matching Promptfoo runs will be mock or plumbing-oriented unless keys are provided.`,
+        `${provider} has no configured access in CE; matching Promptfoo runs are expected to fail with provider configuration errors unless keys are provided.`
       );
     }
     if (params.edition === 'HOSTED' && hasAccess === false) {
       warnings.push(
-        `${provider} has no configured access in HOSTED mode; live Promptfoo runs should fail or be stopped before broad execution.`,
+        `${provider} has no configured access in HOSTED mode; live Promptfoo runs should fail or be stopped before broad execution.`
       );
     }
   });
 
   if (
     liveAttemptCount >=
-    (params.liveAttemptWarningThreshold ?? DEFAULT_LIVE_ATTEMPT_WARNING_THRESHOLD)
+    (params.liveAttemptWarningThreshold ??
+      DEFAULT_LIVE_ATTEMPT_WARNING_THRESHOLD)
   ) {
     warnings.push(
-      `Promptfoo generation run is configured for ${liveAttemptCount} live-provider attempts including ${regenerationPrimingAttemptCount} regeneration priming attempts. Review provider cost and quota implications before execution.`,
+      `Promptfoo generation run is configured for ${liveAttemptCount} live-provider attempts including ${regenerationPrimingAttemptCount} regeneration priming attempts. Review provider cost and quota implications before execution.`
     );
   }
 
-  if (params.providers.length === 1 && params.providers[0] === 'mock') {
+  if (params.providers.length === 1 && params.providers[0] === 'fixture') {
     warnings.push(
-      'Promptfoo generation run is mock-only. Use it for plumbing and hard-check validation, not live model-quality conclusions.',
+      'Promptfoo generation run is fixture-only. Use it for plumbing and hard-check validation, not live model-quality conclusions.'
     );
   }
 
@@ -226,27 +244,33 @@ export function buildPromptfooGenerationPreflightSummary(params: {
   };
 }
 
-function collectStringValues(value: unknown, path: string, output: Map<string, string>): void {
+function collectStringValues(
+  value: unknown,
+  path: string,
+  output: Map<string, string>
+): void {
   if (typeof value === 'string') {
     output.set(path, value);
     return;
   }
 
   if (Array.isArray(value)) {
-    value.forEach((item, index) => collectStringValues(item, `${path}[${index}]`, output));
+    value.forEach((item, index) =>
+      collectStringValues(item, `${path}[${index}]`, output)
+    );
     return;
   }
 
   if (value && typeof value === 'object') {
     Object.entries(value as Record<string, unknown>).forEach(([key, item]) =>
-      collectStringValues(item, path ? `${path}.${key}` : key, output),
+      collectStringValues(item, path ? `${path}.${key}` : key, output)
     );
   }
 }
 
 export function findPromptfooSecretLeaks(
   artifact: unknown,
-  secrets: PromptfooSecretCandidate[],
+  secrets: PromptfooSecretCandidate[]
 ): string[] {
   const values = new Map<string, string>();
   collectStringValues(artifact, '', values);
@@ -265,10 +289,12 @@ export function findPromptfooSecretLeaks(
 
 export function assertPromptfooArtifactHasNoSecrets(
   artifact: unknown,
-  secrets: PromptfooSecretCandidate[],
+  secrets: PromptfooSecretCandidate[]
 ): void {
   const leaks = findPromptfooSecretLeaks(artifact, secrets);
   if (leaks.length > 0) {
-    throw new Error(`Promptfoo artifact contains secret values: ${leaks.join('; ')}`);
+    throw new Error(
+      `Promptfoo artifact contains secret values: ${leaks.join('; ')}`
+    );
   }
 }

@@ -1,9 +1,9 @@
-import { createTodayPlanMock } from '@workout-agent/shared';
+import { createTodayPlanFixture } from '@workout-agent/shared/testing';
 import { planToPersistence, rowsToPlan } from './workoutMapper';
 
 describe('workoutMapper', () => {
   it('round trips TodayPlan through persistence shape', () => {
-    const plan = createTodayPlanMock({
+    const plan = createTodayPlanFixture({
       equipment: ['Dumbbells', 'Bench'],
     });
     const timestamp = 1717171717;
@@ -19,7 +19,7 @@ describe('workoutMapper', () => {
   });
 
   it('hydrates from exercise rows when planJson is unavailable', () => {
-    const plan = createTodayPlanMock();
+    const plan = createTodayPlanFixture();
     const { workout, exercises } = planToPersistence(plan);
 
     const workoutRow = {

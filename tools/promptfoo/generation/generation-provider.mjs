@@ -21,11 +21,13 @@ function parseVars(context) {
   const vars = context?.vars ?? {};
   const scenarioId = vars.scenarioId;
   if (typeof scenarioId !== 'string' || scenarioId.trim().length === 0) {
-    throw new Error('Promptfoo workout-generation provider requires vars.scenarioId.');
+    throw new Error(
+      'Promptfoo workout-generation provider requires vars.scenarioId.'
+    );
   }
 
-  const provider = vars.provider ?? 'mock';
-  if (!['mock', 'openai', 'gemini'].includes(provider)) {
+  const provider = vars.provider ?? 'openai';
+  if (!['fixture', 'openai', 'gemini'].includes(provider)) {
     throw new Error(`Unsupported workout-generation provider: ${provider}`);
   }
 
@@ -51,7 +53,8 @@ function parseVars(context) {
     runIndex,
     plannerMode,
     variantLabel:
-      typeof vars.variantLabel === 'string' && vars.variantLabel.trim().length > 0
+      typeof vars.variantLabel === 'string' &&
+      vars.variantLabel.trim().length > 0
         ? vars.variantLabel.trim()
         : 'default',
   };
@@ -59,7 +62,7 @@ function parseVars(context) {
 
 function buildProviderOutput(entry, vars, warnings) {
   const failedHardChecks = (entry.hardChecks ?? []).filter(
-    (check) => check.status === 'fail',
+    (check) => check.status === 'fail'
   );
 
   return {
@@ -111,7 +114,7 @@ export default class WorkoutGenerationEvaluationProvider {
       repoRoot,
       this.config.outputRoot ??
         process.env.PROMPTFOO_WORKOUT_PROVIDER_CALL_DIR ??
-        'reports/promptfoo-generation/provider-calls',
+        'reports/promptfoo-generation/provider-calls'
     );
     const outputDir = path.join(
       outputRoot,
@@ -122,7 +125,7 @@ export default class WorkoutGenerationEvaluationProvider {
         sanitizeSegment(vars.scenarioId),
         sanitizeSegment(vars.provider),
         vars.runIndex,
-      ].join('-'),
+      ].join('-')
     );
     await mkdir(outputDir, { recursive: true });
 
@@ -154,7 +157,7 @@ export default class WorkoutGenerationEvaluationProvider {
         env,
         encoding: 'utf8',
         shell: false,
-      },
+      }
     );
 
     if (result.status !== 0) {
@@ -169,7 +172,9 @@ export default class WorkoutGenerationEvaluationProvider {
     const report = readReport(outputDir);
     const entry = report.entries?.[0];
     if (!entry) {
-      return { error: 'Generation evaluation completed without report entries.' };
+      return {
+        error: 'Generation evaluation completed without report entries.',
+      };
     }
 
     const output = buildProviderOutput(entry, vars, report.warnings ?? []);

@@ -1,6 +1,6 @@
 import { workoutRepository } from './WorkoutRepository';
 import { database } from '../index';
-import { createTodayPlanMock } from '@workout-agent/shared';
+import { createTodayPlanFixture } from '@workout-agent/shared/testing';
 import { Q } from '@nozbe/watermelondb';
 
 // Helper to get timestamp from WatermelonDB date field (can be Date object or number)
@@ -135,11 +135,11 @@ describe('WorkoutRepository', () => {
 
   describe('generated workout versions', () => {
     it('appends regeneration versions without deleting the previous suggestion', async () => {
-      const firstPlan = createTodayPlanMock({
+      const firstPlan = createTodayPlanFixture({
         id: 'plan-v1',
         summary: 'First suggestion',
       });
-      const secondPlan = createTodayPlanMock({
+      const secondPlan = createTodayPlanFixture({
         id: 'plan-v2',
         summary: 'Second suggestion',
       });
@@ -175,13 +175,13 @@ describe('WorkoutRepository', () => {
 
     it('selects an older generated version without deleting newer options', async () => {
       await workoutRepository.saveGeneratedPlan(
-        createTodayPlanMock({ id: 'plan-v1', summary: 'First suggestion' })
+        createTodayPlanFixture({ id: 'plan-v1', summary: 'First suggestion' })
       );
       const firstWorkout = await workoutRepository.getTodayWorkout();
       expect(firstWorkout).toBeTruthy();
 
       await workoutRepository.saveGeneratedPlan(
-        createTodayPlanMock({ id: 'plan-v2', summary: 'Second suggestion' }),
+        createTodayPlanFixture({ id: 'plan-v2', summary: 'Second suggestion' }),
         { baselineWorkoutId: firstWorkout!.id }
       );
 
@@ -202,11 +202,11 @@ describe('WorkoutRepository', () => {
 
     it('can append a version when the baseline id is the remote plan id', async () => {
       await workoutRepository.saveGeneratedPlan(
-        createTodayPlanMock({ id: 'remote-plan-v1', summary: 'First' })
+        createTodayPlanFixture({ id: 'remote-plan-v1', summary: 'First' })
       );
 
       await workoutRepository.saveGeneratedPlan(
-        createTodayPlanMock({ id: 'remote-plan-v2', summary: 'Second' }),
+        createTodayPlanFixture({ id: 'remote-plan-v2', summary: 'Second' }),
         { baselineWorkoutId: 'remote-plan-v1' }
       );
 
@@ -222,7 +222,7 @@ describe('WorkoutRepository', () => {
 
     it('deletes exercises and sets when replacing a planned workout', async () => {
       await workoutRepository.saveGeneratedPlan(
-        createTodayPlanMock({ id: 'replace-plan-v1', summary: 'First' })
+        createTodayPlanFixture({ id: 'replace-plan-v1', summary: 'First' })
       );
       const firstWorkout = await workoutRepository.getTodayWorkout();
       expect(firstWorkout).toBeTruthy();
@@ -240,7 +240,7 @@ describe('WorkoutRepository', () => {
       expect(seededSets.length).toBeGreaterThan(0);
 
       await workoutRepository.saveGeneratedPlan(
-        createTodayPlanMock({ id: 'replace-plan-v2', summary: 'Second' })
+        createTodayPlanFixture({ id: 'replace-plan-v2', summary: 'Second' })
       );
 
       const orphanedExercises = await database.collections
@@ -257,13 +257,13 @@ describe('WorkoutRepository', () => {
 
     it('stores regeneration lineage and request metadata', async () => {
       await workoutRepository.saveGeneratedPlan(
-        createTodayPlanMock({ id: 'plan-v1', summary: 'First' })
+        createTodayPlanFixture({ id: 'plan-v1', summary: 'First' })
       );
       const firstWorkout = await workoutRepository.getTodayWorkout();
       expect(firstWorkout).toBeTruthy();
 
       await workoutRepository.saveGeneratedPlan(
-        createTodayPlanMock({ id: 'plan-v2', summary: 'Second' }),
+        createTodayPlanFixture({ id: 'plan-v2', summary: 'Second' }),
         {
           baselineWorkoutId: firstWorkout!.id,
           generationRequest: {
@@ -272,7 +272,7 @@ describe('WorkoutRepository', () => {
             energy: 'easy',
             notes: 'No overhead pressing today',
             feedback: ['different-exercises'],
-            baselineWorkout: createTodayPlanMock({ id: firstWorkout!.id }),
+            baselineWorkout: createTodayPlanFixture({ id: firstWorkout!.id }),
             previousResponseId: 'resp-original',
           },
         }
@@ -310,7 +310,7 @@ describe('WorkoutRepository', () => {
       const oldScheduledDate = now - 100 * 24 * 60 * 60 * 1000;
 
       await workoutRepository.saveGeneratedPlan(
-        createTodayPlanMock({ id: 'old-plan-v1', summary: 'First' }),
+        createTodayPlanFixture({ id: 'old-plan-v1', summary: 'First' }),
         { scheduledDate: oldScheduledDate }
       );
       const firstWorkout = await workoutRepository.getPlannedWorkoutForDate(
@@ -319,7 +319,7 @@ describe('WorkoutRepository', () => {
       expect(firstWorkout).toBeTruthy();
 
       await workoutRepository.saveGeneratedPlan(
-        createTodayPlanMock({ id: 'old-plan-v2', summary: 'Second' }),
+        createTodayPlanFixture({ id: 'old-plan-v2', summary: 'Second' }),
         {
           scheduledDate: oldScheduledDate,
           baselineWorkoutId: firstWorkout!.id,
@@ -332,7 +332,7 @@ describe('WorkoutRepository', () => {
       expect(secondWorkout).toBeTruthy();
 
       await workoutRepository.saveGeneratedPlan(
-        createTodayPlanMock({ id: 'old-plan-v3', summary: 'Third' }),
+        createTodayPlanFixture({ id: 'old-plan-v3', summary: 'Third' }),
         {
           scheduledDate: oldScheduledDate,
           baselineWorkoutId: secondWorkout!.id,
@@ -359,7 +359,7 @@ describe('WorkoutRepository', () => {
 
   describe('set logging', () => {
     it('seeds default sets from prescriptions', async () => {
-      const plan = createTodayPlanMock({
+      const plan = createTodayPlanFixture({
         id: 'plan-sets',
         blocks: [
           {
@@ -398,7 +398,7 @@ describe('WorkoutRepository', () => {
     });
 
     it('updates set metrics and returns logs', async () => {
-      const plan = createTodayPlanMock({ id: 'plan-update' });
+      const plan = createTodayPlanFixture({ id: 'plan-update' });
       await workoutRepository.saveGeneratedPlan(plan);
       const workout = await workoutRepository.getWorkoutByPlanId(plan.id);
       expect(workout).toBeTruthy();

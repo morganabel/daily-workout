@@ -2,13 +2,9 @@
  * Structured error responses for API endpoints
  */
 
-export type ApiErrorCode =
-  | 'BYOK_REQUIRED'
-  | 'QUOTA_EXCEEDED'
-  | 'UNAUTHORIZED'
-  | 'VALIDATION_ERROR'
-  | 'NOT_FOUND'
-  | 'INVALID_PROVIDER';
+import type { ApiErrorCode } from '@workout-agent-ce/server-core';
+
+export type { ApiErrorCode };
 
 export interface ApiError {
   code: ApiErrorCode;
@@ -20,7 +16,7 @@ export function createErrorResponse(
   code: ApiErrorCode,
   message: string,
   status = 400,
-  retryAfter?: number,
+  retryAfter?: number
 ): Response {
   const error: ApiError = { code, message };
   if (retryAfter !== undefined) {
@@ -28,4 +24,3 @@ export function createErrorResponse(
   }
   return Response.json(error, { status });
 }
-

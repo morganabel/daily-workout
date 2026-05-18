@@ -2,11 +2,13 @@ import { renderHook, act, waitFor } from '@testing-library/react-native';
 import NetInfo from '@react-native-community/netinfo';
 import {
   createAdaptiveTrainingPlanFromTemplate,
-  createSessionSummaryMock,
-  createTodayPlanMock,
   type QuickActionPreset,
   type TodayPlan,
 } from '@workout-agent/shared';
+import {
+  createSessionSummaryFixture,
+  createTodayPlanFixture,
+} from '@workout-agent/shared/testing';
 import { useHomeData } from './useHomeData';
 import { workoutRepository } from '../db/repositories/WorkoutRepository';
 import { plannedEventRepository } from '../db/repositories/PlannedEventRepository';
@@ -92,7 +94,7 @@ describe('useHomeData', () => {
   let versionStream: ReturnType<typeof createObservableMock<Workout[]>>;
   let sessionStream: ReturnType<typeof createObservableMock<Workout[]>>;
   let upcomingEventStream: ReturnType<typeof createObservableMock<unknown[]>>;
-  let mockPlan: ReturnType<typeof createTodayPlanMock>;
+  let mockPlan: ReturnType<typeof createTodayPlanFixture>;
   let userStream: ReturnType<typeof createObservableMock<unknown>>;
 
   beforeEach(() => {
@@ -101,7 +103,7 @@ describe('useHomeData', () => {
     sessionStream = createObservableMock<Workout[]>();
     upcomingEventStream = createObservableMock<unknown[]>();
     userStream = createObservableMock<unknown>();
-    mockPlan = createTodayPlanMock({ id: 'server-plan' });
+    mockPlan = createTodayPlanFixture({ id: 'server-plan' });
 
     mockWorkoutRepository.observePlannedWorkoutVersionsForDate.mockReturnValue(
       versionStream.observable as any
@@ -115,7 +117,7 @@ describe('useHomeData', () => {
     mockWorkoutRepository.mapWorkoutToPlan.mockResolvedValue(mockPlan);
     mockWorkoutRepository.toSessionSummary.mockImplementation(
       (workout: Workout) =>
-        createSessionSummaryMock({
+        createSessionSummaryFixture({
           id: workout.id,
           name: workout.name || 'Workout',
         })
@@ -295,8 +297,8 @@ describe('useHomeData', () => {
   });
 
   it('hydrates planned workout versions from the selected group', async () => {
-    const selectedPlan = createTodayPlanMock({ id: 'selected-version' });
-    const oldPlan = createTodayPlanMock({ id: 'old-version' });
+    const selectedPlan = createTodayPlanFixture({ id: 'selected-version' });
+    const oldPlan = createTodayPlanFixture({ id: 'old-version' });
     mockWorkoutRepository.mapWorkoutToPlan
       .mockResolvedValueOnce(selectedPlan)
       .mockResolvedValueOnce(oldPlan);
@@ -331,7 +333,7 @@ describe('useHomeData', () => {
       [{ id: 'refetch', isSelected: true } as unknown as Workout]
     );
     mockWorkoutRepository.mapWorkoutToPlan.mockResolvedValueOnce(
-      createTodayPlanMock({ id: 'refetched-plan', focus: 'Refetched' })
+      createTodayPlanFixture({ id: 'refetched-plan', focus: 'Refetched' })
     );
 
     const { result } = renderHook(() => useHomeData());
@@ -359,8 +361,8 @@ describe('useHomeData', () => {
   });
 
   it('optimistically selects a workout version before the repository emits', async () => {
-    const selectedPlan = createTodayPlanMock({ id: 'selected-version' });
-    const version = createTodayPlanMock({ id: 'version-optimistic' });
+    const selectedPlan = createTodayPlanFixture({ id: 'selected-version' });
+    const version = createTodayPlanFixture({ id: 'version-optimistic' });
     mockWorkoutRepository.mapWorkoutToPlan
       .mockResolvedValueOnce(selectedPlan)
       .mockResolvedValueOnce(version);
@@ -396,11 +398,11 @@ describe('useHomeData', () => {
   });
 
   it('appends optimistic generated plan to active versions for the same date', async () => {
-    const persistedPlan = createTodayPlanMock({
+    const persistedPlan = createTodayPlanFixture({
       id: 'persisted-plan',
       summary: 'Persisted workout',
     });
-    const optimisticPlan = createTodayPlanMock({
+    const optimisticPlan = createTodayPlanFixture({
       id: 'optimistic-plan',
       summary: 'Optimistic workout',
     });

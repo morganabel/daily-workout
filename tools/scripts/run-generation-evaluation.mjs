@@ -43,7 +43,7 @@ Usage:
   npm run evaluate:generation -- [options]
 
 Options:
-  --provider <value>     openai | gemini | mock | live | all (repeatable)
+  --provider <value>     openai | gemini | fixture | live | all (repeatable)
   --runs <number>        repeated runs per scenario/provider (default: 1)
   --tag <value>          filter scenarios by tag (repeatable)
   --scenario <id>        run only selected scenario id (repeatable)
@@ -75,10 +75,10 @@ function expandProviders(values) {
   const expanded = values.flatMap((value) => {
     switch (value) {
       case 'all':
-        return ['mock', 'openai', 'gemini'];
+        return ['openai', 'gemini'];
       case 'live':
         return ['openai', 'gemini'];
-      case 'mock':
+      case 'fixture':
       case 'openai':
       case 'gemini':
         return [value];
@@ -102,7 +102,7 @@ function parseArgs(argv) {
     process.cwd(),
     'reports',
     'generation-evaluation',
-    timestamp,
+    timestamp
   );
   let limit;
   let openReport = false;
@@ -157,7 +157,7 @@ function parseArgs(argv) {
 
   return {
     providers: expandProviders(
-      providerArgs.length > 0 ? providerArgs : ['mock'],
+      providerArgs.length > 0 ? providerArgs : ['openai']
     ),
     runs,
     edition,
@@ -218,7 +218,7 @@ function main() {
     console.log(`Loaded env files: ${loadedEnvFiles.join(', ')}`);
   }
   console.log(
-    `Provider access: openai=${availability.openai} gemini=${availability.gemini}`,
+    `Provider access: openai=${availability.openai} gemini=${availability.gemini}`
   );
 
   if (summary.warnings.length > 0) {

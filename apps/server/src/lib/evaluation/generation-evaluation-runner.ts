@@ -34,6 +34,7 @@ import {
   workoutGenerationEvaluationCorpus,
   workoutGenerationEvaluationScenarios,
 } from '@workout-agent/shared';
+import { createTodayPlanFixture } from '@workout-agent/shared/testing';
 
 export type GenerationEvaluationRunOptions = {
   providers: GenerationEvaluationProvider[];
@@ -92,16 +93,33 @@ class PromptCapturingRouter implements ModelRouter {
   private lastPrompt?: GenerationEvaluationProviderPrompt;
   private lastDurationMs?: number;
 
+  constructor(private readonly fixtureMode = false) {}
+
   async generate(
     request: GenerationRequest,
     context: GenerationContext,
-    options: ModelGenerationOptions,
+    options: ModelGenerationOptions
   ) {
     this.lastPrompt = undefined;
     this.lastDurationMs = undefined;
     const startedAt = Date.now();
 
     try {
+      if (this.fixtureMode) {
+        const fixtureId = Date.now();
+        return {
+          plan: createTodayPlanFixture({
+            id: `fixture-plan-${fixtureId}`,
+            durationMinutes: request.timeMinutes ?? 30,
+            focus: request.focus ?? 'Full Body',
+            equipment: request.equipment ?? ['Bodyweight'],
+            energy: request.energy ?? 'moderate',
+          }),
+          responseId: `fixture-response-${fixtureId}`,
+          schemaVersion: 'fixture',
+        };
+      }
+
       return await this.inner.generate(request, context, {
         ...options,
         promptRecorder: (capture: ModelPromptCapture) => {
@@ -140,7 +158,7 @@ class PromptCapturingStageOnePlanner implements StageOnePlanner {
   async plan(
     request: GenerationRequest,
     context: GenerationContext,
-    options: StageOnePlanningOptions,
+    options: StageOnePlanningOptions
   ) {
     this.lastPrompt = undefined;
     this.lastArtifact = undefined;
@@ -187,7 +205,7 @@ function selectScenarios(options: GenerationEvaluationRunOptions) {
   if (options.tags && options.tags.length > 0) {
     const requiredTags = new Set(options.tags);
     scenarios = scenarios.filter((scenario) =>
-      Array.from(requiredTags).every((tag) => scenario.tags.includes(tag)),
+      Array.from(requiredTags).every((tag) => scenario.tags.includes(tag))
     );
   }
 
@@ -204,21 +222,21 @@ function selectScenarios(options: GenerationEvaluationRunOptions) {
 
 function createHandlerBundle(
   provider: GenerationEvaluationProvider,
-  edition: 'CE' | 'HOSTED',
+  edition: 'CE' | 'HOSTED'
 ): HandlerBundle {
   const store = new InMemoryGenerationStore();
-  const router = new PromptCapturingRouter();
+  const isFixtureProvider = provider === 'fixture';
+  const router = new PromptCapturingRouter(isFixtureProvider);
   const planner = new PromptCapturingStageOnePlanner();
   const useVertexAi = process.env.GOOGLE_GENAI_USE_VERTEXAI === 'true';
   const enableStageOnePlanner =
-    process.env.ENABLE_STAGE_ONE_PLANNER !== 'false';
+    !isFixtureProvider && process.env.ENABLE_STAGE_ONE_PLANNER !== 'false';
   const hasGeminiAccess = Boolean(process.env.GEMINI_API_KEY) || useVertexAi;
-  const hasConfiguredAccess =
-    provider === 'mock'
-      ? false
-      : provider === 'openai'
-        ? Boolean(process.env.OPENAI_API_KEY)
-        : hasGeminiAccess;
+  const hasConfiguredAccess = isFixtureProvider
+    ? true
+    : provider === 'openai'
+    ? Boolean(process.env.OPENAI_API_KEY)
+    : hasGeminiAccess;
 
   return {
     handler: createGenerateHandler({
@@ -228,15 +246,15 @@ function createHandlerBundle(
       planner,
       config: {
         edition,
-        defaultProvider: provider === 'mock' ? 'openai' : provider,
-        defaultApiKeys:
-          provider === 'mock'
-            ? {}
-            : {
-                openai: process.env.OPENAI_API_KEY,
-                gemini: process.env.GEMINI_API_KEY,
-              },
+        defaultProvider: isFixtureProvider ? 'openai' : provider,
+        defaultApiKeys: isFixtureProvider
+          ? {}
+          : {
+              openai: process.env.OPENAI_API_KEY,
+              gemini: process.env.GEMINI_API_KEY,
+            },
         enableStageOnePlanner,
+        allowUnconfiguredProvider: isFixtureProvider,
         useVertexAi,
         googleCloudProject: process.env.GOOGLE_CLOUD_PROJECT,
         googleCloudLocation: process.env.GOOGLE_CLOUD_LOCATION,
@@ -297,21 +315,11 @@ function buildPrimingRequest(scenario: GenerationEvaluationScenario) {
   return scenario.context ? { ...request, context: scenario.context } : request;
 }
 
-function executionSourceForRun(params: {
-  provider: GenerationEvaluationProvider;
-  edition: 'CE' | 'HOSTED';
-  hasConfiguredAccess: boolean;
-  responseStatus: number;
-  stateHasPlan: boolean;
-}): GenerationEvaluationExecutionSource {
-  if (params.provider === 'mock') {
-    return 'mock-requested';
-  }
-  if (!params.hasConfiguredAccess && params.edition === 'CE') {
-    return 'mock-fallback';
-  }
-  if (params.responseStatus === 200 && !params.stateHasPlan) {
-    return 'mock-fallback';
+function executionSourceForRun(
+  provider: GenerationEvaluationProvider
+): GenerationEvaluationExecutionSource {
+  if (provider === 'fixture') {
+    return 'fixture';
   }
   return 'live';
 }
@@ -319,7 +327,6 @@ function executionSourceForRun(params: {
 async function executeScenarioRequest(params: {
   bundle: HandlerBundle;
   provider: GenerationEvaluationProvider;
-  edition: 'CE' | 'HOSTED';
   token: string;
   body: unknown;
 }): Promise<ExecutedScenarioResult> {
@@ -342,13 +349,7 @@ async function executeScenarioRequest(params: {
   return {
     responseStatus: response.status,
     payload,
-    executionSource: executionSourceForRun({
-      provider: params.provider,
-      edition: params.edition,
-      hasConfiguredAccess: params.bundle.hasConfiguredAccess,
-      responseStatus: response.status,
-      stateHasPlan: Boolean(state.plan),
-    }),
+    executionSource: executionSourceForRun(params.provider),
     stateHasPlan: Boolean(state.plan),
     latencyMs: {
       totalRequestMs,
@@ -379,7 +380,9 @@ function buildPlanOverview(entry: GenerationEvaluationReportEntry): string {
   if (!entry.plan) {
     return 'No plan generated';
   }
-  return `${entry.plan.focus} - ${entry.plan.durationMinutes} min - ${entry.plan.equipment.join(', ')}`;
+  return `${entry.plan.focus} - ${
+    entry.plan.durationMinutes
+  } min - ${entry.plan.equipment.join(', ')}`;
 }
 
 function renderPlanDetailsHtml(entry: GenerationEvaluationReportEntry): string {
@@ -406,26 +409,44 @@ function renderPlanDetailsHtml(entry: GenerationEvaluationReportEntry): string {
               .map(
                 (exercise) => `
                   <li class="plan-exercise-item">
-                    <div class="plan-exercise-name">${escapeHtml(exercise.name)}</div>
-                    <div class="plan-exercise-prescription">${escapeHtml(exercise.prescription)}</div>
-                    ${exercise.detail ? `<div class="plan-exercise-detail">${escapeHtml(exercise.detail)}</div>` : ''}
-                  </li>`,
+                    <div class="plan-exercise-name">${escapeHtml(
+                      exercise.name
+                    )}</div>
+                    <div class="plan-exercise-prescription">${escapeHtml(
+                      exercise.prescription
+                    )}</div>
+                    ${
+                      exercise.detail
+                        ? `<div class="plan-exercise-detail">${escapeHtml(
+                            exercise.detail
+                          )}</div>`
+                        : ''
+                    }
+                  </li>`
               )
               .join('')}
           </ol>
-        </article>`,
+        </article>`
     )
     .join('');
 
   return `
     <div class="plan-overview-card">
       <div class="plan-summary-row">
-        <span class="plan-meta-pill"><strong>Focus:</strong> ${escapeHtml(entry.plan.focus)}</span>
-        <span class="plan-meta-pill"><strong>Duration:</strong> ${entry.plan.durationMinutes} min</span>
-        <span class="plan-meta-pill"><strong>Energy:</strong> ${escapeHtml(entry.plan.energy)}</span>
+        <span class="plan-meta-pill"><strong>Focus:</strong> ${escapeHtml(
+          entry.plan.focus
+        )}</span>
+        <span class="plan-meta-pill"><strong>Duration:</strong> ${
+          entry.plan.durationMinutes
+        } min</span>
+        <span class="plan-meta-pill"><strong>Energy:</strong> ${escapeHtml(
+          entry.plan.energy
+        )}</span>
       </div>
       <div class="plan-summary-row">
-        <span class="plan-meta-pill"><strong>Equipment:</strong> ${equipment.map(escapeHtml).join(', ')}</span>
+        <span class="plan-meta-pill"><strong>Equipment:</strong> ${equipment
+          .map(escapeHtml)
+          .join(', ')}</span>
       </div>
       <p class="plan-summary-text">${escapeHtml(entry.plan.summary)}</p>
       <div class="plan-block-grid">${blockCards}</div>
@@ -433,7 +454,7 @@ function renderPlanDetailsHtml(entry: GenerationEvaluationReportEntry): string {
 }
 
 function renderPlanDetailsMarkdown(
-  entry: GenerationEvaluationReportEntry,
+  entry: GenerationEvaluationReportEntry
 ): string[] {
   if (!entry.plan) {
     return ['No plan available for this run.'];
@@ -444,13 +465,18 @@ function renderPlanDetailsMarkdown(
     `Focus: ${entry.plan.focus}`,
     `Duration: ${entry.plan.durationMinutes} min`,
     `Energy: ${entry.plan.energy}`,
-    `Equipment: ${(entry.plan.equipment.length > 0 ? entry.plan.equipment : ['Bodyweight']).join(', ')}`,
+    `Equipment: ${(entry.plan.equipment.length > 0
+      ? entry.plan.equipment
+      : ['Bodyweight']
+    ).join(', ')}`,
     '',
   ];
 
   entry.plan.blocks.forEach((block, blockIndex) => {
     lines.push(
-      `${blockIndex + 1}. ${block.title} (${block.durationMinutes} min, ${block.focus})`,
+      `${blockIndex + 1}. ${block.title} (${block.durationMinutes} min, ${
+        block.focus
+      })`
     );
     block.exercises.forEach((exercise) => {
       lines.push(`- ${exercise.name}`);
@@ -490,7 +516,7 @@ function average(values: number[]): number | undefined {
 }
 
 function buildAverageLatency(
-  entries: Pick<GenerationEvaluationReportEntry, 'latencyMs'>[],
+  entries: Pick<GenerationEvaluationReportEntry, 'latencyMs'>[]
 ): GenerationEvaluationAverageLatency {
   return {
     totalRequestMs:
@@ -498,12 +524,12 @@ function buildAverageLatency(
     stageOnePlannerMs: average(
       entries
         .map((entry) => entry.latencyMs.stageOnePlannerMs)
-        .filter((value): value is number => value !== undefined),
+        .filter((value): value is number => value !== undefined)
     ),
     stageTwoGenerationMs: average(
       entries
         .map((entry) => entry.latencyMs.stageTwoGenerationMs)
-        .filter((value): value is number => value !== undefined),
+        .filter((value): value is number => value !== undefined)
     ),
   };
 }
@@ -512,7 +538,7 @@ function summarizeEntryHardChecks(entry: GenerationEvaluationReportEntry) {
   const pass = entry.hardChecks.filter((item) => item.status === 'pass').length;
   const fail = entry.hardChecks.filter((item) => item.status === 'fail').length;
   const skipped = entry.hardChecks.filter(
-    (item) => item.status === 'not-applicable',
+    (item) => item.status === 'not-applicable'
   ).length;
 
   return { pass, fail, skipped };
@@ -520,15 +546,15 @@ function summarizeEntryHardChecks(entry: GenerationEvaluationReportEntry) {
 
 function buildDerivedStats(report: GenerationEvaluationReport) {
   const uniqueScenarios = new Set(
-    report.entries.map((entry) => entry.scenarioId),
+    report.entries.map((entry) => entry.scenarioId)
   ).size;
   const entriesWithHardFailures = report.entries.filter((entry) =>
-    entry.hardChecks.some((check) => check.status === 'fail'),
+    entry.hardChecks.some((check) => check.status === 'fail')
   );
   const cleanEntries = report.entries.filter(
     (entry) =>
       entry.status === 'success' &&
-      !entry.hardChecks.some((check) => check.status === 'fail'),
+      !entry.hardChecks.some((check) => check.status === 'fail')
   );
 
   const providerStats = Array.from(
@@ -550,7 +576,7 @@ function buildDerivedStats(report: GenerationEvaluationReport) {
         acc.set(entry.provider, current);
         return acc;
       }, new Map<string, { provider: string; total: number; success: number; hardFailEntries: number }>())
-      .values(),
+      .values()
   );
 
   const modeStats = Array.from(
@@ -568,14 +594,14 @@ function buildDerivedStats(report: GenerationEvaluationReport) {
         acc.set(entry.scenarioMode, current);
         return acc;
       }, new Map<string, { mode: string; total: number; hardFailEntries: number }>())
-      .values(),
+      .values()
   );
 
   const tagStats = Array.from(
     report.entries
       .reduce((acc, entry) => {
         const hasHardFailure = entry.hardChecks.some(
-          (check) => check.status === 'fail',
+          (check) => check.status === 'fail'
         );
         entry.scenarioTags.forEach((tag) => {
           const current = acc.get(tag) ?? { tag, total: 0, hardFailEntries: 0 };
@@ -587,7 +613,7 @@ function buildDerivedStats(report: GenerationEvaluationReport) {
         });
         return acc;
       }, new Map<string, { tag: string; total: number; hardFailEntries: number }>())
-      .values(),
+      .values()
   )
     .sort((a, b) => b.total - a.total)
     .slice(0, 12);
@@ -625,9 +651,9 @@ function buildDerivedStats(report: GenerationEvaluationReport) {
             hardFailEntries: number;
             generationErrors: number;
           }
-        >(),
+        >()
       )
-      .values(),
+      .values()
   )
     .map((item) => ({
       ...item,
@@ -636,7 +662,7 @@ function buildDerivedStats(report: GenerationEvaluationReport) {
     .sort(
       (a, b) =>
         b.hardFailEntries - a.hardFailEntries ||
-        b.generationErrors - a.generationErrors,
+        b.generationErrors - a.generationErrors
     )
     .slice(0, 10);
 
@@ -644,10 +670,10 @@ function buildDerivedStats(report: GenerationEvaluationReport) {
     uniqueScenarios,
     cleanEntries,
     entriesWithHardFailures,
-    mockOnly:
+    fixtureOnly:
       report.summary.totalEntries > 0 &&
       report.summary.liveEntries === 0 &&
-      report.summary.mockEntries === report.summary.totalEntries,
+      report.summary.fixtureEntries === report.summary.totalEntries,
     providerStats,
     modeStats,
     tagStats,
@@ -659,12 +685,17 @@ function renderBar(
   label: string,
   value: number,
   total: number,
-  tone = 'accent',
+  tone = 'accent'
 ) {
   return `
     <div class="metric-row">
-      <div class="metric-label"><span>${escapeHtml(label)}</span><strong>${value}</strong></div>
-      <div class="metric-track"><div class="metric-fill ${tone}" style="width:${toPercent(value, total)}"></div></div>
+      <div class="metric-label"><span>${escapeHtml(
+        label
+      )}</span><strong>${value}</strong></div>
+      <div class="metric-track"><div class="metric-fill ${tone}" style="width:${toPercent(
+    value,
+    total
+  )}"></div></div>
       <div class="metric-meta">${toPercent(value, total)}</div>
     </div>
   `;
@@ -673,14 +704,14 @@ function renderBar(
 function renderHtmlReport(
   report: GenerationEvaluationReport,
   options: GenerationEvaluationRunOptions,
-  warnings: string[],
+  warnings: string[]
 ): string {
   const derived = buildDerivedStats(report);
   const failureCounts = Object.entries(report.summary.hardFailureCounts)
     .sort((a, b) => b[1] - a[1])
     .map(
       ([name, count]) =>
-        `<li><strong>${escapeHtml(name)}</strong><span>${count}</span></li>`,
+        `<li><strong>${escapeHtml(name)}</strong><span>${count}</span></li>`
     )
     .join('');
 
@@ -691,31 +722,42 @@ function renderHtmlReport(
           `${item.provider} success`,
           item.success,
           item.total,
-          'success',
+          'success'
         ) +
         renderBar(
           `${item.provider} hard-fail entries`,
           item.hardFailEntries,
           item.total,
-          'danger',
+          'danger'
         ) +
-        `<p class="metric-meta">avg total ${escapeHtml(formatLatencyMs(report.summary.averageLatencyByProvider[item.provider]?.totalRequestMs))} · stage 1 ${escapeHtml(formatLatencyMs(report.summary.averageLatencyByProvider[item.provider]?.stageOnePlannerMs))} · stage 2 ${escapeHtml(formatLatencyMs(report.summary.averageLatencyByProvider[item.provider]?.stageTwoGenerationMs))}</p>`,
+        `<p class="metric-meta">avg total ${escapeHtml(
+          formatLatencyMs(
+            report.summary.averageLatencyByProvider[item.provider]
+              ?.totalRequestMs
+          )
+        )} · stage 1 ${escapeHtml(
+          formatLatencyMs(
+            report.summary.averageLatencyByProvider[item.provider]
+              ?.stageOnePlannerMs
+          )
+        )} · stage 2 ${escapeHtml(
+          formatLatencyMs(
+            report.summary.averageLatencyByProvider[item.provider]
+              ?.stageTwoGenerationMs
+          )
+        )}</p>`
     )
     .join('');
 
   const modeBars = derived.modeStats
     .map((item) =>
-      renderBar(
-        `${item.mode} entries`,
-        item.total,
-        report.summary.totalEntries,
-      ),
+      renderBar(`${item.mode} entries`, item.total, report.summary.totalEntries)
     )
     .join('');
 
   const tagBars = derived.tagStats
     .map((item) =>
-      renderBar(item.tag, item.hardFailEntries, item.total, 'warn'),
+      renderBar(item.tag, item.hardFailEntries, item.total, 'warn')
     )
     .join('');
 
@@ -729,69 +771,115 @@ function renderHtmlReport(
           <td>${item.hardFailEntries}</td>
           <td>${item.generationErrors}</td>
         </tr>
-      `,
+      `
     )
     .join('');
 
   const filterProviderOptions = Array.from(
-    new Set(report.entries.map((entry) => entry.provider)),
+    new Set(report.entries.map((entry) => entry.provider))
   )
     .sort()
     .map(
       (provider) =>
-        `<option value="${escapeHtml(provider)}">${escapeHtml(provider)}</option>`,
+        `<option value="${escapeHtml(provider)}">${escapeHtml(
+          provider
+        )}</option>`
     )
     .join('');
 
   const filterModeOptions = Array.from(
-    new Set(report.entries.map((entry) => entry.scenarioMode)),
+    new Set(report.entries.map((entry) => entry.scenarioMode))
   )
     .sort()
     .map(
       (mode) =>
-        `<option value="${escapeHtml(mode)}">${escapeHtml(mode)}</option>`,
+        `<option value="${escapeHtml(mode)}">${escapeHtml(mode)}</option>`
     )
     .join('');
 
   const filterSourceOptions = Array.from(
-    new Set(report.entries.map((entry) => entry.executionSource)),
+    new Set(report.entries.map((entry) => entry.executionSource))
   )
     .sort()
     .map(
       (source) =>
-        `<option value="${escapeHtml(source)}">${escapeHtml(source)}</option>`,
+        `<option value="${escapeHtml(source)}">${escapeHtml(source)}</option>`
     )
     .join('');
 
   const filterStatusOptions = Array.from(
-    new Set(report.entries.map((entry) => entry.status)),
+    new Set(report.entries.map((entry) => entry.status))
   )
     .sort()
     .map(
       (status) =>
-        `<option value="${escapeHtml(status)}">${escapeHtml(status)}</option>`,
+        `<option value="${escapeHtml(status)}">${escapeHtml(status)}</option>`
     )
     .join('');
 
   const reportDataScript = JSON.stringify(report).replace(
     /<\/script/gi,
-    '<\\/script',
+    '<\\/script'
   );
 
   const cards = report.entries
     .map((entry) => {
       const failedChecks = entry.hardChecks.filter(
-        (item) => item.status === 'fail',
+        (item) => item.status === 'fail'
       );
       const checkSummary = summarizeEntryHardChecks(entry);
       const planDetails = renderPlanDetailsHtml(entry);
       const plannerDetails = entry.plannerSummary.usedStageOne
-        ? `<p><strong>Stage one:</strong> used</p>${entry.plannerSummary.artifact ? `<pre>${escapeHtml(JSON.stringify(entry.plannerSummary.artifact, null, 2))}</pre>` : '<p class="muted">No stage-one artifact captured.</p>'}${entry.plannerSummary.stageOnePrompt ? `<p><strong>Planner Prompt:</strong> ${escapeHtml(entry.plannerSummary.stageOnePrompt.provider)}${entry.plannerSummary.stageOnePrompt.model ? ` · <strong>Model:</strong> ${escapeHtml(entry.plannerSummary.stageOnePrompt.model)}` : ''}</p><pre>${escapeHtml(entry.plannerSummary.stageOnePrompt.content)}</pre>` : '<p class="muted">Stage-one prompt was not captured.</p>'}`
+        ? `<p><strong>Stage one:</strong> used</p>${
+            entry.plannerSummary.artifact
+              ? `<pre>${escapeHtml(
+                  JSON.stringify(entry.plannerSummary.artifact, null, 2)
+                )}</pre>`
+              : '<p class="muted">No stage-one artifact captured.</p>'
+          }${
+            entry.plannerSummary.stageOnePrompt
+              ? `<p><strong>Planner Prompt:</strong> ${escapeHtml(
+                  entry.plannerSummary.stageOnePrompt.provider
+                )}${
+                  entry.plannerSummary.stageOnePrompt.model
+                    ? ` · <strong>Model:</strong> ${escapeHtml(
+                        entry.plannerSummary.stageOnePrompt.model
+                      )}`
+                    : ''
+                }</p><pre>${escapeHtml(
+                  entry.plannerSummary.stageOnePrompt.content
+                )}</pre>`
+              : '<p class="muted">Stage-one prompt was not captured.</p>'
+          }`
         : '<p class="muted">Stage one was not used for this run.</p>';
       const promptDetails = entry.providerPrompt
-        ? `<p><strong>Provider:</strong> ${escapeHtml(entry.providerPrompt.provider)}${entry.providerPrompt.model ? ` · <strong>Model:</strong> ${escapeHtml(entry.providerPrompt.model)}` : ''}${entry.providerPrompt.schemaVersion ? ` · <strong>Schema:</strong> ${escapeHtml(entry.providerPrompt.schemaVersion)}` : ''}${entry.providerPrompt.isRegeneration ? ' · <strong>Regeneration</strong>' : ''}</p><pre>${escapeHtml(entry.providerPrompt.content)}</pre>`
+        ? `<p><strong>Provider:</strong> ${escapeHtml(
+            entry.providerPrompt.provider
+          )}${
+            entry.providerPrompt.model
+              ? ` · <strong>Model:</strong> ${escapeHtml(
+                  entry.providerPrompt.model
+                )}`
+              : ''
+          }${
+            entry.providerPrompt.schemaVersion
+              ? ` · <strong>Schema:</strong> ${escapeHtml(
+                  entry.providerPrompt.schemaVersion
+                )}`
+              : ''
+          }${
+            entry.providerPrompt.isRegeneration
+              ? ' · <strong>Regeneration</strong>'
+              : ''
+          }</p><pre>${escapeHtml(entry.providerPrompt.content)}</pre>`
         : '<p class="muted">Prompt was not captured for this run.</p>';
-      const latencyDetails = `<p><strong>Total:</strong> ${escapeHtml(formatLatencyMs(entry.latencyMs.totalRequestMs))}</p><p><strong>Stage 1:</strong> ${escapeHtml(formatLatencyMs(entry.latencyMs.stageOnePlannerMs))}</p><p><strong>Stage 2:</strong> ${escapeHtml(formatLatencyMs(entry.latencyMs.stageTwoGenerationMs))}</p>`;
+      const latencyDetails = `<p><strong>Total:</strong> ${escapeHtml(
+        formatLatencyMs(entry.latencyMs.totalRequestMs)
+      )}</p><p><strong>Stage 1:</strong> ${escapeHtml(
+        formatLatencyMs(entry.latencyMs.stageOnePlannerMs)
+      )}</p><p><strong>Stage 2:</strong> ${escapeHtml(
+        formatLatencyMs(entry.latencyMs.stageTwoGenerationMs)
+      )}</p>`;
       const filterText = [
         entry.scenarioTitle,
         entry.scenarioDescription,
@@ -817,12 +905,20 @@ function renderHtmlReport(
           <summary>
             <div>
               <h3>${escapeHtml(entry.scenarioTitle)}</h3>
-              <p>${escapeHtml(entry.runId)} · ${escapeHtml(entry.provider)} · ${escapeHtml(entry.executionSource)}</p>
+              <p>${escapeHtml(entry.runId)} · ${escapeHtml(
+        entry.provider
+      )} · ${escapeHtml(entry.executionSource)}</p>
             </div>
             <div class="badges">
-              <span class="badge status-${escapeHtml(entry.status)}">${escapeHtml(entry.status)}</span>
-              <span class="badge source-${escapeHtml(entry.executionSource)}">${escapeHtml(entry.executionSource)}</span>
-              <span class="badge badge-fail">${failedChecks.length} hard fails</span>
+              <span class="badge status-${escapeHtml(
+                entry.status
+              )}">${escapeHtml(entry.status)}</span>
+              <span class="badge source-${escapeHtml(
+                entry.executionSource
+              )}">${escapeHtml(entry.executionSource)}</span>
+              <span class="badge badge-fail">${
+                failedChecks.length
+              } hard fails</span>
               <span class="badge badge-pass">${checkSummary.pass} pass</span>
               <span class="badge badge-skip">${checkSummary.skipped} n/a</span>
             </div>
@@ -831,8 +927,16 @@ function renderHtmlReport(
             <section>
               <h4>Scenario</h4>
               <p>${escapeHtml(entry.scenarioDescription)}</p>
-              <p><strong>Tags:</strong> ${entry.scenarioTags.map(escapeHtml).join(', ')}</p>
-              <pre>${escapeHtml(JSON.stringify({ request: entry.request, context: entry.context }, null, 2))}</pre>
+              <p><strong>Tags:</strong> ${entry.scenarioTags
+                .map(escapeHtml)
+                .join(', ')}</p>
+              <pre>${escapeHtml(
+                JSON.stringify(
+                  { request: entry.request, context: entry.context },
+                  null,
+                  2
+                )
+              )}</pre>
             </section>
             <section>
               <h4>Plan Overview</h4>
@@ -845,7 +949,13 @@ function renderHtmlReport(
                 ${entry.hardChecks
                   .map(
                     (check) =>
-                      `<li class="${escapeHtml(check.status)}"><strong>${escapeHtml(check.name)}</strong>: ${escapeHtml(check.status)}${check.message ? ` - ${escapeHtml(check.message)}` : ''}</li>`,
+                      `<li class="${escapeHtml(
+                        check.status
+                      )}"><strong>${escapeHtml(
+                        check.name
+                      )}</strong>: ${escapeHtml(check.status)}${
+                        check.message ? ` - ${escapeHtml(check.message)}` : ''
+                      }</li>`
                   )
                   .join('')}
               </ul>
@@ -864,8 +974,20 @@ function renderHtmlReport(
             </section>
             <section>
               <h4>Baseline / Errors</h4>
-              ${entry.baselinePlan ? `<p><strong>Baseline:</strong> ${escapeHtml(entry.baselinePlan.focus)} - ${entry.baselinePlan.durationMinutes} min</p>` : '<p class="muted">No baseline plan.</p>'}
-              ${entry.errorMessage ? `<p class="error-text"><strong>Error:</strong> ${escapeHtml(entry.errorMessage)}</p>` : '<p class="muted">No error message.</p>'}
+              ${
+                entry.baselinePlan
+                  ? `<p><strong>Baseline:</strong> ${escapeHtml(
+                      entry.baselinePlan.focus
+                    )} - ${entry.baselinePlan.durationMinutes} min</p>`
+                  : '<p class="muted">No baseline plan.</p>'
+              }
+              ${
+                entry.errorMessage
+                  ? `<p class="error-text"><strong>Error:</strong> ${escapeHtml(
+                      entry.errorMessage
+                    )}</p>`
+                  : '<p class="muted">No error message.</p>'
+              }
               <p><strong>Passed:</strong> ${
                 entry.hardChecks
                   .filter((item) => item.status === 'pass')
@@ -886,11 +1008,11 @@ function renderHtmlReport(
           .join('')}</ul></section>`
       : '';
 
-  const coverageBanner = derived.mockOnly
-    ? `<section class="warnings mock-only-banner"><h3>Mock-Only Run</h3><p>This report contains no live provider generations. It is useful for plumbing and rubric checks, but it does not tell you how OpenAI or Gemini are behaving yet.</p><div class="pill-row"><span class="badge badge-fail">live entries: 0</span><span class="badge badge-skip">mock entries: ${report.summary.mockEntries}</span></div></section>`
-    : report.summary.mockEntries > 0
-      ? `<section class="warnings mixed-run-banner"><h3>Mixed Coverage</h3><p>This report blends live and mock-backed entries. Use the execution-source filter to isolate live behavior before drawing quality conclusions.</p><div class="pill-row"><span class="badge source-live">live entries: ${report.summary.liveEntries}</span><span class="badge source-mock-fallback">mock entries: ${report.summary.mockEntries}</span></div></section>`
-      : '';
+  const coverageBanner = derived.fixtureOnly
+    ? `<section class="warnings fixture-only-banner"><h3>Fixture-Only Run</h3><p>This report contains no live provider generations. It is useful for plumbing and rubric checks, but it does not tell you how OpenAI or Gemini are behaving yet.</p><div class="pill-row"><span class="badge badge-fail">live entries: 0</span><span class="badge badge-skip">fixture entries: ${report.summary.fixtureEntries}</span></div></section>`
+    : report.summary.fixtureEntries > 0
+    ? `<section class="warnings mixed-run-banner"><h3>Mixed Coverage</h3><p>This report blends live and fixture-backed entries. Use the execution-source filter to isolate live behavior before drawing quality conclusions.</p><div class="pill-row"><span class="badge source-live">live entries: ${report.summary.liveEntries}</span><span class="badge source-fixture">fixture entries: ${report.summary.fixtureEntries}</span></div></section>`
+    : '';
 
   return `<!doctype html>
 <html lang="en">
@@ -907,7 +1029,7 @@ function renderHtmlReport(
       p { margin: 0 0 10px; color: var(--muted); }
       .hero, .summary, .warnings, .entry-card, .controls, .insights, .scenario-table { background: var(--panel); border: 1px solid var(--border); border-radius: 18px; box-shadow: 0 12px 40px rgba(19, 34, 56, 0.06); }
       .hero, .summary, .warnings, .controls, .insights, .scenario-table { padding: 24px; margin-bottom: 20px; }
-      .mock-only-banner { border-color: var(--danger); background: linear-gradient(180deg, #fff7f5 0%, #fff 100%); }
+      .fixture-only-banner { border-color: var(--danger); background: linear-gradient(180deg, #fff7f5 0%, #fff 100%); }
       .mixed-run-banner { border-color: var(--warn); background: linear-gradient(180deg, #fffaf0 0%, #fff 100%); }
       .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; }
       .stat { padding: 16px; border: 1px solid var(--border); border-radius: 14px; background: #fafcff; }
@@ -921,7 +1043,7 @@ function renderHtmlReport(
       .status-generation-error, .status-validation-error, .fail, .error-text { color: var(--danger); }
       .status-skipped, .not-applicable { color: var(--warn); }
       .source-live { color: var(--accent); }
-      .source-mock-fallback, .source-mock-requested { color: var(--warn); }
+      .source-fixture { color: var(--warn); }
       .entry-card { margin-bottom: 14px; overflow: hidden; }
       .entry-card[hidden] { display: none; }
       .entry-card summary { list-style: none; display: flex; justify-content: space-between; gap: 16px; padding: 20px; cursor: pointer; }
@@ -976,16 +1098,28 @@ function renderHtmlReport(
     <div class="wrap">
       <section class="hero">
         <h1>Workout Generation Evaluation Report</h1>
-        <p>Corpus ${escapeHtml(report.corpusVersion)} · Rubric ${escapeHtml(report.rubricVersion)} · Generated ${escapeHtml(report.generatedAt)}</p>
+        <p>Corpus ${escapeHtml(report.corpusVersion)} · Rubric ${escapeHtml(
+    report.rubricVersion
+  )} · Generated ${escapeHtml(report.generatedAt)}</p>
         <div class="pill-row">
-          <span class="badge">providers: ${escapeHtml(options.providers.join(', '))}</span>
+          <span class="badge">providers: ${escapeHtml(
+            options.providers.join(', ')
+          )}</span>
           <span class="badge">runs per scenario: ${options.runs}</span>
           <span class="badge">edition: ${escapeHtml(options.edition)}</span>
           <span class="badge">entries: ${report.summary.totalEntries}</span>
-          <span class="badge">unique scenarios: ${derived.uniqueScenarios}</span>
-          <span class="badge">clean entries: ${derived.cleanEntries.length}</span>
-          <span class="badge source-live">live: ${report.summary.liveEntries}</span>
-          <span class="badge source-mock-requested">mock: ${report.summary.mockEntries}</span>
+          <span class="badge">unique scenarios: ${
+            derived.uniqueScenarios
+          }</span>
+          <span class="badge">clean entries: ${
+            derived.cleanEntries.length
+          }</span>
+          <span class="badge source-live">live: ${
+            report.summary.liveEntries
+          }</span>
+          <span class="badge source-fixture">fixture: ${
+            report.summary.fixtureEntries
+          }</span>
         </div>
       </section>
       ${coverageBanner}
@@ -993,25 +1127,53 @@ function renderHtmlReport(
       <section class="summary">
         <h2>Summary</h2>
         <div class="summary-grid">
-          <div class="stat"><strong>${report.summary.totalEntries}</strong><span>Total entries</span></div>
-          <div class="stat"><strong>${report.summary.successfulEntries}</strong><span>Successful entries</span></div>
-          <div class="stat"><strong>${report.summary.failedEntries}</strong><span>Failed entries</span></div>
-          <div class="stat"><strong>${Object.keys(report.summary.hardFailureCounts).length}</strong><span>Distinct hard-failure types</span></div>
-          <div class="stat"><strong>${toPercent(derived.cleanEntries.length, report.summary.totalEntries)}</strong><span>Clean entry rate</span></div>
-          <div class="stat"><strong>${toPercent(derived.entriesWithHardFailures.length, report.summary.totalEntries)}</strong><span>Entries with hard failures</span></div>
-          <div class="stat"><strong>${report.summary.liveEntries}</strong><span>Live entries</span></div>
-          <div class="stat"><strong>${report.summary.mockEntries}</strong><span>Mock-backed entries</span></div>
-          <div class="stat"><strong>${formatLatencyMs(report.summary.averageLatencyMs.totalRequestMs)}</strong><span>Avg total latency</span></div>
-          <div class="stat"><strong>${formatLatencyMs(report.summary.averageLatencyMs.stageOnePlannerMs)}</strong><span>Avg stage 1 latency</span></div>
-          <div class="stat"><strong>${formatLatencyMs(report.summary.averageLatencyMs.stageTwoGenerationMs)}</strong><span>Avg stage 2 latency</span></div>
+          <div class="stat"><strong>${
+            report.summary.totalEntries
+          }</strong><span>Total entries</span></div>
+          <div class="stat"><strong>${
+            report.summary.successfulEntries
+          }</strong><span>Successful entries</span></div>
+          <div class="stat"><strong>${
+            report.summary.failedEntries
+          }</strong><span>Failed entries</span></div>
+          <div class="stat"><strong>${
+            Object.keys(report.summary.hardFailureCounts).length
+          }</strong><span>Distinct hard-failure types</span></div>
+          <div class="stat"><strong>${toPercent(
+            derived.cleanEntries.length,
+            report.summary.totalEntries
+          )}</strong><span>Clean entry rate</span></div>
+          <div class="stat"><strong>${toPercent(
+            derived.entriesWithHardFailures.length,
+            report.summary.totalEntries
+          )}</strong><span>Entries with hard failures</span></div>
+          <div class="stat"><strong>${
+            report.summary.liveEntries
+          }</strong><span>Live entries</span></div>
+          <div class="stat"><strong>${
+            report.summary.fixtureEntries
+          }</strong><span>Fixture-backed entries</span></div>
+          <div class="stat"><strong>${formatLatencyMs(
+            report.summary.averageLatencyMs.totalRequestMs
+          )}</strong><span>Avg total latency</span></div>
+          <div class="stat"><strong>${formatLatencyMs(
+            report.summary.averageLatencyMs.stageOnePlannerMs
+          )}</strong><span>Avg stage 1 latency</span></div>
+          <div class="stat"><strong>${formatLatencyMs(
+            report.summary.averageLatencyMs.stageTwoGenerationMs
+          )}</strong><span>Avg stage 2 latency</span></div>
         </div>
         <h3 style="margin-top: 20px;">Top hard failures</h3>
-        <ul class="failure-list">${failureCounts || '<li><strong>none</strong><span>0</span></li>'}</ul>
+        <ul class="failure-list">${
+          failureCounts || '<li><strong>none</strong><span>0</span></li>'
+        }</ul>
       </section>
       <section class="controls">
         <div class="results-header">
           <h2>Review Controls</h2>
-          <div class="results-count" id="results-count">Showing ${report.entries.length} of ${report.entries.length} entries</div>
+          <div class="results-count" id="results-count">Showing ${
+            report.entries.length
+          } of ${report.entries.length} entries</div>
         </div>
         <div class="controls-grid">
           <div class="control"><label for="search">Search</label><input id="search" type="search" placeholder="Search title, tags, provider, summary" /></div>
@@ -1038,7 +1200,9 @@ function renderHtmlReport(
         <div class="insights-grid">
           <div class="insight-card">
             <h3>By Provider</h3>
-            ${providerBars || '<p class="muted">No provider data available.</p>'}
+            ${
+              providerBars || '<p class="muted">No provider data available.</p>'
+            }
           </div>
           <div class="insight-card">
             <h3>By Mode</h3>
@@ -1063,7 +1227,10 @@ function renderHtmlReport(
             </tr>
           </thead>
           <tbody>
-            ${scenarioRows || '<tr><td colspan="5">No scenario issues yet.</td></tr>'}
+            ${
+              scenarioRows ||
+              '<tr><td colspan="5">No scenario issues yet.</td></tr>'
+            }
           </tbody>
         </table>
       </section>
@@ -1140,7 +1307,7 @@ function renderHtmlReport(
 function renderMarkdownReport(
   report: GenerationEvaluationReport,
   options: GenerationEvaluationRunOptions,
-  warnings: string[],
+  warnings: string[]
 ): string {
   const lines: string[] = [
     '# Workout Generation Evaluation Report',
@@ -1158,17 +1325,23 @@ function renderMarkdownReport(
     `- Successful entries: ${report.summary.successfulEntries}`,
     `- Failed entries: ${report.summary.failedEntries}`,
     `- Live entries: ${report.summary.liveEntries}`,
-    `- Mock-backed entries: ${report.summary.mockEntries}`,
-    `- Avg total latency: ${formatLatencyMs(report.summary.averageLatencyMs.totalRequestMs)}`,
-    `- Avg stage 1 latency: ${formatLatencyMs(report.summary.averageLatencyMs.stageOnePlannerMs)}`,
-    `- Avg stage 2 latency: ${formatLatencyMs(report.summary.averageLatencyMs.stageTwoGenerationMs)}`,
+    `- Fixture-backed entries: ${report.summary.fixtureEntries}`,
+    `- Avg total latency: ${formatLatencyMs(
+      report.summary.averageLatencyMs.totalRequestMs
+    )}`,
+    `- Avg stage 1 latency: ${formatLatencyMs(
+      report.summary.averageLatencyMs.stageOnePlannerMs
+    )}`,
+    `- Avg stage 2 latency: ${formatLatencyMs(
+      report.summary.averageLatencyMs.stageTwoGenerationMs
+    )}`,
     '',
   ];
 
-  if (report.summary.liveEntries === 0 && report.summary.mockEntries > 0) {
+  if (report.summary.liveEntries === 0 && report.summary.fixtureEntries > 0) {
     lines.push(
-      '> This report is mock-only. Use it for plumbing and rubric checks, not model-quality judgments.',
-      '',
+      '> This report is fixture-only. Use it for plumbing and rubric checks, not model-quality judgments.',
+      ''
     );
   }
 
@@ -1186,7 +1359,7 @@ function renderMarkdownReport(
 
   report.entries.forEach((entry) => {
     const failedChecks = entry.hardChecks.filter(
-      (item) => item.status === 'fail',
+      (item) => item.status === 'fail'
     );
     lines.push(`### ${entry.scenarioTitle} (${entry.runId})`, '');
     lines.push(`- Provider: ${entry.provider} (${entry.executionSource})`);
@@ -1194,19 +1367,25 @@ function renderMarkdownReport(
     lines.push(`- Tags: ${entry.scenarioTags.join(', ')}`);
     lines.push(`- Plan: ${buildPlanOverview(entry)}`);
     lines.push(
-      `- Hard failures: ${failedChecks.length > 0 ? failedChecks.map((item) => item.name).join(', ') : 'none'}`,
+      `- Hard failures: ${
+        failedChecks.length > 0
+          ? failedChecks.map((item) => item.name).join(', ')
+          : 'none'
+      }`
     );
     lines.push(
-      `- Stage one used: ${entry.plannerSummary.usedStageOne ? 'yes' : 'no'}`,
+      `- Stage one used: ${entry.plannerSummary.usedStageOne ? 'yes' : 'no'}`
     );
     lines.push(
-      `- Total latency: ${formatLatencyMs(entry.latencyMs.totalRequestMs)}`,
+      `- Total latency: ${formatLatencyMs(entry.latencyMs.totalRequestMs)}`
     );
     lines.push(
-      `- Stage 1 latency: ${formatLatencyMs(entry.latencyMs.stageOnePlannerMs)}`,
+      `- Stage 1 latency: ${formatLatencyMs(entry.latencyMs.stageOnePlannerMs)}`
     );
     lines.push(
-      `- Stage 2 latency: ${formatLatencyMs(entry.latencyMs.stageTwoGenerationMs)}`,
+      `- Stage 2 latency: ${formatLatencyMs(
+        entry.latencyMs.stageTwoGenerationMs
+      )}`
     );
     lines.push(`- Prompt captured: ${entry.providerPrompt ? 'yes' : 'no'}`);
     if (entry.errorMessage) {
@@ -1222,7 +1401,7 @@ function renderMarkdownReport(
         '```json',
         JSON.stringify(entry.plannerSummary.artifact, null, 2),
         '```',
-        '',
+        ''
       );
     }
     if (entry.plannerSummary.stageOnePrompt) {
@@ -1233,7 +1412,7 @@ function renderMarkdownReport(
         '```text',
         entry.plannerSummary.stageOnePrompt.content,
         '```',
-        '',
+        ''
       );
     }
     if (entry.providerPrompt) {
@@ -1244,7 +1423,7 @@ function renderMarkdownReport(
         '```text',
         entry.providerPrompt.content,
         '```',
-        '',
+        ''
       );
     }
     lines.push('', '```json', JSON.stringify(entry, null, 2), '```', '');
@@ -1256,7 +1435,7 @@ function renderMarkdownReport(
 async function writeArtifacts(
   report: GenerationEvaluationReport,
   options: GenerationEvaluationRunOptions,
-  warnings: string[],
+  warnings: string[]
 ): Promise<GenerationEvaluationArtifacts> {
   await mkdir(options.outputDir, { recursive: true });
 
@@ -1277,12 +1456,20 @@ async function writeArtifacts(
     writeFile(
       markdown,
       renderMarkdownReport(report, options, warnings),
-      'utf8',
+      'utf8'
     ),
     writeFile(
       summary,
-      `${JSON.stringify({ warnings, artifacts: { html, json, jsonl, markdown }, summary: report.summary }, null, 2)}\n`,
-      'utf8',
+      `${JSON.stringify(
+        {
+          warnings,
+          artifacts: { html, json, jsonl, markdown },
+          summary: report.summary,
+        },
+        null,
+        2
+      )}\n`,
+      'utf8'
     ),
   ]);
 
@@ -1290,7 +1477,7 @@ async function writeArtifacts(
 }
 
 export async function runGenerationEvaluation(
-  options: GenerationEvaluationRunOptions,
+  options: GenerationEvaluationRunOptions
 ): Promise<GenerationEvaluationRunResult> {
   const scenarios = selectScenarios(options);
   const warnings: string[] = [];
@@ -1302,27 +1489,27 @@ export async function runGenerationEvaluation(
     handlerBundles.set(provider, bundle);
 
     if (
-      provider !== 'mock' &&
+      provider !== 'fixture' &&
       !bundle.hasConfiguredAccess &&
       options.edition === 'CE'
     ) {
       warnings.push(
-        `${provider} has no configured key or Vertex access in CE. These runs will use mock fallback behavior.`,
+        `${provider} has no configured key or Vertex access in CE. These runs are expected to fail with provider configuration errors unless credentials are provided.`
       );
     }
     if (
-      provider !== 'mock' &&
+      provider !== 'fixture' &&
       !bundle.hasConfiguredAccess &&
       options.edition === 'HOSTED'
     ) {
       warnings.push(
-        `${provider} has no configured key or Vertex access in HOSTED mode. These runs are expected to fail with BYOK requirements.`,
+        `${provider} has no configured key or Vertex access in HOSTED mode. These runs are expected to fail with BYOK requirements.`
       );
     }
   });
 
   const liveProviders = options.providers.filter(
-    (provider) => provider !== 'mock',
+    (provider) => provider !== 'fixture'
   );
   const primingAttemptCount =
     scenarios.filter((scenario) => scenario.mode === 'regeneration').length *
@@ -1334,7 +1521,7 @@ export async function runGenerationEvaluation(
   if (liveEntryCount >= 100) {
     pushUniqueWarning(
       warnings,
-      `This run is configured for ${liveEntryCount} live-provider attempts. Review provider cost and quota implications before sharing results.`,
+      `This run is configured for ${liveEntryCount} live-provider attempts. Review provider cost and quota implications before sharing results.`
     );
   }
 
@@ -1350,17 +1537,16 @@ export async function runGenerationEvaluation(
         let effectiveBaselinePlan = scenario.baselinePlan;
         let requestBody = buildRequestBody(scenario);
 
-        if (scenario.mode === 'regeneration' && provider !== 'mock') {
+        if (scenario.mode === 'regeneration' && provider !== 'fixture') {
           if (!bundle.hasConfiguredAccess && options.edition === 'CE') {
             pushUniqueWarning(
               warnings,
-              `Could not prime live regeneration for ${scenario.id} (${provider}); configured access is unavailable.`,
+              `Could not prime live regeneration for ${scenario.id} (${provider}); configured access is unavailable.`
             );
           } else {
             const primingResult = await executeScenarioRequest({
               bundle,
               provider,
-              edition: options.edition,
               token: `${runId}-prime`,
               body: buildPrimingRequest(scenario),
             });
@@ -1384,13 +1570,13 @@ export async function runGenerationEvaluation(
               } else {
                 pushUniqueWarning(
                   warnings,
-                  `Could not prime live regeneration for ${scenario.id} (${provider}); the baseline response had no responseId.`,
+                  `Could not prime live regeneration for ${scenario.id} (${provider}); the baseline response had no responseId.`
                 );
               }
             } else {
               pushUniqueWarning(
                 warnings,
-                `Could not prime live regeneration for ${scenario.id} (${provider}); baseline generation was not live.`,
+                `Could not prime live regeneration for ${scenario.id} (${provider}); baseline generation was not live.`
               );
             }
           }
@@ -1399,7 +1585,6 @@ export async function runGenerationEvaluation(
         const executed = await executeScenarioRequest({
           bundle,
           provider,
-          edition: options.edition,
           token: runId,
           body: requestBody,
         });
@@ -1428,7 +1613,7 @@ export async function runGenerationEvaluation(
                 ...scenario,
                 baselinePlan: effectiveBaselinePlan,
               },
-              plan,
+              plan
             ),
             plan,
           });
@@ -1464,18 +1649,18 @@ export async function runGenerationEvaluation(
   }
 
   const successfulEntries = entries.filter(
-    (entry) => entry.status === 'success',
+    (entry) => entry.status === 'success'
   ).length;
   const liveEntries = entries.filter(
-    (entry) => entry.executionSource === 'live',
+    (entry) => entry.executionSource === 'live'
   ).length;
-  const mockEntries = entries.length - liveEntries;
+  const fixtureEntries = entries.length - liveEntries;
   const executionSourceCounts = entries.reduce<Record<string, number>>(
     (acc, entry) => {
       acc[entry.executionSource] = (acc[entry.executionSource] ?? 0) + 1;
       return acc;
     },
-    {},
+    {}
   );
   const hardFailureCounts = entries.reduce<Record<string, number>>(
     (acc, entry) => {
@@ -1485,7 +1670,7 @@ export async function runGenerationEvaluation(
       }
       return acc;
     },
-    {},
+    {}
   );
   const averageLatencyMs = buildAverageLatency(entries);
   const entriesByProvider = entries.reduce<
@@ -1498,7 +1683,7 @@ export async function runGenerationEvaluation(
     Object.entries(entriesByProvider).map(([provider, providerEntries]) => [
       provider,
       buildAverageLatency(providerEntries),
-    ]),
+    ])
   ) as Record<string, GenerationEvaluationAverageLatency>;
 
   const report = generationEvaluationReportSchema.parse({
@@ -1510,7 +1695,7 @@ export async function runGenerationEvaluation(
       successfulEntries,
       failedEntries: entries.length - successfulEntries,
       liveEntries,
-      mockEntries,
+      fixtureEntries,
       executionSourceCounts,
       hardFailureCounts,
       averageLatencyMs,

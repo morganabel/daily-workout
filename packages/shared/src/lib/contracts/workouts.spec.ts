@@ -5,7 +5,6 @@ import {
   buildGenerationRequestFromQuickActions,
   createAdaptiveTrainingPlanFromTemplate,
   createTrainingBlueprintFromOnboarding,
-  createTodayPlanMock,
   normalizeQuickActionValue,
   plannedSlotMetadataSchema,
   selectTrainingTemplateId,
@@ -18,9 +17,6 @@ import {
   generationRequestSchema,
   generationRequestPayloadSchema,
   MAX_UPCOMING_EVENTS,
-  createSessionDetailMock,
-  createWorkoutExerciseLogMock,
-  createWorkoutSetLogMock,
   EQUIPMENT_OPTIONS,
   GYM_EQUIPMENT,
   isAutoFocus,
@@ -30,6 +26,12 @@ import {
   type GenerationRequest,
   type QuickActionPreset,
 } from './workouts';
+import {
+  createSessionDetailFixture,
+  createTodayPlanFixture,
+  createWorkoutExerciseLogFixture,
+  createWorkoutSetLogFixture,
+} from '../testing/workout-fixtures';
 
 const createPreset = (
   overrides: Partial<QuickActionPreset>
@@ -169,19 +171,19 @@ describe('quick action helpers', () => {
 });
 
 describe('workout logging contracts', () => {
-  it('parses a session detail mock without errors', () => {
-    const session = createSessionDetailMock();
+  it('parses a session detail fixture without errors', () => {
+    const session = createSessionDetailFixture();
     const parsed = workoutSessionDetailSchema.parse(session);
     expect(parsed.exercises).toHaveLength(1);
   });
 
   it('requires weightUnit when weight is provided', () => {
-    const setLog = createWorkoutSetLogMock({ weightUnit: undefined });
+    const setLog = createWorkoutSetLogFixture({ weightUnit: undefined });
     expect(() => workoutSetLogSchema.parse(setLog)).toThrow();
   });
 
   it('allows weightUnit to be omitted when weight is absent', () => {
-    const setLog = createWorkoutSetLogMock({
+    const setLog = createWorkoutSetLogFixture({
       weight: undefined,
       weightUnit: undefined,
     });
@@ -192,7 +194,7 @@ describe('workout logging contracts', () => {
   it('accepts a log payload with exercises', () => {
     const payload = workoutLogPayloadSchema.parse({
       durationSeconds: 1200,
-      exercises: [createWorkoutExerciseLogMock()],
+      exercises: [createWorkoutExerciseLogFixture()],
     });
     expect(payload.exercises).toHaveLength(1);
   });
@@ -203,8 +205,8 @@ describe('workout logging contracts', () => {
   });
 
   it('parses exercise logs with set arrays', () => {
-    const exercise = createWorkoutExerciseLogMock({
-      sets: [createWorkoutSetLogMock({ reps: 8 })],
+    const exercise = createWorkoutExerciseLogFixture({
+      sets: [createWorkoutSetLogFixture({ reps: 8 })],
     });
     const parsed = workoutExerciseLogSchema.parse(exercise);
     expect(parsed.sets[0].reps).toBe(8);
@@ -278,7 +280,7 @@ describe('generation request upcoming events', () => {
   });
 
   it('accepts planning-date and baseline-workout regeneration fields', () => {
-    const baselineWorkout = createTodayPlanMock({
+    const baselineWorkout = createTodayPlanFixture({
       responseId: 'resp-baseline',
       generationProvenance: {
         provider: 'openai',
@@ -767,7 +769,7 @@ describe('training blueprint contracts', () => {
 describe('today plan provenance', () => {
   it('accepts minimal regeneration provenance on the canonical plan', () => {
     const result = todayPlanSchema.safeParse(
-      createTodayPlanMock({
+      createTodayPlanFixture({
         responseId: 'resp-generated',
         generationProvenance: {
           provider: 'gemini',
@@ -780,7 +782,7 @@ describe('today plan provenance', () => {
   });
 
   it('continues to accept plans without regeneration provenance', () => {
-    const result = todayPlanSchema.safeParse(createTodayPlanMock());
+    const result = todayPlanSchema.safeParse(createTodayPlanFixture());
 
     expect(result.success).toBe(true);
   });
