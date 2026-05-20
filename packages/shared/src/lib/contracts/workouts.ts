@@ -2858,6 +2858,8 @@ export type GenerationRequest = z.infer<typeof generationRequestSchema>;
 const generationContextSessionSchema = workoutSessionSummarySchema.extend({
   perceivedEffort: workoutEnergySchema.optional(),
   notes: z.string().optional(),
+  exerciseNames: z.array(z.string()).max(30).optional(),
+  completedSetCount: z.number().int().nonnegative().optional(),
 });
 
 export const experienceLevelSchema = z.enum([

@@ -98,6 +98,21 @@ describe('WorkoutRepository', () => {
       expect(workout.summary).toBe('Felt great after dinner!');
     });
 
+    it('maps manual quick logs to generation context memory', async () => {
+      const workout = await workoutRepository.quickLogManualSession({
+        name: 'Evening Walk',
+        focus: 'Recovery',
+        durationMinutes: 20,
+        note: 'Knees felt good.',
+      });
+
+      const session = await workoutRepository.toGenerationContextSession(workout);
+
+      expect(session.notes).toBe('Knees felt good.');
+      expect(session.exerciseNames).toEqual([]);
+      expect(session.completedSetCount).toBe(0);
+    });
+
     it('leaves summary as null/undefined when no note provided', async () => {
       const workout = await workoutRepository.quickLogManualSession({
         name: 'Quick HIIT',
@@ -465,6 +480,50 @@ describe('WorkoutRepository', () => {
         .find(workout.id);
       const summary = workoutRepository.toSessionSummary(reloadedWorkout);
       expect(summary.isFavorite).toBe(true);
+    });
+  });
+
+  describe('toGenerationContextSession', () => {
+    it('includes exercise names, completed set count, and effort', async () => {
+      const plan = createTodayPlanFixture({
+        id: 'plan-memory',
+        focus: 'Strength',
+        energy: 'intense',
+      });
+      await workoutRepository.saveGeneratedPlan(plan);
+      const workout = await workoutRepository.getWorkoutByPlanId(plan.id);
+      if (!workout) {
+        throw new Error('Expected saved workout');
+      }
+
+      await workoutRepository.ensureSetsForWorkout(workout.id);
+      const logs = await workoutRepository.listExerciseLogsByWorkoutId(
+        workout.id
+      );
+      const firstSetId = logs[0]?.sets[0]?.id;
+      if (!firstSetId) {
+        throw new Error('Expected seeded set');
+      }
+      await workoutRepository.updateSetById(firstSetId, {
+        completed: true,
+      });
+      await workoutRepository.completeWorkoutById(workout.id, 30 * 60);
+
+      const completedWorkout = await workoutRepository.getWorkoutByPlanId(
+        plan.id
+      );
+      if (!completedWorkout) {
+        throw new Error('Expected completed workout');
+      }
+      const session = await workoutRepository.toGenerationContextSession(
+        completedWorkout
+      );
+
+      expect(session.perceivedEffort).toBe('intense');
+      expect(session.exerciseNames).toEqual(
+        expect.arrayContaining(['Cat / Cow Flow', 'Dumbbell Bench Press'])
+      );
+      expect(session.completedSetCount).toBe(1);
     });
   });
 });

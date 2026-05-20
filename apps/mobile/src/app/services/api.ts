@@ -179,8 +179,8 @@ export async function buildGenerationContext(
   const recentWorkouts = await workoutRepository.listRecentSessions(5, {
     includeArchived: false,
   });
-  const recentSessions = recentWorkouts.map((w) =>
-    workoutRepository.toSessionSummary(w)
+  const recentSessions = await Promise.all(
+    recentWorkouts.map((w) => workoutRepository.toGenerationContextSession(w))
   );
 
   // Determine equipment: quick action override > profile default > fallback

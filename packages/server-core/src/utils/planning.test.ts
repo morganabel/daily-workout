@@ -417,6 +417,39 @@ describe('derivePlanningBrief', () => {
     expect(brief.resolvedFocus).toBe('Upper Body');
   });
 
+  it('uses recent exercise names when focus is vague', () => {
+    const brief = derivePlanningBrief({
+      request: {
+        focus: 'Smart',
+        planningDateLocal: '2026-04-15',
+      },
+      context: createContext({
+        userProfile: {
+          preferredStyle: 'Bodybuilding split',
+        },
+        recentSessions: [
+          {
+            id: 's1',
+            name: 'Garage Strength',
+            completedAt: '2026-04-14T12:00:00.000Z',
+            durationMinutes: 45,
+            focus: 'Strength',
+            perceivedEffort: 'intense',
+            exerciseNames: ['Back Squat', 'Romanian Deadlift'],
+            completedSetCount: 6,
+          },
+        ],
+      }),
+      provider: 'gemini',
+    });
+
+    expect(brief.recentStressorsToAvoid).toContain('lower_body');
+    expect(brief.disallowedStressors).toEqual(
+      expect.arrayContaining(['lower_body_fatigue', 'axial_loading'])
+    );
+    expect(brief.resolvedFocus).toBe('Upper Body');
+  });
+
   it('suggests lower body after a recent push then pull sequence', () => {
     const brief = derivePlanningBrief({
       request: {

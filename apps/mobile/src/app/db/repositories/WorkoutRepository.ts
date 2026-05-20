@@ -1,5 +1,6 @@
 import { Q } from '@nozbe/watermelondb';
 import type {
+  GenerationContext,
   GenerationRequest,
   RegenerationFeedback,
   TodayPlan,
@@ -24,6 +25,11 @@ import {
 
 const DEFAULT_SET_COUNT = 3;
 const DEFAULT_REJECTED_VERSION_RETENTION_DAYS = 90;
+const WORKOUT_ENERGY_VALUES = new globalThis.Set([
+  'easy',
+  'moderate',
+  'intense',
+]);
 
 type PersistedGenerationRequest = Partial<
   Pick<
@@ -764,6 +770,42 @@ export class WorkoutRepository {
         : undefined,
       isFavorite: workout.isFavorite ?? undefined,
     };
+  }
+
+  async toGenerationContextSession(
+    workout: Workout
+  ): Promise<GenerationContext['recentSessions'][number]> {
+    const exercises = await this.exercises
+      .query(Q.where('workout_id', workout.id), Q.sortBy('order', Q.asc))
+      .fetch();
+    const setGroups = await Promise.all(
+      exercises.map((exercise) =>
+        this.sets.query(Q.where('exercise_id', exercise.id)).fetch()
+      )
+    );
+    const completedSetCount = setGroups.reduce(
+      (total, sets) => total + sets.filter((set) => set.completed).length,
+      0
+    );
+    const summary = this.toSessionSummary(workout);
+    const session: GenerationContext['recentSessions'][number] = {
+      ...summary,
+      exerciseNames: [
+        ...new globalThis.Set(exercises.map((exercise) => exercise.name)),
+      ],
+      completedSetCount,
+    };
+
+    if (workout.energy && WORKOUT_ENERGY_VALUES.has(workout.energy)) {
+      session.perceivedEffort = workout.energy as NonNullable<
+        GenerationContext['recentSessions'][number]['perceivedEffort']
+      >;
+    }
+    if (workout.source === 'manual' && workout.summary?.trim()) {
+      session.notes = workout.summary.trim();
+    }
+
+    return session;
   }
 
   async toggleFavoriteWorkout(workoutId: string) {

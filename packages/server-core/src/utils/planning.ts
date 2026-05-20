@@ -596,7 +596,8 @@ function deriveRecentStressorsToAvoid(
       latestSession = session;
     }
 
-    for (const stressor of inferStressors(session.focus)) {
+    const sessionStressors = inferSessionStressors(session);
+    for (const stressor of sessionStressors) {
       counts.set(stressor, (counts.get(stressor) ?? 0) + 1);
     }
   }
@@ -617,7 +618,7 @@ function deriveRecentStressorsToAvoid(
       trainingRhythm
     )
   ) {
-    stressors.push(...inferStressors(latestSession.focus));
+    stressors.push(...inferSessionStressors(latestSession));
   }
 
   return [...new Set(stressors)];
@@ -847,18 +848,36 @@ function inferStressors(value: string): string[] {
   const normalized = normalizeText(value);
   const stressors = new Set<string>();
 
-  if (normalized.includes('push')) {
+  if (
+    normalized.includes('push') ||
+    normalized.includes('press') ||
+    normalized.includes('bench') ||
+    normalized.includes('dip')
+  ) {
     stressors.add('push');
     stressors.add('upper_body');
   }
-  if (normalized.includes('pull')) {
+  if (
+    normalized.includes('pull') ||
+    normalized.includes('row') ||
+    normalized.includes('chin') ||
+    normalized.includes('lat')
+  ) {
     stressors.add('pull');
     stressors.add('upper_body');
   }
   if (normalized.includes('upper')) {
     stressors.add('upper_body');
   }
-  if (normalized.includes('lower') || normalized.includes('leg')) {
+  if (
+    normalized.includes('lower') ||
+    normalized.includes('leg') ||
+    normalized.includes('squat') ||
+    normalized.includes('lunge') ||
+    normalized.includes('deadlift') ||
+    normalized.includes('hinge') ||
+    normalized.includes('step up')
+  ) {
     stressors.add('lower_body');
   }
   if (normalized.includes('core') || normalized.includes('ab')) {
@@ -873,6 +892,21 @@ function inferStressors(value: string): string[] {
   }
   if (normalized.includes('mobility') || normalized.includes('recovery')) {
     stressors.add('mobility');
+  }
+
+  return [...stressors];
+}
+
+function inferSessionStressors(
+  session: GenerationContext['recentSessions'][number]
+): string[] {
+  const values = [session.focus, session.name, ...(session.exerciseNames ?? [])];
+  const stressors = new Set<string>();
+
+  for (const value of values) {
+    for (const stressor of inferStressors(value)) {
+      stressors.add(stressor);
+    }
   }
 
   return [...stressors];
