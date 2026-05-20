@@ -28,7 +28,7 @@ import {
   stageOnePlannerArtifactSchema,
 } from './stage-one-schema';
 
-const DEFAULT_MODEL = process.env.GEMINI_MODEL ?? 'gemini-3-flash-preview';
+const DEFAULT_MODEL = process.env.GEMINI_MODEL ?? 'gemini-3.5-flash';
 const DEFAULT_PLANNER_MODEL =
   process.env.GEMINI_PLANNER_MODEL ?? 'gemini-3.1-flash-lite';
 const DEFAULT_API_BASE = process.env.GEMINI_API_BASE;
