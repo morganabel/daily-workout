@@ -525,5 +525,35 @@ describe('WorkoutRepository', () => {
       );
       expect(session.completedSetCount).toBe(1);
     });
+
+    it('caps exercise names to the generation context contract limit', async () => {
+      const plan = createTodayPlanFixture({
+        id: 'plan-many-exercises',
+        blocks: [
+          {
+            id: 'many-exercises',
+            title: 'Many Exercises',
+            durationMinutes: 60,
+            focus: 'General',
+            exercises: Array.from({ length: 31 }, (_, index) => ({
+              id: `exercise-${index + 1}`,
+              name: `Exercise ${index + 1}`,
+              prescription: '1 x 10',
+              detail: null,
+            })),
+          },
+        ],
+      });
+      await workoutRepository.saveGeneratedPlan(plan);
+      const workout = await workoutRepository.getWorkoutByPlanId(plan.id);
+      if (!workout) {
+        throw new Error('Expected saved workout');
+      }
+
+      const session = await workoutRepository.toGenerationContextSession(workout);
+
+      expect(session.exerciseNames).toHaveLength(30);
+      expect(session.exerciseNames).not.toContain('Exercise 31');
+    });
   });
 });

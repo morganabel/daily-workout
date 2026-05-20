@@ -450,6 +450,37 @@ describe('derivePlanningBrief', () => {
     expect(brief.resolvedFocus).toBe('Upper Body');
   });
 
+  it('does not infer pull stressors from short substring matches', () => {
+    const brief = derivePlanningBrief({
+      request: {
+        focus: 'Smart',
+        planningDateLocal: '2026-04-15',
+      },
+      context: createContext({
+        userProfile: {
+          preferredStyle: 'Bodybuilding split',
+        },
+        recentSessions: [
+          {
+            id: 's1',
+            name: 'Plate Machine Pilates',
+            completedAt: '2026-04-14T12:00:00.000Z',
+            durationMinutes: 30,
+            focus: 'Strength',
+            perceivedEffort: 'intense',
+            exerciseNames: ['Pilates Roll-Up', 'Plate Circuit', 'Machine Setup'],
+            completedSetCount: 6,
+          },
+        ],
+      }),
+      provider: 'gemini',
+    });
+
+    expect(brief.recentStressorsToAvoid).not.toContain('pull');
+    expect(brief.recentStressorsToAvoid).not.toContain('upper_body');
+    expect(brief.disallowedStressors).not.toContain('upper_body_pull_fatigue');
+  });
+
   it('suggests lower body after a recent push then pull sequence', () => {
     const brief = derivePlanningBrief({
       request: {
