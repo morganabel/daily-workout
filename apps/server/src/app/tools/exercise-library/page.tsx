@@ -2,7 +2,6 @@ import type {
   CandidateResult,
   ExerciseLibraryMetadata,
 } from '@workout-agent-ce/server-exercise-library';
-import { openExerciseLibrary } from '@workout-agent-ce/server-exercise-library';
 import { notFound } from 'next/navigation';
 import { buildBrowserQueryState } from './query';
 import styles from './page.module.css';
@@ -37,6 +36,11 @@ export default async function ExerciseLibraryBrowserPage({
   let errorMessage: string | null = null;
 
   try {
+    // Keep the debug-only browser from statically pulling the SQLite library
+    // into the main server bundle; production deployments can leave it disabled.
+    const { openExerciseLibrary } = await import(
+      '@workout-agent-ce/server-exercise-library'
+    );
     const library = openExerciseLibrary();
 
     try {
