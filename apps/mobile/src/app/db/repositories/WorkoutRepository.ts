@@ -1,5 +1,6 @@
 import { Q } from '@nozbe/watermelondb';
 import type {
+  GenerationContext,
   GenerationRequest,
   RegenerationFeedback,
   TodayPlan,
@@ -9,6 +10,7 @@ import type {
   WorkoutSetLog,
   WeightUnit,
 } from '@workout-agent/shared';
+import { workoutEnergySchema } from '@workout-agent/shared';
 import { endOfDay, parseLocalDate, startOfDay } from '../../utils/date';
 import { database } from '../index';
 import Workout from '../models/Workout';
@@ -24,6 +26,7 @@ import {
 
 const DEFAULT_SET_COUNT = 3;
 const DEFAULT_REJECTED_VERSION_RETENTION_DAYS = 90;
+const MAX_GENERATION_CONTEXT_EXERCISE_NAMES = 30;
 
 type PersistedGenerationRequest = Partial<
   Pick<
@@ -764,6 +767,40 @@ export class WorkoutRepository {
         : undefined,
       isFavorite: workout.isFavorite ?? undefined,
     };
+  }
+
+  async toGenerationContextSession(
+    workout: Workout
+  ): Promise<GenerationContext['recentSessions'][number]> {
+    const exercises = await this.exercises
+      .query(Q.where('workout_id', workout.id), Q.sortBy('order', Q.asc))
+      .fetch();
+    const exerciseIds = exercises.map((exercise) => exercise.id);
+    const sets = exerciseIds.length
+      ? await this.sets
+          .query(Q.where('exercise_id', Q.oneOf(exerciseIds)))
+          .fetch()
+      : [];
+    const completedSetCount = sets.filter((set) => set.completed).length;
+    const summary = this.toSessionSummary(workout);
+    const exerciseNames = [
+      ...new globalThis.Set(exercises.map((exercise) => exercise.name)),
+    ].slice(0, MAX_GENERATION_CONTEXT_EXERCISE_NAMES);
+    const session: GenerationContext['recentSessions'][number] = {
+      ...summary,
+      exerciseNames,
+      completedSetCount,
+    };
+
+    const energy = workoutEnergySchema.safeParse(workout.energy);
+    if (energy.success) {
+      session.perceivedEffort = energy.data;
+    }
+    if (workout.source === 'manual' && workout.summary?.trim()) {
+      session.notes = workout.summary.trim();
+    }
+
+    return session;
   }
 
   async toggleFavoriteWorkout(workoutId: string) {

@@ -596,7 +596,8 @@ function deriveRecentStressorsToAvoid(
       latestSession = session;
     }
 
-    for (const stressor of inferStressors(session.focus)) {
+    const sessionStressors = inferSessionStressors(session);
+    for (const stressor of sessionStressors) {
       counts.set(stressor, (counts.get(stressor) ?? 0) + 1);
     }
   }
@@ -617,7 +618,7 @@ function deriveRecentStressorsToAvoid(
       trainingRhythm
     )
   ) {
-    stressors.push(...inferStressors(latestSession.focus));
+    stressors.push(...inferSessionStressors(latestSession));
   }
 
   return [...new Set(stressors)];
@@ -845,34 +846,87 @@ function deriveObjective(resolvedFocus: string): string {
 
 function inferStressors(value: string): string[] {
   const normalized = normalizeText(value);
+  const tokens = tokenizeText(normalized);
   const stressors = new Set<string>();
 
-  if (normalized.includes('push')) {
+  if (
+    hasTokenPrefix(tokens, ['push', 'press']) ||
+    hasToken(tokens, ['bench', 'dip', 'dips'])
+  ) {
     stressors.add('push');
     stressors.add('upper_body');
   }
-  if (normalized.includes('pull')) {
+  if (
+    hasTokenPrefix(tokens, ['pull']) ||
+    hasToken(tokens, [
+      'row',
+      'rows',
+      'rowing',
+      'rower',
+      'chin',
+      'chins',
+      'lat',
+      'lats',
+    ])
+  ) {
     stressors.add('pull');
     stressors.add('upper_body');
   }
-  if (normalized.includes('upper')) {
+  if (hasToken(tokens, ['upper'])) {
     stressors.add('upper_body');
   }
-  if (normalized.includes('lower') || normalized.includes('leg')) {
+  if (
+    hasToken(tokens, ['lower', 'leg', 'legs']) ||
+    hasTokenPrefix(tokens, ['squat', 'lunge', 'deadlift', 'hinge']) ||
+    hasTokenSequence(tokens, ['step', 'up'])
+  ) {
     stressors.add('lower_body');
   }
-  if (normalized.includes('core') || normalized.includes('ab')) {
+  if (hasTokenPrefix(tokens, ['core']) || hasToken(tokens, ['ab', 'abs'])) {
     stressors.add('core');
   }
   if (
-    normalized.includes('conditioning') ||
-    normalized.includes('cardio') ||
-    normalized.includes('endurance')
+    hasTokenPrefix(tokens, ['conditioning', 'cardio', 'endurance'])
   ) {
     stressors.add('conditioning');
   }
-  if (normalized.includes('mobility') || normalized.includes('recovery')) {
+  if (hasTokenPrefix(tokens, ['mobility', 'recovery'])) {
     stressors.add('mobility');
+  }
+
+  return [...stressors];
+}
+
+function tokenizeText(value: string): string[] {
+  return value.split(/[^a-z0-9]+/).filter(Boolean);
+}
+
+function hasToken(tokens: string[], values: string[]): boolean {
+  return values.some((value) => tokens.includes(value));
+}
+
+function hasTokenPrefix(tokens: string[], prefixes: string[]): boolean {
+  return tokens.some((token) =>
+    prefixes.some((prefix) => token.startsWith(prefix))
+  );
+}
+
+function hasTokenSequence(tokens: string[], sequence: string[]): boolean {
+  return tokens.some((_, index) =>
+    sequence.every((token, offset) => tokens[index + offset] === token)
+  );
+}
+
+function inferSessionStressors(
+  session: GenerationContext['recentSessions'][number]
+): string[] {
+  const values = [session.focus, session.name, ...(session.exerciseNames ?? [])];
+  const stressors = new Set<string>();
+
+  for (const value of values) {
+    for (const stressor of inferStressors(value)) {
+      stressors.add(stressor);
+    }
   }
 
   return [...stressors];

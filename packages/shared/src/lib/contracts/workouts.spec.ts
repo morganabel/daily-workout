@@ -16,6 +16,7 @@ import {
   workoutLogPayloadSchema,
   generationRequestSchema,
   generationRequestPayloadSchema,
+  generationContextSchema,
   MAX_UPCOMING_EVENTS,
   EQUIPMENT_OPTIONS,
   GYM_EQUIPMENT,
@@ -210,6 +211,33 @@ describe('workout logging contracts', () => {
     });
     const parsed = workoutExerciseLogSchema.parse(exercise);
     expect(parsed.sets[0].reps).toBe(8);
+  });
+
+  it('accepts richer recent-session generation memory', () => {
+    const context = generationContextSchema.parse({
+      userProfile: {},
+      preferences: {},
+      environment: { equipment: ['Dumbbells'] },
+      recentSessions: [
+        {
+          id: 'session-1',
+          name: 'Garage Strength',
+          completedAt: '2026-04-14T12:00:00.000Z',
+          durationMinutes: 45,
+          focus: 'Strength',
+          exerciseNames: ['Back Squat', 'Bench Press'],
+          completedSetCount: 6,
+          perceivedEffort: 'intense',
+          notes: 'Keep pressing lighter next time.',
+        },
+      ],
+    });
+
+    expect(context.recentSessions[0].exerciseNames).toEqual([
+      'Back Squat',
+      'Bench Press',
+    ]);
+    expect(context.recentSessions[0].completedSetCount).toBe(6);
   });
 });
 

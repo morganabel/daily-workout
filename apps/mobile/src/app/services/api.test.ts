@@ -1,4 +1,7 @@
-import type { WorkoutSessionSummary } from '@workout-agent/shared';
+import type {
+  GenerationContext,
+  WorkoutSessionSummary,
+} from '@workout-agent/shared';
 import { createTodayPlanFixture } from '@workout-agent/shared/testing';
 import {
   buildGenerationContext,
@@ -36,6 +39,7 @@ jest.mock('../db/repositories/WorkoutRepository', () => ({
   workoutRepository: {
     listRecentSessions: jest.fn(),
     toSessionSummary: jest.fn(),
+    toGenerationContextSession: jest.fn(),
     saveGeneratedPlan: jest.fn(),
     pruneRejectedWorkoutVersions: jest.fn(),
     getWorkoutByPlanId: jest.fn(),
@@ -104,12 +108,12 @@ describe('buildGenerationContext', () => {
     // listRecentSessions with includeArchived: false returns only non-archived workouts
     // (archived workouts are filtered at the database query level)
     mockWorkoutRepository.listRecentSessions.mockResolvedValue([
-      { id: 'workout-1' } as any,
-      { id: 'workout-2' } as any,
-    ]);
-    mockWorkoutRepository.toSessionSummary
-      .mockReturnValueOnce(session1)
-      .mockReturnValueOnce(session2);
+      { id: 'workout-1' },
+      { id: 'workout-2' },
+    ] as Awaited<ReturnType<typeof workoutRepository.listRecentSessions>>);
+    mockWorkoutRepository.toGenerationContextSession
+      .mockResolvedValueOnce(session1)
+      .mockResolvedValueOnce(session2);
 
     const context = await buildGenerationContext({
       timeMinutes: 30,
@@ -120,6 +124,36 @@ describe('buildGenerationContext', () => {
       includeArchived: false,
     });
     expect(context.recentSessions).toEqual([session1, session2]);
+  });
+
+  it('includes richer local workout memory in recent sessions', async () => {
+    const session: GenerationContext['recentSessions'][number] = {
+      id: 'session-rich',
+      name: 'Garage Strength',
+      focus: 'Strength',
+      durationMinutes: 45,
+      completedAt: new Date().toISOString(),
+      source: 'ai',
+      perceivedEffort: 'intense',
+      notes: 'Keep presses lighter next time.',
+      exerciseNames: ['Back Squat', 'Bench Press'],
+      completedSetCount: 6,
+    };
+
+    mockWorkoutRepository.listRecentSessions.mockResolvedValue([
+      { id: 'workout-rich' },
+    ] as Awaited<ReturnType<typeof workoutRepository.listRecentSessions>>);
+    mockWorkoutRepository.toGenerationContextSession.mockResolvedValue(session);
+
+    const context = await buildGenerationContext({
+      timeMinutes: 45,
+      focus: 'Smart',
+    });
+
+    expect(mockWorkoutRepository.toGenerationContextSession).toHaveBeenCalledWith(
+      { id: 'workout-rich' }
+    );
+    expect(context.recentSessions).toEqual([session]);
   });
 });
 
