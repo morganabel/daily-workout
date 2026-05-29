@@ -13,6 +13,7 @@ import { anonymousClient } from 'better-auth/client/plugins';
 import { expoClient } from '@better-auth/expo/client';
 import * as SecureStore from 'expo-secure-store';
 import type { MetaResponse } from '@workout-agent/shared';
+import { resetRevenueCatLogin } from './billing-client';
 
 const API_BASE_URL =
   process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:3000';
@@ -21,9 +22,10 @@ const API_BASE_URL =
 // We use stale-while-revalidate: serve cached value immediately and refresh in background.
 const SERVER_CAPABILITIES_TTL_MS = 10 * 60_000; // 10 minutes
 
-let cachedServerCapabilities:
-  | { data: MetaResponse | null; fetchedAt: number }
-  | null = null;
+let cachedServerCapabilities: {
+  data: MetaResponse | null;
+  fetchedAt: number;
+} | null = null;
 let inFlightServerCapabilities: Promise<MetaResponse | null> | null = null;
 
 async function refreshServerCapabilities(): Promise<MetaResponse | null> {
@@ -101,7 +103,20 @@ export const authClient = createAuthClient({
 });
 
 // Export session hook and utilities
-export const { useSession, signIn, signUp, signOut } = authClient;
+export const { useSession, signIn, signUp } = authClient;
+
+export const signOut: typeof authClient.signOut = async (...args) => {
+  const result = await authClient.signOut(...args);
+  try {
+    await resetRevenueCatLogin();
+  } catch (error) {
+    console.warn(
+      '[auth-client] Failed to reset RevenueCat session on sign-out',
+      error
+    );
+  }
+  return result;
+};
 
 /**
  * Fetch server capabilities from /api/meta
@@ -147,7 +162,10 @@ export async function signInAnonymously(): Promise<boolean> {
 
     const result = await authClient.signIn.anonymous();
     if (result.error) {
-      console.error('[auth-client] Anonymous sign-in failed:', result.error.message);
+      console.error(
+        '[auth-client] Anonymous sign-in failed:',
+        result.error.message
+      );
       return false;
     }
 

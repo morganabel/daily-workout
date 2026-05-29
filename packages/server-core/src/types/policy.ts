@@ -1,4 +1,4 @@
-import type { GenerationRequest } from '@workout-agent/shared';
+import type { GenerationRequest, UpgradeMetadata } from '@workout-agent/shared';
 
 /**
  * Result of a policy check
@@ -18,6 +18,11 @@ export interface PolicyResult {
    * HTTP status code to return (if not allowed)
    */
   statusCode?: number;
+
+  /**
+   * Optional metadata to drive upgrade UX in clients.
+   */
+  upgrade?: UpgradeMetadata;
 }
 
 /**
@@ -36,7 +41,20 @@ export interface UsagePolicy {
   /**
    * Check if a user can generate a workout
    */
-  canGenerate(userId: string, request: GenerationRequest): Promise<PolicyResult>;
+  canGenerate(
+    userId: string,
+    request: GenerationRequest
+  ): Promise<PolicyResult>;
+
+  /**
+   * Optional: Release a previously granted generation reservation.
+   * Hosted overlays can implement this when canGenerate performs
+   * quota reservation before model invocation.
+   */
+  rollbackGenerateReservation?(
+    userId: string,
+    request: GenerationRequest
+  ): Promise<void>;
 
   /**
    * Optional: Get full entitlements for a user

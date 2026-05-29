@@ -21,12 +21,21 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import {
+  useFocusEffect,
+  useNavigation,
+  useRoute,
+} from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { RouteProp } from '@react-navigation/native';
 import type { AiProvider } from '@workout-agent/shared';
 
 import type { RootStackParamList } from './navigation';
-import { getByokConfig, setByokConfig, type ByokConfig } from './storage/byokKey';
+import {
+  getByokConfig,
+  setByokConfig,
+  type ByokConfig,
+} from './storage/byokKey';
 import { getLaunchCompleted, setLaunchCompleted } from './storage/launchState';
 import {
   authClient,
@@ -40,7 +49,10 @@ import { Button, Card } from './components/DesignSystem';
 const AUTH_ENABLED_DEFAULT =
   (process.env.EXPO_PUBLIC_AUTH_ENABLED ?? 'true').toLowerCase() !== 'false';
 
-function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T | null> {
+function withTimeout<T>(
+  promise: Promise<T>,
+  timeoutMs: number
+): Promise<T | null> {
   return new Promise((resolve) => {
     const timeoutId = setTimeout(() => resolve(null), timeoutMs);
     promise
@@ -56,6 +68,7 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T | nul
 }
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
+type LaunchRoute = RouteProp<RootStackParamList, 'Launch'>;
 
 type LaunchState = {
   phase: 'checking' | 'showing';
@@ -70,6 +83,8 @@ type LaunchState = {
 
 export const LaunchScreen: React.FC = () => {
   const navigation = useNavigation<NavigationProp>();
+  const route = useRoute<LaunchRoute>();
+  const forceByokSetup = route.params?.openByok === true;
 
   const [state, setState] = useState<LaunchState>({
     phase: 'checking',
@@ -113,6 +128,18 @@ export const LaunchScreen: React.FC = () => {
     if (byok?.apiKey) {
       setProvider(byok.provider);
       setApiKeyInput(byok.apiKey);
+    }
+
+    if (forceByokSetup) {
+      setShowAdvanced(true);
+      setState((prev) => ({
+        ...prev,
+        phase: 'showing',
+        launchCompleted,
+        byok,
+        hasSession: hasSessionCookie,
+      }));
+      return;
     }
 
     // Decide whether to show Launch immediately based on local state only.
@@ -182,12 +209,12 @@ export const LaunchScreen: React.FC = () => {
         }
       }
     })();
-  }, [goHome]);
+  }, [forceByokSetup, goHome]);
 
   useFocusEffect(
     useCallback(() => {
       void bootstrap();
-    }, [bootstrap]),
+    }, [bootstrap])
   );
 
   const handleExplore = async () => {
@@ -200,7 +227,7 @@ export const LaunchScreen: React.FC = () => {
         if (!ok) {
           if (state.auth.known) {
             setError(
-              'Could not start a session. Please try again, or sign in with email.',
+              'Could not start a session. Please try again, or sign in with email.'
             );
             return;
           }
@@ -232,6 +259,10 @@ export const LaunchScreen: React.FC = () => {
       await setByokConfig(nextByok);
       setState((prev) => ({ ...prev, byok: nextByok }));
       setShowAdvanced(false);
+      if (forceByokSetup && state.hasSession) {
+        await setLaunchCompleted(true);
+        goHome();
+      }
     } catch {
       setError('Could not save your API key. Please try again.');
     } finally {
@@ -241,7 +272,10 @@ export const LaunchScreen: React.FC = () => {
 
   if (state.phase === 'checking') {
     return (
-      <View style={styles.checkingContainer} accessibilityLabel="launch-checking" />
+      <View
+        style={styles.checkingContainer}
+        accessibilityLabel="launch-checking"
+      />
     );
   }
 
@@ -264,8 +298,8 @@ export const LaunchScreen: React.FC = () => {
           <Text style={styles.title}>Workout Agent</Text>
 
           <Text style={styles.subtitle}>
-            Create an account to sync across devices, or explore instantly with a
-            temporary session.
+            Create an account to sync across devices, or explore instantly with
+            a temporary session.
           </Text>
         </View>
 
@@ -300,7 +334,9 @@ export const LaunchScreen: React.FC = () => {
               disabled={isExploring}
               accessibilityLabel="launch-sign-in"
             >
-              <Text style={styles.linkText}>Already have an account? Sign in</Text>
+              <Text style={styles.linkText}>
+                Already have an account? Sign in
+              </Text>
             </TouchableOpacity>
           ) : (
             <Text style={styles.caption}>
@@ -339,7 +375,9 @@ export const LaunchScreen: React.FC = () => {
                   <Text
                     style={[
                       styles.providerPillText,
-                      provider === 'openai' ? styles.providerPillTextActive : null,
+                      provider === 'openai'
+                        ? styles.providerPillTextActive
+                        : null,
                     ]}
                   >
                     OpenAI
@@ -356,7 +394,9 @@ export const LaunchScreen: React.FC = () => {
                   <Text
                     style={[
                       styles.providerPillText,
-                      provider === 'gemini' ? styles.providerPillTextActive : null,
+                      provider === 'gemini'
+                        ? styles.providerPillTextActive
+                        : null,
                     ]}
                   >
                     Gemini

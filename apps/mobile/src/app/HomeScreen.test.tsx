@@ -15,6 +15,11 @@ import { createTodayPlanFixture } from '@workout-agent/shared/testing';
 jest.mock('./hooks/useHomeData', () => ({
   useHomeData: jest.fn(),
 }));
+jest.mock('./hooks/useBillingState', () => ({
+  useBillingState: () => ({
+    showUpgradeUi: false,
+  }),
+}));
 jest.mock('./services/api', () => ({
   generateWorkout: jest.fn(),
   quickLogWorkout: jest.fn(),

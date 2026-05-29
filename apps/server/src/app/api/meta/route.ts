@@ -18,6 +18,7 @@ import {
   createRequestContext,
 } from '@workout-agent-ce/server-core';
 import {
+  createBillingCapabilities,
   createStubMetaResponse,
   createBetterAuthMetaResponse,
   metaResponseSchema,
@@ -25,18 +26,32 @@ import {
 import { getAuthContext } from '@/lib/auth-context';
 
 export async function GET(request: Request): Promise<Response> {
-  const { requestId, startedAt, log } = createRequestContext(request, 'api.meta');
+  const { requestId, startedAt, log } = createRequestContext(
+    request,
+    'api.meta'
+  );
   const ctx = getAuthContext();
 
   // Determine edition from environment
   const rawEdition = process.env.EDITION?.toUpperCase();
-  const edition: 'CE' | 'HOSTED' =
-    rawEdition === 'HOSTED' ? 'HOSTED' : 'CE';
+  const edition: 'CE' | 'HOSTED' = rawEdition === 'HOSTED' ? 'HOSTED' : 'CE';
+  const billingEnabled =
+    edition === 'HOSTED' && process.env.HOSTED_BILLING_ENABLED === 'true';
+  const billing = createBillingCapabilities(
+    billingEnabled
+      ? {
+          enabled: true,
+          showUpgradeUi: process.env.HOSTED_SHOW_UPGRADE_UI !== 'false',
+          purchaseMethod: 'iap',
+          allowByok: true,
+        }
+      : undefined
+  );
 
   // Build response based on auth mode
   const response =
     ctx.mode === 'better-auth'
-      ? createBetterAuthMetaResponse(PROTOCOL_VERSION, edition)
+      ? createBetterAuthMetaResponse(PROTOCOL_VERSION, edition, billing)
       : createStubMetaResponse(PROTOCOL_VERSION);
 
   // Validate response (ensures type safety)

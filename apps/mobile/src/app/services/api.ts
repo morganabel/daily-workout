@@ -3,6 +3,8 @@
  */
 
 import type {
+  ApiError,
+  BillingEntitlementsResponse,
   TodayPlan,
   GenerationRequest,
   GenerationRequestPayload,
@@ -11,7 +13,10 @@ import type {
   GenerationContext,
   UserPreferences,
 } from '@workout-agent/shared';
-import { normalizeEquipmentSelection } from '@workout-agent/shared';
+import {
+  apiErrorSchema,
+  normalizeEquipmentSelection,
+} from '@workout-agent/shared';
 import { getDeviceToken } from '../storage/deviceToken';
 import { getByokApiKey, getByokConfig } from '../storage/byokKey';
 import { userRepository } from '../db/repositories/UserRepository';
@@ -31,11 +36,7 @@ import {
 const API_BASE_URL =
   process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:3000';
 
-export interface ApiError {
-  code: string;
-  message: string;
-  retryAfter?: number;
-}
+export type { ApiError } from '@workout-agent/shared';
 
 /**
  * Get the authentication headers for API requests.
@@ -142,7 +143,14 @@ async function apiRequest<T>(
     // Clone the response so we can read it multiple times if needed
     const responseClone = response.clone();
     try {
-      error = await response.json();
+      const raw = await response.json();
+      const parsed = apiErrorSchema.safeParse(raw);
+      error = parsed.success
+        ? parsed.data
+        : {
+            code: 'VALIDATION_ERROR',
+            message: `HTTP ${response.status}: ${response.statusText}`,
+          };
       console.error('[API] Error response:', error);
     } catch {
       // If JSON parsing fails, try reading as text from the clone
@@ -153,7 +161,7 @@ async function apiRequest<T>(
         console.error('[API] Failed to read error response:', textError);
       }
       error = {
-        code: 'NETWORK_ERROR',
+        code: 'VALIDATION_ERROR',
         message: `HTTP ${response.status}: ${response.statusText}`,
       };
     }
@@ -163,6 +171,12 @@ async function apiRequest<T>(
   const data = await response.json();
   console.log('[API] Success:', data);
   return data;
+}
+
+export async function fetchBillingEntitlements(): Promise<BillingEntitlementsResponse> {
+  return apiRequest<BillingEntitlementsResponse>('/api/billing/entitlements', {
+    method: 'GET',
+  });
 }
 
 /**

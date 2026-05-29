@@ -1,4 +1,9 @@
 import { z } from 'zod';
+import {
+  billingCapabilitiesSchema,
+  createBillingCapabilities,
+  type BillingCapabilities,
+} from './billing';
 
 /**
  * Auth capabilities schema
@@ -34,6 +39,12 @@ export const metaResponseSchema = z.object({
    * Server edition (CE = Community Edition, HOSTED = managed service)
    */
   edition: z.enum(['CE', 'HOSTED']),
+
+  /**
+   * Billing capabilities for upgrade UX gating.
+   * Optional so newer clients can still parse older servers.
+   */
+  billing: billingCapabilitiesSchema.optional(),
 });
 
 export type MetaResponse = z.infer<typeof metaResponseSchema>;
@@ -51,6 +62,7 @@ export function createStubMetaResponse(protocolVersion: string): MetaResponse {
       emailAvailable: false,
     },
     edition: 'CE',
+    billing: createBillingCapabilities(),
   };
 }
 
@@ -59,7 +71,8 @@ export function createStubMetaResponse(protocolVersion: string): MetaResponse {
  */
 export function createBetterAuthMetaResponse(
   protocolVersion: string,
-  edition: 'CE' | 'HOSTED' = 'CE'
+  edition: 'CE' | 'HOSTED' = 'CE',
+  billing: BillingCapabilities = createBillingCapabilities()
 ): MetaResponse {
   return {
     protocolVersion,
@@ -70,5 +83,6 @@ export function createBetterAuthMetaResponse(
       emailAvailable: true,
     },
     edition,
+    billing,
   };
 }

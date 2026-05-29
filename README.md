@@ -26,7 +26,7 @@ Workout Agent CE is the open-source community edition of a daily workout planner
 3. Start the mobile app:
    - **Simulator/emulator**: `npm run dev:mobile` (Expo) and press `i`/`a`, or run `npx nx run mobile:run-ios` / `npx nx run mobile:run-android`.
    - **Physical device (dev build)**: set `EXPO_PUBLIC_BACKEND_URL` to a URL reachable from your phone (use your machine’s LAN IP for local dev), then run `npx nx run mobile:run-ios -- --device` or `npx nx run mobile:run-android -- --device`.
-4. Provide an AI key either via environment variables (see below) or BYOK from the app’s Home → BYOK screen.
+4. Provide an AI key either via environment variables (see below) or BYOK from the app’s Launch → Advanced screen.
 
 ## Common scripts
 
@@ -53,6 +53,16 @@ GEMINI_API_KEY=
 # Hosted mode toggles an HTTP 402 BYOK_REQUIRED response if no key is available
 EDITION=CE
 
+# Hosted billing (RevenueCat + entitlement gating)
+HOSTED_BILLING_ENABLED=false
+HOSTED_SHOW_UPGRADE_UI=true
+HOSTED_FREE_GENERATION_LIMIT=25
+HOSTED_PRO_GENERATION_LIMIT=1000
+HOSTED_QUOTA_WINDOW_DAYS=30
+REVENUECAT_DEFAULT_OFFERING_ID=
+REVENUECAT_WEBHOOK_SECRET=
+REVENUECAT_ALLOW_UNSIGNED_WEBHOOKS=false
+
 # Optional: use Vertex AI for Gemini
 GOOGLE_GENAI_USE_VERTEXAI=false
 GOOGLE_CLOUD_PROJECT=
@@ -65,6 +75,9 @@ GOOGLE_CLOUD_LOCATION=
 # For a physical device, this must be reachable from the phone (use your machine’s LAN IP for local dev).
 EXPO_PUBLIC_BACKEND_URL=http://localhost:3000
 
+# Mobile RevenueCat SDK
+EXPO_PUBLIC_REVENUECAT_API_KEY=
+
 # Better Auth (optional; enabled automatically when DATABASE_URL is set)
 DATABASE_URL=postgres://user:password@localhost:5432/workout_agent
 BETTER_AUTH_SECRET=dev-secret-dev-secret-dev-secret-dev-secret
@@ -73,7 +86,22 @@ BETTER_AUTH_URL=http://localhost:3000
 
 - Server BYOK headers: `x-ai-provider`, `x-openai-key`, `x-gemini-key`, or `x-ai-key` (generic fallback). When using `x-ai-key`, also send `x-ai-provider` to specify which provider to route to.
 - If `EDITION=HOSTED` and no key is available for the chosen provider, `/api/workouts/generate` responds with `{ code: 'BYOK_REQUIRED' }` (HTTP 402).
-- When no key is present in CE mode, the server falls back to deterministic mock plans so the app still works for demos.
+- When no key is present in CE mode, configure a server key or add BYOK in the app before requesting AI generation.
+
+### Hosted paywall test setup
+
+Use this command to boot the local server in hosted mode with billing and upgrade UI enabled, plus a very low free generation limit so the paywall is easy to trigger:
+
+```bash
+EDITION=HOSTED \
+HOSTED_BILLING_ENABLED=true \
+HOSTED_SHOW_UPGRADE_UI=true \
+HOSTED_FREE_GENERATION_LIMIT=1 \
+HOSTED_PRO_GENERATION_LIMIT=1000 \
+HOSTED_QUOTA_WINDOW_DAYS=30 \
+EXPO_PUBLIC_BACKEND_URL=http://localhost:3000 \
+npm run dev:server:db
+```
 
 ## Running tests and lint checks
 

@@ -24,6 +24,7 @@ import {
   normalizeEquipmentSelection,
 } from '@workout-agent/shared';
 import { useHomeData } from './hooks/useHomeData';
+import { useBillingState } from './hooks/useBillingState';
 import { generateWorkout, type ApiError } from './services/api';
 import { RootStackParamList } from './navigation';
 import { userRepository } from './db/repositories/UserRepository';
@@ -421,11 +422,7 @@ const AdaptiveRecommendationCard = ({
           <Text style={styles.recommendationPillText}>{duration} min</Text>
         </View>
         <View style={styles.recommendationPill}>
-          <Ionicons
-            name="barbell-outline"
-            size={14}
-            color={palette.primary}
-          />
+          <Ionicons name="barbell-outline" size={14} color={palette.primary} />
           <Text style={styles.recommendationPillText}>
             {formatEquipment(equipment)}
           </Text>
@@ -895,6 +892,7 @@ export const HomeScreen = () => {
     clearStagedValues,
     setGenerationStatus,
   } = useHomeData();
+  const { showUpgradeUi } = useBillingState();
 
   // State for setup
   const [duration, setDuration] = useState(() =>
@@ -924,6 +922,29 @@ export const HomeScreen = () => {
         setShowProfileSetup(!isDone);
       });
     }, [])
+  );
+
+  const routeGenerationError = useCallback(
+    (apiError: ApiError, fallbackMessage: string) => {
+      if (apiError.code === 'QUOTA_EXCEEDED' && showUpgradeUi) {
+        navigation.navigate('Paywall', { source: 'quota' });
+        return;
+      }
+
+      if (apiError.code === 'BYOK_REQUIRED') {
+        Alert.alert('AI key required', apiError.message, [
+          {
+            text: 'Add key',
+            onPress: () => navigation.navigate('Launch', { openByok: true }),
+          },
+          { text: 'Not now', style: 'cancel' },
+        ]);
+        return;
+      }
+
+      Alert.alert('Error', apiError.message || fallbackMessage);
+    },
+    [navigation, showUpgradeUi]
   );
 
   const handleGenerate = async () => {
@@ -978,7 +999,7 @@ export const HomeScreen = () => {
         submittedAt: new Date().toISOString(),
         message: apiError.message,
       });
-      Alert.alert('Error', apiError.message || 'Failed to generate workout');
+      routeGenerationError(apiError, 'Failed to generate workout');
     } finally {
       setGenerating(false);
     }
@@ -1014,10 +1035,7 @@ export const HomeScreen = () => {
           submittedAt: new Date().toISOString(),
           message: apiError.message,
         });
-        Alert.alert(
-          'Error',
-          apiError.message || 'Failed to regenerate workout'
-        );
+        routeGenerationError(apiError, 'Failed to regenerate workout');
       } finally {
         setGenerating(false);
         setPendingPlanSnapshot(null);
@@ -1109,7 +1127,7 @@ export const HomeScreen = () => {
           submittedAt: new Date().toISOString(),
           message: apiError.message,
         });
-        Alert.alert('Error', apiError.message || 'Failed to generate workout');
+        routeGenerationError(apiError, 'Failed to generate workout');
       } finally {
         setGenerating(false);
         setCustomizeForRegeneration(false);
@@ -1350,9 +1368,7 @@ export const HomeScreen = () => {
                   <View style={styles.actionContainer}>
                     <Button
                       label={
-                        isPending
-                          ? 'Generating...'
-                          : "Generate today's workout"
+                        isPending ? 'Generating...' : "Generate today's workout"
                       }
                       onPress={handleGenerate}
                       loading={isPending}

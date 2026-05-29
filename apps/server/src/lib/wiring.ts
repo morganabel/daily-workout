@@ -16,6 +16,8 @@ import {
   createGenerateHandler,
   createLogWorkoutHandler,
   type GenerateHandlerConfig,
+  type MeteringSink,
+  type UsagePolicy,
 } from '@workout-agent-ce/server-core';
 import {
   DefaultModelRouter,
@@ -23,14 +25,17 @@ import {
 } from '@workout-agent-ce/server-ai';
 import type { ExerciseLibrary } from '@workout-agent-ce/server-exercise-library';
 import { getAuthContext } from './auth-context';
+import {
+  hostedBillingRuntime,
+  HostedUsagePolicy,
+  isHostedBillingEnabled,
+} from './hosted-billing';
 
 // Get auth provider from auth context (supports both stub and Better Auth)
 const { provider: auth } = getAuthContext();
 const store = new InMemoryGenerationStore();
 const router = new DefaultModelRouter();
 const planner = new DefaultStageOnePlanner();
-const policy = new NoOpUsagePolicy();
-const metering = new NoOpMeteringSink();
 let cachedExerciseLibrary: ExerciseLibrary | null | undefined;
 
 const loadExerciseLibrary = async (): Promise<ExerciseLibrary | undefined> => {
@@ -39,12 +44,15 @@ const loadExerciseLibrary = async (): Promise<ExerciseLibrary | undefined> => {
   }
 
   try {
-    const { openExerciseLibrary } =
-      await import('@workout-agent-ce/server-exercise-library');
+    const { openExerciseLibrary } = await import(
+      '@workout-agent-ce/server-exercise-library'
+    );
     cachedExerciseLibrary = openExerciseLibrary();
   } catch (error) {
     console.warn(
-      `[exercise-library] unavailable: ${error instanceof Error ? error.message : String(error)}`,
+      `[exercise-library] unavailable: ${
+        error instanceof Error ? error.message : String(error)
+      }`
     );
     cachedExerciseLibrary = null;
   }
@@ -62,9 +70,6 @@ const buildConfig = (): GenerateHandlerConfig => {
   }
 
   const edition = (rawEdition as 'CE' | 'HOSTED') ?? 'CE';
-  if (edition !== 'CE') {
-    throw new Error(`CE server wiring does not support EDITION=${edition}`);
-  }
 
   const rawProvider = process.env.AI_PROVIDER?.toLowerCase();
   if (
@@ -79,7 +84,7 @@ const buildConfig = (): GenerateHandlerConfig => {
   const googleCloudLocation = process.env.GOOGLE_CLOUD_LOCATION;
   if (useVertexAi && (!googleCloudProject || !googleCloudLocation)) {
     throw new Error(
-      'Vertex AI requires GOOGLE_CLOUD_PROJECT and GOOGLE_CLOUD_LOCATION.',
+      'Vertex AI requires GOOGLE_CLOUD_PROJECT and GOOGLE_CLOUD_LOCATION.'
     );
   }
 
@@ -99,6 +104,20 @@ const buildConfig = (): GenerateHandlerConfig => {
 
 // Build server configuration from environment
 const config = buildConfig();
+const hostedBilling = config.edition === 'HOSTED' && isHostedBillingEnabled();
+
+if (hostedBilling && process.env.NODE_ENV !== 'test') {
+  console.warn(
+    '[billing] Hosted billing runtime stores quota/entitlement state in memory only; restart will reset state.'
+  );
+}
+
+export const usagePolicy: UsagePolicy = hostedBilling
+  ? new HostedUsagePolicy(hostedBillingRuntime)
+  : new NoOpUsagePolicy();
+
+// Usage is reserved at policy-check time; metering sink is a no-op for both editions.
+export const meteringSink: MeteringSink = new NoOpMeteringSink();
 
 // Create handlers using the factories
 export const generateHandler = createGenerateHandler({
@@ -107,8 +126,8 @@ export const generateHandler = createGenerateHandler({
   router,
   planner,
   loadExerciseLibrary,
-  policy,
-  metering,
+  policy: usagePolicy,
+  metering: meteringSink,
   config,
 });
 export const logWorkoutHandler = createLogWorkoutHandler({ auth, store });

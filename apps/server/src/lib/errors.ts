@@ -2,25 +2,27 @@
  * Structured error responses for API endpoints
  */
 
-import type { ApiErrorCode } from '@workout-agent-ce/server-core';
+import type {
+  ApiError,
+  ApiErrorCode,
+  UpgradeMetadata,
+} from '@workout-agent/shared';
 
-export type { ApiErrorCode };
-
-export interface ApiError {
-  code: ApiErrorCode;
-  message: string;
-  retryAfter?: number; // seconds
-}
+export type { ApiError, ApiErrorCode } from '@workout-agent/shared';
 
 export function createErrorResponse(
   code: ApiErrorCode,
   message: string,
   status = 400,
-  retryAfter?: number
+  retryAfter?: number,
+  upgrade?: UpgradeMetadata
 ): Response {
   const error: ApiError = { code, message };
   if (retryAfter !== undefined) {
     error.retryAfter = retryAfter;
+  }
+  if (upgrade) {
+    error.upgrade = upgrade;
   }
   return Response.json(error, { status });
 }
