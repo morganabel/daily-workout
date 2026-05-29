@@ -166,6 +166,8 @@ const SLOT_META: Record<
   StarterWeekSlot['role'],
   { icon: IconName; color: string; background: string }
 > = {
+  upper: { icon: 'barbell', color: palette.primary, background: '#E0F2FE' },
+  lower: { icon: 'flash', color: '#F97316', background: '#FFEDD5' },
   pull: { icon: 'barbell', color: palette.primary, background: '#E0F2FE' },
   push: { icon: 'barbell', color: '#8B5CF6', background: '#EDE9FE' },
   legs: { icon: 'flash', color: '#F97316', background: '#FFEDD5' },
@@ -186,6 +188,8 @@ const SLOT_META: Record<
 };
 
 const LIFT_ROLES = new Set<StarterWeekSlotRole>([
+  'upper',
+  'lower',
   'push',
   'pull',
   'legs',
@@ -193,6 +197,8 @@ const LIFT_ROLES = new Set<StarterWeekSlotRole>([
 ]);
 
 const ROLE_LABELS: Record<StarterWeekSlotRole, string> = {
+  upper: 'Lift',
+  lower: 'Lift',
   push: 'Lift',
   pull: 'Lift',
   legs: 'Lift',

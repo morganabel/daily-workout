@@ -52,7 +52,7 @@ describe('OnboardingScreen', () => {
     await completeQuestions(screen);
 
     expect(screen.getByText('Your training plan')).toBeTruthy();
-    expect(screen.getAllByText('Lift')).toHaveLength(3);
+    expect(screen.getAllByText('Lift')).toHaveLength(4);
     expect(screen.getByText('Use this plan')).toBeTruthy();
   });
 
@@ -79,12 +79,30 @@ describe('OnboardingScreen', () => {
     await press(screen.getByText('Use this plan'));
 
     expect(mockUserRepository.saveTrainingBlueprint).toHaveBeenCalledWith(
-      expect.objectContaining({ templateId: 'ppl-conditioning' })
+      expect.objectContaining({ templateId: 'upper-lower-hypertrophy' })
     );
     expect(mockReset).toHaveBeenCalledWith({
       index: 0,
       routes: [{ name: 'Home' }],
     });
+  });
+
+  it('scales advanced gym hypertrophy to a five-lift starter week', async () => {
+    const screen = render(<OnboardingScreen />);
+
+    await press(screen.getByLabelText('Build muscle'));
+    await press(screen.getByText('Next'));
+    await press(screen.getByLabelText('Advanced'));
+    await press(screen.getByText('Next'));
+    await press(screen.getByText('See my plan'));
+
+    expect(screen.getAllByText('Lift')).toHaveLength(5);
+
+    await press(screen.getByText('Use this plan'));
+
+    expect(mockUserRepository.saveTrainingBlueprint).toHaveBeenCalledWith(
+      expect.objectContaining({ templateId: 'ppl-hypertrophy' })
+    );
   });
 
   it('opens day editing from the training plan without saving', async () => {
@@ -106,7 +124,8 @@ describe('OnboardingScreen', () => {
 
     await completeQuestions(screen);
     await press(screen.getAllByText('Lift')[0]);
-    await press(screen.getByText('Cardio'));
+    const cardioOptions = screen.getAllByText('Cardio');
+    await press(cardioOptions[cardioOptions.length - 1]);
     const thirtyMinuteOptions = screen.getAllByText('30 min');
     await press(thirtyMinuteOptions[thirtyMinuteOptions.length - 1]);
     await press(screen.getByText('Apply'));
@@ -158,7 +177,8 @@ describe('OnboardingScreen', () => {
 
     await completeQuestions(screen);
     await press(screen.getAllByText('Lift')[0]);
-    await press(screen.getByText('Cardio'));
+    const cardioOptions = screen.getAllByText('Cardio');
+    await press(cardioOptions[cardioOptions.length - 1]);
     await press(screen.getByText('Cancel'));
     await press(screen.getByText('Use this plan'));
 
@@ -167,8 +187,8 @@ describe('OnboardingScreen', () => {
         editStatus: 'accepted',
         slotSequence: expect.arrayContaining([
           expect.objectContaining({
-            role: 'push',
-            label: 'Push',
+            role: 'upper',
+            label: 'Upper lift',
           }),
         ]),
       })

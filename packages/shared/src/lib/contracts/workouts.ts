@@ -213,9 +213,16 @@ export const onboardingAnswersSchema = z
 export type OnboardingAnswers = z.infer<typeof onboardingAnswersSchema>;
 
 export const trainingTemplateIdSchema = z.enum([
+  'balanced-starter',
   'balanced-foundation',
+  'balanced-performance',
+  'strength-starter',
   'strength-foundation',
+  'strength-performance',
+  'hypertrophy-starter',
   'hypertrophy-foundation',
+  'upper-lower-hypertrophy',
+  'ppl-hypertrophy',
   'ppl-conditioning',
   'fat-loss-conditioning',
   'endurance-support',
@@ -225,6 +232,8 @@ export const trainingTemplateIdSchema = z.enum([
 export type TrainingTemplateId = z.infer<typeof trainingTemplateIdSchema>;
 
 export const starterWeekSlotRoleSchema = z.enum([
+  'upper',
+  'lower',
   'pull',
   'push',
   'legs',
@@ -1241,6 +1250,142 @@ export const ADAPTIVE_HYPERTROPHY_FOUNDATION_RECOMMENDATION_SETTINGS = {
   protectUpcomingLowerBodyDays: 1,
 } satisfies AdaptiveRecommendationSettings;
 
+export const ADAPTIVE_HYPERTROPHY_STARTER_TARGET_RANGES = [
+  {
+    id: 'hypertrophy',
+    label: 'Hypertrophy',
+    appliesTo: {
+      blockIds: ['upper-hypertrophy', 'lower-hypertrophy', 'full-body-pump'],
+      categories: ['strength'],
+      stressTags: ['hypertrophy'],
+    },
+    windowDays: 7,
+    minCount: 2,
+    maxCount: 3,
+    idealCount: 2,
+    priority: 'primary',
+  },
+  {
+    id: 'cardio',
+    label: 'Cardio',
+    appliesTo: {
+      blockIds: ['easy-cardio'],
+      categories: ['cardio'],
+      stressTags: [],
+    },
+    windowDays: 7,
+    minCount: 1,
+    maxCount: 2,
+    idealCount: 1,
+    priority: 'secondary',
+  },
+  {
+    id: 'recovery',
+    label: 'Recovery',
+    appliesTo: {
+      blockIds: ['mobility', 'rest'],
+      categories: ['mobility', 'rest'],
+      stressTags: [],
+    },
+    windowDays: 7,
+    minCount: 1,
+    maxCount: 4,
+    idealCount: 2,
+    priority: 'optional',
+  },
+] satisfies AdaptiveTargetRange[];
+
+export const ADAPTIVE_HYPERTROPHY_STARTER_TYPICAL_WEEK = [
+  {
+    dayOfWeek: 'monday',
+    preferredBlockIds: ['full-body-pump'],
+    flexibility: 'preferred',
+  },
+  {
+    dayOfWeek: 'wednesday',
+    preferredBlockIds: ['easy-cardio'],
+    flexibility: 'flexible',
+  },
+  {
+    dayOfWeek: 'friday',
+    preferredBlockIds: ['full-body-pump'],
+    flexibility: 'preferred',
+  },
+] satisfies AdaptiveTypicalWeekPreference[];
+
+export const ADAPTIVE_UPPER_LOWER_HYPERTROPHY_TARGET_RANGES = [
+  {
+    id: 'hypertrophy',
+    label: 'Hypertrophy',
+    appliesTo: {
+      blockIds: ['upper-hypertrophy', 'lower-hypertrophy', 'full-body-pump'],
+      categories: ['strength'],
+      stressTags: ['hypertrophy'],
+    },
+    windowDays: 7,
+    minCount: 4,
+    maxCount: 5,
+    idealCount: 4,
+    priority: 'primary',
+  },
+  {
+    id: 'cardio',
+    label: 'Cardio',
+    appliesTo: {
+      blockIds: ['easy-cardio'],
+      categories: ['cardio'],
+      stressTags: [],
+    },
+    windowDays: 7,
+    minCount: 1,
+    maxCount: 2,
+    idealCount: 1,
+    priority: 'secondary',
+  },
+  {
+    id: 'recovery',
+    label: 'Recovery',
+    appliesTo: {
+      blockIds: ['mobility', 'rest'],
+      categories: ['mobility', 'rest'],
+      stressTags: [],
+    },
+    windowDays: 7,
+    minCount: 1,
+    maxCount: 3,
+    idealCount: 2,
+    priority: 'optional',
+  },
+] satisfies AdaptiveTargetRange[];
+
+export const ADAPTIVE_UPPER_LOWER_HYPERTROPHY_TYPICAL_WEEK = [
+  {
+    dayOfWeek: 'monday',
+    preferredBlockIds: ['upper-hypertrophy'],
+    flexibility: 'preferred',
+  },
+  {
+    dayOfWeek: 'tuesday',
+    preferredBlockIds: ['lower-hypertrophy'],
+    flexibility: 'preferred',
+  },
+  {
+    dayOfWeek: 'thursday',
+    preferredBlockIds: ['upper-hypertrophy'],
+    flexibility: 'preferred',
+  },
+  {
+    dayOfWeek: 'friday',
+    preferredBlockIds: ['easy-cardio'],
+    flexibility: 'flexible',
+  },
+  {
+    dayOfWeek: 'saturday',
+    preferredBlockIds: ['lower-hypertrophy'],
+    flexibility: 'preferred',
+  },
+] satisfies AdaptiveTypicalWeekPreference[];
+
 export const ADAPTIVE_PPL_CONDITIONING_BLOCKS = [
   {
     id: 'push',
@@ -1448,6 +1593,171 @@ export const ADAPTIVE_PPL_CONDITIONING_TYPICAL_WEEK = [
 
 export const ADAPTIVE_PPL_CONDITIONING_RECOMMENDATION_SETTINGS = {
   preferredRotationBlockIds: ['push', 'pull', 'legs'],
+  allowCompatibleAddOns: true,
+  protectUpcomingLowerBodyDays: 1,
+} satisfies AdaptiveRecommendationSettings;
+
+export const ADAPTIVE_PPL_HYPERTROPHY_BLOCKS = [
+  {
+    id: 'push',
+    label: 'Push',
+    role: 'push',
+    category: 'strength',
+    stressTags: ['upper-body', 'push', 'hypertrophy'],
+    defaultDurationMinutes: 50,
+    targetContributions: [{ targetId: 'hypertrophy', count: 1 }],
+    compatibleAddOnBlockIds: ['mobility'],
+    conflictsWithBlockIds: [],
+  },
+  {
+    id: 'pull',
+    label: 'Pull',
+    role: 'pull',
+    category: 'strength',
+    stressTags: ['upper-body', 'pull', 'hypertrophy'],
+    defaultDurationMinutes: 50,
+    targetContributions: [{ targetId: 'hypertrophy', count: 1 }],
+    compatibleAddOnBlockIds: ['mobility'],
+    conflictsWithBlockIds: [],
+  },
+  {
+    id: 'legs',
+    label: 'Legs',
+    role: 'legs',
+    category: 'strength',
+    stressTags: ['lower-body', 'hypertrophy', 'heavy'],
+    defaultDurationMinutes: 50,
+    targetContributions: [{ targetId: 'hypertrophy', count: 1 }],
+    compatibleAddOnBlockIds: ['mobility'],
+    conflictsWithBlockIds: [],
+    recoveryGuidance:
+      'Keep heavy lower-body work away from hard running or sport when possible.',
+  },
+  {
+    id: 'upper-pump',
+    label: 'Upper Pump',
+    role: 'upper-pump',
+    category: 'strength',
+    stressTags: ['upper-body', 'hypertrophy', 'accessory'],
+    defaultDurationMinutes: 45,
+    targetContributions: [{ targetId: 'hypertrophy', count: 1 }],
+    compatibleAddOnBlockIds: ['mobility'],
+    conflictsWithBlockIds: [],
+  },
+  {
+    id: 'lower-pump',
+    label: 'Lower Pump',
+    role: 'lower-pump',
+    category: 'strength',
+    stressTags: ['lower-body', 'hypertrophy', 'accessory'],
+    defaultDurationMinutes: 45,
+    targetContributions: [{ targetId: 'hypertrophy', count: 1 }],
+    compatibleAddOnBlockIds: ['mobility'],
+    conflictsWithBlockIds: [],
+  },
+  {
+    id: 'mobility',
+    label: 'Mobility',
+    role: 'mobility',
+    category: 'mobility',
+    stressTags: ['recovery'],
+    defaultDurationMinutes: 20,
+    targetContributions: [{ targetId: 'recovery', count: 1 }],
+    compatibleAddOnBlockIds: [
+      'push',
+      'pull',
+      'legs',
+      'upper-pump',
+      'lower-pump',
+    ],
+    conflictsWithBlockIds: [],
+  },
+  {
+    id: 'rest',
+    label: 'Rest',
+    role: 'rest',
+    category: 'rest',
+    stressTags: ['recovery'],
+    defaultDurationMinutes: 15,
+    targetContributions: [{ targetId: 'recovery', count: 1 }],
+    compatibleAddOnBlockIds: [],
+    conflictsWithBlockIds: [
+      'push',
+      'pull',
+      'legs',
+      'upper-pump',
+      'lower-pump',
+    ],
+  },
+] satisfies AdaptiveTrainingBlock[];
+
+export const ADAPTIVE_PPL_HYPERTROPHY_TARGET_RANGES = [
+  {
+    id: 'hypertrophy',
+    label: 'Hypertrophy',
+    appliesTo: {
+      blockIds: ['push', 'pull', 'legs', 'upper-pump', 'lower-pump'],
+      categories: ['strength'],
+      stressTags: ['hypertrophy'],
+    },
+    windowDays: 7,
+    minCount: 5,
+    maxCount: 6,
+    idealCount: 5,
+    priority: 'primary',
+  },
+  {
+    id: 'recovery',
+    label: 'Recovery',
+    appliesTo: {
+      blockIds: ['mobility', 'rest'],
+      categories: ['mobility', 'rest'],
+      stressTags: [],
+    },
+    windowDays: 7,
+    minCount: 1,
+    maxCount: 3,
+    idealCount: 2,
+    priority: 'optional',
+  },
+] satisfies AdaptiveTargetRange[];
+
+export const ADAPTIVE_PPL_HYPERTROPHY_TYPICAL_WEEK = [
+  {
+    dayOfWeek: 'monday',
+    preferredBlockIds: ['push'],
+    flexibility: 'preferred',
+  },
+  {
+    dayOfWeek: 'tuesday',
+    preferredBlockIds: ['pull'],
+    flexibility: 'preferred',
+  },
+  {
+    dayOfWeek: 'wednesday',
+    preferredBlockIds: ['legs'],
+    flexibility: 'preferred',
+  },
+  {
+    dayOfWeek: 'friday',
+    preferredBlockIds: ['upper-pump'],
+    flexibility: 'preferred',
+  },
+  {
+    dayOfWeek: 'saturday',
+    preferredBlockIds: ['lower-pump'],
+    flexibility: 'preferred',
+  },
+] satisfies AdaptiveTypicalWeekPreference[];
+
+export const ADAPTIVE_PPL_HYPERTROPHY_RECOMMENDATION_SETTINGS = {
+  preferredRotationBlockIds: [
+    'push',
+    'pull',
+    'legs',
+    'upper-pump',
+    'lower-pump',
+  ],
   allowCompatibleAddOns: true,
   protectUpcomingLowerBodyDays: 1,
 } satisfies AdaptiveRecommendationSettings;
@@ -2058,6 +2368,8 @@ const WEEKDAYS: AdaptiveWeekday[] = [
 
 const roleToAdaptiveBlock = (slot: StarterWeekSlot): AdaptiveTrainingBlock => {
   switch (slot.role) {
+    case 'upper':
+    case 'lower':
     case 'push':
     case 'pull':
     case 'legs':
@@ -2070,13 +2382,18 @@ const roleToAdaptiveBlock = (slot: StarterWeekSlot): AdaptiveTrainingBlock => {
         stressTags:
           slot.role === 'legs'
             ? ['lower-body', 'strength']
+            : slot.role === 'lower'
+            ? ['lower-body', 'strength']
             : slot.role === 'full-body'
             ? ['full-body', 'strength']
+            : slot.role === 'upper'
+            ? ['upper-body', 'strength']
             : ['upper-body', slot.role],
         defaultDurationMinutes: slot.targetDurationMinutes,
         targetContributions: [{ targetId: 'strength', count: 1 }],
         compatibleAddOnBlockIds: ['mobility'],
-        conflictsWithBlockIds: slot.role === 'legs' ? ['sprint'] : [],
+        conflictsWithBlockIds:
+          slot.role === 'legs' || slot.role === 'lower' ? ['sprint'] : [],
       };
     case 'conditioning':
       return {
@@ -2158,7 +2475,7 @@ const targetLabelById: Record<string, string> = {
 };
 
 const createAdaptivePlanTemplateFromSlots = (
-  template: TrainingTemplateDefinition
+  template: Pick<TrainingTemplateDefinition, 'slotSequence'>
 ): AdaptivePlanTemplateDefinition => {
   const rawBlocks = [
     ...new Map(
@@ -2246,10 +2563,102 @@ const getAdaptivePlanTemplate = (
   template.adaptivePlanTemplate ??
   createAdaptivePlanTemplateFromSlots(template);
 
+const BALANCED_STARTER_SLOT_SEQUENCE = [
+  createSlot(0, 'full-body', 'Full body strength', 30),
+  createSlot(1, 'recovery', 'Recovery', 15),
+  createSlot(2, 'conditioning', 'Easy cardio', 25),
+  createSlot(3, 'mobility', 'Mobility', 20),
+  createSlot(4, 'full-body', 'Full body strength', 30),
+  createSlot(5, 'flexible', 'Flexible movement', 20),
+  createSlot(6, 'recovery', 'Recovery', 15),
+] satisfies StarterWeekSlot[];
+
+const BALANCED_PERFORMANCE_SLOT_SEQUENCE = [
+  createSlot(0, 'full-body', 'Full body strength', 45),
+  createSlot(1, 'conditioning', 'Conditioning', 35),
+  createSlot(2, 'full-body', 'Full body strength', 45),
+  createSlot(3, 'mobility', 'Mobility', 20),
+  createSlot(4, 'full-body', 'Full body strength', 45),
+  createSlot(5, 'sprint', 'Intervals', 30),
+  createSlot(6, 'recovery', 'Recovery', 20),
+] satisfies StarterWeekSlot[];
+
+const STRENGTH_STARTER_SLOT_SEQUENCE = [
+  createSlot(0, 'full-body', 'Full body strength', 35),
+  createSlot(1, 'recovery', 'Recovery', 15),
+  createSlot(2, 'mobility', 'Mobility', 20),
+  createSlot(3, 'full-body', 'Full body strength', 35),
+  createSlot(4, 'recovery', 'Recovery', 15),
+  createSlot(5, 'conditioning', 'Easy conditioning', 25),
+  createSlot(6, 'recovery', 'Recovery', 15),
+] satisfies StarterWeekSlot[];
+
+const STRENGTH_PERFORMANCE_SLOT_SEQUENCE = [
+  createSlot(0, 'full-body', 'Heavy strength', 55),
+  createSlot(1, 'mobility', 'Mobility', 20),
+  createSlot(2, 'full-body', 'Volume strength', 50),
+  createSlot(3, 'conditioning', 'Conditioning', 30),
+  createSlot(4, 'lower', 'Lower strength', 50),
+  createSlot(5, 'upper', 'Upper strength', 45),
+  createSlot(6, 'recovery', 'Recovery', 20),
+] satisfies StarterWeekSlot[];
+
+const HYPERTROPHY_STARTER_SLOT_SEQUENCE = [
+  createSlot(0, 'full-body', 'Full body hypertrophy', 35),
+  createSlot(1, 'mobility', 'Mobility', 20),
+  createSlot(2, 'conditioning', 'Easy cardio', 25),
+  createSlot(3, 'recovery', 'Recovery', 15),
+  createSlot(4, 'full-body', 'Full body hypertrophy', 35),
+  createSlot(5, 'flexible', 'Optional pump', 20),
+  createSlot(6, 'recovery', 'Recovery', 15),
+] satisfies StarterWeekSlot[];
+
+const UPPER_LOWER_HYPERTROPHY_SLOT_SEQUENCE = [
+  createSlot(0, 'upper', 'Upper lift', 45),
+  createSlot(1, 'lower', 'Lower lift', 45),
+  createSlot(2, 'mobility', 'Mobility', 20),
+  createSlot(3, 'upper', 'Upper lift', 45),
+  createSlot(4, 'conditioning', 'Easy cardio', 25),
+  createSlot(5, 'lower', 'Lower lift', 45),
+  createSlot(6, 'recovery', 'Recovery', 20),
+] satisfies StarterWeekSlot[];
+
+const PPL_HYPERTROPHY_SLOT_SEQUENCE = [
+  createSlot(0, 'push', 'Push', 50),
+  createSlot(1, 'pull', 'Pull', 50),
+  createSlot(2, 'legs', 'Legs', 50),
+  createSlot(3, 'recovery', 'Recovery', 20),
+  createSlot(4, 'upper', 'Upper pump', 45),
+  createSlot(5, 'lower', 'Lower pump', 45),
+  createSlot(6, 'recovery', 'Recovery', 20),
+] satisfies StarterWeekSlot[];
+
+const PPL_CONDITIONING_SLOT_SEQUENCE = [
+  createSlot(0, 'push', 'Push', 50),
+  createSlot(1, 'conditioning', 'Easy cardio', 25),
+  createSlot(2, 'pull', 'Pull', 50),
+  createSlot(3, 'recovery', 'Recovery', 20),
+  createSlot(4, 'legs', 'Legs', 50),
+  createSlot(5, 'sprint', 'Sprint conditioning', 30),
+  createSlot(6, 'recovery', 'Recovery', 20),
+] satisfies StarterWeekSlot[];
+
 export const TRAINING_TEMPLATE_DEFINITIONS: Record<
   TrainingTemplateId,
   TrainingTemplateDefinition
 > = {
+  'balanced-starter': {
+    id: 'balanced-starter',
+    name: 'Balanced starter',
+    summary:
+      'A low-friction start with two strength days, easy cardio, and recovery.',
+    weeklyRhythm: '2 strength days, 1 easy cardio day, mobility and recovery',
+    durationAssumptions: { targetMinutes: 30, minimumUsefulMinutes: 15 },
+    slotSequence: BALANCED_STARTER_SLOT_SEQUENCE,
+    adaptivePlanTemplate: createAdaptivePlanTemplateFromSlots({
+      slotSequence: BALANCED_STARTER_SLOT_SEQUENCE,
+    }),
+  },
   'balanced-foundation': {
     id: 'balanced-foundation',
     name: 'Balanced foundation',
@@ -2273,6 +2682,31 @@ export const TRAINING_TEMPLATE_DEFINITIONS: Record<
         ADAPTIVE_BALANCED_FOUNDATION_RECOMMENDATION_SETTINGS,
     },
   },
+  'balanced-performance': {
+    id: 'balanced-performance',
+    name: 'Balanced performance',
+    summary:
+      'A balanced advanced week with strength, conditioning, intervals, and recovery.',
+    weeklyRhythm:
+      '3 strength days, 2 conditioning exposures, mobility and recovery',
+    durationAssumptions: { targetMinutes: 45, minimumUsefulMinutes: 30 },
+    slotSequence: BALANCED_PERFORMANCE_SLOT_SEQUENCE,
+    adaptivePlanTemplate: createAdaptivePlanTemplateFromSlots({
+      slotSequence: BALANCED_PERFORMANCE_SLOT_SEQUENCE,
+    }),
+  },
+  'strength-starter': {
+    id: 'strength-starter',
+    name: 'Strength starter',
+    summary:
+      'Two full-body strength days with plenty of space to practice and recover.',
+    weeklyRhythm: '2 strength days, 1 easy conditioning day, recovery between',
+    durationAssumptions: { targetMinutes: 35, minimumUsefulMinutes: 20 },
+    slotSequence: STRENGTH_STARTER_SLOT_SEQUENCE,
+    adaptivePlanTemplate: createAdaptivePlanTemplateFromSlots({
+      slotSequence: STRENGTH_STARTER_SLOT_SEQUENCE,
+    }),
+  },
   'strength-foundation': {
     id: 'strength-foundation',
     name: 'Strength foundation',
@@ -2295,6 +2729,34 @@ export const TRAINING_TEMPLATE_DEFINITIONS: Record<
       typicalWeekPreferences: ADAPTIVE_STRENGTH_FOUNDATION_TYPICAL_WEEK,
       recommendationSettings:
         ADAPTIVE_STRENGTH_FOUNDATION_RECOMMENDATION_SETTINGS,
+    },
+  },
+  'strength-performance': {
+    id: 'strength-performance',
+    name: 'Strength performance',
+    summary:
+      'Four strength exposures with conditioning and recovery placed around harder days.',
+    weeklyRhythm: '4 strength days, 1 conditioning day, mobility and recovery',
+    durationAssumptions: { targetMinutes: 55, minimumUsefulMinutes: 35 },
+    slotSequence: STRENGTH_PERFORMANCE_SLOT_SEQUENCE,
+    adaptivePlanTemplate: createAdaptivePlanTemplateFromSlots({
+      slotSequence: STRENGTH_PERFORMANCE_SLOT_SEQUENCE,
+    }),
+  },
+  'hypertrophy-starter': {
+    id: 'hypertrophy-starter',
+    name: 'Hypertrophy starter',
+    summary:
+      'Two approachable muscle-building days with light cardio and recovery.',
+    weeklyRhythm: '2 hypertrophy days, 1 easy cardio day, mobility and recovery',
+    durationAssumptions: { targetMinutes: 35, minimumUsefulMinutes: 20 },
+    slotSequence: HYPERTROPHY_STARTER_SLOT_SEQUENCE,
+    adaptivePlanTemplate: {
+      blocks: ADAPTIVE_HYPERTROPHY_FOUNDATION_BLOCKS,
+      targetRanges: ADAPTIVE_HYPERTROPHY_STARTER_TARGET_RANGES,
+      typicalWeekPreferences: ADAPTIVE_HYPERTROPHY_STARTER_TYPICAL_WEEK,
+      recommendationSettings:
+        ADAPTIVE_HYPERTROPHY_FOUNDATION_RECOMMENDATION_SETTINGS,
     },
   },
   'hypertrophy-foundation': {
@@ -2321,21 +2783,45 @@ export const TRAINING_TEMPLATE_DEFINITIONS: Record<
         ADAPTIVE_HYPERTROPHY_FOUNDATION_RECOMMENDATION_SETTINGS,
     },
   },
+  'upper-lower-hypertrophy': {
+    id: 'upper-lower-hypertrophy',
+    name: 'Upper/lower hypertrophy',
+    summary:
+      'Four spaced upper/lower lifting days with a light cardio touchpoint.',
+    weeklyRhythm: '4 lift days, 1 easy cardio day, recovery after lower work',
+    durationAssumptions: { targetMinutes: 45, minimumUsefulMinutes: 30 },
+    slotSequence: UPPER_LOWER_HYPERTROPHY_SLOT_SEQUENCE,
+    adaptivePlanTemplate: {
+      blocks: ADAPTIVE_HYPERTROPHY_FOUNDATION_BLOCKS,
+      targetRanges: ADAPTIVE_UPPER_LOWER_HYPERTROPHY_TARGET_RANGES,
+      typicalWeekPreferences: ADAPTIVE_UPPER_LOWER_HYPERTROPHY_TYPICAL_WEEK,
+      recommendationSettings:
+        ADAPTIVE_HYPERTROPHY_FOUNDATION_RECOMMENDATION_SETTINGS,
+    },
+  },
+  'ppl-hypertrophy': {
+    id: 'ppl-hypertrophy',
+    name: 'PPL hypertrophy',
+    summary:
+      'An advanced five-day lifting week with a PPL wave and upper/lower pump work.',
+    weeklyRhythm: '5 lift days with recovery after the first PPL wave',
+    durationAssumptions: { targetMinutes: 50, minimumUsefulMinutes: 35 },
+    slotSequence: PPL_HYPERTROPHY_SLOT_SEQUENCE,
+    adaptivePlanTemplate: {
+      blocks: ADAPTIVE_PPL_HYPERTROPHY_BLOCKS,
+      targetRanges: ADAPTIVE_PPL_HYPERTROPHY_TARGET_RANGES,
+      typicalWeekPreferences: ADAPTIVE_PPL_HYPERTROPHY_TYPICAL_WEEK,
+      recommendationSettings:
+        ADAPTIVE_PPL_HYPERTROPHY_RECOMMENDATION_SETTINGS,
+    },
+  },
   'ppl-conditioning': {
     id: 'ppl-conditioning',
     name: 'Lift conditioning',
-    summary: 'Lifting days with one sprint or conditioning exposure.',
-    weeklyRhythm: '3 lift days plus one sprint day',
+    summary: 'Lifting days spaced around easy cardio and sprint conditioning.',
+    weeklyRhythm: '3 lift days, 1 easy cardio day, 1 sprint day',
     durationAssumptions: { targetMinutes: 50, minimumUsefulMinutes: 35 },
-    slotSequence: [
-      createSlot(0, 'push', 'Push', 50),
-      createSlot(1, 'pull', 'Pull', 50),
-      createSlot(2, 'legs', 'Legs', 50),
-      createSlot(3, 'recovery', 'Recovery', 20),
-      createSlot(4, 'sprint', 'Sprint conditioning', 30),
-      createSlot(5, 'mobility', 'Mobility', 20),
-      createSlot(6, 'recovery', 'Recovery', 20),
-    ],
+    slotSequence: PPL_CONDITIONING_SLOT_SEQUENCE,
     adaptivePlanTemplate: {
       blocks: ADAPTIVE_PPL_CONDITIONING_BLOCKS,
       targetRanges: ADAPTIVE_PPL_CONDITIONING_TARGET_RANGES,
@@ -2477,26 +2963,44 @@ export const selectTrainingTemplateId = (
   }
 
   if (answers.goal === 'build-strength') {
-    return 'strength-foundation';
-  }
+    if (answers.experienceLevel === 'beginner') {
+      return 'strength-starter';
+    }
 
-  if (
-    answers.goal === 'build-muscle' &&
-    hasGymAccess &&
-    answers.experienceLevel !== 'beginner'
-  ) {
-    return 'ppl-conditioning';
+    return answers.experienceLevel === 'advanced'
+      ? 'strength-performance'
+      : 'strength-foundation';
   }
 
   if (answers.goal === 'build-muscle') {
-    return onlyMinimalEquipment ? 'busy-travel' : 'hypertrophy-foundation';
+    if (onlyMinimalEquipment) {
+      return 'busy-travel';
+    }
+
+    if (answers.experienceLevel === 'beginner') {
+      return 'hypertrophy-starter';
+    }
+
+    if (hasGymAccess) {
+      return answers.experienceLevel === 'advanced'
+        ? 'ppl-hypertrophy'
+        : 'upper-lower-hypertrophy';
+    }
+
+    return 'hypertrophy-foundation';
   }
 
   if (onlyMinimalEquipment) {
     return 'busy-travel';
   }
 
-  return 'balanced-foundation';
+  if (answers.experienceLevel === 'beginner') {
+    return 'balanced-starter';
+  }
+
+  return answers.experienceLevel === 'advanced'
+    ? 'balanced-performance'
+    : 'balanced-foundation';
 };
 
 export const createTrainingBlueprintFromOnboarding = (

@@ -26,6 +26,7 @@ import {
   userPreferencesSchema,
   type GenerationRequest,
   type QuickActionPreset,
+  type StarterWeekSlot,
 } from './workouts';
 import {
   createSessionDetailFixture,
@@ -45,6 +46,36 @@ const createPreset = (
     stagedValue: null,
     ...overrides,
   } as QuickActionPreset);
+
+const hardLiftRoles = new Set([
+  'upper',
+  'lower',
+  'push',
+  'pull',
+  'legs',
+  'full-body',
+]);
+
+const countHardLiftSlots = (slots: StarterWeekSlot[]): number =>
+  slots.filter((slot) => hardLiftRoles.has(slot.role)).length;
+
+const maxConsecutiveHardLiftSlots = (slots: StarterWeekSlot[]): number => {
+  const sortedSlots = [...slots].sort((a, b) => a.dayOffset - b.dayOffset);
+  let current = 0;
+  let max = 0;
+
+  sortedSlots.forEach((slot) => {
+    if (hardLiftRoles.has(slot.role)) {
+      current += 1;
+      max = Math.max(max, current);
+      return;
+    }
+
+    current = 0;
+  });
+
+  return max;
+};
 
 describe('quick action helpers', () => {
   it('normalizes individual quick action values', () => {
@@ -430,12 +461,30 @@ describe('training blueprint contracts', () => {
 
     expect(
       selectTrainingTemplateId({
+        goal: 'general-fitness',
+        experienceLevel: 'beginner',
+        environment: 'gym',
+        equipment: [GYM_EQUIPMENT],
+      })
+    ).toBe('balanced-starter');
+
+    expect(
+      selectTrainingTemplateId({
+        goal: 'general-fitness',
+        experienceLevel: 'advanced',
+        environment: 'gym',
+        equipment: [GYM_EQUIPMENT],
+      })
+    ).toBe('balanced-performance');
+
+    expect(
+      selectTrainingTemplateId({
         goal: 'build-muscle',
         experienceLevel: 'beginner',
         environment: 'gym',
         equipment: [GYM_EQUIPMENT],
       })
-    ).toBe('hypertrophy-foundation');
+    ).toBe('hypertrophy-starter');
 
     expect(
       selectTrainingTemplateId({
@@ -444,7 +493,34 @@ describe('training blueprint contracts', () => {
         environment: 'gym',
         equipment: [GYM_EQUIPMENT],
       })
-    ).toBe('ppl-conditioning');
+    ).toBe('upper-lower-hypertrophy');
+
+    expect(
+      selectTrainingTemplateId({
+        goal: 'build-muscle',
+        experienceLevel: 'advanced',
+        environment: 'gym',
+        equipment: [GYM_EQUIPMENT],
+      })
+    ).toBe('ppl-hypertrophy');
+
+    expect(
+      selectTrainingTemplateId({
+        goal: 'build-strength',
+        experienceLevel: 'beginner',
+        environment: 'gym',
+        equipment: [GYM_EQUIPMENT],
+      })
+    ).toBe('strength-starter');
+
+    expect(
+      selectTrainingTemplateId({
+        goal: 'build-strength',
+        experienceLevel: 'advanced',
+        environment: 'gym',
+        equipment: [GYM_EQUIPMENT],
+      })
+    ).toBe('strength-performance');
 
     expect(
       selectTrainingTemplateId({
@@ -522,7 +598,7 @@ describe('training blueprint contracts', () => {
     );
 
     expect(blueprint).toMatchObject({
-      templateId: 'strength-foundation',
+      templateId: 'strength-starter',
       setupStatus: 'completed',
       editStatus: 'accepted',
       horizonDays: 7,
@@ -532,8 +608,37 @@ describe('training blueprint contracts', () => {
       },
     });
     expect(blueprint.slotSequence).toEqual(
-      TRAINING_TEMPLATE_DEFINITIONS['strength-foundation'].slotSequence
+      TRAINING_TEMPLATE_DEFINITIONS['strength-starter'].slotSequence
     );
+  });
+
+  it('scales starter-week lifting density by experience and template intent', () => {
+    const beginner = createTrainingBlueprintFromOnboarding({
+      goal: 'build-muscle',
+      experienceLevel: 'beginner',
+      environment: 'gym',
+      equipment: [GYM_EQUIPMENT],
+    });
+    const intermediate = createTrainingBlueprintFromOnboarding({
+      goal: 'build-muscle',
+      experienceLevel: 'intermediate',
+      environment: 'gym',
+      equipment: [GYM_EQUIPMENT],
+    });
+    const advanced = createTrainingBlueprintFromOnboarding({
+      goal: 'build-muscle',
+      experienceLevel: 'advanced',
+      environment: 'gym',
+      equipment: [GYM_EQUIPMENT],
+    });
+
+    expect(countHardLiftSlots(beginner.slotSequence)).toBe(2);
+    expect(countHardLiftSlots(intermediate.slotSequence)).toBe(4);
+    expect(countHardLiftSlots(advanced.slotSequence)).toBe(5);
+    expect(maxConsecutiveHardLiftSlots(intermediate.slotSequence)).toBeLessThan(
+      3
+    );
+    expect(maxConsecutiveHardLiftSlots(advanced.slotSequence)).toBe(3);
   });
 
   it('parses existing preferences without blueprint fields', () => {
@@ -600,18 +705,64 @@ describe('training blueprint contracts', () => {
     }
   });
 
+  it('keeps hard lifting streaks conservative except advanced five-day lifting plans', () => {
+    Object.values(TRAINING_TEMPLATE_DEFINITIONS).forEach((template) => {
+      const hardLiftCount = countHardLiftSlots(template.slotSequence);
+      const maxConsecutive = maxConsecutiveHardLiftSlots(
+        template.slotSequence
+      );
+      const canUseThreeDayLiftWave =
+        template.id === 'ppl-hypertrophy' && hardLiftCount >= 5;
+
+      if (canUseThreeDayLiftWave) {
+        expect(maxConsecutive).toBeLessThanOrEqual(3);
+        return;
+      }
+
+      expect(maxConsecutive).toBeLessThan(3);
+    });
+  });
+
   it('creates a distinct adaptive plan for every onboarding template', () => {
     const expectedTemplateSummaries = {
+      'balanced-starter': {
+        blocks: ['full-body', 'conditioning', 'flexible'],
+        primaryTargets: ['strength'],
+      },
       'balanced-foundation': {
         blocks: ['full-body-strength', 'conditioning', 'flexible-movement'],
+        primaryTargets: ['strength'],
+      },
+      'balanced-performance': {
+        blocks: ['full-body', 'conditioning', 'sprint'],
+        primaryTargets: ['strength'],
+      },
+      'strength-starter': {
+        blocks: ['full-body', 'conditioning', 'mobility'],
         primaryTargets: ['strength'],
       },
       'strength-foundation': {
         blocks: ['strength-heavy', 'strength-volume', 'lower-strength'],
         primaryTargets: ['strength'],
       },
+      'strength-performance': {
+        blocks: ['full-body', 'upper', 'lower'],
+        primaryTargets: ['strength'],
+      },
+      'hypertrophy-starter': {
+        blocks: ['upper-hypertrophy', 'lower-hypertrophy', 'full-body-pump'],
+        primaryTargets: ['hypertrophy'],
+      },
       'hypertrophy-foundation': {
         blocks: ['upper-hypertrophy', 'lower-hypertrophy', 'full-body-pump'],
+        primaryTargets: ['hypertrophy'],
+      },
+      'upper-lower-hypertrophy': {
+        blocks: ['upper-hypertrophy', 'lower-hypertrophy', 'easy-cardio'],
+        primaryTargets: ['hypertrophy'],
+      },
+      'ppl-hypertrophy': {
+        blocks: ['push', 'pull', 'legs', 'upper-pump', 'lower-pump'],
         primaryTargets: ['hypertrophy'],
       },
       'ppl-conditioning': {

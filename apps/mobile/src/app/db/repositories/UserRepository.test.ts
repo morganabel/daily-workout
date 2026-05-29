@@ -36,16 +36,16 @@ describe('UserRepository blueprint preferences', () => {
     expect(preferences.experienceLevel).toBe('beginner');
     expect(preferences.primaryGoal).toBe('Build strength');
     expect(preferences.adaptiveTrainingPlan).toMatchObject({
-      sourceTemplateId: 'strength-foundation',
+      sourceTemplateId: 'strength-starter',
       mode: 'adaptive',
       status: 'active',
     });
   });
 
-  it('seeds and persists an adaptive plan for PPL conditioning onboarding', async () => {
+  it('seeds and persists an adaptive plan for advanced hypertrophy onboarding', async () => {
     const blueprint = createTrainingBlueprintFromOnboarding({
       goal: 'build-muscle',
-      experienceLevel: 'intermediate',
+      experienceLevel: 'advanced',
       environment: 'gym',
       equipment: ['Gym'],
     });
@@ -55,14 +55,14 @@ describe('UserRepository blueprint preferences', () => {
     const preferences = await userRepository.getPreferences();
     expect(preferences.trainingBlueprint).toBeUndefined();
     expect(preferences.adaptiveTrainingPlan).toMatchObject({
-      sourceTemplateId: 'ppl-conditioning',
+      sourceTemplateId: 'ppl-hypertrophy',
       mode: 'adaptive',
       status: 'active',
     });
     expect(
       preferences.adaptiveTrainingPlan?.blocks.map((block) => block.id)
     ).toEqual(
-      expect.arrayContaining(['push', 'pull', 'legs', 'easy-cardio', 'sprint'])
+      expect.arrayContaining(['push', 'pull', 'legs', 'upper-pump', 'lower-pump'])
     );
     await expect(
       userRepository.hasCompletedOrSkippedOnboarding()
