@@ -111,7 +111,6 @@ export const SettingsSummary = ({
     <>
       <SummaryCard
         title="Coach profile"
-        eyebrow="Used for recommendations"
         icon="person-circle-outline"
         actionLabel="Edit profile"
         onAction={() => onOpenEditor('profile')}
@@ -139,7 +138,7 @@ export const SettingsSummary = ({
 
       <SummaryCard
         title="Training plan"
-        eyebrow="Flexible, not a fixed calendar"
+        eyebrow="Weekly rhythm"
         icon="pulse-outline"
         actionLabel="Adjust plan"
         onAction={() => onOpenEditor('rhythm')}
@@ -159,17 +158,14 @@ export const SettingsSummary = ({
           </View>
         ) : (
           <Text style={styles.summaryBody}>
-            Your coach will build a plan after setup.
+            Finish setup to add your weekly rhythm.
           </Text>
         )}
-        <Text style={styles.coachNote}>
-          Your coach can adapt this when life changes.
-        </Text>
       </SummaryCard>
 
       <SummaryCard
         title="Safety & constraints"
-        eyebrow="Kept visible for safer workouts"
+        eyebrow="Safety notes"
         icon="shield-checkmark-outline"
         actionLabel="Update constraints"
         onAction={() => onOpenEditor('constraints')}
@@ -188,7 +184,6 @@ export const SettingsSummary = ({
 
       <SummaryCard
         title="Equipment"
-        eyebrow="Available training setup"
         icon="barbell-outline"
         actionLabel="Edit equipment"
         onAction={() => onOpenEditor('equipment')}

@@ -158,12 +158,6 @@ export const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
   },
-  coachNote: {
-    color: palette.textSecondary,
-    fontFamily: typography.fontFamily,
-    fontSize: 13,
-    lineHeight: 19,
-  },
   equipmentSummary: {
     color: palette.textPrimary,
     fontFamily: typography.fontFamilyBold,

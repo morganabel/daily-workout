@@ -28,11 +28,6 @@ export const ProfileEditor = ({
   updateField,
 }: ProfileEditorProps) => (
   <View style={styles.editorSection}>
-    <Text style={styles.editorIntro}>
-      Keep this lightweight. Your coach uses it to choose useful workouts
-      without making you fill out a full intake form.
-    </Text>
-
     <Text style={styles.editorLabel}>Experience</Text>
     <View style={styles.levelContainer}>
       {EXPERIENCE_LEVELS.map((level) => {
@@ -98,8 +93,7 @@ export const RhythmEditor = ({
       <Card style={styles.emptyCard}>
         <Text style={styles.summaryTitle}>No plan yet</Text>
         <Text style={styles.summaryBody}>
-          Finish setup from Today and Workout Agent will start with a flexible
-          training plan.
+          Finish setup from Today to add your weekly rhythm.
         </Text>
       </Card>
     );
@@ -107,11 +101,6 @@ export const RhythmEditor = ({
 
   return (
     <View style={styles.editorSection}>
-      <Text style={styles.editorIntro}>
-        This plan is flexible. Your coach may reorder sessions based on
-        recovery, recent workouts, and upcoming events.
-      </Text>
-
       <Text style={styles.editorLabel}>Weekly guidance</Text>
       <View style={styles.targetList}>
         {plan.targetRanges.map((target) => (
@@ -253,7 +242,7 @@ export const ConstraintsEditor = ({
 }: ConstraintsEditorProps) => (
   <View style={styles.editorSection}>
     <Text style={styles.editorIntro}>
-      Add anything your coach should work around. Keep it practical and short.
+      Injuries, movements, or equipment to work around.
     </Text>
 
     <Text style={styles.editorLabel}>Safety notes</Text>
@@ -330,10 +319,7 @@ export const EquipmentEditor = ({
   toggleEquipment,
 }: EquipmentEditorProps) => (
   <View style={styles.editorSection}>
-    <Text style={styles.editorIntro}>
-      Choose what you can reliably train with. Gym access keeps the setup
-      simple; home equipment can be selected individually.
-    </Text>
+    <Text style={styles.editorIntro}>Select what you usually have.</Text>
     <View style={styles.chipContainer}>
       {EQUIPMENT_OPTIONS.map((item) => (
         <Chip

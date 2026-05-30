@@ -107,7 +107,8 @@ export const summarizeEquipment = (equipment: string[]): string => {
 
 export const summarizeEquipmentDetail = (equipment: string[]): string => {
   if (equipment.includes(GYM_EQUIPMENT)) return 'Full gym setup';
-  if (equipment.length <= 2) return 'Used for recommendations';
+  if (equipment.length === 0) return 'Add equipment you use most.';
+  if (equipment.length <= 2) return 'Home setup';
   return equipment.slice(2).join(', ');
 };
 
