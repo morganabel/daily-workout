@@ -1,4 +1,7 @@
-import { createBillingClient } from './billing-client';
+import {
+  createBillingClient,
+  customerInfoHasActiveEntitlement,
+} from './billing-client';
 
 describe('billing client adapter', () => {
   it('selects NoOpBillingClient when billing is disabled', async () => {
@@ -22,5 +25,29 @@ describe('billing client adapter', () => {
     });
 
     expect(client.type).toBe('revenuecat');
+  });
+
+  it('detects active RevenueCat entitlements in customer info', () => {
+    expect(
+      customerInfoHasActiveEntitlement(
+        {
+          entitlements: {
+            active: {
+              'OpenLift Pro': {},
+            },
+          },
+        } as never,
+        'OpenLift Pro'
+      )
+    ).toBe(true);
+
+    expect(
+      customerInfoHasActiveEntitlement(
+        {
+          entitlements: { active: {} },
+        } as never,
+        'OpenLift Pro'
+      )
+    ).toBe(false);
   });
 });

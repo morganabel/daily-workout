@@ -12,6 +12,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Button, Card } from './components/DesignSystem';
 import { RootStackParamList } from './navigation';
 import { useBillingState } from './hooks/useBillingState';
+import { customerInfoHasActiveEntitlement } from './services/billing-client';
 import { palette, typography } from './theme';
 
 type PaywallNavigation = NativeStackNavigationProp<
@@ -151,7 +152,16 @@ export const PaywallScreen = () => {
 
     try {
       setProcessing('restore');
-      await client.restorePurchases();
+      const customerInfo = await client.restorePurchases();
+      if (
+        !customerInfoHasActiveEntitlement(customerInfo, REQUIRED_ENTITLEMENT)
+      ) {
+        Alert.alert(
+          'No active purchase found',
+          'We could not find an active OpenLift Pro purchase for this store account.'
+        );
+        return;
+      }
       await handleSyncAfterPurchase();
     } catch (restoreError) {
       Alert.alert(

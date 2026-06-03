@@ -15,10 +15,9 @@ import { createTodayPlanFixture } from '@workout-agent/shared/testing';
 jest.mock('./hooks/useHomeData', () => ({
   useHomeData: jest.fn(),
 }));
+const mockUseBillingState = jest.fn();
 jest.mock('./hooks/useBillingState', () => ({
-  useBillingState: () => ({
-    showUpgradeUi: false,
-  }),
+  useBillingState: () => mockUseBillingState(),
 }));
 jest.mock('./services/api', () => ({
   generateWorkout: jest.fn(),
@@ -213,6 +212,9 @@ describe('HomeScreen', () => {
   beforeEach(() => {
     jest.useFakeTimers();
     jest.clearAllMocks();
+    mockUseBillingState.mockReturnValue({
+      showUpgradeUi: false,
+    });
     mockUserRepository.hasCompletedOrSkippedOnboarding.mockResolvedValue(false);
   });
 
@@ -780,6 +782,65 @@ describe('HomeScreen', () => {
     await act(async () => {
       jest.advanceTimersByTime(100);
     });
+  });
+
+  it('routes quota errors to Paywall when server upgrade metadata is present', async () => {
+    const { generateWorkout } = require('./services/api');
+    generateWorkout.mockRejectedValue({
+      code: 'QUOTA_EXCEEDED',
+      message: 'Included quota exceeded',
+      upgrade: {
+        showUpgradeUi: true,
+        purchaseMethod: 'iap',
+      },
+    });
+
+    mockUseHomeData.mockReturnValue(baseHookState);
+
+    const { getByText } = render(<HomeScreen />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    await act(async () => {
+      fireEvent.press(getByText("Generate today's workout"));
+      await Promise.resolve();
+    });
+
+    expect(mockNavigate).toHaveBeenCalledWith('Paywall', { source: 'quota' });
+  });
+
+  it('routes BYOK_REQUIRED errors to BYOK setup instead of Paywall', async () => {
+    const { generateWorkout } = require('./services/api');
+    generateWorkout.mockRejectedValue({
+      code: 'BYOK_REQUIRED',
+      message: 'API key required',
+    });
+    const alertSpy = jest.spyOn(Alert, 'alert');
+
+    mockUseHomeData.mockReturnValue(baseHookState);
+
+    const { getByText } = render(<HomeScreen />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    await act(async () => {
+      fireEvent.press(getByText("Generate today's workout"));
+      await Promise.resolve();
+    });
+
+    expect(mockNavigate).not.toHaveBeenCalledWith('Paywall', {
+      source: 'quota',
+    });
+    expect(alertSpy).toHaveBeenCalledWith(
+      'AI key required',
+      'API key required',
+      expect.arrayContaining([
+        expect.objectContaining({ text: 'Add key' }),
+        expect.objectContaining({ text: 'Not now' }),
+      ])
+    );
   });
 
   it('renders active plan view when plan exists', async () => {

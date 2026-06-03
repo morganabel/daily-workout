@@ -116,9 +116,45 @@ describe('POST /api/billing/revenuecat/webhook', () => {
     expect(response.status).toBe(200);
     expect(data.ok).toBe(true);
     expect(data.applied).toBe(true);
-    expect(data.userId).toBe('user-123');
+    expect(data.userId).toBeUndefined();
     expect(hostedBillingRuntime.applyRevenueCatWebhook).toHaveBeenCalledTimes(
       1
     );
+  });
+
+  it('acknowledges valid events that are not mapped to an account', async () => {
+    process.env.REVENUECAT_WEBHOOK_SECRET = 'top-secret';
+    hostedBillingRuntime.applyRevenueCatWebhook.mockReturnValue({
+      applied: false,
+      reason: 'missing_user_mapping',
+    });
+
+    const response = await POST(
+      new Request('http://localhost/api/billing/revenuecat/webhook', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer top-secret',
+        },
+        body: JSON.stringify({
+          event: {
+            type: 'INITIAL_PURCHASE',
+            original_app_user_id: '$RCAnonymousID:abc',
+            product_id: 'monthly',
+          },
+        }),
+      })
+    );
+
+    const data = (await response.json()) as {
+      ok: boolean;
+      applied: boolean;
+      reason?: string;
+    };
+
+    expect(response.status).toBe(202);
+    expect(data.ok).toBe(true);
+    expect(data.applied).toBe(false);
+    expect(data.reason).toBe('missing_user_mapping');
   });
 });

@@ -100,6 +100,7 @@ export function useBillingState(): UseBillingStateResult {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [clientReady, setClientReady] = useState(false);
+  const [billingAppUserId, setBillingAppUserId] = useState<string | null>(null);
 
   const client = useMemo(
     () => createBillingClient(capabilities),
@@ -156,7 +157,10 @@ export function useBillingState(): UseBillingStateResult {
           // Wait for the auth session to hydrate before making the
           // authenticated entitlements request.  Without this gate the
           // fetch can race ahead of cookie/token availability → 401.
-          await resolveSessionUserIdWithRetry(SESSION_ID_INITIAL_RETRY_MS);
+          const appUserId = await resolveSessionUserIdWithRetry(
+            SESSION_ID_INITIAL_RETRY_MS
+          );
+          setBillingAppUserId(appUserId ?? null);
           if (!active) {
             return;
           }
@@ -179,6 +183,7 @@ export function useBillingState(): UseBillingStateResult {
           }
         } else {
           setEntitlements(null);
+          setBillingAppUserId(null);
         }
       } catch (loadError) {
         if (!active) {
@@ -198,8 +203,34 @@ export function useBillingState(): UseBillingStateResult {
   }, [retryEntitlementsAfterSessionHydration]);
 
   useEffect(() => {
+    if (!capabilities.enabled) {
+      setBillingAppUserId(null);
+      return;
+    }
+
+    let active = true;
+
+    const refreshSessionUser = async () => {
+      const appUserId = await resolveSessionUserIdWithRetry([0]);
+      if (!active) {
+        return;
+      }
+      setBillingAppUserId(appUserId ?? null);
+    };
+
+    void refreshSessionUser();
+    const interval = setInterval(refreshSessionUser, 5_000);
+
+    return () => {
+      active = false;
+      clearInterval(interval);
+    };
+  }, [capabilities.enabled]);
+
+  useEffect(() => {
     let active = true;
     let initTimer: ReturnType<typeof setTimeout> | null = null;
+    setClientReady(false);
 
     const initializeBilling = async () => {
       if (client.type !== 'revenuecat') {
@@ -219,38 +250,25 @@ export function useBillingState(): UseBillingStateResult {
         return;
       }
 
-      try {
-        const appUserId = await resolveSessionUserIdWithRetry(
-          SESSION_ID_INITIAL_RETRY_MS
-        );
+      if (!billingAppUserId) {
+        if (active) {
+          setError(
+            'Preparing your account for purchases. Please try again in a moment.'
+          );
+          setClientReady(false);
+        }
+        return;
+      }
 
+      try {
         await client.initialize({
           apiKey: REVENUECAT_API_KEY,
-          appUserId,
+          appUserId: billingAppUserId,
         });
 
         if (active) {
+          setError(null);
           setClientReady(true);
-        }
-
-        if (!appUserId) {
-          void (async () => {
-            try {
-              const lateResolvedUserId = await resolveSessionUserIdWithRetry(
-                SESSION_ID_FOLLOW_UP_RETRY_MS
-              );
-              if (!lateResolvedUserId || !active) {
-                return;
-              }
-
-              await client.initialize({
-                apiKey: REVENUECAT_API_KEY,
-                appUserId: lateResolvedUserId,
-              });
-            } catch {
-              // Non-fatal: billing can continue with anonymous RevenueCat identity.
-            }
-          })();
         }
       } catch (initError) {
         if (!active) {
@@ -274,7 +292,7 @@ export function useBillingState(): UseBillingStateResult {
         clearTimeout(initTimer);
       }
     };
-  }, [client]);
+  }, [billingAppUserId, client]);
 
   return {
     capabilities,

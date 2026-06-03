@@ -40,7 +40,7 @@ Proposed shape (conceptual):
 **Alternatives considered:**
 
 - Infer billing from `edition === HOSTED` only. Rejected because not every hosted environment enables paid upgrades at the same time.
-- Infer billing only from generation errors. Rejected because this creates reactive, confusing UX and cannot place proactive upgrade entry points.
+- Infer billing only from generation errors. Rejected because clients still need backend capabilities for profile/settings plan surfaces and safe quota-error routing.
 
 ### 2) Separate "capability discovery" from "current entitlement state"
 
@@ -124,7 +124,7 @@ Hosted overlays opt into billing by populating billing capabilities and policy i
 3. **Mobile gating and routing**
 
    - Add billing adapter and capability cache integration.
-   - Gate upgrade UI in Launch/Home/Profile based on billing capabilities.
+   - Gate upgrade UI in Launch/Profile based on billing capabilities.
    - Route `QUOTA_EXCEEDED` to paywall and `BYOK_REQUIRED` to BYOK setup.
 
 4. **Hosted enforcement and verification**

@@ -99,9 +99,14 @@ HOSTED_SHOW_UPGRADE_UI=true \
 HOSTED_FREE_GENERATION_LIMIT=1 \
 HOSTED_PRO_GENERATION_LIMIT=1000 \
 HOSTED_QUOTA_WINDOW_DAYS=30 \
+OPENAI_API_KEY=sk-your-managed-test-key \
 EXPO_PUBLIC_BACKEND_URL=http://localhost:3000 \
 npm run dev:server:db
 ```
+
+BYOK requests bypass hosted quota because the user funds inference directly. To exercise the quota-to-paywall path, use a server-managed key such as `OPENAI_API_KEY` or `GEMINI_API_KEY` and do not configure a BYOK key in the app.
+
+The hosted billing runtime in this repository is intended for local/test flows and deployment-specific swapping. Production deployments should provide durable quota, entitlement, and RevenueCat synchronization implementations.
 
 ## Running tests and lint checks
 

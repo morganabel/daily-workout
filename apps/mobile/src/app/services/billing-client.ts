@@ -97,6 +97,11 @@ const isPurchaseCancellation = (error: unknown): boolean => {
   );
 };
 
+export const customerInfoHasActiveEntitlement = (
+  customerInfo: CustomerInfo | null,
+  entitlementId: string
+): boolean => Boolean(customerInfo?.entitlements.active[entitlementId]);
+
 class NoOpBillingClient implements BillingClient {
   readonly type = 'noop' as const;
 

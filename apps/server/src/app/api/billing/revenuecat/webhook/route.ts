@@ -104,7 +104,6 @@ export async function POST(request: Request): Promise<Response> {
       ok: true,
       applied: result.applied,
       reason: result.reason,
-      userId: result.userId,
       eventType: parsed.data.event.type,
     },
     { status }

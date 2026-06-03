@@ -4,16 +4,22 @@
 
 The mobile app MUST gate all upgrade/paywall entry points using backend billing capabilities from `/api/meta`. Upgrade UI MUST be rendered only when billing is explicitly enabled; when billing is disabled or unspecified, the app MUST preserve the existing CE/self-host flow without paywall affordances. The behavioral logic for computing upgrade availability is defined in `mobile-upgrade-experience`; this requirement covers screen-level placement and visibility of upgrade surfaces.
 
-#### Scenario: Hosted backend shows upgrade entry points
+#### Scenario: Hosted backend shows profile upgrade entry point
 
 - **GIVEN** `/api/meta` indicates `billing.enabled=true` and `billing.showUpgradeUi=true`
-- **WHEN** the user views Home or Profile surfaces
-- **THEN** the app shows an `Upgrade` entry point that opens the hosted paywall flow
+- **WHEN** the user views Profile surfaces
+- **THEN** the app shows a plan entry point that opens the hosted paywall flow
+
+#### Scenario: Hosted quota denial opens upgrade flow
+
+- **GIVEN** `/api/meta` indicates `billing.enabled=true` and `billing.showUpgradeUi=true`
+- **WHEN** the user attempts generation and the server returns `QUOTA_EXCEEDED`
+- **THEN** the app opens the hosted paywall flow without requiring a persistent Home upgrade affordance
 
 #### Scenario: Self-host backend hides upgrade entry points
 
 - **GIVEN** `/api/meta` indicates billing is disabled (or billing capability fields are absent)
-- **WHEN** the user views Home or Profile surfaces
+- **WHEN** the user views Profile surfaces or attempts generation
 - **THEN** no upgrade/paywall entry points are shown and the existing generation + BYOK UX remains unchanged
 
 ## MODIFIED Requirements

@@ -926,7 +926,14 @@ export const HomeScreen = () => {
 
   const routeGenerationError = useCallback(
     (apiError: ApiError, fallbackMessage: string) => {
-      if (apiError.code === 'QUOTA_EXCEEDED' && showUpgradeUi) {
+      const serverUpgradeAvailable =
+        apiError.upgrade?.showUpgradeUi === true &&
+        apiError.upgrade.purchaseMethod === 'iap';
+
+      if (
+        apiError.code === 'QUOTA_EXCEEDED' &&
+        (showUpgradeUi || serverUpgradeAvailable)
+      ) {
         navigation.navigate('Paywall', { source: 'quota' });
         return;
       }

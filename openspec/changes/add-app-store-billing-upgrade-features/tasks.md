@@ -24,7 +24,7 @@
 
 ## 5. Mobile Upgrade UX and Error Routing
 
-- [x] 5.1 Add capability-gated upgrade entry points in Home/Profile surfaces (visible only when `billing.showUpgradeUi=true`).
+- [x] 5.1 Add capability-gated upgrade entry points in Profile surfaces and route hosted quota denials to the paywall (visible only when `billing.showUpgradeUi=true`; no persistent Home upgrade affordance required).
 - [x] 5.2 Add paywall flow with purchase, restore, and processing states for `purchaseMethod='iap'`.
 - [x] 5.3 Route generation errors by code: `QUOTA_EXCEEDED` -> upgrade flow (when enabled), `BYOK_REQUIRED` -> BYOK setup flow.
 - [x] 5.4 Preserve CE/self-host UX by hiding paywall surfaces when billing is disabled/unknown and keeping existing BYOK-first advanced path.
