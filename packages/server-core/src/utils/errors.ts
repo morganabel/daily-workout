@@ -3,23 +3,13 @@
  */
 
 import { redactSensitiveStrings } from './logging';
+import type {
+  ApiError,
+  ApiErrorCode,
+  UpgradeMetadata,
+} from '@workout-agent/shared';
 
-export type ApiErrorCode =
-  | 'BYOK_REQUIRED'
-  | 'AI_PROVIDER_NOT_CONFIGURED'
-  | 'QUOTA_EXCEEDED'
-  | 'UNAUTHORIZED'
-  | 'VALIDATION_ERROR'
-  | 'NOT_FOUND'
-  | 'NOT_IMPLEMENTED'
-  | 'INVALID_PROVIDER'
-  | 'AI_GENERATION_ERROR';
-
-export interface ApiError {
-  code: ApiErrorCode;
-  message: string;
-  retryAfter?: number; // seconds
-}
+export type { ApiError, ApiErrorCode } from '@workout-agent/shared';
 
 /**
  * Redact any secrets in error messages before returning to clients.
@@ -32,11 +22,15 @@ export function createErrorResponse(
   code: ApiErrorCode,
   message: string,
   status = 400,
-  retryAfter?: number
+  retryAfter?: number,
+  upgrade?: UpgradeMetadata
 ): Response {
   const error: ApiError = { code, message: sanitizeErrorMessage(message) };
   if (retryAfter !== undefined) {
     error.retryAfter = retryAfter;
+  }
+  if (upgrade) {
+    error.upgrade = upgrade;
   }
   return Response.json(error, { status });
 }

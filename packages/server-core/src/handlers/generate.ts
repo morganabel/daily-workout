@@ -160,9 +160,17 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
     const errorResponse = (
       code: Parameters<typeof createErrorResponse>[0],
       message: string,
-      status: number
+      status: number,
+      retryAfter?: number,
+      upgrade?: Parameters<typeof createErrorResponse>[4]
     ): Response => {
-      const response = createErrorResponse(code, message, status);
+      const response = createErrorResponse(
+        code,
+        message,
+        status,
+        retryAfter,
+        upgrade
+      );
       attachRequestId(response, requestId);
       log.info('request completed', {
         method: request.method,
@@ -297,8 +305,10 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
       );
     }
 
-    // Check policy (quota/rate limits)
-    if (deps.policy) {
+    // Check policy (quota/rate limits) for managed-key requests only.
+    // BYOK requests are self-funded and bypass entitlement quotas.
+    let quotaReservationActive = false;
+    if (deps.policy && !isByok) {
       const policyResult = await deps.policy.canGenerate(
         auth.userId,
         generationRequest
@@ -307,230 +317,265 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
         return errorResponse(
           'QUOTA_EXCEEDED',
           policyResult.reason ?? 'Quota exceeded',
-          policyResult.statusCode ?? 429
+          policyResult.statusCode ?? 429,
+          undefined,
+          policyResult.upgrade
         );
       }
+      quotaReservationActive = true;
     }
 
-    const context = await loadGenerationContext(auth.userId, generationRequest);
-    const isRegeneration = Boolean(
-      generationRequest.previousResponseId || generationRequest.baselineWorkout
-    );
-    let previousState: GenerationState | null = null;
-
-    if (isRegeneration) {
+    const rollbackManagedReservation = async (): Promise<void> => {
+      if (!quotaReservationActive) {
+        return;
+      }
+      quotaReservationActive = false;
+      if (!deps.policy?.rollbackGenerateReservation) {
+        return;
+      }
       try {
-        previousState = await deps.store.getState(auth.principalId);
+        await deps.policy.rollbackGenerateReservation(
+          auth.userId,
+          generationRequest
+        );
       } catch (error) {
-        log.warn('failed to load previous generation state', {
+        log.warn('failed to rollback managed quota reservation', {
+          message: sanitizeErrorMessage((error as Error).message),
           error,
-          principalId: auth.principalId,
         });
       }
-    }
-    const providerRequest = createProviderRequest(
-      generationRequest,
-      provider,
-      previousState?.plan ?? null
-    );
-    const planningBrief = derivePlanningBrief({
-      request: providerRequest,
-      context,
-      provider,
-      previousPlan: previousState?.plan,
-    });
-    let effectivePlanningBrief = planningBrief;
-    let stageOneArtifact: StageOnePlannerArtifact | undefined;
-    let candidatePool:
-      | ReturnType<typeof buildExerciseCandidatePool>
-      | undefined;
+    };
 
-    if (
-      (deps.exerciseLibrary || deps.loadExerciseLibrary) &&
-      (apiKey || useVertexAi)
-    ) {
-      try {
-        const exerciseLibrary =
-          deps.exerciseLibrary ?? (await deps.loadExerciseLibrary?.());
+    try {
+      const context = await loadGenerationContext(
+        auth.userId,
+        generationRequest
+      );
+      const isRegeneration = Boolean(
+        generationRequest.previousResponseId ||
+          generationRequest.baselineWorkout
+      );
+      let previousState: GenerationState | null = null;
 
-        if (exerciseLibrary) {
-          candidatePool = buildExerciseCandidatePool({
-            exerciseLibrary,
-            request: providerRequest,
-            context,
-            planningBrief: effectivePlanningBrief,
-            previousPlan: previousState?.plan,
+      if (isRegeneration) {
+        try {
+          previousState = await deps.store.getState(auth.principalId);
+        } catch (error) {
+          log.warn('failed to load previous generation state', {
+            error,
+            principalId: auth.principalId,
           });
-          if (
-            candidatePool.candidateExercises.length === 0 &&
-            candidatePool.diagnostics?.blockerCodes?.length
-          ) {
-            effectivePlanningBrief = {
-              ...effectivePlanningBrief,
-              fallbackReasons: candidatePool.diagnostics.blockerCodes,
-            };
+        }
+      }
+      const providerRequest = createProviderRequest(
+        generationRequest,
+        provider,
+        previousState?.plan ?? null
+      );
+      const planningBrief = derivePlanningBrief({
+        request: providerRequest,
+        context,
+        provider,
+        previousPlan: previousState?.plan,
+      });
+      let effectivePlanningBrief = planningBrief;
+      let stageOneArtifact: StageOnePlannerArtifact | undefined;
+      let candidatePool:
+        | ReturnType<typeof buildExerciseCandidatePool>
+        | undefined;
+
+      if (
+        (deps.exerciseLibrary || deps.loadExerciseLibrary) &&
+        (apiKey || useVertexAi)
+      ) {
+        try {
+          const exerciseLibrary =
+            deps.exerciseLibrary ?? (await deps.loadExerciseLibrary?.());
+
+          if (exerciseLibrary) {
+            candidatePool = buildExerciseCandidatePool({
+              exerciseLibrary,
+              request: providerRequest,
+              context,
+              planningBrief: effectivePlanningBrief,
+              previousPlan: previousState?.plan,
+            });
+            if (
+              candidatePool.candidateExercises.length === 0 &&
+              candidatePool.diagnostics?.blockerCodes?.length
+            ) {
+              effectivePlanningBrief = {
+                ...effectivePlanningBrief,
+                fallbackReasons: candidatePool.diagnostics.blockerCodes,
+              };
+            }
+            log.info('exercise candidate pool prepared', {
+              libraryVersion: candidatePool.libraryVersion,
+              totalEligibleCount: candidatePool.totalEligibleCount,
+              candidateCount: candidatePool.candidateExercises.length,
+              baselineExerciseCount: candidatePool.baselineExerciseIds.length,
+              blockerCodes: candidatePool.diagnostics?.blockerCodes,
+              fallbackReasons: effectivePlanningBrief.fallbackReasons,
+              isRegeneration,
+            });
           }
-          log.info('exercise candidate pool prepared', {
-            libraryVersion: candidatePool.libraryVersion,
-            totalEligibleCount: candidatePool.totalEligibleCount,
-            candidateCount: candidatePool.candidateExercises.length,
-            baselineExerciseCount: candidatePool.baselineExerciseIds.length,
-            blockerCodes: candidatePool.diagnostics?.blockerCodes,
-            fallbackReasons: effectivePlanningBrief.fallbackReasons,
+        } catch (error) {
+          log.warn('exercise candidate pool unavailable', {
+            message: sanitizeErrorMessage((error as Error).message),
             isRegeneration,
           });
         }
-      } catch (error) {
-        log.warn('exercise candidate pool unavailable', {
-          message: sanitizeErrorMessage((error as Error).message),
-          isRegeneration,
-        });
       }
-    }
 
-    if (
-      deps.config.enableStageOnePlanner &&
-      deps.planner &&
-      effectivePlanningBrief.stagedPlanning.shouldRun &&
-      (apiKey || useVertexAi)
-    ) {
+      if (
+        deps.config.enableStageOnePlanner &&
+        deps.planner &&
+        effectivePlanningBrief.stagedPlanning.shouldRun &&
+        (apiKey || useVertexAi)
+      ) {
+        try {
+          stageOneArtifact = await deps.planner.plan(providerRequest, context, {
+            apiKey: useVertexAi ? undefined : apiKey ?? undefined,
+            candidatePool,
+            planningBrief: effectivePlanningBrief,
+            provider,
+            useVertexAi,
+          });
+          log.info('stage-one planner completed', {
+            provider,
+            confidence: stageOneArtifact.confidence,
+            resolvedFocus: stageOneArtifact.resolvedFocus,
+            noveltyTarget: stageOneArtifact.noveltyTarget,
+            rerankHintCount: stageOneArtifact.rerankHints.length,
+            reasons: effectivePlanningBrief.stagedPlanning.reasons,
+          });
+          if (candidatePool) {
+            candidatePool = rerankExerciseCandidatePool(
+              candidatePool,
+              stageOneArtifact
+            );
+          }
+        } catch (error) {
+          log.warn('stage-one planner unavailable', {
+            provider,
+            message: sanitizeErrorMessage((error as Error).message),
+            reasons: effectivePlanningBrief.stagedPlanning.reasons,
+          });
+        }
+      }
+
+      // Log generation start (NEVER log API keys, prompts, or free-form feedback)
+      log.info('generation started', {
+        provider,
+        hasApiKey: Boolean(apiKey),
+        isByok,
+        isRegeneration: effectivePlanningBrief.regeneration.isRegeneration,
+        focusMode: effectivePlanningBrief.focusMode,
+        resolvedFocus: effectivePlanningBrief.resolvedFocus,
+        regenerationMode: effectivePlanningBrief.regeneration.mode,
+        stagedPlanningMode: effectivePlanningBrief.stagedPlanning.mode,
+        stagedPlanningReasons: effectivePlanningBrief.stagedPlanning.reasons,
+        fallbackReasons: effectivePlanningBrief.fallbackReasons,
+        hasFeedback: (generationRequest.feedback?.length ?? 0) > 0,
+        feedbackCount: generationRequest.feedback?.length ?? 0,
+      });
+
+      // Use principalId for device-scoped state (GenerationStore)
+      await deps.store.markPending(
+        auth.principalId,
+        DEFAULT_GENERATION_ETA_SECONDS
+      );
+
+      let plan: TodayPlan;
+      let responseId: string | undefined;
+      let schemaVersion: string | undefined;
+
       try {
-        stageOneArtifact = await deps.planner.plan(providerRequest, context, {
+        const result = await deps.router.generate(providerRequest, context, {
           apiKey: useVertexAi ? undefined : apiKey ?? undefined,
           candidatePool,
           planningBrief: effectivePlanningBrief,
+          stageOneArtifact,
           provider,
           useVertexAi,
         });
-        log.info('stage-one planner completed', {
-          provider,
-          confidence: stageOneArtifact.confidence,
-          resolvedFocus: stageOneArtifact.resolvedFocus,
-          noveltyTarget: stageOneArtifact.noveltyTarget,
-          rerankHintCount: stageOneArtifact.rerankHints.length,
-          reasons: effectivePlanningBrief.stagedPlanning.reasons,
-        });
-        if (candidatePool) {
-          candidatePool = rerankExerciseCandidatePool(
-            candidatePool,
-            stageOneArtifact
-          );
-        }
+        plan = result.plan;
+        responseId = result.responseId;
+        schemaVersion = result.schemaVersion;
+
+        const providerResponseId = plan.responseId ?? responseId;
+        plan = {
+          ...plan,
+          responseId: providerResponseId,
+          generationProvenance: {
+            provider,
+            ...(providerResponseId ? { responseId: providerResponseId } : {}),
+          },
+        };
       } catch (error) {
-        log.warn('stage-one planner unavailable', {
+        const sanitizedMessage = sanitizeErrorMessage((error as Error).message);
+        log.warn('ai generation failed', {
           provider,
-          message: sanitizeErrorMessage((error as Error).message),
-          reasons: effectivePlanningBrief.stagedPlanning.reasons,
+          message: sanitizedMessage,
+          error,
         });
+        await deps.store.setError(
+          auth.principalId,
+          'We could not generate a workout plan. Please try again.'
+        );
+        await rollbackManagedReservation();
+        return errorResponse('AI_GENERATION_ERROR', sanitizedMessage, 502);
       }
-    }
 
-    // Log generation start (NEVER log API keys, prompts, or free-form feedback)
-    log.info('generation started', {
-      provider,
-      hasApiKey: Boolean(apiKey),
-      isByok,
-      isRegeneration: effectivePlanningBrief.regeneration.isRegeneration,
-      focusMode: effectivePlanningBrief.focusMode,
-      resolvedFocus: effectivePlanningBrief.resolvedFocus,
-      regenerationMode: effectivePlanningBrief.regeneration.mode,
-      stagedPlanningMode: effectivePlanningBrief.stagedPlanning.mode,
-      stagedPlanningReasons: effectivePlanningBrief.stagedPlanning.reasons,
-      fallbackReasons: effectivePlanningBrief.fallbackReasons,
-      hasFeedback: (generationRequest.feedback?.length ?? 0) > 0,
-      feedbackCount: generationRequest.feedback?.length ?? 0,
-    });
-
-    // Use principalId for device-scoped state (GenerationStore)
-    await deps.store.markPending(
-      auth.principalId,
-      DEFAULT_GENERATION_ETA_SECONDS
-    );
-
-    let plan: TodayPlan;
-    let responseId: string | undefined;
-    let schemaVersion: string | undefined;
-
-    try {
-      const result = await deps.router.generate(providerRequest, context, {
-        apiKey: useVertexAi ? undefined : apiKey ?? undefined,
-        candidatePool,
-        planningBrief: effectivePlanningBrief,
-        stageOneArtifact,
-        provider,
-        useVertexAi,
-      });
-      plan = result.plan;
-      responseId = result.responseId;
-      schemaVersion = result.schemaVersion;
-
-      const providerResponseId = plan.responseId ?? responseId;
       plan = {
         ...plan,
-        responseId: providerResponseId,
-        generationProvenance: {
-          provider,
-          ...(providerResponseId ? { responseId: providerResponseId } : {}),
-        },
+        equipment: effectivePlanningBrief.availableEquipment,
       };
-    } catch (error) {
-      const sanitizedMessage = sanitizeErrorMessage((error as Error).message);
-      log.warn('ai generation failed', {
-        provider,
-        message: sanitizedMessage,
-        error,
+
+      const validated = todayPlanSchema.parse(plan);
+
+      await deps.store.persistPlan(auth.principalId, validated, {
+        schemaVersion,
       });
-      await deps.store.setError(
-        auth.principalId,
-        'We could not generate a workout plan. Please try again.'
-      );
-      return errorResponse('AI_GENERATION_ERROR', sanitizedMessage, 502);
-    }
-
-    plan = {
-      ...plan,
-      equipment: effectivePlanningBrief.availableEquipment,
-    };
-
-    const validated = todayPlanSchema.parse(plan);
-
-    await deps.store.persistPlan(auth.principalId, validated, {
-      schemaVersion,
-    });
-    log.info('generation completed', {
-      durationMs: Date.now() - startedAt,
-      source: 'ai',
-      isRegeneration,
-      responseId,
-      schemaVersion,
-    });
-
-    // Record metering event
-    if (deps.metering && apiKey) {
-      await deps.metering.recordUsage({
-        userId: auth.userId,
-        operation: effectivePlanningBrief.regeneration.isRegeneration
-          ? 'regenerate'
-          : 'generate',
-        provider,
-        byok: isByok,
-        timestamp: new Date().toISOString(),
+      quotaReservationActive = false;
+      log.info('generation completed', {
         durationMs: Date.now() - startedAt,
-        metadata: {
-          responseId,
-          schemaVersion,
-        },
+        source: 'ai',
+        isRegeneration,
+        responseId,
+        schemaVersion,
       });
-    }
 
-    const response = Response.json(validated);
-    attachRequestId(response, requestId);
-    log.info('request completed', {
-      method: request.method,
-      path: urlPath,
-      status: 200,
-      durationMs: Date.now() - startedAt,
-    });
-    return response;
+      // Record metering event
+      if (deps.metering && apiKey) {
+        await deps.metering.recordUsage({
+          userId: auth.userId,
+          operation: effectivePlanningBrief.regeneration.isRegeneration
+            ? 'regenerate'
+            : 'generate',
+          provider,
+          byok: isByok,
+          timestamp: new Date().toISOString(),
+          durationMs: Date.now() - startedAt,
+          metadata: {
+            responseId,
+            schemaVersion,
+          },
+        });
+      }
+
+      const response = Response.json(validated);
+      attachRequestId(response, requestId);
+      log.info('request completed', {
+        method: request.method,
+        path: urlPath,
+        status: 200,
+        durationMs: Date.now() - startedAt,
+      });
+      return response;
+    } catch (error) {
+      await rollbackManagedReservation();
+      throw error;
+    }
   };
 }

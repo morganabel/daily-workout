@@ -15,6 +15,7 @@ import { HistoryScreen } from './HistoryScreen';
 import { SettingsScreen } from './SettingsScreen';
 import { SignInScreen } from './SignInScreen';
 import { SignUpScreen } from './SignUpScreen';
+import { PaywallScreen } from './PaywallScreen';
 import { useDeviceToken } from './hooks/useDeviceToken';
 import { DebugMcpBridge } from './debug/DebugMcpBridge';
 import { isDebugMcpBridgeEnabled } from './debug/debugMcpConfig';
@@ -86,6 +87,7 @@ export const App = () => {
               component={WorkoutSessionDetailScreen}
             />
             <Stack.Screen name="Settings" component={SettingsScreen} />
+            <Stack.Screen name="Paywall" component={PaywallScreen} />
             {/* Auth screens - optional upgrade from anonymous */}
             <Stack.Screen name="SignIn" component={SignInScreen} />
             <Stack.Screen name="SignUp" component={SignUpScreen} />

@@ -8,6 +8,32 @@ import App from './App';
 jest.mock('./hooks/useHomeData', () => ({
   useHomeData: jest.fn(),
 }));
+jest.mock('./hooks/useBillingState', () => ({
+  useBillingState: () => ({
+    capabilities: {
+      enabled: false,
+      showUpgradeUi: false,
+      purchaseMethod: 'none',
+      allowByok: true,
+    },
+    entitlements: null,
+    loading: false,
+    refreshing: false,
+    error: null,
+    client: {
+      type: 'noop',
+      initialize: jest.fn(),
+      getAvailablePackages: jest.fn().mockResolvedValue([]),
+      presentPaywall: jest.fn().mockResolvedValue('not_presented'),
+      restorePurchases: jest.fn().mockResolvedValue(null),
+      getCustomerInfo: jest.fn().mockResolvedValue(null),
+      presentCustomerCenter: jest.fn().mockResolvedValue(undefined),
+    },
+    clientReady: true,
+    showUpgradeUi: false,
+    refreshEntitlements: jest.fn().mockResolvedValue(null),
+  }),
+}));
 jest.mock('@react-navigation/native', () => ({
   useNavigation: () => ({
     navigate: jest.fn(),
@@ -99,6 +125,9 @@ jest.mock('./SignInScreen', () => ({
 }));
 jest.mock('./SignUpScreen', () => ({
   SignUpScreen: () => null,
+}));
+jest.mock('./PaywallScreen', () => ({
+  PaywallScreen: () => null,
 }));
 
 // Mock vector icons locally to ensure it takes precedence

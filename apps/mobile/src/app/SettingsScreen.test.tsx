@@ -8,6 +8,19 @@ jest.mock('./components/BottomNavigation', () => ({
   BottomNavigation: () => null,
 }));
 
+jest.mock('@react-navigation/native', () => ({
+  useNavigation: () => ({
+    navigate: jest.fn(),
+  }),
+}));
+
+jest.mock('./hooks/useBillingState', () => ({
+  useBillingState: () => ({
+    showUpgradeUi: false,
+    entitlements: null,
+  }),
+}));
+
 jest.mock('./db/repositories/UserRepository', () => ({
   userRepository: {
     getPreferences: jest.fn(),

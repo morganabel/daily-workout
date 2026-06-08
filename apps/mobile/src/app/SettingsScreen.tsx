@@ -1,5 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import {
   GYM_EQUIPMENT,
@@ -9,7 +11,10 @@ import {
   type UserPreferences,
 } from '@workout-agent/shared';
 import { BottomNavigation } from './components/BottomNavigation';
+import { Card } from './components/DesignSystem';
 import { userRepository } from './db/repositories/UserRepository';
+import { useBillingState } from './hooks/useBillingState';
+import type { RootStackParamList } from './navigation';
 import {
   ConstraintsEditor,
   EquipmentEditor,
@@ -17,7 +22,10 @@ import {
   RhythmEditor,
 } from './settings/SettingsEditors';
 import { SettingsSummary } from './settings/SettingsSummary';
-import { getConstraintItems, getTrainingTargets } from './settings/settingsHelpers';
+import {
+  getConstraintItems,
+  getTrainingTargets,
+} from './settings/settingsHelpers';
 import { styles } from './settings/settingsStyles';
 import { EDITOR_TITLES, type EditorKey } from './settings/settingsTypes';
 import { palette } from './theme';
@@ -29,7 +37,14 @@ const INITIAL_PREFERENCES: UserPreferences = {
   avoid: [],
 };
 
+type SettingsNavigation = NativeStackNavigationProp<
+  RootStackParamList,
+  'Settings'
+>;
+
 export const SettingsScreen = () => {
+  const navigation = useNavigation<SettingsNavigation>();
+  const { showUpgradeUi, entitlements } = useBillingState();
   const [preferences, setPreferences] =
     useState<UserPreferences>(INITIAL_PREFERENCES);
   const [activeEditor, setActiveEditor] = useState<EditorKey | null>(null);
@@ -258,6 +273,11 @@ export const SettingsScreen = () => {
   };
 
   const saveLabel = isSaving ? 'Saving...' : hasChanges ? 'Save' : 'Saved';
+  const planLabel =
+    entitlements?.planId === 'pro' ? 'OpenLift Pro' : 'Free plan';
+  const quotaLabel = entitlements
+    ? `${entitlements.quotaWindow.remaining}/${entitlements.quotaWindow.limit} generated workouts left this period.`
+    : 'Upgrade options are available for this hosted server.';
 
   return (
     <View style={styles.screen}>
@@ -265,7 +285,9 @@ export const SettingsScreen = () => {
         <View style={styles.headerCopy}>
           <Text style={styles.screenTitle}>Profile</Text>
           <Text style={styles.screenSubtitle}>
-            {activeEditor ? EDITOR_TITLES[activeEditor] : 'What your coach knows'}
+            {activeEditor
+              ? EDITOR_TITLES[activeEditor]
+              : 'What your coach knows'}
           </Text>
         </View>
         <Pressable
@@ -305,6 +327,41 @@ export const SettingsScreen = () => {
             <Text style={styles.backButtonText}>Profile summary</Text>
           </Pressable>
         )}
+        {!activeEditor && showUpgradeUi ? (
+          <Card style={styles.summaryCard}>
+            <View style={styles.summaryHeader}>
+              <View style={styles.summaryTitleRow}>
+                <View style={styles.summaryIcon}>
+                  <Ionicons
+                    name="card-outline"
+                    size={18}
+                    color={palette.primary}
+                  />
+                </View>
+                <View style={styles.summaryTitleGroup}>
+                  <Text style={styles.summaryTitle}>Plan</Text>
+                  <Text style={styles.summaryEyebrow}>{planLabel}</Text>
+                </View>
+              </View>
+            </View>
+            <Text style={styles.summaryBody}>{quotaLabel}</Text>
+            <Pressable
+              style={styles.cardAction}
+              onPress={() =>
+                navigation.navigate('Paywall', { source: 'settings' })
+              }
+              accessibilityRole="button"
+              accessibilityLabel="View plan"
+            >
+              <Text style={styles.cardActionText}>View plan</Text>
+              <Ionicons
+                name="chevron-forward"
+                size={18}
+                color={palette.primary}
+              />
+            </Pressable>
+          </Card>
+        ) : null}
         {renderEditorContent()}
         <View style={styles.bottomSpacer} />
       </ScrollView>
