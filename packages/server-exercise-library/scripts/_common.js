@@ -11,6 +11,7 @@ export const paths = {
   packageRoot,
   dataDir: path.join(packageRoot, 'data'),
   publicDir: path.join(packageRoot, 'data', 'public'),
+  catalogDir: path.join(packageRoot, 'data', 'catalog'),
   vocabDir: path.join(packageRoot, 'data', 'vocab'),
   curationDir: path.join(packageRoot, 'data', 'curation'),
   generatedDir: path.join(packageRoot, 'data', 'generated'),
@@ -31,6 +32,12 @@ export const paths = {
   enumsVocab: path.join(packageRoot, 'data', 'vocab', 'enums.json'),
   tagsVocab: path.join(packageRoot, 'data', 'vocab', 'tags.json'),
   overrides: path.join(packageRoot, 'data', 'curation', 'overrides.json'),
+  systemWorkoutCatalog: path.join(
+    packageRoot,
+    'data',
+    'catalog',
+    'system-workouts.json',
+  ),
   generatedCanonical: path.join(
     packageRoot,
     'data',
@@ -61,6 +68,7 @@ export async function ensureDirectories() {
   await Promise.all(
     [
       paths.publicDir,
+      paths.catalogDir,
       paths.vocabDir,
       paths.curationDir,
       paths.generatedDir,

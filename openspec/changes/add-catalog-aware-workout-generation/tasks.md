@@ -6,10 +6,10 @@
 
 ## 2. Catalog Data Model And Build
 
-- [ ] 2.1 Define workout catalog source inputs for curated system recipes, blocks, slots, substitutions, tags, constraints, ownership, and version metadata.
-- [ ] 2.2 Add a generated SQLite catalog schema with normalized `workout_*` tables that reference canonical `exercise_*` IDs and keep filter-critical data relational.
-- [ ] 2.3 Add catalog validation for stable IDs, exercise references, planner-ready eligibility, recipe coverage, and representative query behavior.
-- [ ] 2.4 Document how the SQLite catalog shape can be recreated in PostgreSQL for future hosted/community catalogs.
+- [x] 2.1 Define workout catalog source inputs for curated system recipes, blocks, slots, substitutions, tags, constraints, ownership, and version metadata.
+- [x] 2.2 Add a generated SQLite catalog schema with normalized `workout_*` tables that reference canonical `exercise_*` IDs and keep filter-critical data relational.
+- [x] 2.3 Add catalog validation for stable IDs, exercise references, planner-ready eligibility, recipe coverage, and representative query behavior.
+- [x] 2.4 Document how the SQLite catalog shape can be recreated in PostgreSQL for future hosted/community catalogs.
 
 ## 3. Catalog Matching And Materialization
 

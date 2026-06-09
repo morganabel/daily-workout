@@ -4,6 +4,7 @@ import { paths, readJson } from './_common.js';
 
 const canonical = await readJson(paths.generatedCanonical);
 const manifest = await readJson(paths.generatedManifest);
+const workoutCatalog = await readJson(paths.systemWorkoutCatalog);
 const tempSqlitePath = `${paths.generatedSqliteTemp}.${process.pid}.${Date.now()}`;
 
 await rm(tempSqlitePath, { force: true });
@@ -12,6 +13,7 @@ const database = new Database(tempSqlitePath);
 
 database.exec(`
 PRAGMA journal_mode = DELETE;
+PRAGMA foreign_keys = ON;
 
 CREATE TABLE library_metadata (
   key TEXT PRIMARY KEY,
@@ -92,6 +94,86 @@ CREATE TABLE exercise_source_refs (
   FOREIGN KEY (exercise_id) REFERENCES exercises(id) ON DELETE CASCADE
 );
 
+CREATE TABLE workout_catalog_recipes (
+  id TEXT PRIMARY KEY,
+  slug TEXT NOT NULL UNIQUE,
+  ownership TEXT NOT NULL,
+  version INTEGER NOT NULL,
+  status TEXT NOT NULL,
+  title TEXT NOT NULL,
+  summary TEXT NOT NULL,
+  focus TEXT NOT NULL,
+  target_duration_minutes INTEGER NOT NULL,
+  duration_min_minutes INTEGER NOT NULL,
+  duration_max_minutes INTEGER NOT NULL,
+  min_experience_level TEXT NOT NULL,
+  min_experience_level_rank INTEGER NOT NULL,
+  quality_score INTEGER NOT NULL,
+  catalog_version TEXT NOT NULL,
+  source TEXT NOT NULL
+);
+
+CREATE TABLE workout_catalog_recipe_equipment (
+  recipe_id TEXT NOT NULL,
+  equipment_id TEXT NOT NULL,
+  requirement_type TEXT NOT NULL,
+  PRIMARY KEY (recipe_id, equipment_id, requirement_type),
+  FOREIGN KEY (recipe_id) REFERENCES workout_catalog_recipes(id) ON DELETE CASCADE
+);
+
+CREATE TABLE workout_catalog_recipe_tags (
+  recipe_id TEXT NOT NULL,
+  tag_type TEXT NOT NULL,
+  tag TEXT NOT NULL,
+  PRIMARY KEY (recipe_id, tag_type, tag),
+  FOREIGN KEY (recipe_id) REFERENCES workout_catalog_recipes(id) ON DELETE CASCADE
+);
+
+CREATE TABLE workout_catalog_recipe_constraints (
+  recipe_id TEXT NOT NULL,
+  constraint_type TEXT NOT NULL,
+  value TEXT NOT NULL,
+  PRIMARY KEY (recipe_id, constraint_type, value),
+  FOREIGN KEY (recipe_id) REFERENCES workout_catalog_recipes(id) ON DELETE CASCADE
+);
+
+CREATE TABLE workout_catalog_blocks (
+  recipe_id TEXT NOT NULL,
+  block_id TEXT NOT NULL,
+  block_order INTEGER NOT NULL,
+  title TEXT NOT NULL,
+  duration_minutes INTEGER NOT NULL,
+  focus TEXT NOT NULL,
+  PRIMARY KEY (recipe_id, block_id),
+  FOREIGN KEY (recipe_id) REFERENCES workout_catalog_recipes(id) ON DELETE CASCADE
+);
+
+CREATE TABLE workout_catalog_slots (
+  recipe_id TEXT NOT NULL,
+  block_id TEXT NOT NULL,
+  slot_id TEXT NOT NULL,
+  slot_order INTEGER NOT NULL,
+  exercise_id TEXT NOT NULL,
+  role TEXT NOT NULL,
+  prescription TEXT NOT NULL,
+  detail TEXT,
+  intensity TEXT NOT NULL,
+  PRIMARY KEY (recipe_id, block_id, slot_id),
+  FOREIGN KEY (recipe_id, block_id) REFERENCES workout_catalog_blocks(recipe_id, block_id) ON DELETE CASCADE,
+  FOREIGN KEY (exercise_id) REFERENCES exercises(id) ON DELETE RESTRICT
+);
+
+CREATE TABLE workout_catalog_slot_substitutions (
+  recipe_id TEXT NOT NULL,
+  block_id TEXT NOT NULL,
+  slot_id TEXT NOT NULL,
+  exercise_id TEXT NOT NULL,
+  substitution_order INTEGER NOT NULL,
+  PRIMARY KEY (recipe_id, block_id, slot_id, exercise_id),
+  FOREIGN KEY (recipe_id, block_id, slot_id) REFERENCES workout_catalog_slots(recipe_id, block_id, slot_id) ON DELETE CASCADE,
+  FOREIGN KEY (exercise_id) REFERENCES exercises(id) ON DELETE RESTRICT
+);
+
 CREATE VIRTUAL TABLE exercise_search USING fts5(
   exercise_id UNINDEXED,
   name,
@@ -112,6 +194,12 @@ CREATE INDEX idx_exercise_tags_lookup ON exercise_tags(tag_type, tag, exercise_i
 CREATE INDEX idx_exercise_roles_lookup ON exercise_roles(role, exercise_id);
 CREATE INDEX idx_exercise_equipment_lookup ON exercise_equipment(equipment_id, requirement_type, exercise_id);
 CREATE INDEX idx_exercise_alias_lookup ON exercise_aliases(alias, exercise_id);
+CREATE INDEX idx_workout_catalog_duration ON workout_catalog_recipes(duration_min_minutes, duration_max_minutes, quality_score DESC);
+CREATE INDEX idx_workout_catalog_experience ON workout_catalog_recipes(min_experience_level_rank, quality_score DESC);
+CREATE INDEX idx_workout_catalog_tags ON workout_catalog_recipe_tags(tag_type, tag, recipe_id);
+CREATE INDEX idx_workout_catalog_equipment ON workout_catalog_recipe_equipment(equipment_id, requirement_type, recipe_id);
+CREATE INDEX idx_workout_catalog_constraints ON workout_catalog_recipe_constraints(constraint_type, value, recipe_id);
+CREATE INDEX idx_workout_catalog_slots_exercise ON workout_catalog_slots(exercise_id, recipe_id);
 `);
 
 const insertMetadata = database.prepare(
@@ -170,6 +258,44 @@ const insertSourceRef = database.prepare(
 );
 const insertSearch = database.prepare(
   'INSERT INTO exercise_search(exercise_id, name, aliases, description, instruction_steps, focus_tags, movement_tags, style_tags, equipment_tags) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)',
+);
+const insertWorkoutRecipe = database.prepare(`
+  INSERT INTO workout_catalog_recipes (
+    id,
+    slug,
+    ownership,
+    version,
+    status,
+    title,
+    summary,
+    focus,
+    target_duration_minutes,
+    duration_min_minutes,
+    duration_max_minutes,
+    min_experience_level,
+    min_experience_level_rank,
+    quality_score,
+    catalog_version,
+    source
+  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+`);
+const insertWorkoutRecipeEquipment = database.prepare(
+  'INSERT INTO workout_catalog_recipe_equipment(recipe_id, equipment_id, requirement_type) VALUES(?, ?, ?)',
+);
+const insertWorkoutRecipeTag = database.prepare(
+  'INSERT INTO workout_catalog_recipe_tags(recipe_id, tag_type, tag) VALUES(?, ?, ?)',
+);
+const insertWorkoutRecipeConstraint = database.prepare(
+  'INSERT INTO workout_catalog_recipe_constraints(recipe_id, constraint_type, value) VALUES(?, ?, ?)',
+);
+const insertWorkoutBlock = database.prepare(
+  'INSERT INTO workout_catalog_blocks(recipe_id, block_id, block_order, title, duration_minutes, focus) VALUES(?, ?, ?, ?, ?, ?)',
+);
+const insertWorkoutSlot = database.prepare(
+  'INSERT INTO workout_catalog_slots(recipe_id, block_id, slot_id, slot_order, exercise_id, role, prescription, detail, intensity) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)',
+);
+const insertWorkoutSlotSubstitution = database.prepare(
+  'INSERT INTO workout_catalog_slot_substitutions(recipe_id, block_id, slot_id, exercise_id, substitution_order) VALUES(?, ?, ?, ?, ?)',
 );
 
 const metadataRank = {
@@ -301,6 +427,83 @@ for (const exercise of canonical) {
     exercise.styleTags.join(' '),
     [...exercise.requiredEquipment, ...exercise.optionalEquipment].join(' '),
   );
+}
+
+for (const recipe of workoutCatalog.recipes) {
+  insertWorkoutRecipe.run(
+    recipe.id,
+    recipe.slug,
+    recipe.ownership,
+    recipe.version,
+    recipe.status,
+    recipe.title,
+    recipe.summary,
+    recipe.focus,
+    recipe.durationMinutes,
+    recipe.durationRange.min,
+    recipe.durationRange.max,
+    recipe.minExperienceLevel,
+    experienceRank[recipe.minExperienceLevel],
+    recipe.qualityScore,
+    workoutCatalog.catalogVersion,
+    workoutCatalog.source,
+  );
+
+  for (const equipmentId of recipe.equipment) {
+    insertWorkoutRecipeEquipment.run(recipe.id, equipmentId, 'required');
+  }
+
+  for (const [tagType, values] of [
+    ['focus', recipe.focusTags],
+    ['style', recipe.styleTags],
+    ['environment', recipe.environmentTags],
+    ['energy', recipe.energyLevels],
+  ]) {
+    for (const value of values) {
+      insertWorkoutRecipeTag.run(recipe.id, tagType, value);
+    }
+  }
+
+  for (const [constraintType, values] of Object.entries(recipe.constraints)) {
+    for (const value of values) {
+      insertWorkoutRecipeConstraint.run(recipe.id, constraintType, value);
+    }
+  }
+
+  recipe.blocks.forEach((block, blockIndex) => {
+    insertWorkoutBlock.run(
+      recipe.id,
+      block.id,
+      blockIndex,
+      block.title,
+      block.durationMinutes,
+      block.focus,
+    );
+
+    block.slots.forEach((slot, slotIndex) => {
+      insertWorkoutSlot.run(
+        recipe.id,
+        block.id,
+        slot.id,
+        slotIndex,
+        slot.exerciseId,
+        slot.role,
+        slot.prescription,
+        slot.detail ?? null,
+        slot.intensity,
+      );
+
+      slot.substitutionExerciseIds.forEach((exerciseId, substitutionIndex) => {
+        insertWorkoutSlotSubstitution.run(
+          recipe.id,
+          block.id,
+          slot.id,
+          exerciseId,
+          substitutionIndex,
+        );
+      });
+    });
+  });
 }
 
 database.close();

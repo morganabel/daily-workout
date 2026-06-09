@@ -9,19 +9,21 @@ This package owns the public exercise-library seed, the SQLite build pipeline, a
 The committed source-of-truth files are:
 
 - `data/public/canonical-exercises.json`
+- `data/catalog/system-workouts.json`
 - `data/public/manifest.json`
 - `data/curation/overrides.json`
 - `data/vocab/*.json`
 
-The package rebuilds `data/public/exercise-library.sqlite` deterministically from those committed inputs.
+The package rebuilds `data/public/exercise-library.sqlite` deterministically from those committed inputs. The SQLite file is the server runtime catalog for both canonical exercises and curated system workout recipes.
 
 ## Data Flow
 
 1. `data/public/canonical-exercises.json` provides the sanitized public base dataset.
 2. `data/curation/overrides.json` applies the small human-editable curation layer.
-3. `scripts/build-canonical.js` writes merged artifacts to `data/generated/` for local validation and reporting.
-4. `scripts/build-sqlite.js` rebuilds `data/public/exercise-library.sqlite` from the merged canonical dataset.
-5. `src/lib/open-library.ts` opens the public SQLite file through `better-sqlite3`.
+3. `data/catalog/system-workouts.json` defines curated workout recipes that reference canonical exercise IDs.
+4. `scripts/build-canonical.js` writes merged artifacts to `data/generated/` for local validation and reporting.
+5. `scripts/build-sqlite.js` rebuilds `data/public/exercise-library.sqlite` from the merged canonical dataset and workout catalog.
+6. `src/lib/open-library.ts` opens the public SQLite file through `better-sqlite3`.
 
 ## Provenance Rules
 
@@ -48,6 +50,18 @@ The query engine supports hybrid retrieval:
 - optional BM25 ranking through an FTS5 search index
 
 BM25 only ranks exercises that already satisfy the hard filters.
+
+## Workout Catalog Storage
+
+System workout recipes are stored separately from exercise rows but reference them by stable canonical exercise IDs. This keeps exercises reusable while allowing recipes to own workout-specific ordering, blocks, prescriptions, substitutions, filter tags, constraints, ownership, and version metadata.
+
+`build-sqlite.js` normalizes recipes into `workout_catalog_*` tables:
+
+- `workout_catalog_recipes` stores recipe identity, ownership, version, duration range, experience floor, quality score, and catalog version.
+- `workout_catalog_recipe_equipment`, `workout_catalog_recipe_tags`, and `workout_catalog_recipe_constraints` keep filter-critical data relational.
+- `workout_catalog_blocks`, `workout_catalog_slots`, and `workout_catalog_slot_substitutions` preserve materialization order and foreign-key every exercise reference back to `exercises(id)`.
+
+The same shape can be recreated in PostgreSQL for hosted/community catalogs: keep canonical exercises in an `exercises` table, copy the `workout_catalog_*` table boundaries, retain foreign keys from slots/substitutions to exercises, and add `owner_user_id` or `community_visibility` columns to `workout_catalog_recipes` when non-system recipes are introduced. Query indexes should mirror the SQLite indexes for duration, experience, equipment, tags, constraints, and slot exercise references.
 
 ## Commands
 
