@@ -1,7 +1,7 @@
-import { paths, writeJson } from './_common.js';
+import { paths, readJson, writeJson } from './_common.js';
 
 const CATALOG_VERSION = '2026.06.09';
-const TARGET_RECIPE_COUNT = 50;
+const TARGET_RECIPE_COUNT = 53;
 
 const x = {
   catCow: 'ex:00508',
@@ -177,6 +177,144 @@ function recipe(definition) {
       disallowedStressors: definition.disallowedStressors ?? [],
     },
     blocks: definition.blocks,
+  };
+}
+
+// Curated movement families used to derive equipment-valid exercise
+// substitutions. Each family lists interchangeable movements ordered roughly
+// easiest -> hardest, so the first offered swap is a sensible regression. The
+// library's focus/movement tags are too noisy for automatic similarity (e.g.
+// Goblet Squat is tagged `shoulders`/`push`), so substitution candidates are
+// curated here and then filtered at build time to the recipe's equipment.
+const MOVEMENT_FAMILIES = {
+  squat: [x.bodyweightSquat, x.gobletSquat, x.bandSquat, x.frontSquat, x.barbellSquat],
+  hinge: [
+    x.gluteBridge, x.singleLegBridge, x.bandGoodMorning, x.bandHipExtension,
+    x.bandDeadlift, x.kettlebellDeadlift, x.kettlebellSwing, x.romanianDeadlift,
+    x.barbellGluteBridge, x.barbellHipThrust, x.cableDeadlift, x.barbellDeadlift,
+  ],
+  lunge: [x.stepUp, x.reverseLunge, x.lunge, x.walkingLunge, x.dumbbellStepUp, x.barbellLunge],
+  horizontalPush: [
+    x.kneePushUp, x.inclinePushUp, x.pushUp, x.dumbbellFloorPress, x.kettlebellFloorPress,
+    x.dumbbellBenchPress, x.inclineDumbbellPress, x.dumbbellFly, x.bandChestPress,
+    x.bandBenchPress, x.cableChestPress, x.cableInclinePress, x.machineButterfly,
+    x.barbellBench, x.barbellInclineBench,
+  ],
+  verticalPush: [
+    x.sideLateralRaise, x.dumbbellScaption, x.bandLateralRaise, x.dumbbellShoulderPress,
+    x.arnoldPress, x.bandShoulderPress, x.kettlebellSeatedPress, x.cableShoulderPress,
+    x.barbellShoulderPress,
+  ],
+  horizontalPull: [
+    x.bandPullApart, x.bandRow, x.bandFacePull, x.cableFacePull, x.rearDeltRaise,
+    x.cableRearDeltFly, x.machineReverseFly, x.inclineBenchPull, x.kettlebellRow,
+    x.kettlebellTwoArmRow, x.cableRow, x.elevatedCableRow, x.barbellRow,
+  ],
+  verticalPull: [x.cableClosePulldown, x.cableLatPulldown],
+  core: [
+    x.deadBug, x.birdDog, x.plank, x.crunch, x.reverseCrunch, x.bicycleCrunch,
+    x.airBike, x.superman, x.cableCrunch, x.machineAbCrunch,
+  ],
+  bicep: [
+    x.dumbbellBicepCurl, x.hammerCurl, x.concentrationCurl, x.cableHammerCurl,
+    x.machineBicepCurl, x.barbellCurl,
+  ],
+  triceps: [x.seatedTricepsPress, x.dumbbellTricepsExtension, x.cableTriceps, x.machineTriceps],
+  quadIso: [x.bandLegExtension, x.machineSingleLegExtension, x.machineLegExtension],
+  hamIso: [x.machineSeatedLegCurl, x.machineLegCurl],
+  calf: ['ex:00245', x.bandCalfRaise, x.machineCalfPress],
+  shrug: [x.dumbbellShrug, x.barbellShrug, x.machineShrug],
+  cardio: [
+    x.walking, x.jogInPlace, x.cycling, x.elliptical, x.treadmillWalk,
+    x.treadmillJog, x.inclineTreadmill, x.treadmillRun, x.rower,
+  ],
+};
+
+const FAMILY_BY_EXERCISE = new Map();
+for (const [family, exerciseIds] of Object.entries(MOVEMENT_FAMILIES)) {
+  for (const exerciseId of exerciseIds) {
+    if (!FAMILY_BY_EXERCISE.has(exerciseId)) {
+      FAMILY_BY_EXERCISE.set(exerciseId, family);
+    }
+  }
+}
+
+const SUBSTITUTABLE_ROLES = new Set(['main', 'accessory']);
+
+// Resolve up to two equipment-valid, planner-ready substitutions for a slot
+// from the same movement family and role. Curated substitutions on the slot
+// are kept and validated by the catalog validator.
+// `offeredSubstitutions` tracks swaps already proposed elsewhere in the recipe
+// so limited-equipment recipes still vary their suggestions where possible.
+function resolveSubstitutions(
+  slot,
+  recipeEquipment,
+  usedExerciseIds,
+  offeredSubstitutions,
+  exerciseIndex,
+) {
+  if (slot.substitutionExerciseIds.length > 0) {
+    return slot.substitutionExerciseIds;
+  }
+  if (!SUBSTITUTABLE_ROLES.has(slot.role)) {
+    return [];
+  }
+
+  const family = FAMILY_BY_EXERCISE.get(slot.exerciseId);
+  if (!family) {
+    return [];
+  }
+
+  const equipment = new Set(recipeEquipment);
+  const candidates = MOVEMENT_FAMILIES[family]
+    .filter((candidateId) => candidateId !== slot.exerciseId)
+    .filter((candidateId) => !usedExerciseIds.has(candidateId))
+    .filter((candidateId) => {
+      const candidate = exerciseIndex.get(candidateId);
+      return (
+        candidate &&
+        candidate.metadataCompleteness === 'planner-ready' &&
+        candidate.allowedRoles.includes(slot.role) &&
+        candidate.requiredEquipment.every((id) => equipment.has(id))
+      );
+    });
+
+  // Prefer substitutes not already proposed for another slot in this recipe,
+  // preserving the family's easiest-first ordering within each group.
+  const fresh = candidates.filter((id) => !offeredSubstitutions.has(id));
+  const reused = candidates.filter((id) => offeredSubstitutions.has(id));
+  const selected = [...fresh, ...reused].slice(0, 2);
+  for (const id of selected) {
+    offeredSubstitutions.add(id);
+  }
+  return selected;
+}
+
+// Derive recipe-level contraindication/avoid advisories from the exercises the
+// recipe actually programs. This keeps the constraint summary accurate (rather
+// than an empty placeholder) so it can describe stressors present in the
+// workout for display and future recipe-level filtering.
+function deriveRecipeConstraints(recipe, exerciseIndex) {
+  const contraindicationTags = new Set();
+  const avoidTags = new Set();
+  for (const block of recipe.blocks) {
+    for (const slot of block.slots) {
+      const exercise = exerciseIndex.get(slot.exerciseId);
+      if (!exercise) {
+        continue;
+      }
+      for (const tag of exercise.contraindicationTags ?? []) {
+        contraindicationTags.add(tag);
+      }
+      for (const tag of exercise.avoidTags ?? []) {
+        avoidTags.add(tag);
+      }
+    }
+  }
+  return {
+    contraindicationTags: [...contraindicationTags].sort(),
+    avoidTags: [...avoidTags].sort(),
+    disallowedStressors: recipe.constraints.disallowedStressors,
   };
 }
 
@@ -936,26 +1074,27 @@ const recipes = [
   recipe({
     slug: 'bands-conditioning-circuit-30',
     title: 'Bands Conditioning Circuit',
-    summary: 'A moderate band circuit that alternates hinge, press, row, and squat patterns.',
+    summary: 'A fast, repeatable band circuit pairing hinge, squat, and overhead pressing for a higher-effort metabolic session.',
     focus: 'Full Body Conditioning',
-    focusTags: ['full_body', 'conditioning', 'upper_body', 'lower_body'],
+    focusTags: ['full_body', 'conditioning', 'upper_body', 'lower_body', 'glutes'],
     styleTags: ['conditioning', 'strength'],
     equipment: ['resistance_bands'],
     environmentTags: ['home', 'travel'],
     durationMinutes: 30,
-    energyLevels: ['moderate'],
+    energyLevels: ['moderate', 'intense'],
     qualityScore: 84,
     blocks: [
-      block('prep', 'Band Prep', 5, 'Total-body patterning', [
-        slot('pull-apart', x.bandPullApart, 'warmup', '2 x 12', 'Light tension.', 'easy'),
-        slot('good-morning', x.bandGoodMorning, 'warmup', '2 x 10', 'Smooth hinge.', 'easy'),
+      block('prep', 'Band Prep', 5, 'Glutes and shoulders', [
+        slot('monster-walk', x.monsterWalk, 'warmup', '2 x 20 steps', 'Stay low and keep tension.', 'easy'),
+        slot('pull-apart', x.bandPullApart, 'warmup', '2 x 15', 'Light tension.', 'easy'),
       ]),
-      block('circuit', 'Conditioning Circuit', 20, 'Repeatable band work', [
-        slot('squat', x.bandSquat, 'main', '4 rounds x 10', 'Move steadily.'),
-        slot('press', x.bandChestPress, 'main', '4 rounds x 10', 'Control the band.'),
-        slot('row', x.bandRow, 'main', '4 rounds x 10', 'Pause briefly.'),
+      block('circuit', 'Conditioning Circuit', 21, 'Continuous band rounds, short rest', [
+        slot('squat', x.bandSquat, 'main', '5 rounds x 12', 'Move fast but controlled; rest ~30s between rounds.', 'intense'),
+        slot('deadlift', x.bandDeadlift, 'main', '5 rounds x 10', 'Drive the hips through.', 'intense'),
+        slot('press', x.bandShoulderPress, 'main', '5 rounds x 10', 'Press overhead without leaning back.', 'moderate'),
+        slot('row', x.bandRow, 'main', '5 rounds x 12', 'Pull to the ribs and pause.', 'moderate'),
       ]),
-      block('finish', 'Posture Finish', 5, 'Upper back', [
+      block('finish', 'Posture Finish', 4, 'Upper back', [
         slot('face-pull', x.bandFacePull, 'accessory', '2 x 15', 'Easy controlled reps.', 'easy'),
       ]),
     ],
@@ -1043,26 +1182,28 @@ const recipes = [
   recipe({
     slug: 'kettlebell-push-core-35',
     title: 'Kettlebell Push and Core',
-    summary: 'A kettlebell pressing session with floor press, seated press, and core-friendly hinges.',
+    summary: 'A kettlebell pressing session with floor press and seated press, balanced by a dedicated trunk-stability finisher.',
     focus: 'Upper Body Push',
     focusTags: ['upper_body', 'chest', 'shoulders', 'triceps', 'core'],
     styleTags: ['strength'],
-    equipment: ['kettlebell'],
+    equipment: ['kettlebell', 'bodyweight'],
     environmentTags: ['home', 'gym'],
     durationMinutes: 35,
     energyLevels: ['moderate'],
     qualityScore: 83,
     blocks: [
-      block('prep', 'Press Prep', 5, 'Press patterning', [
-        slot('press-light', x.kettlebellSeatedPress, 'accessory', '2 x 8 light', 'Move slowly.', 'easy'),
+      block('prep', 'Press Prep', 5, 'Shoulders and trunk', [
+        slot('arm-circles', x.armCircles, 'warmup', '60 seconds', 'Open the shoulders.', 'easy'),
+        slot('dead-bug', x.deadBug, 'warmup', '2 x 6 per side', 'Set the bracing pattern.', 'easy'),
       ]),
-      block('main', 'Push Strength', 24, 'Pressing work', [
-        slot('floor-press', x.kettlebellFloorPress, 'main', '4 x 8 per side', 'Keep shoulder packed.'),
-        slot('seated-press', x.kettlebellSeatedPress, 'main', '3 x 8', 'Brace tall.'),
-        slot('goblet-squat', x.gobletSquat, 'accessory', '3 x 8 light', 'Use as a controlled core drill.'),
+      block('main', 'Push Strength', 22, 'Pressing work and upper-back balance', [
+        slot('floor-press', x.kettlebellFloorPress, 'main', '4 x 8 per side', 'Keep the shoulder packed.'),
+        slot('seated-press', x.kettlebellSeatedPress, 'main', '3 x 8', 'Brace tall and press without leaning back.'),
+        slot('row', x.kettlebellRow, 'accessory', '3 x 10 per side', 'Pull to the ribs to balance the pressing.'),
       ]),
-      block('finish', 'Row Balance', 6, 'Upper-back balance', [
-        slot('row', x.kettlebellRow, 'accessory', '2 x 10 per side', 'Smooth reps.'),
+      block('core', 'Core Finish', 8, 'Anti-extension and anti-rotation', [
+        slot('plank', x.plank, 'accessory', '3 x 30 seconds', 'Squeeze glutes and brace.', 'moderate'),
+        slot('bird-dog', x.birdDog, 'accessory', '2 x 8 per side', 'Move slowly and resist twisting.', 'easy'),
       ]),
     ],
   }),
@@ -1318,7 +1459,7 @@ const recipes = [
     disallowedStressors: ['upper_body_pull_fatigue'],
     blocks: [
       block('warmup', 'Warm-up', 8, 'Easy aerobic ramp', [
-        slot('treadmill-warmup', x.treadmillWalk, 'warmup', '8 minutes easy', 'Increase speed gradually without pushing effort.', 'easy', [x.walking]),
+        slot('treadmill-warmup', x.treadmillWalk, 'warmup', '8 minutes easy', 'Increase speed gradually without pushing effort.', 'easy'),
       ]),
       block('strength', 'Pull Strength', 20, 'Rows and trunk control', [
         slot('cable-row', x.cableRow, 'main', '4 x 10', 'Pause with shoulder blades back on each rep.'),
@@ -1477,12 +1618,140 @@ const recipes = [
       ]),
     ],
   }),
+  recipe({
+    slug: 'kettlebell-advanced-full-body-50',
+    title: 'Kettlebell Advanced Full Body',
+    summary: 'A high-effort kettlebell session pairing ballistic hinge work with squat, press, and pull strength for advanced trainees.',
+    focus: 'Full Body Athletic Base',
+    focusTags: ['full_body', 'lower_body', 'upper_body', 'glutes', 'hamstrings', 'conditioning'],
+    styleTags: ['strength', 'conditioning'],
+    equipment: ['kettlebell', 'bodyweight'],
+    environmentTags: ['home', 'gym'],
+    minExperienceLevel: 'advanced',
+    durationMinutes: 50,
+    energyLevels: ['intense'],
+    qualityScore: 86,
+    blocks: [
+      block('prep', 'Movement Prep', 8, 'Spine, hips, and trunk', [
+        slot('cat-cow', x.catCow, 'warmup', '90 seconds', 'Move slowly through the spine.', 'easy'),
+        slot('arm-circles', x.armCircles, 'warmup', '60 seconds', 'Open the shoulders.', 'easy'),
+        slot('dead-bug', x.deadBug, 'warmup', '2 x 8 per side', 'Set the bracing pattern.', 'easy'),
+      ]),
+      block('main', 'Power and Strength', 34, 'Swing, squat, press, and pull', [
+        slot('swing', x.kettlebellSwing, 'main', '6 x 12', 'Snap the hips; let the bell float.', 'intense'),
+        slot('goblet-squat', x.gobletSquat, 'main', '4 x 8', 'Stay tall through the torso.', 'intense'),
+        slot('floor-press', x.kettlebellFloorPress, 'main', '4 x 8 per side', 'Keep the shoulder packed.', 'moderate'),
+        slot('row', x.kettlebellRow, 'main', '4 x 10 per side', 'Pull to the ribs and pause.', 'moderate'),
+        slot('deadlift', x.kettlebellDeadlift, 'accessory', '3 x 8 per side', 'Hinge with a flat back.', 'moderate'),
+      ]),
+      block('finish', 'Cooldown', 8, 'Hips and posterior chain', [
+        slot('child-pose', x.childPose, 'recovery', '3 minutes', 'Let the breath slow.', 'easy'),
+        slot('hamstring', x.hamstringStretch, 'recovery', '60 seconds per side', 'Keep the stretch mild.', 'easy'),
+      ]),
+    ],
+  }),
+  recipe({
+    slug: 'dumbbell-advanced-push-45',
+    title: 'Dumbbell Advanced Push',
+    summary: 'An advanced dumbbell pressing day building chest, shoulder, and arm strength with a dedicated triceps and biceps finish.',
+    focus: 'Upper Body Push',
+    focusTags: ['upper_body', 'chest', 'shoulders', 'triceps', 'biceps'],
+    styleTags: ['strength'],
+    equipment: ['dumbbell', 'bench', 'bodyweight'],
+    environmentTags: ['home', 'gym'],
+    minExperienceLevel: 'advanced',
+    durationMinutes: 45,
+    energyLevels: ['intense'],
+    qualityScore: 85,
+    blocks: [
+      block('prep', 'Press Prep', 6, 'Shoulders and trunk', [
+        slot('arm-circles', x.armCircles, 'warmup', '60 seconds', 'Open the shoulders.', 'easy'),
+        slot('plank', x.plank, 'warmup', '2 x 30 seconds', 'Brace before pressing.', 'easy'),
+        slot('dead-bug', x.deadBug, 'warmup', '2 x 6 per side', 'Set the ribs down.', 'easy'),
+      ]),
+      block('main', 'Press Strength', 33, 'Chest, shoulders, and arms', [
+        slot('bench-press', x.dumbbellBenchPress, 'main', '5 x 6-8', 'Control the descent; press hard.', 'intense'),
+        slot('incline-press', x.inclineDumbbellPress, 'main', '4 x 8', 'Keep the path over the upper chest.', 'intense'),
+        slot('shoulder-press', x.arnoldPress, 'main', '4 x 8', 'Rotate smoothly without leaning back.', 'moderate'),
+        slot('fly', x.dumbbellFly, 'accessory', '3 x 12', 'Soft elbows and a wide arc.', 'moderate'),
+        slot('triceps', x.dumbbellTricepsExtension, 'accessory', '3 x 10', 'Keep the elbows tucked.', 'moderate'),
+        slot('biceps', x.dumbbellBicepCurl, 'accessory', '3 x 10', 'No swinging.', 'moderate'),
+      ]),
+      block('finish', 'Cooldown', 6, 'Chest and spine', [
+        slot('child-pose', x.childPose, 'recovery', '2 minutes', 'Relax the shoulders.', 'easy'),
+        slot('cat-cow', x.catCow, 'recovery', '90 seconds', 'Breathe slowly.', 'easy'),
+      ]),
+    ],
+  }),
+  recipe({
+    slug: 'bands-knee-friendly-lower-30',
+    title: 'Knee-Friendly Lower Strength',
+    summary: 'A hinge-dominant lower-body session built around glute and hamstring work that avoids deep knee loading.',
+    focus: 'Glutes and Hamstrings',
+    focusTags: ['lower_body', 'glutes', 'hamstrings'],
+    styleTags: ['strength'],
+    equipment: ['bodyweight', 'resistance_bands'],
+    environmentTags: ['home', 'travel'],
+    durationMinutes: 30,
+    energyLevels: ['easy', 'moderate'],
+    qualityScore: 87,
+    blocks: [
+      block('prep', 'Hip Prep', 5, 'Glutes and spine', [
+        slot('cat-cow', x.catCow, 'warmup', '60 seconds', 'Move slowly through the spine.', 'easy'),
+        slot('bridge', x.gluteBridge, 'warmup', '2 x 10', 'Pause and squeeze at the top.', 'easy'),
+      ]),
+      block('strength', 'Posterior Strength', 20, 'Bridges and hinge work', [
+        slot('single-leg-bridge', x.singleLegBridge, 'main', '3 x 10 per side', 'Keep the hips level.'),
+        slot('hip-extension', x.bandHipExtension, 'main', '3 x 12', 'Drive through the heel.'),
+        slot('good-morning', x.bandGoodMorning, 'accessory', '3 x 12', 'Soft knees; hinge from the hips.'),
+        slot('monster-walk', x.monsterWalk, 'accessory', '3 x 20 steps', 'Stay low and keep band tension.', 'moderate'),
+      ]),
+      block('finish', 'Cooldown', 5, 'Hamstrings and hips', [
+        slot('child-pose', x.childPose, 'recovery', '2 minutes', 'Let the breath slow.', 'easy'),
+        slot('hamstring', x.hamstringStretch, 'recovery', '60 seconds per side', 'Keep the stretch mild.', 'easy'),
+      ]),
+    ],
+  }),
 ];
 
 if (recipes.length !== TARGET_RECIPE_COUNT) {
   throw new Error(
     `Expected ${TARGET_RECIPE_COUNT} system workout recipes, found ${recipes.length}`,
   );
+}
+
+// Enrich recipes from the canonical exercise dataset: fill equipment-valid
+// movement-family substitutions for concrete slots and derive recipe-level
+// constraint advisories from the exercises actually programmed.
+const canonicalExercises = await readJson(paths.generatedCanonical);
+const exerciseIndex = new Map(
+  canonicalExercises.map((exercise) => [exercise.id, exercise]),
+);
+
+let resolvedSubstitutionCount = 0;
+for (const builtRecipe of recipes) {
+  const usedExerciseIds = new Set();
+  for (const builtBlock of builtRecipe.blocks) {
+    for (const builtSlot of builtBlock.slots) {
+      usedExerciseIds.add(builtSlot.exerciseId);
+    }
+  }
+
+  const offeredSubstitutions = new Set();
+  for (const builtBlock of builtRecipe.blocks) {
+    for (const builtSlot of builtBlock.slots) {
+      builtSlot.substitutionExerciseIds = resolveSubstitutions(
+        builtSlot,
+        builtRecipe.equipment,
+        usedExerciseIds,
+        offeredSubstitutions,
+        exerciseIndex,
+      );
+      resolvedSubstitutionCount += builtSlot.substitutionExerciseIds.length;
+    }
+  }
+
+  builtRecipe.constraints = deriveRecipeConstraints(builtRecipe, exerciseIndex);
 }
 
 await writeJson(paths.systemWorkoutCatalog, {
@@ -1493,5 +1762,5 @@ await writeJson(paths.systemWorkoutCatalog, {
 });
 
 console.log(
-  `Built system workout catalog with ${recipes.length} recipes at ${paths.systemWorkoutCatalog}`,
+  `Built system workout catalog with ${recipes.length} recipes (${resolvedSubstitutionCount} slot substitutions) at ${paths.systemWorkoutCatalog}`,
 );

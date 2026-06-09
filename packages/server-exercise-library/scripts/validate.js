@@ -473,6 +473,12 @@ for (const recipe of workoutCatalog.recipes) {
           );
         }
 
+        if (!substitution.allowedRoles.includes(slot.role)) {
+          throw new Error(
+            `Workout recipe ${recipe.id} uses substitution ${substitutionId} as unsupported role ${slot.role} for slot ${slot.id}`,
+          );
+        }
+
         for (const requiredEquipment of substitution.requiredEquipment) {
           if (!recipeEquipmentIds.has(requiredEquipment)) {
             throw new Error(
