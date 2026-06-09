@@ -336,8 +336,11 @@ if (!workoutCatalog.catalogVersion) {
   throw new Error('Workout catalog must declare catalogVersion');
 }
 
-if (!Array.isArray(workoutCatalog.recipes) || workoutCatalog.recipes.length < 3) {
-  throw new Error('Workout catalog must contain at least 3 recipes');
+if (
+  !Array.isArray(workoutCatalog.recipes) ||
+  workoutCatalog.recipes.length < 50
+) {
+  throw new Error('Workout catalog must contain at least 50 recipes');
 }
 
 for (const recipe of workoutCatalog.recipes) {
@@ -397,6 +400,7 @@ for (const recipe of workoutCatalog.recipes) {
     }
   }
 
+  const recipeEquipmentIds = new Set(recipe.equipment);
   const blockDuration = recipe.blocks.reduce(
     (total, block) => total + block.durationMinutes,
     0,
@@ -441,6 +445,14 @@ for (const recipe of workoutCatalog.recipes) {
         );
       }
 
+      for (const requiredEquipment of exercise.requiredEquipment) {
+        if (!recipeEquipmentIds.has(requiredEquipment)) {
+          throw new Error(
+            `Workout recipe ${recipe.id} slot ${slot.id} requires ${requiredEquipment} but recipe equipment omits it`,
+          );
+        }
+      }
+
       if (!exercise.allowedRoles.includes(slot.role)) {
         throw new Error(
           `Workout recipe ${recipe.id} uses ${slot.exerciseId} as unsupported role ${slot.role}`,
@@ -459,6 +471,14 @@ for (const recipe of workoutCatalog.recipes) {
           throw new Error(
             `Workout recipe ${recipe.id} references non planner-ready substitution ${substitutionId}`,
           );
+        }
+
+        for (const requiredEquipment of substitution.requiredEquipment) {
+          if (!recipeEquipmentIds.has(requiredEquipment)) {
+            throw new Error(
+              `Workout recipe ${recipe.id} substitution ${substitutionId} requires ${requiredEquipment} but recipe equipment omits it`,
+            );
+          }
         }
       }
     }

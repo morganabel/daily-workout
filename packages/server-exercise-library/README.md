@@ -9,6 +9,7 @@ This package owns the public exercise-library seed, the SQLite build pipeline, a
 The committed source-of-truth files are:
 
 - `data/public/canonical-exercises.json`
+- `scripts/build-system-workouts.js`
 - `data/catalog/system-workouts.json`
 - `data/public/manifest.json`
 - `data/curation/overrides.json`
@@ -20,10 +21,11 @@ The package rebuilds `data/public/exercise-library.sqlite` deterministically fro
 
 1. `data/public/canonical-exercises.json` provides the sanitized public base dataset.
 2. `data/curation/overrides.json` applies the small human-editable curation layer.
-3. `data/catalog/system-workouts.json` defines curated workout recipes that reference canonical exercise IDs.
-4. `scripts/build-canonical.js` writes merged artifacts to `data/generated/` for local validation and reporting.
-5. `scripts/build-sqlite.js` rebuilds `data/public/exercise-library.sqlite` from the merged canonical dataset and workout catalog.
-6. `src/lib/open-library.ts` opens the public SQLite file through `better-sqlite3`.
+3. `scripts/build-system-workouts.js` writes the curated system workout catalog to `data/catalog/system-workouts.json`.
+4. `data/catalog/system-workouts.json` defines curated workout recipes that reference canonical exercise IDs.
+5. `scripts/build-canonical.js` writes merged artifacts to `data/generated/` for local validation and reporting.
+6. `scripts/build-sqlite.js` rebuilds `data/public/exercise-library.sqlite` from the merged canonical dataset and workout catalog.
+7. `src/lib/open-library.ts` opens the public SQLite file through `better-sqlite3`.
 
 ## Provenance Rules
 
@@ -75,6 +77,12 @@ Build the SQLite database:
 
 ```bash
 node packages/server-exercise-library/scripts/build-sqlite.js
+```
+
+Build the system workout catalog:
+
+```bash
+node packages/server-exercise-library/scripts/build-system-workouts.js
 ```
 
 Print the readiness report:

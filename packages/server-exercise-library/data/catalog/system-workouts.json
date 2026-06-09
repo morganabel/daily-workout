@@ -12,18 +12,34 @@
       "title": "Bodyweight Foundation",
       "summary": "A balanced bodyweight session with squat, push, core, and easy conditioning work.",
       "focus": "Full Body Strength",
-      "focusTags": ["full_body", "lower_body", "upper_body", "core"],
-      "styleTags": ["strength", "conditioning"],
-      "equipment": ["bodyweight"],
-      "environmentTags": ["home", "travel"],
+      "focusTags": [
+        "full_body",
+        "lower_body",
+        "upper_body",
+        "core"
+      ],
+      "styleTags": [
+        "strength",
+        "conditioning"
+      ],
+      "equipment": [
+        "bodyweight"
+      ],
+      "environmentTags": [
+        "home",
+        "travel"
+      ],
       "minExperienceLevel": "beginner",
       "durationMinutes": 30,
       "durationRange": {
         "min": 25,
         "max": 35
       },
-      "energyLevels": ["easy", "moderate"],
-      "qualityScore": 92,
+      "energyLevels": [
+        "easy",
+        "moderate"
+      ],
+      "qualityScore": 95,
       "constraints": {
         "contraindicationTags": [],
         "avoidTags": [],
@@ -31,26 +47,26 @@
       },
       "blocks": [
         {
-          "id": "warmup",
-          "title": "Warm-up",
+          "id": "prep",
+          "title": "Prep",
           "durationMinutes": 6,
-          "focus": "Spine, hips, and core",
+          "focus": "Mobility and trunk control",
           "slots": [
             {
               "id": "cat-cow",
               "exerciseId": "ex:00508",
               "role": "warmup",
-              "prescription": "2 rounds of 45 seconds",
-              "detail": "Move slowly and breathe into each rep.",
+              "prescription": "60 seconds",
+              "detail": "Move slowly through the spine.",
               "intensity": "easy",
-              "substitutionExerciseIds": ["fedb:dead-bug"]
+              "substitutionExerciseIds": []
             },
             {
               "id": "dead-bug",
               "exerciseId": "fedb:dead-bug",
               "role": "warmup",
-              "prescription": "2 x 8 per side",
-              "detail": "Keep ribs down and move with control.",
+              "prescription": "2 x 6 per side",
+              "detail": "Keep ribs down and exhale with each reach.",
               "intensity": "easy",
               "substitutionExerciseIds": []
             }
@@ -78,7 +94,9 @@
               "prescription": "3 x 8-12",
               "detail": "Use a height that lets every rep stay crisp.",
               "intensity": "moderate",
-              "substitutionExerciseIds": ["ex:00484"]
+              "substitutionExerciseIds": [
+                "ex:00215"
+              ]
             },
             {
               "id": "core",
@@ -111,6 +129,1387 @@
       ]
     },
     {
+      "id": "catalog:bodyweight-express-20",
+      "slug": "bodyweight-express-20",
+      "ownership": "system",
+      "version": 1,
+      "status": "active",
+      "title": "Bodyweight Express",
+      "summary": "A quick no-equipment strength circuit for busy days.",
+      "focus": "Full Body Strength",
+      "focusTags": [
+        "full_body",
+        "upper_body",
+        "lower_body",
+        "core"
+      ],
+      "styleTags": [
+        "strength"
+      ],
+      "equipment": [
+        "bodyweight"
+      ],
+      "environmentTags": [
+        "home",
+        "travel"
+      ],
+      "minExperienceLevel": "beginner",
+      "durationMinutes": 20,
+      "durationRange": {
+        "min": 15,
+        "max": 30
+      },
+      "energyLevels": [
+        "easy",
+        "moderate"
+      ],
+      "qualityScore": 88,
+      "constraints": {
+        "contraindicationTags": [],
+        "avoidTags": [],
+        "disallowedStressors": []
+      },
+      "blocks": [
+        {
+          "id": "prep",
+          "title": "Prep",
+          "durationMinutes": 4,
+          "focus": "Joints and core",
+          "slots": [
+            {
+              "id": "cat-cow",
+              "exerciseId": "ex:00508",
+              "role": "warmup",
+              "prescription": "45 seconds",
+              "detail": "Move comfortably.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "plank",
+              "exerciseId": "fedb:plank",
+              "role": "warmup",
+              "prescription": "2 x 20 seconds",
+              "detail": "Brace gently.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            }
+          ]
+        },
+        {
+          "id": "circuit",
+          "title": "Main Circuit",
+          "durationMinutes": 12,
+          "focus": "Squat, push, and core",
+          "slots": [
+            {
+              "id": "squat",
+              "exerciseId": "fedb:bodyweight-squat",
+              "role": "main",
+              "prescription": "3 x 12",
+              "detail": "Smooth reps with full foot pressure.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "push",
+              "exerciseId": "fedb:incline-push-up",
+              "role": "main",
+              "prescription": "3 x 8",
+              "detail": "Keep shoulders away from ears.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "dead-bug",
+              "exerciseId": "fedb:dead-bug",
+              "role": "accessory",
+              "prescription": "3 x 6 per side",
+              "detail": "Own the slow tempo.",
+              "intensity": "easy",
+              "substitutionExerciseIds": []
+            }
+          ]
+        },
+        {
+          "id": "finish",
+          "title": "Reset",
+          "durationMinutes": 4,
+          "focus": "Breathing cooldown",
+          "slots": [
+            {
+              "id": "child-pose",
+              "exerciseId": "fedb:childs-pose",
+              "role": "recovery",
+              "prescription": "2 minutes",
+              "detail": "Relax the low back.",
+              "intensity": "easy",
+              "substitutionExerciseIds": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "catalog:bodyweight-lower-30",
+      "slug": "bodyweight-lower-30",
+      "ownership": "system",
+      "version": 1,
+      "status": "active",
+      "title": "Bodyweight Lower Strength",
+      "summary": "A lower-body session built around squats, lunges, bridges, and calves.",
+      "focus": "Lower Body Strength",
+      "focusTags": [
+        "lower_body",
+        "glutes",
+        "hamstrings",
+        "quadriceps",
+        "calves"
+      ],
+      "styleTags": [
+        "strength"
+      ],
+      "equipment": [
+        "bodyweight"
+      ],
+      "environmentTags": [
+        "home",
+        "travel"
+      ],
+      "minExperienceLevel": "beginner",
+      "durationMinutes": 30,
+      "durationRange": {
+        "min": 25,
+        "max": 40
+      },
+      "energyLevels": [
+        "moderate"
+      ],
+      "qualityScore": 89,
+      "constraints": {
+        "contraindicationTags": [],
+        "avoidTags": [],
+        "disallowedStressors": [
+          "lower_body_fatigue"
+        ]
+      },
+      "blocks": [
+        {
+          "id": "prep",
+          "title": "Prep",
+          "durationMinutes": 5,
+          "focus": "Hips and ankles",
+          "slots": [
+            {
+              "id": "squat",
+              "exerciseId": "fedb:bodyweight-squat",
+              "role": "accessory",
+              "prescription": "2 x 8",
+              "detail": "Use this as a controlled warm-up.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "bridge",
+              "exerciseId": "fedb:butt-lift-bridge",
+              "role": "warmup",
+              "prescription": "2 x 10",
+              "detail": "Pause at the top.",
+              "intensity": "easy",
+              "substitutionExerciseIds": []
+            }
+          ]
+        },
+        {
+          "id": "strength",
+          "title": "Lower Strength",
+          "durationMinutes": 20,
+          "focus": "Single-leg and squat work",
+          "slots": [
+            {
+              "id": "reverse-lunge",
+              "exerciseId": "ex:00692",
+              "role": "main",
+              "prescription": "3 x 8 per side",
+              "detail": "Step back softly and stay tall.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "squat",
+              "exerciseId": "fedb:bodyweight-squat",
+              "role": "main",
+              "prescription": "3 x 12",
+              "detail": "Keep reps smooth.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "calves",
+              "exerciseId": "ex:00245",
+              "role": "accessory",
+              "prescription": "3 x 15",
+              "detail": "Pause briefly at the top.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            }
+          ]
+        },
+        {
+          "id": "finish",
+          "title": "Cooldown",
+          "durationMinutes": 5,
+          "focus": "Easy recovery",
+          "slots": [
+            {
+              "id": "child-pose",
+              "exerciseId": "fedb:childs-pose",
+              "role": "recovery",
+              "prescription": "2 minutes",
+              "detail": "Let the breath slow down.",
+              "intensity": "easy",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "hamstring-stretch",
+              "exerciseId": "fedb:hamstring-stretch",
+              "role": "recovery",
+              "prescription": "60 seconds per side",
+              "detail": "Keep the stretch mild.",
+              "intensity": "easy",
+              "substitutionExerciseIds": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "catalog:bodyweight-upper-core-25",
+      "slug": "bodyweight-upper-core-25",
+      "ownership": "system",
+      "version": 1,
+      "status": "active",
+      "title": "Bodyweight Upper and Core",
+      "summary": "A compact push and trunk-control workout for home or travel.",
+      "focus": "Upper Body and Core",
+      "focusTags": [
+        "upper_body",
+        "chest",
+        "shoulders",
+        "triceps",
+        "core"
+      ],
+      "styleTags": [
+        "strength"
+      ],
+      "equipment": [
+        "bodyweight"
+      ],
+      "environmentTags": [
+        "home",
+        "travel"
+      ],
+      "minExperienceLevel": "beginner",
+      "durationMinutes": 25,
+      "durationRange": {
+        "min": 20,
+        "max": 35
+      },
+      "energyLevels": [
+        "easy",
+        "moderate"
+      ],
+      "qualityScore": 87,
+      "constraints": {
+        "contraindicationTags": [],
+        "avoidTags": [],
+        "disallowedStressors": []
+      },
+      "blocks": [
+        {
+          "id": "prep",
+          "title": "Prep",
+          "durationMinutes": 5,
+          "focus": "Mobility and trunk control",
+          "slots": [
+            {
+              "id": "cat-cow",
+              "exerciseId": "ex:00508",
+              "role": "warmup",
+              "prescription": "60 seconds",
+              "detail": "Move slowly through the spine.",
+              "intensity": "easy",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "dead-bug",
+              "exerciseId": "fedb:dead-bug",
+              "role": "warmup",
+              "prescription": "2 x 6 per side",
+              "detail": "Keep ribs down and exhale with each reach.",
+              "intensity": "easy",
+              "substitutionExerciseIds": []
+            }
+          ]
+        },
+        {
+          "id": "main",
+          "title": "Push and Brace",
+          "durationMinutes": 15,
+          "focus": "Pressing and core",
+          "slots": [
+            {
+              "id": "push-up",
+              "exerciseId": "fedb:incline-push-up",
+              "role": "main",
+              "prescription": "4 x 8-10",
+              "detail": "Choose a pain-free incline.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "plank",
+              "exerciseId": "fedb:plank",
+              "role": "accessory",
+              "prescription": "4 x 25 seconds",
+              "detail": "Stop before shaking changes your position.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "dead-bug",
+              "exerciseId": "fedb:dead-bug",
+              "role": "accessory",
+              "prescription": "3 x 8 per side",
+              "detail": "Move slowly.",
+              "intensity": "easy",
+              "substitutionExerciseIds": []
+            }
+          ]
+        },
+        {
+          "id": "finish",
+          "title": "Cooldown",
+          "durationMinutes": 5,
+          "focus": "Easy recovery",
+          "slots": [
+            {
+              "id": "child-pose",
+              "exerciseId": "fedb:childs-pose",
+              "role": "recovery",
+              "prescription": "2 minutes",
+              "detail": "Let the breath slow down.",
+              "intensity": "easy",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "hamstring-stretch",
+              "exerciseId": "fedb:hamstring-stretch",
+              "role": "recovery",
+              "prescription": "60 seconds per side",
+              "detail": "Keep the stretch mild.",
+              "intensity": "easy",
+              "substitutionExerciseIds": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "catalog:bodyweight-core-stability-20",
+      "slug": "bodyweight-core-stability-20",
+      "ownership": "system",
+      "version": 1,
+      "status": "active",
+      "title": "Bodyweight Core Stability",
+      "summary": "A low-impact trunk session for bracing, rotation control, and recovery-friendly core work.",
+      "focus": "Core Stability",
+      "focusTags": [
+        "core",
+        "abdominals",
+        "recovery"
+      ],
+      "styleTags": [
+        "strength",
+        "recovery"
+      ],
+      "equipment": [
+        "bodyweight"
+      ],
+      "environmentTags": [
+        "home",
+        "travel"
+      ],
+      "minExperienceLevel": "beginner",
+      "durationMinutes": 20,
+      "durationRange": {
+        "min": 15,
+        "max": 30
+      },
+      "energyLevels": [
+        "easy",
+        "moderate"
+      ],
+      "qualityScore": 86,
+      "constraints": {
+        "contraindicationTags": [],
+        "avoidTags": [],
+        "disallowedStressors": []
+      },
+      "blocks": [
+        {
+          "id": "prep",
+          "title": "Prep",
+          "durationMinutes": 4,
+          "focus": "Breathing and spine",
+          "slots": [
+            {
+              "id": "cat-cow",
+              "exerciseId": "ex:00508",
+              "role": "warmup",
+              "prescription": "60 seconds",
+              "detail": "Move gently.",
+              "intensity": "easy",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "dead-bug",
+              "exerciseId": "fedb:dead-bug",
+              "role": "warmup",
+              "prescription": "2 x 5 per side",
+              "detail": "Exhale on the reach.",
+              "intensity": "easy",
+              "substitutionExerciseIds": []
+            }
+          ]
+        },
+        {
+          "id": "core",
+          "title": "Stability Work",
+          "durationMinutes": 12,
+          "focus": "Anti-extension and posterior chain",
+          "slots": [
+            {
+              "id": "plank",
+              "exerciseId": "fedb:plank",
+              "role": "accessory",
+              "prescription": "4 x 20-30 seconds",
+              "detail": "Keep a quiet brace.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "bird-dog",
+              "exerciseId": "ex:00486",
+              "role": "accessory",
+              "prescription": "3 x 6 per side",
+              "detail": "Reach long without twisting.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "superman",
+              "exerciseId": "fedb:superman",
+              "role": "warmup",
+              "prescription": "3 x 8",
+              "detail": "Lift only as high as comfortable.",
+              "intensity": "easy",
+              "substitutionExerciseIds": []
+            }
+          ]
+        },
+        {
+          "id": "finish",
+          "title": "Cooldown",
+          "durationMinutes": 4,
+          "focus": "Easy recovery",
+          "slots": [
+            {
+              "id": "child-pose",
+              "exerciseId": "fedb:childs-pose",
+              "role": "recovery",
+              "prescription": "2 minutes",
+              "detail": "Let the breath slow down.",
+              "intensity": "easy",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "hamstring-stretch",
+              "exerciseId": "fedb:hamstring-stretch",
+              "role": "recovery",
+              "prescription": "60 seconds per side",
+              "detail": "Keep the stretch mild.",
+              "intensity": "easy",
+              "substitutionExerciseIds": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "catalog:bodyweight-conditioning-35",
+      "slug": "bodyweight-conditioning-35",
+      "ownership": "system",
+      "version": 1,
+      "status": "active",
+      "title": "Bodyweight Conditioning",
+      "summary": "A moderate conditioning circuit using simple bodyweight strength and aerobic intervals.",
+      "focus": "Conditioning",
+      "focusTags": [
+        "conditioning",
+        "full_body",
+        "lower_body",
+        "core"
+      ],
+      "styleTags": [
+        "conditioning",
+        "cardio"
+      ],
+      "equipment": [
+        "bodyweight"
+      ],
+      "environmentTags": [
+        "home",
+        "travel"
+      ],
+      "minExperienceLevel": "beginner",
+      "durationMinutes": 35,
+      "durationRange": {
+        "min": 30,
+        "max": 45
+      },
+      "energyLevels": [
+        "moderate",
+        "intense"
+      ],
+      "qualityScore": 87,
+      "constraints": {
+        "contraindicationTags": [],
+        "avoidTags": [],
+        "disallowedStressors": []
+      },
+      "blocks": [
+        {
+          "id": "prep",
+          "title": "Prep",
+          "durationMinutes": 6,
+          "focus": "Mobility and trunk control",
+          "slots": [
+            {
+              "id": "cat-cow",
+              "exerciseId": "ex:00508",
+              "role": "warmup",
+              "prescription": "60 seconds",
+              "detail": "Move slowly through the spine.",
+              "intensity": "easy",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "dead-bug",
+              "exerciseId": "fedb:dead-bug",
+              "role": "warmup",
+              "prescription": "2 x 6 per side",
+              "detail": "Keep ribs down and exhale with each reach.",
+              "intensity": "easy",
+              "substitutionExerciseIds": []
+            }
+          ]
+        },
+        {
+          "id": "circuit",
+          "title": "Strength Conditioning",
+          "durationMinutes": 21,
+          "focus": "Low-skill intervals",
+          "slots": [
+            {
+              "id": "squat",
+              "exerciseId": "fedb:bodyweight-squat",
+              "role": "main",
+              "prescription": "4 x 12",
+              "detail": "Keep the tempo steady.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "push-up",
+              "exerciseId": "fedb:incline-push-up",
+              "role": "main",
+              "prescription": "4 x 8",
+              "detail": "Use a sustainable incline.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "jog",
+              "exerciseId": "ex:00498",
+              "role": "finisher",
+              "prescription": "4 x 45 seconds",
+              "detail": "Stay springy but quiet.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            }
+          ]
+        },
+        {
+          "id": "finish",
+          "title": "Aerobic Finish",
+          "durationMinutes": 8,
+          "focus": "Easy-to-moderate cardio",
+          "slots": [
+            {
+              "id": "walking",
+              "exerciseId": "ex:00153",
+              "role": "finisher",
+              "prescription": "8 minutes brisk",
+              "detail": "Finish at a sustainable pace.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "catalog:bodyweight-recovery-mobility-25",
+      "slug": "bodyweight-recovery-mobility-25",
+      "ownership": "system",
+      "version": 1,
+      "status": "active",
+      "title": "Bodyweight Recovery Mobility",
+      "summary": "A gentle mobility and recovery session for easy days.",
+      "focus": "Recovery Mobility",
+      "focusTags": [
+        "mobility",
+        "recovery",
+        "core",
+        "lower_body"
+      ],
+      "styleTags": [
+        "mobility",
+        "recovery"
+      ],
+      "equipment": [
+        "bodyweight"
+      ],
+      "environmentTags": [
+        "home",
+        "travel"
+      ],
+      "minExperienceLevel": "beginner",
+      "durationMinutes": 25,
+      "durationRange": {
+        "min": 20,
+        "max": 35
+      },
+      "energyLevels": [
+        "easy"
+      ],
+      "qualityScore": 90,
+      "constraints": {
+        "contraindicationTags": [],
+        "avoidTags": [],
+        "disallowedStressors": []
+      },
+      "blocks": [
+        {
+          "id": "spine",
+          "title": "Spine and Breath",
+          "durationMinutes": 8,
+          "focus": "Gentle reset",
+          "slots": [
+            {
+              "id": "cat-cow",
+              "exerciseId": "ex:00508",
+              "role": "recovery",
+              "prescription": "3 minutes",
+              "detail": "Move slowly and breathe.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "child-pose",
+              "exerciseId": "fedb:childs-pose",
+              "role": "recovery",
+              "prescription": "2 minutes",
+              "detail": "Let hips and back relax.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            }
+          ]
+        },
+        {
+          "id": "hips",
+          "title": "Hips and Hamstrings",
+          "durationMinutes": 12,
+          "focus": "Lower-body mobility",
+          "slots": [
+            {
+              "id": "hamstring",
+              "exerciseId": "fedb:hamstring-stretch",
+              "role": "recovery",
+              "prescription": "2 x 60 seconds per side",
+              "detail": "Stay below a sharp stretch.",
+              "intensity": "easy",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "bridge",
+              "exerciseId": "fedb:butt-lift-bridge",
+              "role": "recovery",
+              "prescription": "2 x 10",
+              "detail": "Use smooth activation reps.",
+              "intensity": "easy",
+              "substitutionExerciseIds": []
+            }
+          ]
+        },
+        {
+          "id": "finish",
+          "title": "Easy Walk",
+          "durationMinutes": 5,
+          "focus": "Circulation",
+          "slots": [
+            {
+              "id": "walk",
+              "exerciseId": "ex:00153",
+              "role": "finisher",
+              "prescription": "5 minutes easy",
+              "detail": "Move at a relaxed pace.",
+              "intensity": "easy",
+              "substitutionExerciseIds": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "catalog:bodyweight-glute-core-30",
+      "slug": "bodyweight-glute-core-30",
+      "ownership": "system",
+      "version": 1,
+      "status": "active",
+      "title": "Bodyweight Glute and Core",
+      "summary": "A glute-focused bodyweight workout with controlled trunk work.",
+      "focus": "Glutes and Core",
+      "focusTags": [
+        "lower_body",
+        "glutes",
+        "hamstrings",
+        "core"
+      ],
+      "styleTags": [
+        "strength"
+      ],
+      "equipment": [
+        "bodyweight"
+      ],
+      "environmentTags": [
+        "home",
+        "travel"
+      ],
+      "minExperienceLevel": "beginner",
+      "durationMinutes": 30,
+      "durationRange": {
+        "min": 25,
+        "max": 40
+      },
+      "energyLevels": [
+        "moderate"
+      ],
+      "qualityScore": 88,
+      "constraints": {
+        "contraindicationTags": [],
+        "avoidTags": [],
+        "disallowedStressors": []
+      },
+      "blocks": [
+        {
+          "id": "prep",
+          "title": "Prep",
+          "durationMinutes": 5,
+          "focus": "Mobility and trunk control",
+          "slots": [
+            {
+              "id": "cat-cow",
+              "exerciseId": "ex:00508",
+              "role": "warmup",
+              "prescription": "60 seconds",
+              "detail": "Move slowly through the spine.",
+              "intensity": "easy",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "dead-bug",
+              "exerciseId": "fedb:dead-bug",
+              "role": "warmup",
+              "prescription": "2 x 6 per side",
+              "detail": "Keep ribs down and exhale with each reach.",
+              "intensity": "easy",
+              "substitutionExerciseIds": []
+            }
+          ]
+        },
+        {
+          "id": "strength",
+          "title": "Glute Strength",
+          "durationMinutes": 20,
+          "focus": "Hinge and bridge patterning",
+          "slots": [
+            {
+              "id": "bridge",
+              "exerciseId": "fedb:butt-lift-bridge",
+              "role": "main",
+              "prescription": "4 x 12",
+              "detail": "Pause at full hip extension.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "single-leg-bridge",
+              "exerciseId": "fedb:single-leg-glute-bridge",
+              "role": "main",
+              "prescription": "3 x 8 per side",
+              "detail": "Keep hips level.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "bird-dog",
+              "exerciseId": "ex:00486",
+              "role": "accessory",
+              "prescription": "3 x 6 per side",
+              "detail": "Reach long and stay square.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            }
+          ]
+        },
+        {
+          "id": "finish",
+          "title": "Cooldown",
+          "durationMinutes": 5,
+          "focus": "Easy recovery",
+          "slots": [
+            {
+              "id": "child-pose",
+              "exerciseId": "fedb:childs-pose",
+              "role": "recovery",
+              "prescription": "2 minutes",
+              "detail": "Let the breath slow down.",
+              "intensity": "easy",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "hamstring-stretch",
+              "exerciseId": "fedb:hamstring-stretch",
+              "role": "recovery",
+              "prescription": "60 seconds per side",
+              "detail": "Keep the stretch mild.",
+              "intensity": "easy",
+              "substitutionExerciseIds": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "catalog:bodyweight-push-volume-35",
+      "slug": "bodyweight-push-volume-35",
+      "ownership": "system",
+      "version": 1,
+      "status": "active",
+      "title": "Bodyweight Push Volume",
+      "summary": "A push-focused bodyweight session with scalable pressing and shoulder-friendly volume.",
+      "focus": "Upper Body Push",
+      "focusTags": [
+        "upper_body",
+        "chest",
+        "shoulders",
+        "triceps",
+        "core"
+      ],
+      "styleTags": [
+        "strength"
+      ],
+      "equipment": [
+        "bodyweight"
+      ],
+      "environmentTags": [
+        "home",
+        "travel"
+      ],
+      "minExperienceLevel": "beginner",
+      "durationMinutes": 35,
+      "durationRange": {
+        "min": 30,
+        "max": 45
+      },
+      "energyLevels": [
+        "moderate",
+        "intense"
+      ],
+      "qualityScore": 86,
+      "constraints": {
+        "contraindicationTags": [],
+        "avoidTags": [],
+        "disallowedStressors": [
+          "upper_body_push_fatigue"
+        ]
+      },
+      "blocks": [
+        {
+          "id": "prep",
+          "title": "Shoulder Prep",
+          "durationMinutes": 6,
+          "focus": "Shoulders and trunk",
+          "slots": [
+            {
+              "id": "arm-circles",
+              "exerciseId": "fedb:arm-circles",
+              "role": "warmup",
+              "prescription": "2 x 45 seconds",
+              "detail": "Keep the motion easy.",
+              "intensity": "easy",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "cat-cow",
+              "exerciseId": "ex:00508",
+              "role": "warmup",
+              "prescription": "60 seconds",
+              "detail": "Move through the upper back.",
+              "intensity": "easy",
+              "substitutionExerciseIds": []
+            }
+          ]
+        },
+        {
+          "id": "push",
+          "title": "Push Volume",
+          "durationMinutes": 23,
+          "focus": "Pressing and brace",
+          "slots": [
+            {
+              "id": "incline-push-up",
+              "exerciseId": "fedb:incline-push-up",
+              "role": "main",
+              "prescription": "5 x 8-12",
+              "detail": "Adjust height to stay smooth.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "push-up",
+              "exerciseId": "fedb:pushups",
+              "role": "main",
+              "prescription": "3 x submaximal",
+              "detail": "Stop 2 reps before form breaks.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": [
+                "ex:00215"
+              ]
+            },
+            {
+              "id": "plank",
+              "exerciseId": "fedb:plank",
+              "role": "accessory",
+              "prescription": "4 x 25 seconds",
+              "detail": "Keep shoulders stacked.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            }
+          ]
+        },
+        {
+          "id": "finish",
+          "title": "Cooldown",
+          "durationMinutes": 6,
+          "focus": "Easy recovery",
+          "slots": [
+            {
+              "id": "child-pose",
+              "exerciseId": "fedb:childs-pose",
+              "role": "recovery",
+              "prescription": "2 minutes",
+              "detail": "Let the breath slow down.",
+              "intensity": "easy",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "hamstring-stretch",
+              "exerciseId": "fedb:hamstring-stretch",
+              "role": "recovery",
+              "prescription": "60 seconds per side",
+              "detail": "Keep the stretch mild.",
+              "intensity": "easy",
+              "substitutionExerciseIds": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "catalog:bodyweight-travel-circuit-40",
+      "slug": "bodyweight-travel-circuit-40",
+      "ownership": "system",
+      "version": 1,
+      "status": "active",
+      "title": "Bodyweight Travel Circuit",
+      "summary": "A longer no-equipment circuit that alternates lower body, push, core, and walking work.",
+      "focus": "Full Body Conditioning",
+      "focusTags": [
+        "full_body",
+        "conditioning",
+        "lower_body",
+        "upper_body",
+        "core"
+      ],
+      "styleTags": [
+        "conditioning",
+        "strength"
+      ],
+      "equipment": [
+        "bodyweight"
+      ],
+      "environmentTags": [
+        "home",
+        "travel"
+      ],
+      "minExperienceLevel": "beginner",
+      "durationMinutes": 40,
+      "durationRange": {
+        "min": 35,
+        "max": 50
+      },
+      "energyLevels": [
+        "moderate"
+      ],
+      "qualityScore": 87,
+      "constraints": {
+        "contraindicationTags": [],
+        "avoidTags": [],
+        "disallowedStressors": []
+      },
+      "blocks": [
+        {
+          "id": "prep",
+          "title": "Prep",
+          "durationMinutes": 6,
+          "focus": "Mobility and trunk control",
+          "slots": [
+            {
+              "id": "cat-cow",
+              "exerciseId": "ex:00508",
+              "role": "warmup",
+              "prescription": "60 seconds",
+              "detail": "Move slowly through the spine.",
+              "intensity": "easy",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "dead-bug",
+              "exerciseId": "fedb:dead-bug",
+              "role": "warmup",
+              "prescription": "2 x 6 per side",
+              "detail": "Keep ribs down and exhale with each reach.",
+              "intensity": "easy",
+              "substitutionExerciseIds": []
+            }
+          ]
+        },
+        {
+          "id": "strength",
+          "title": "Strength Circuit",
+          "durationMinutes": 24,
+          "focus": "Simple repeated patterns",
+          "slots": [
+            {
+              "id": "lunge",
+              "exerciseId": "ex:00683",
+              "role": "main",
+              "prescription": "4 x 8 per side",
+              "detail": "Keep steps controlled.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "push-up",
+              "exerciseId": "fedb:incline-push-up",
+              "role": "main",
+              "prescription": "4 x 10",
+              "detail": "Use crisp reps.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "crunch",
+              "exerciseId": "fedb:reverse-crunch",
+              "role": "accessory",
+              "prescription": "4 x 10",
+              "detail": "Move slowly.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            }
+          ]
+        },
+        {
+          "id": "finish",
+          "title": "Walk Finish",
+          "durationMinutes": 10,
+          "focus": "Aerobic close",
+          "slots": [
+            {
+              "id": "walk",
+              "exerciseId": "ex:00153",
+              "role": "finisher",
+              "prescription": "10 minutes brisk",
+              "detail": "Stay conversational.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "catalog:bodyweight-easy-walk-core-30",
+      "slug": "bodyweight-easy-walk-core-30",
+      "ownership": "system",
+      "version": 1,
+      "status": "active",
+      "title": "Easy Walk and Core",
+      "summary": "A low-stress walking and core session for an easy training day.",
+      "focus": "Conditioning and Core",
+      "focusTags": [
+        "conditioning",
+        "core",
+        "recovery"
+      ],
+      "styleTags": [
+        "cardio",
+        "recovery"
+      ],
+      "equipment": [
+        "bodyweight"
+      ],
+      "environmentTags": [
+        "home",
+        "travel"
+      ],
+      "minExperienceLevel": "beginner",
+      "durationMinutes": 30,
+      "durationRange": {
+        "min": 25,
+        "max": 40
+      },
+      "energyLevels": [
+        "easy"
+      ],
+      "qualityScore": 88,
+      "constraints": {
+        "contraindicationTags": [],
+        "avoidTags": [],
+        "disallowedStressors": []
+      },
+      "blocks": [
+        {
+          "id": "walk",
+          "title": "Easy Walk",
+          "durationMinutes": 18,
+          "focus": "Aerobic base",
+          "slots": [
+            {
+              "id": "walking",
+              "exerciseId": "ex:00153",
+              "role": "finisher",
+              "prescription": "18 minutes easy to brisk",
+              "detail": "Stay relaxed and conversational.",
+              "intensity": "easy",
+              "substitutionExerciseIds": []
+            }
+          ]
+        },
+        {
+          "id": "core",
+          "title": "Core Control",
+          "durationMinutes": 8,
+          "focus": "Gentle brace",
+          "slots": [
+            {
+              "id": "dead-bug",
+              "exerciseId": "fedb:dead-bug",
+              "role": "accessory",
+              "prescription": "3 x 8 per side",
+              "detail": "Slow exhale each rep.",
+              "intensity": "easy",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "plank",
+              "exerciseId": "fedb:plank",
+              "role": "accessory",
+              "prescription": "3 x 20 seconds",
+              "detail": "Leave plenty in reserve.",
+              "intensity": "easy",
+              "substitutionExerciseIds": []
+            }
+          ]
+        },
+        {
+          "id": "finish",
+          "title": "Cooldown",
+          "durationMinutes": 4,
+          "focus": "Easy recovery",
+          "slots": [
+            {
+              "id": "child-pose",
+              "exerciseId": "fedb:childs-pose",
+              "role": "recovery",
+              "prescription": "2 minutes",
+              "detail": "Let the breath slow down.",
+              "intensity": "easy",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "hamstring-stretch",
+              "exerciseId": "fedb:hamstring-stretch",
+              "role": "recovery",
+              "prescription": "60 seconds per side",
+              "detail": "Keep the stretch mild.",
+              "intensity": "easy",
+              "substitutionExerciseIds": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "catalog:bodyweight-athletic-base-45",
+      "slug": "bodyweight-athletic-base-45",
+      "ownership": "system",
+      "version": 1,
+      "status": "active",
+      "title": "Bodyweight Athletic Base",
+      "summary": "A longer bodyweight session for strength endurance and aerobic base.",
+      "focus": "Full Body Athletic Base",
+      "focusTags": [
+        "full_body",
+        "conditioning",
+        "lower_body",
+        "upper_body",
+        "core"
+      ],
+      "styleTags": [
+        "strength",
+        "conditioning"
+      ],
+      "equipment": [
+        "bodyweight"
+      ],
+      "environmentTags": [
+        "home",
+        "travel"
+      ],
+      "minExperienceLevel": "intermediate",
+      "durationMinutes": 45,
+      "durationRange": {
+        "min": 40,
+        "max": 55
+      },
+      "energyLevels": [
+        "moderate",
+        "intense"
+      ],
+      "qualityScore": 85,
+      "constraints": {
+        "contraindicationTags": [],
+        "avoidTags": [],
+        "disallowedStressors": []
+      },
+      "blocks": [
+        {
+          "id": "prep",
+          "title": "Prep",
+          "durationMinutes": 7,
+          "focus": "Mobility and trunk control",
+          "slots": [
+            {
+              "id": "cat-cow",
+              "exerciseId": "ex:00508",
+              "role": "warmup",
+              "prescription": "60 seconds",
+              "detail": "Move slowly through the spine.",
+              "intensity": "easy",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "dead-bug",
+              "exerciseId": "fedb:dead-bug",
+              "role": "warmup",
+              "prescription": "2 x 6 per side",
+              "detail": "Keep ribs down and exhale with each reach.",
+              "intensity": "easy",
+              "substitutionExerciseIds": []
+            }
+          ]
+        },
+        {
+          "id": "strength",
+          "title": "Strength Endurance",
+          "durationMinutes": 28,
+          "focus": "Push, legs, and trunk",
+          "slots": [
+            {
+              "id": "walking-lunge",
+              "exerciseId": "ex:01767",
+              "role": "main",
+              "prescription": "4 x 10 per side",
+              "detail": "Keep a steady cadence.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "push-up",
+              "exerciseId": "fedb:pushups",
+              "role": "main",
+              "prescription": "4 x 8-12",
+              "detail": "Stay shy of failure.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": [
+                "fedb:incline-push-up"
+              ]
+            },
+            {
+              "id": "air-bike",
+              "exerciseId": "fedb:air-bike",
+              "role": "accessory",
+              "prescription": "4 x 30 seconds",
+              "detail": "Move under control.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            }
+          ]
+        },
+        {
+          "id": "finish",
+          "title": "Aerobic Close",
+          "durationMinutes": 10,
+          "focus": "Low-impact finish",
+          "slots": [
+            {
+              "id": "cycling",
+              "exerciseId": "ex:00056",
+              "role": "finisher",
+              "prescription": "10 minutes moderate",
+              "detail": "Keep breathing controlled.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            }
+          ]
+        }
+      ]
+    },
+    {
       "id": "catalog:dumbbell-upper-35",
       "slug": "dumbbell-upper-35",
       "ownership": "system",
@@ -119,47 +1518,67 @@
       "title": "Dumbbell Upper Strength",
       "summary": "A concise upper-body dumbbell session for pressing strength and core control.",
       "focus": "Upper Body Strength",
-      "focusTags": ["upper_body", "chest", "shoulders", "triceps", "core"],
-      "styleTags": ["strength"],
-      "equipment": ["bodyweight", "bench", "dumbbell"],
-      "environmentTags": ["home", "gym"],
+      "focusTags": [
+        "upper_body",
+        "chest",
+        "shoulders",
+        "triceps",
+        "core"
+      ],
+      "styleTags": [
+        "strength"
+      ],
+      "equipment": [
+        "bodyweight",
+        "bench",
+        "dumbbell"
+      ],
+      "environmentTags": [
+        "home",
+        "gym"
+      ],
       "minExperienceLevel": "beginner",
       "durationMinutes": 35,
       "durationRange": {
         "min": 30,
         "max": 45
       },
-      "energyLevels": ["moderate", "intense"],
-      "qualityScore": 90,
+      "energyLevels": [
+        "moderate",
+        "intense"
+      ],
+      "qualityScore": 92,
       "constraints": {
         "contraindicationTags": [],
         "avoidTags": [],
-        "disallowedStressors": ["upper_body_push_fatigue"]
+        "disallowedStressors": [
+          "upper_body_push_fatigue"
+        ]
       },
       "blocks": [
         {
-          "id": "warmup",
-          "title": "Warm-up",
+          "id": "prep",
+          "title": "Prep",
           "durationMinutes": 6,
-          "focus": "Shoulders and trunk",
+          "focus": "Mobility and trunk control",
           "slots": [
             {
               "id": "cat-cow",
               "exerciseId": "ex:00508",
               "role": "warmup",
               "prescription": "60 seconds",
-              "detail": "Move through a comfortable range.",
+              "detail": "Move slowly through the spine.",
               "intensity": "easy",
               "substitutionExerciseIds": []
             },
             {
-              "id": "incline-push-up",
-              "exerciseId": "fedb:incline-push-up",
-              "role": "accessory",
-              "prescription": "2 x 8",
-              "detail": "Keep these smooth and submaximal.",
+              "id": "dead-bug",
+              "exerciseId": "fedb:dead-bug",
+              "role": "warmup",
+              "prescription": "2 x 6 per side",
+              "detail": "Keep ribs down and exhale with each reach.",
               "intensity": "easy",
-              "substitutionExerciseIds": ["ex:00484"]
+              "substitutionExerciseIds": []
             }
           ]
         },
@@ -176,7 +1595,9 @@
               "prescription": "4 x 8",
               "detail": "Use a moderate load and leave 1-2 reps in reserve.",
               "intensity": "moderate",
-              "substitutionExerciseIds": ["fedb:dumbbell-floor-press"]
+              "substitutionExerciseIds": [
+                "fedb:dumbbell-floor-press"
+              ]
             },
             {
               "id": "shoulder-press",
@@ -199,18 +1620,3469 @@
           ]
         },
         {
-          "id": "cooldown",
+          "id": "finish",
           "title": "Cooldown",
           "durationMinutes": 6,
-          "focus": "Spine reset",
+          "focus": "Easy recovery",
           "slots": [
             {
-              "id": "cat-cow-cooldown",
-              "exerciseId": "ex:00508",
+              "id": "child-pose",
+              "exerciseId": "fedb:childs-pose",
               "role": "recovery",
-              "prescription": "2 minutes easy",
-              "detail": "Slow down the breath and relax the shoulders.",
+              "prescription": "2 minutes",
+              "detail": "Let the breath slow down.",
               "intensity": "easy",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "hamstring-stretch",
+              "exerciseId": "fedb:hamstring-stretch",
+              "role": "recovery",
+              "prescription": "60 seconds per side",
+              "detail": "Keep the stretch mild.",
+              "intensity": "easy",
+              "substitutionExerciseIds": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "catalog:dumbbell-floor-press-core-30",
+      "slug": "dumbbell-floor-press-core-30",
+      "ownership": "system",
+      "version": 1,
+      "status": "active",
+      "title": "Dumbbell Floor Press and Core",
+      "summary": "A floor-based dumbbell push workout with core stability work.",
+      "focus": "Upper Body Push",
+      "focusTags": [
+        "upper_body",
+        "chest",
+        "triceps",
+        "core"
+      ],
+      "styleTags": [
+        "strength"
+      ],
+      "equipment": [
+        "bodyweight",
+        "dumbbell"
+      ],
+      "environmentTags": [
+        "home"
+      ],
+      "minExperienceLevel": "beginner",
+      "durationMinutes": 30,
+      "durationRange": {
+        "min": 25,
+        "max": 40
+      },
+      "energyLevels": [
+        "moderate"
+      ],
+      "qualityScore": 88,
+      "constraints": {
+        "contraindicationTags": [],
+        "avoidTags": [],
+        "disallowedStressors": []
+      },
+      "blocks": [
+        {
+          "id": "prep",
+          "title": "Prep",
+          "durationMinutes": 5,
+          "focus": "Shoulders and trunk",
+          "slots": [
+            {
+              "id": "scaption",
+              "exerciseId": "fedb:dumbbell-scaption",
+              "role": "accessory",
+              "prescription": "2 x 10 light",
+              "detail": "Keep reps easy and smooth.",
+              "intensity": "easy",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "dead-bug",
+              "exerciseId": "fedb:dead-bug",
+              "role": "warmup",
+              "prescription": "2 x 6 per side",
+              "detail": "Slow exhale.",
+              "intensity": "easy",
+              "substitutionExerciseIds": []
+            }
+          ]
+        },
+        {
+          "id": "main",
+          "title": "Press and Brace",
+          "durationMinutes": 20,
+          "focus": "Floor press strength",
+          "slots": [
+            {
+              "id": "floor-press",
+              "exerciseId": "fedb:dumbbell-floor-press",
+              "role": "main",
+              "prescription": "4 x 8-10",
+              "detail": "Pause elbows lightly on the floor.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "fly",
+              "exerciseId": "fedb:dumbbell-flyes",
+              "role": "accessory",
+              "prescription": "3 x 10",
+              "detail": "Use a small, comfortable range.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "plank",
+              "exerciseId": "fedb:plank",
+              "role": "accessory",
+              "prescription": "3 x 30 seconds",
+              "detail": "Keep ribs stacked.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            }
+          ]
+        },
+        {
+          "id": "finish",
+          "title": "Cooldown",
+          "durationMinutes": 5,
+          "focus": "Easy recovery",
+          "slots": [
+            {
+              "id": "child-pose",
+              "exerciseId": "fedb:childs-pose",
+              "role": "recovery",
+              "prescription": "2 minutes",
+              "detail": "Let the breath slow down.",
+              "intensity": "easy",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "hamstring-stretch",
+              "exerciseId": "fedb:hamstring-stretch",
+              "role": "recovery",
+              "prescription": "60 seconds per side",
+              "detail": "Keep the stretch mild.",
+              "intensity": "easy",
+              "substitutionExerciseIds": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "catalog:dumbbell-shoulder-arms-30",
+      "slug": "dumbbell-shoulder-arms-30",
+      "ownership": "system",
+      "version": 1,
+      "status": "active",
+      "title": "Dumbbell Shoulders and Arms",
+      "summary": "A dumbbell-only upper-body accessory session for shoulders, biceps, and triceps.",
+      "focus": "Shoulders and Arms",
+      "focusTags": [
+        "upper_body",
+        "shoulders",
+        "biceps",
+        "triceps"
+      ],
+      "styleTags": [
+        "strength"
+      ],
+      "equipment": [
+        "dumbbell"
+      ],
+      "environmentTags": [
+        "home",
+        "gym"
+      ],
+      "minExperienceLevel": "beginner",
+      "durationMinutes": 30,
+      "durationRange": {
+        "min": 25,
+        "max": 40
+      },
+      "energyLevels": [
+        "moderate"
+      ],
+      "qualityScore": 84,
+      "constraints": {
+        "contraindicationTags": [],
+        "avoidTags": [],
+        "disallowedStressors": []
+      },
+      "blocks": [
+        {
+          "id": "primer",
+          "title": "Light Primer",
+          "durationMinutes": 5,
+          "focus": "Shoulder control",
+          "slots": [
+            {
+              "id": "scaption",
+              "exerciseId": "fedb:dumbbell-scaption",
+              "role": "accessory",
+              "prescription": "2 x 12 light",
+              "detail": "Raise only to a comfortable height.",
+              "intensity": "easy",
+              "substitutionExerciseIds": []
+            }
+          ]
+        },
+        {
+          "id": "work",
+          "title": "Accessory Strength",
+          "durationMinutes": 20,
+          "focus": "Shoulders and arms",
+          "slots": [
+            {
+              "id": "lateral-raise",
+              "exerciseId": "fedb:side-lateral-raise",
+              "role": "main",
+              "prescription": "3 x 12",
+              "detail": "Lead with elbows and avoid swinging.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "curl",
+              "exerciseId": "fedb:hammer-curls",
+              "role": "main",
+              "prescription": "3 x 10",
+              "detail": "Keep wrists neutral.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "triceps",
+              "exerciseId": "fedb:standing-dumbbell-triceps-extension",
+              "role": "accessory",
+              "prescription": "3 x 10",
+              "detail": "Move through a controlled range.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            }
+          ]
+        },
+        {
+          "id": "finish",
+          "title": "Pump Finish",
+          "durationMinutes": 5,
+          "focus": "Arm volume",
+          "slots": [
+            {
+              "id": "curl-finish",
+              "exerciseId": "fedb:concentration-curls",
+              "role": "accessory",
+              "prescription": "2 x 12 per side",
+              "detail": "Use a clean tempo.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "catalog:dumbbell-bench-push-45",
+      "slug": "dumbbell-bench-push-45",
+      "ownership": "system",
+      "version": 1,
+      "status": "active",
+      "title": "Dumbbell Bench Push",
+      "summary": "A longer bench-and-dumbbell pressing workout with shoulder and triceps assistance.",
+      "focus": "Upper Body Push",
+      "focusTags": [
+        "upper_body",
+        "chest",
+        "shoulders",
+        "triceps"
+      ],
+      "styleTags": [
+        "strength"
+      ],
+      "equipment": [
+        "bench",
+        "dumbbell"
+      ],
+      "environmentTags": [
+        "home",
+        "gym"
+      ],
+      "minExperienceLevel": "intermediate",
+      "durationMinutes": 45,
+      "durationRange": {
+        "min": 40,
+        "max": 55
+      },
+      "energyLevels": [
+        "moderate",
+        "intense"
+      ],
+      "qualityScore": 87,
+      "constraints": {
+        "contraindicationTags": [],
+        "avoidTags": [],
+        "disallowedStressors": []
+      },
+      "blocks": [
+        {
+          "id": "primer",
+          "title": "Press Primer",
+          "durationMinutes": 7,
+          "focus": "Pressing mechanics",
+          "slots": [
+            {
+              "id": "scaption",
+              "exerciseId": "fedb:dumbbell-scaption",
+              "role": "accessory",
+              "prescription": "2 x 12",
+              "detail": "Light and controlled.",
+              "intensity": "easy",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "rear-delt",
+              "exerciseId": "fedb:seated-bent-over-rear-delt-raise",
+              "role": "accessory",
+              "prescription": "2 x 12",
+              "detail": "Move smoothly.",
+              "intensity": "easy",
+              "substitutionExerciseIds": []
+            }
+          ]
+        },
+        {
+          "id": "main",
+          "title": "Pressing Work",
+          "durationMinutes": 30,
+          "focus": "Chest and shoulders",
+          "slots": [
+            {
+              "id": "bench-press",
+              "exerciseId": "fedb:dumbbell-bench-press",
+              "role": "main",
+              "prescription": "4 x 8",
+              "detail": "Use a strong but repeatable load.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "incline-press",
+              "exerciseId": "fedb:incline-dumbbell-press",
+              "role": "main",
+              "prescription": "3 x 8-10",
+              "detail": "Keep shoulder range comfortable.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "triceps",
+              "exerciseId": "fedb:seated-triceps-press",
+              "role": "accessory",
+              "prescription": "3 x 10",
+              "detail": "Avoid flaring ribs.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            }
+          ]
+        },
+        {
+          "id": "finish",
+          "title": "Shoulder Finish",
+          "durationMinutes": 8,
+          "focus": "Accessory volume",
+          "slots": [
+            {
+              "id": "lateral-raise",
+              "exerciseId": "fedb:side-lateral-raise",
+              "role": "accessory",
+              "prescription": "3 x 12-15",
+              "detail": "Small pause at the top.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "catalog:dumbbell-pull-posture-35",
+      "slug": "dumbbell-pull-posture-35",
+      "ownership": "system",
+      "version": 1,
+      "status": "active",
+      "title": "Dumbbell Pull and Posture",
+      "summary": "A dumbbell pull session for upper back, rear delts, traps, and biceps.",
+      "focus": "Upper Body Pull",
+      "focusTags": [
+        "upper_body",
+        "middle_back",
+        "lats",
+        "biceps",
+        "traps"
+      ],
+      "styleTags": [
+        "strength"
+      ],
+      "equipment": [
+        "dumbbell"
+      ],
+      "environmentTags": [
+        "home",
+        "gym"
+      ],
+      "minExperienceLevel": "beginner",
+      "durationMinutes": 35,
+      "durationRange": {
+        "min": 30,
+        "max": 45
+      },
+      "energyLevels": [
+        "moderate"
+      ],
+      "qualityScore": 86,
+      "constraints": {
+        "contraindicationTags": [],
+        "avoidTags": [],
+        "disallowedStressors": []
+      },
+      "blocks": [
+        {
+          "id": "primer",
+          "title": "Posture Primer",
+          "durationMinutes": 6,
+          "focus": "Rear shoulders",
+          "slots": [
+            {
+              "id": "rear-delt",
+              "exerciseId": "fedb:seated-bent-over-rear-delt-raise",
+              "role": "accessory",
+              "prescription": "2 x 12 light",
+              "detail": "Use smooth reps.",
+              "intensity": "easy",
+              "substitutionExerciseIds": []
+            }
+          ]
+        },
+        {
+          "id": "pull",
+          "title": "Pull Strength",
+          "durationMinutes": 24,
+          "focus": "Back and arms",
+          "slots": [
+            {
+              "id": "row",
+              "exerciseId": "fedb:incline-bench-pull",
+              "role": "main",
+              "prescription": "4 x 8-10",
+              "detail": "Pull elbows back and pause briefly.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "shrug",
+              "exerciseId": "fedb:dumbbell-shrug",
+              "role": "main",
+              "prescription": "3 x 10",
+              "detail": "Lift and lower without rolling shoulders.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "curl",
+              "exerciseId": "fedb:dumbbell-bicep-curl",
+              "role": "accessory",
+              "prescription": "3 x 10",
+              "detail": "Stay strict.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            }
+          ]
+        },
+        {
+          "id": "finish",
+          "title": "Rear Delt Finish",
+          "durationMinutes": 5,
+          "focus": "Upper-back control",
+          "slots": [
+            {
+              "id": "rear-delt-finish",
+              "exerciseId": "fedb:seated-bent-over-rear-delt-raise",
+              "role": "accessory",
+              "prescription": "2 x 15",
+              "detail": "Use a light load.",
+              "intensity": "easy",
+              "substitutionExerciseIds": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "catalog:dumbbell-step-up-lower-35",
+      "slug": "dumbbell-step-up-lower-35",
+      "ownership": "system",
+      "version": 1,
+      "status": "active",
+      "title": "Dumbbell Step-Up Lower",
+      "summary": "A bench-and-dumbbell lower-body workout built around step-ups and glute work.",
+      "focus": "Lower Body Strength",
+      "focusTags": [
+        "lower_body",
+        "glutes",
+        "hamstrings",
+        "quadriceps"
+      ],
+      "styleTags": [
+        "strength"
+      ],
+      "equipment": [
+        "bodyweight",
+        "bench",
+        "dumbbell"
+      ],
+      "environmentTags": [
+        "home",
+        "gym"
+      ],
+      "minExperienceLevel": "beginner",
+      "durationMinutes": 35,
+      "durationRange": {
+        "min": 30,
+        "max": 45
+      },
+      "energyLevels": [
+        "moderate"
+      ],
+      "qualityScore": 84,
+      "constraints": {
+        "contraindicationTags": [],
+        "avoidTags": [],
+        "disallowedStressors": []
+      },
+      "blocks": [
+        {
+          "id": "prep",
+          "title": "Lower Prep",
+          "durationMinutes": 6,
+          "focus": "Hips and balance",
+          "slots": [
+            {
+              "id": "bridge",
+              "exerciseId": "fedb:butt-lift-bridge",
+              "role": "warmup",
+              "prescription": "2 x 10",
+              "detail": "Pause at the top.",
+              "intensity": "easy",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "squat",
+              "exerciseId": "fedb:bodyweight-squat",
+              "role": "accessory",
+              "prescription": "2 x 8",
+              "detail": "Use a warm-up tempo.",
+              "intensity": "easy",
+              "substitutionExerciseIds": []
+            }
+          ]
+        },
+        {
+          "id": "strength",
+          "title": "Step-Up Strength",
+          "durationMinutes": 24,
+          "focus": "Unilateral legs",
+          "slots": [
+            {
+              "id": "step-up",
+              "exerciseId": "fedb:dumbbell-step-ups",
+              "role": "main",
+              "prescription": "4 x 8 per side",
+              "detail": "Drive through the full foot.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "bridge",
+              "exerciseId": "fedb:single-leg-glute-bridge",
+              "role": "main",
+              "prescription": "3 x 8 per side",
+              "detail": "Keep hips level.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "dead-bug",
+              "exerciseId": "fedb:dead-bug",
+              "role": "accessory",
+              "prescription": "3 x 8 per side",
+              "detail": "Control the pelvis.",
+              "intensity": "easy",
+              "substitutionExerciseIds": []
+            }
+          ]
+        },
+        {
+          "id": "finish",
+          "title": "Cooldown",
+          "durationMinutes": 5,
+          "focus": "Easy recovery",
+          "slots": [
+            {
+              "id": "child-pose",
+              "exerciseId": "fedb:childs-pose",
+              "role": "recovery",
+              "prescription": "2 minutes",
+              "detail": "Let the breath slow down.",
+              "intensity": "easy",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "hamstring-stretch",
+              "exerciseId": "fedb:hamstring-stretch",
+              "role": "recovery",
+              "prescription": "60 seconds per side",
+              "detail": "Keep the stretch mild.",
+              "intensity": "easy",
+              "substitutionExerciseIds": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "catalog:dumbbell-full-body-home-40",
+      "slug": "dumbbell-full-body-home-40",
+      "ownership": "system",
+      "version": 1,
+      "status": "active",
+      "title": "Dumbbell Full Body Home",
+      "summary": "A home-friendly dumbbell and bodyweight workout with push, legs, and core.",
+      "focus": "Full Body Strength",
+      "focusTags": [
+        "full_body",
+        "upper_body",
+        "lower_body",
+        "core"
+      ],
+      "styleTags": [
+        "strength",
+        "conditioning"
+      ],
+      "equipment": [
+        "bodyweight",
+        "dumbbell"
+      ],
+      "environmentTags": [
+        "home"
+      ],
+      "minExperienceLevel": "beginner",
+      "durationMinutes": 40,
+      "durationRange": {
+        "min": 35,
+        "max": 50
+      },
+      "energyLevels": [
+        "moderate"
+      ],
+      "qualityScore": 86,
+      "constraints": {
+        "contraindicationTags": [],
+        "avoidTags": [],
+        "disallowedStressors": []
+      },
+      "blocks": [
+        {
+          "id": "prep",
+          "title": "Prep",
+          "durationMinutes": 6,
+          "focus": "Mobility and trunk control",
+          "slots": [
+            {
+              "id": "cat-cow",
+              "exerciseId": "ex:00508",
+              "role": "warmup",
+              "prescription": "60 seconds",
+              "detail": "Move slowly through the spine.",
+              "intensity": "easy",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "dead-bug",
+              "exerciseId": "fedb:dead-bug",
+              "role": "warmup",
+              "prescription": "2 x 6 per side",
+              "detail": "Keep ribs down and exhale with each reach.",
+              "intensity": "easy",
+              "substitutionExerciseIds": []
+            }
+          ]
+        },
+        {
+          "id": "main",
+          "title": "Full Body Strength",
+          "durationMinutes": 26,
+          "focus": "Push, squat, and brace",
+          "slots": [
+            {
+              "id": "floor-press",
+              "exerciseId": "fedb:dumbbell-floor-press",
+              "role": "main",
+              "prescription": "4 x 8",
+              "detail": "Use a controlled floor pause.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "squat",
+              "exerciseId": "fedb:bodyweight-squat",
+              "role": "main",
+              "prescription": "4 x 12",
+              "detail": "Keep tempo steady.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "curl",
+              "exerciseId": "fedb:hammer-curls",
+              "role": "accessory",
+              "prescription": "3 x 10",
+              "detail": "Keep shoulders quiet.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            }
+          ]
+        },
+        {
+          "id": "finish",
+          "title": "Core Finish",
+          "durationMinutes": 8,
+          "focus": "Trunk control",
+          "slots": [
+            {
+              "id": "plank",
+              "exerciseId": "fedb:plank",
+              "role": "accessory",
+              "prescription": "4 x 25 seconds",
+              "detail": "Hold a clean brace.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "catalog:dumbbell-arms-core-25",
+      "slug": "dumbbell-arms-core-25",
+      "ownership": "system",
+      "version": 1,
+      "status": "active",
+      "title": "Dumbbell Arms and Core",
+      "summary": "A quick dumbbell accessory session for arms with a bodyweight core close.",
+      "focus": "Arms and Core",
+      "focusTags": [
+        "upper_body",
+        "biceps",
+        "triceps",
+        "core"
+      ],
+      "styleTags": [
+        "strength"
+      ],
+      "equipment": [
+        "bodyweight",
+        "dumbbell"
+      ],
+      "environmentTags": [
+        "home",
+        "gym"
+      ],
+      "minExperienceLevel": "beginner",
+      "durationMinutes": 25,
+      "durationRange": {
+        "min": 20,
+        "max": 35
+      },
+      "energyLevels": [
+        "easy",
+        "moderate"
+      ],
+      "qualityScore": 83,
+      "constraints": {
+        "contraindicationTags": [],
+        "avoidTags": [],
+        "disallowedStressors": []
+      },
+      "blocks": [
+        {
+          "id": "arms",
+          "title": "Arm Strength",
+          "durationMinutes": 16,
+          "focus": "Biceps and triceps",
+          "slots": [
+            {
+              "id": "curl",
+              "exerciseId": "fedb:dumbbell-bicep-curl",
+              "role": "main",
+              "prescription": "3 x 10",
+              "detail": "Use a smooth tempo.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "hammer",
+              "exerciseId": "fedb:hammer-curls",
+              "role": "accessory",
+              "prescription": "3 x 10",
+              "detail": "Keep elbows near the ribs.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "triceps",
+              "exerciseId": "fedb:standing-dumbbell-triceps-extension",
+              "role": "accessory",
+              "prescription": "3 x 10",
+              "detail": "Move without shoulder discomfort.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            }
+          ]
+        },
+        {
+          "id": "core",
+          "title": "Core Close",
+          "durationMinutes": 6,
+          "focus": "Brace",
+          "slots": [
+            {
+              "id": "dead-bug",
+              "exerciseId": "fedb:dead-bug",
+              "role": "accessory",
+              "prescription": "3 x 8 per side",
+              "detail": "Slow exhale each rep.",
+              "intensity": "easy",
+              "substitutionExerciseIds": []
+            }
+          ]
+        },
+        {
+          "id": "finish",
+          "title": "Cooldown",
+          "durationMinutes": 3,
+          "focus": "Easy recovery",
+          "slots": [
+            {
+              "id": "child-pose",
+              "exerciseId": "fedb:childs-pose",
+              "role": "recovery",
+              "prescription": "2 minutes",
+              "detail": "Let the breath slow down.",
+              "intensity": "easy",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "hamstring-stretch",
+              "exerciseId": "fedb:hamstring-stretch",
+              "role": "recovery",
+              "prescription": "60 seconds per side",
+              "detail": "Keep the stretch mild.",
+              "intensity": "easy",
+              "substitutionExerciseIds": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "catalog:dumbbell-intense-upper-50",
+      "slug": "dumbbell-intense-upper-50",
+      "ownership": "system",
+      "version": 1,
+      "status": "active",
+      "title": "Dumbbell Intense Upper",
+      "summary": "A higher-volume dumbbell upper-body session for experienced lifters.",
+      "focus": "Upper Body Strength",
+      "focusTags": [
+        "upper_body",
+        "chest",
+        "shoulders",
+        "triceps",
+        "biceps"
+      ],
+      "styleTags": [
+        "strength"
+      ],
+      "equipment": [
+        "bench",
+        "dumbbell"
+      ],
+      "environmentTags": [
+        "home",
+        "gym"
+      ],
+      "minExperienceLevel": "intermediate",
+      "durationMinutes": 50,
+      "durationRange": {
+        "min": 45,
+        "max": 60
+      },
+      "energyLevels": [
+        "intense"
+      ],
+      "qualityScore": 84,
+      "constraints": {
+        "contraindicationTags": [],
+        "avoidTags": [],
+        "disallowedStressors": []
+      },
+      "blocks": [
+        {
+          "id": "primer",
+          "title": "Upper Primer",
+          "durationMinutes": 8,
+          "focus": "Shoulders and rear delts",
+          "slots": [
+            {
+              "id": "scaption",
+              "exerciseId": "fedb:dumbbell-scaption",
+              "role": "accessory",
+              "prescription": "2 x 12",
+              "detail": "Light load only.",
+              "intensity": "easy",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "rear-delt",
+              "exerciseId": "fedb:seated-bent-over-rear-delt-raise",
+              "role": "accessory",
+              "prescription": "2 x 12",
+              "detail": "Keep the neck relaxed.",
+              "intensity": "easy",
+              "substitutionExerciseIds": []
+            }
+          ]
+        },
+        {
+          "id": "main",
+          "title": "Main Upper Work",
+          "durationMinutes": 34,
+          "focus": "Press and pull balance",
+          "slots": [
+            {
+              "id": "bench-press",
+              "exerciseId": "fedb:dumbbell-bench-press",
+              "role": "main",
+              "prescription": "5 x 6-8",
+              "detail": "Use a strong repeatable load.",
+              "intensity": "intense",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "row",
+              "exerciseId": "fedb:incline-bench-pull",
+              "role": "main",
+              "prescription": "4 x 8-10",
+              "detail": "Pause at the top.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "shoulder-press",
+              "exerciseId": "fedb:dumbbell-shoulder-press",
+              "role": "main",
+              "prescription": "3 x 8",
+              "detail": "Brace hard before pressing.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            }
+          ]
+        },
+        {
+          "id": "accessory",
+          "title": "Accessory Close",
+          "durationMinutes": 8,
+          "focus": "Arms",
+          "slots": [
+            {
+              "id": "curl",
+              "exerciseId": "fedb:hammer-curls",
+              "role": "accessory",
+              "prescription": "3 x 10",
+              "detail": "No swinging.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "triceps",
+              "exerciseId": "fedb:seated-triceps-press",
+              "role": "accessory",
+              "prescription": "3 x 10",
+              "detail": "Control the lowering.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "catalog:dumbbell-easy-primer-20",
+      "slug": "dumbbell-easy-primer-20",
+      "ownership": "system",
+      "version": 1,
+      "status": "active",
+      "title": "Dumbbell Easy Primer",
+      "summary": "A short dumbbell-only primer for light upper-body movement.",
+      "focus": "Upper Body Primer",
+      "focusTags": [
+        "upper_body",
+        "shoulders",
+        "biceps",
+        "traps"
+      ],
+      "styleTags": [
+        "strength",
+        "recovery"
+      ],
+      "equipment": [
+        "dumbbell"
+      ],
+      "environmentTags": [
+        "home",
+        "gym"
+      ],
+      "minExperienceLevel": "beginner",
+      "durationMinutes": 20,
+      "durationRange": {
+        "min": 15,
+        "max": 30
+      },
+      "energyLevels": [
+        "easy"
+      ],
+      "qualityScore": 82,
+      "constraints": {
+        "contraindicationTags": [],
+        "avoidTags": [],
+        "disallowedStressors": []
+      },
+      "blocks": [
+        {
+          "id": "primer",
+          "title": "Light Upper Primer",
+          "durationMinutes": 12,
+          "focus": "Shoulder and arm control",
+          "slots": [
+            {
+              "id": "scaption",
+              "exerciseId": "fedb:dumbbell-scaption",
+              "role": "accessory",
+              "prescription": "3 x 10 light",
+              "detail": "Raise with control.",
+              "intensity": "easy",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "curl",
+              "exerciseId": "fedb:concentration-curls",
+              "role": "accessory",
+              "prescription": "2 x 10 per side",
+              "detail": "Smooth reps only.",
+              "intensity": "easy",
+              "substitutionExerciseIds": []
+            }
+          ]
+        },
+        {
+          "id": "finish",
+          "title": "Posture Finish",
+          "durationMinutes": 8,
+          "focus": "Traps and rear shoulders",
+          "slots": [
+            {
+              "id": "shrug",
+              "exerciseId": "fedb:dumbbell-shrug",
+              "role": "accessory",
+              "prescription": "2 x 12",
+              "detail": "Lift straight up and down.",
+              "intensity": "easy",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "rear-delt",
+              "exerciseId": "fedb:seated-bent-over-rear-delt-raise",
+              "role": "accessory",
+              "prescription": "2 x 12",
+              "detail": "Keep load light.",
+              "intensity": "easy",
+              "substitutionExerciseIds": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "catalog:bands-full-body-30",
+      "slug": "bands-full-body-30",
+      "ownership": "system",
+      "version": 1,
+      "status": "active",
+      "title": "Bands Full Body",
+      "summary": "A resistance-band session covering squat, hinge, push, pull, and trunk-friendly volume.",
+      "focus": "Full Body Strength",
+      "focusTags": [
+        "full_body",
+        "upper_body",
+        "lower_body",
+        "core"
+      ],
+      "styleTags": [
+        "strength"
+      ],
+      "equipment": [
+        "resistance_bands"
+      ],
+      "environmentTags": [
+        "home",
+        "travel"
+      ],
+      "minExperienceLevel": "beginner",
+      "durationMinutes": 30,
+      "durationRange": {
+        "min": 25,
+        "max": 40
+      },
+      "energyLevels": [
+        "moderate"
+      ],
+      "qualityScore": 88,
+      "constraints": {
+        "contraindicationTags": [],
+        "avoidTags": [],
+        "disallowedStressors": []
+      },
+      "blocks": [
+        {
+          "id": "prep",
+          "title": "Band Prep",
+          "durationMinutes": 5,
+          "focus": "Shoulders and hips",
+          "slots": [
+            {
+              "id": "pull-apart",
+              "exerciseId": "fedb:band-pull-apart",
+              "role": "warmup",
+              "prescription": "2 x 12",
+              "detail": "Keep tension light.",
+              "intensity": "easy",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "good-morning",
+              "exerciseId": "fedb:band-good-morning",
+              "role": "warmup",
+              "prescription": "2 x 10",
+              "detail": "Hinge slowly.",
+              "intensity": "easy",
+              "substitutionExerciseIds": []
+            }
+          ]
+        },
+        {
+          "id": "main",
+          "title": "Band Strength",
+          "durationMinutes": 20,
+          "focus": "Push, pull, squat",
+          "slots": [
+            {
+              "id": "squat",
+              "exerciseId": "fedb:squat-with-bands",
+              "role": "main",
+              "prescription": "3 x 12",
+              "detail": "Control the bottom.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "chest-press",
+              "exerciseId": "ex:02046",
+              "role": "main",
+              "prescription": "3 x 10",
+              "detail": "Press with steady tension.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "row",
+              "exerciseId": "ex:00670",
+              "role": "main",
+              "prescription": "3 x 10",
+              "detail": "Pause shoulder blades back.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            }
+          ]
+        },
+        {
+          "id": "finish",
+          "title": "Shoulder Finish",
+          "durationMinutes": 5,
+          "focus": "Posture",
+          "slots": [
+            {
+              "id": "face-pull",
+              "exerciseId": "ex:00534",
+              "role": "accessory",
+              "prescription": "2 x 15",
+              "detail": "Keep it smooth.",
+              "intensity": "easy",
+              "substitutionExerciseIds": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "catalog:bands-lower-body-35",
+      "slug": "bands-lower-body-35",
+      "ownership": "system",
+      "version": 1,
+      "status": "active",
+      "title": "Bands Lower Body",
+      "summary": "A banded lower-body workout for hips, hamstrings, quads, and calves.",
+      "focus": "Lower Body Strength",
+      "focusTags": [
+        "lower_body",
+        "glutes",
+        "hamstrings",
+        "quadriceps",
+        "calves"
+      ],
+      "styleTags": [
+        "strength"
+      ],
+      "equipment": [
+        "resistance_bands"
+      ],
+      "environmentTags": [
+        "home",
+        "travel"
+      ],
+      "minExperienceLevel": "beginner",
+      "durationMinutes": 35,
+      "durationRange": {
+        "min": 30,
+        "max": 45
+      },
+      "energyLevels": [
+        "moderate"
+      ],
+      "qualityScore": 86,
+      "constraints": {
+        "contraindicationTags": [],
+        "avoidTags": [],
+        "disallowedStressors": []
+      },
+      "blocks": [
+        {
+          "id": "prep",
+          "title": "Hip Prep",
+          "durationMinutes": 6,
+          "focus": "Hips and hinge",
+          "slots": [
+            {
+              "id": "monster-walk",
+              "exerciseId": "fedb:monster-walk",
+              "role": "warmup",
+              "prescription": "2 x 10 steps each way",
+              "detail": "Small controlled steps.",
+              "intensity": "easy",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "good-morning",
+              "exerciseId": "fedb:band-good-morning",
+              "role": "warmup",
+              "prescription": "2 x 10",
+              "detail": "Practice hinge mechanics.",
+              "intensity": "easy",
+              "substitutionExerciseIds": []
+            }
+          ]
+        },
+        {
+          "id": "strength",
+          "title": "Lower Strength",
+          "durationMinutes": 24,
+          "focus": "Squat and hinge",
+          "slots": [
+            {
+              "id": "squat",
+              "exerciseId": "fedb:squat-with-bands",
+              "role": "main",
+              "prescription": "4 x 10",
+              "detail": "Keep band tension even.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "deadlift",
+              "exerciseId": "fedb:deadlift-with-bands",
+              "role": "main",
+              "prescription": "4 x 8",
+              "detail": "Brace before each pull.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "leg-extension",
+              "exerciseId": "ex:02032",
+              "role": "accessory",
+              "prescription": "3 x 12 per side",
+              "detail": "Control the lockout.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            }
+          ]
+        },
+        {
+          "id": "finish",
+          "title": "Calves",
+          "durationMinutes": 5,
+          "focus": "Lower-leg finish",
+          "slots": [
+            {
+              "id": "calves",
+              "exerciseId": "ex:01695",
+              "role": "accessory",
+              "prescription": "3 x 15",
+              "detail": "Pause at the top.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "catalog:bands-upper-posture-25",
+      "slug": "bands-upper-posture-25",
+      "ownership": "system",
+      "version": 1,
+      "status": "active",
+      "title": "Bands Upper Posture",
+      "summary": "A light band session for shoulders, upper back, and posture.",
+      "focus": "Upper Back and Shoulders",
+      "focusTags": [
+        "upper_body",
+        "middle_back",
+        "shoulders",
+        "traps",
+        "recovery"
+      ],
+      "styleTags": [
+        "strength",
+        "recovery"
+      ],
+      "equipment": [
+        "resistance_bands"
+      ],
+      "environmentTags": [
+        "home",
+        "travel"
+      ],
+      "minExperienceLevel": "beginner",
+      "durationMinutes": 25,
+      "durationRange": {
+        "min": 20,
+        "max": 35
+      },
+      "energyLevels": [
+        "easy",
+        "moderate"
+      ],
+      "qualityScore": 87,
+      "constraints": {
+        "contraindicationTags": [],
+        "avoidTags": [],
+        "disallowedStressors": []
+      },
+      "blocks": [
+        {
+          "id": "prep",
+          "title": "Scap Prep",
+          "durationMinutes": 5,
+          "focus": "Shoulder control",
+          "slots": [
+            {
+              "id": "pull-apart",
+              "exerciseId": "fedb:band-pull-apart",
+              "role": "warmup",
+              "prescription": "2 x 15",
+              "detail": "Use light tension.",
+              "intensity": "easy",
+              "substitutionExerciseIds": []
+            }
+          ]
+        },
+        {
+          "id": "work",
+          "title": "Posture Work",
+          "durationMinutes": 16,
+          "focus": "Rear shoulder and rows",
+          "slots": [
+            {
+              "id": "face-pull",
+              "exerciseId": "ex:00534",
+              "role": "main",
+              "prescription": "3 x 12",
+              "detail": "Pull toward eye level.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "row",
+              "exerciseId": "ex:00670",
+              "role": "main",
+              "prescription": "3 x 10",
+              "detail": "Pause back.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "lateral-raise",
+              "exerciseId": "fedb:lateral-raise-with-bands",
+              "role": "accessory",
+              "prescription": "2 x 12",
+              "detail": "Move without shrugging.",
+              "intensity": "easy",
+              "substitutionExerciseIds": []
+            }
+          ]
+        },
+        {
+          "id": "finish",
+          "title": "Easy Pull-Aparts",
+          "durationMinutes": 4,
+          "focus": "Blood flow",
+          "slots": [
+            {
+              "id": "pull-apart-finish",
+              "exerciseId": "fedb:band-pull-apart",
+              "role": "accessory",
+              "prescription": "2 x 20",
+              "detail": "Keep the neck relaxed.",
+              "intensity": "easy",
+              "substitutionExerciseIds": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "catalog:bands-push-strength-35",
+      "slug": "bands-push-strength-35",
+      "ownership": "system",
+      "version": 1,
+      "status": "active",
+      "title": "Bands Push Strength",
+      "summary": "A resistance-band push workout for chest, shoulders, and triceps.",
+      "focus": "Upper Body Push",
+      "focusTags": [
+        "upper_body",
+        "chest",
+        "shoulders",
+        "triceps"
+      ],
+      "styleTags": [
+        "strength"
+      ],
+      "equipment": [
+        "resistance_bands"
+      ],
+      "environmentTags": [
+        "home",
+        "travel"
+      ],
+      "minExperienceLevel": "beginner",
+      "durationMinutes": 35,
+      "durationRange": {
+        "min": 30,
+        "max": 45
+      },
+      "energyLevels": [
+        "moderate"
+      ],
+      "qualityScore": 85,
+      "constraints": {
+        "contraindicationTags": [],
+        "avoidTags": [],
+        "disallowedStressors": []
+      },
+      "blocks": [
+        {
+          "id": "prep",
+          "title": "Push Prep",
+          "durationMinutes": 6,
+          "focus": "Shoulders",
+          "slots": [
+            {
+              "id": "pull-apart",
+              "exerciseId": "fedb:band-pull-apart",
+              "role": "warmup",
+              "prescription": "2 x 12",
+              "detail": "Use light tension.",
+              "intensity": "easy",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "lateral-raise",
+              "exerciseId": "fedb:lateral-raise-with-bands",
+              "role": "warmup",
+              "prescription": "2 x 10",
+              "detail": "Small smooth reps.",
+              "intensity": "easy",
+              "substitutionExerciseIds": []
+            }
+          ]
+        },
+        {
+          "id": "main",
+          "title": "Push Strength",
+          "durationMinutes": 24,
+          "focus": "Pressing patterns",
+          "slots": [
+            {
+              "id": "bench-press",
+              "exerciseId": "fedb:bench-press-with-bands",
+              "role": "main",
+              "prescription": "4 x 10",
+              "detail": "Keep band path steady.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "shoulder-press",
+              "exerciseId": "fedb:shoulder-press-with-bands",
+              "role": "main",
+              "prescription": "3 x 8-10",
+              "detail": "Brace before pressing.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "chest-press",
+              "exerciseId": "ex:02046",
+              "role": "accessory",
+              "prescription": "3 x 12",
+              "detail": "Finish with smooth reps.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            }
+          ]
+        },
+        {
+          "id": "finish",
+          "title": "Shoulder Pump",
+          "durationMinutes": 5,
+          "focus": "Lateral delts",
+          "slots": [
+            {
+              "id": "lateral-raise-finish",
+              "exerciseId": "fedb:lateral-raise-with-bands",
+              "role": "accessory",
+              "prescription": "2 x 15",
+              "detail": "Light burn only.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "catalog:bands-pull-core-35",
+      "slug": "bands-pull-core-35",
+      "ownership": "system",
+      "version": 1,
+      "status": "active",
+      "title": "Bands Pull and Core",
+      "summary": "A banded pull workout with rows, face pulls, hinge work, and core-friendly pacing.",
+      "focus": "Upper Body Pull",
+      "focusTags": [
+        "upper_body",
+        "middle_back",
+        "lats",
+        "biceps",
+        "core"
+      ],
+      "styleTags": [
+        "strength"
+      ],
+      "equipment": [
+        "resistance_bands"
+      ],
+      "environmentTags": [
+        "home",
+        "travel"
+      ],
+      "minExperienceLevel": "beginner",
+      "durationMinutes": 35,
+      "durationRange": {
+        "min": 30,
+        "max": 45
+      },
+      "energyLevels": [
+        "moderate"
+      ],
+      "qualityScore": 86,
+      "constraints": {
+        "contraindicationTags": [],
+        "avoidTags": [],
+        "disallowedStressors": []
+      },
+      "blocks": [
+        {
+          "id": "prep",
+          "title": "Pull Prep",
+          "durationMinutes": 6,
+          "focus": "Upper back",
+          "slots": [
+            {
+              "id": "pull-apart",
+              "exerciseId": "fedb:band-pull-apart",
+              "role": "warmup",
+              "prescription": "2 x 15",
+              "detail": "Light tension.",
+              "intensity": "easy",
+              "substitutionExerciseIds": []
+            }
+          ]
+        },
+        {
+          "id": "pull",
+          "title": "Pull Strength",
+          "durationMinutes": 24,
+          "focus": "Rows and hinge",
+          "slots": [
+            {
+              "id": "row",
+              "exerciseId": "ex:00670",
+              "role": "main",
+              "prescription": "4 x 10",
+              "detail": "Pause each rep.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "face-pull",
+              "exerciseId": "ex:00534",
+              "role": "main",
+              "prescription": "3 x 12",
+              "detail": "Pull high with control.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "good-morning",
+              "exerciseId": "fedb:band-good-morning",
+              "role": "accessory",
+              "prescription": "3 x 12",
+              "detail": "Keep back neutral.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            }
+          ]
+        },
+        {
+          "id": "finish",
+          "title": "Core-Friendly Finish",
+          "durationMinutes": 5,
+          "focus": "Light hinge",
+          "slots": [
+            {
+              "id": "deadlift",
+              "exerciseId": "fedb:deadlift-with-bands",
+              "role": "accessory",
+              "prescription": "2 x 10 light",
+              "detail": "Keep it submaximal.",
+              "intensity": "easy",
+              "substitutionExerciseIds": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "catalog:bands-travel-mobility-20",
+      "slug": "bands-travel-mobility-20",
+      "ownership": "system",
+      "version": 1,
+      "status": "active",
+      "title": "Bands Travel Mobility",
+      "summary": "A short travel-friendly band session for hips and shoulders.",
+      "focus": "Mobility Reset",
+      "focusTags": [
+        "mobility",
+        "recovery",
+        "shoulders",
+        "glutes"
+      ],
+      "styleTags": [
+        "mobility",
+        "recovery"
+      ],
+      "equipment": [
+        "resistance_bands"
+      ],
+      "environmentTags": [
+        "home",
+        "travel"
+      ],
+      "minExperienceLevel": "beginner",
+      "durationMinutes": 20,
+      "durationRange": {
+        "min": 15,
+        "max": 30
+      },
+      "energyLevels": [
+        "easy"
+      ],
+      "qualityScore": 84,
+      "constraints": {
+        "contraindicationTags": [],
+        "avoidTags": [],
+        "disallowedStressors": []
+      },
+      "blocks": [
+        {
+          "id": "shoulders",
+          "title": "Shoulders",
+          "durationMinutes": 8,
+          "focus": "Light band control",
+          "slots": [
+            {
+              "id": "pull-apart",
+              "exerciseId": "fedb:band-pull-apart",
+              "role": "recovery",
+              "prescription": "3 x 15",
+              "detail": "Keep tension easy.",
+              "intensity": "easy",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "face-pull",
+              "exerciseId": "ex:00534",
+              "role": "warmup",
+              "prescription": "2 x 12",
+              "detail": "Move smoothly.",
+              "intensity": "easy",
+              "substitutionExerciseIds": []
+            }
+          ]
+        },
+        {
+          "id": "hips",
+          "title": "Hips",
+          "durationMinutes": 8,
+          "focus": "Glute activation",
+          "slots": [
+            {
+              "id": "monster-walk",
+              "exerciseId": "fedb:monster-walk",
+              "role": "warmup",
+              "prescription": "3 x 10 steps each way",
+              "detail": "Small steps.",
+              "intensity": "easy",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "hip-extension",
+              "exerciseId": "fedb:hip-extension-with-bands",
+              "role": "warmup",
+              "prescription": "2 x 12 per side",
+              "detail": "Pause lightly.",
+              "intensity": "easy",
+              "substitutionExerciseIds": []
+            }
+          ]
+        },
+        {
+          "id": "finish",
+          "title": "Easy Hinge",
+          "durationMinutes": 4,
+          "focus": "Gentle posterior chain",
+          "slots": [
+            {
+              "id": "good-morning",
+              "exerciseId": "fedb:band-good-morning",
+              "role": "recovery",
+              "prescription": "2 x 10 easy",
+              "detail": "Move slowly.",
+              "intensity": "easy",
+              "substitutionExerciseIds": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "catalog:bands-glute-hamstring-40",
+      "slug": "bands-glute-hamstring-40",
+      "ownership": "system",
+      "version": 1,
+      "status": "active",
+      "title": "Bands Glute Hamstring",
+      "summary": "A longer banded posterior-chain workout for glutes and hamstrings.",
+      "focus": "Glutes and Hamstrings",
+      "focusTags": [
+        "lower_body",
+        "glutes",
+        "hamstrings"
+      ],
+      "styleTags": [
+        "strength"
+      ],
+      "equipment": [
+        "resistance_bands"
+      ],
+      "environmentTags": [
+        "home",
+        "travel"
+      ],
+      "minExperienceLevel": "beginner",
+      "durationMinutes": 40,
+      "durationRange": {
+        "min": 35,
+        "max": 50
+      },
+      "energyLevels": [
+        "moderate",
+        "intense"
+      ],
+      "qualityScore": 84,
+      "constraints": {
+        "contraindicationTags": [],
+        "avoidTags": [],
+        "disallowedStressors": []
+      },
+      "blocks": [
+        {
+          "id": "prep",
+          "title": "Posterior Prep",
+          "durationMinutes": 6,
+          "focus": "Hinge and glutes",
+          "slots": [
+            {
+              "id": "monster-walk",
+              "exerciseId": "fedb:monster-walk",
+              "role": "warmup",
+              "prescription": "2 x 12 steps each way",
+              "detail": "Keep hips level.",
+              "intensity": "easy",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "good-morning",
+              "exerciseId": "fedb:band-good-morning",
+              "role": "warmup",
+              "prescription": "2 x 10",
+              "detail": "Use light tension.",
+              "intensity": "easy",
+              "substitutionExerciseIds": []
+            }
+          ]
+        },
+        {
+          "id": "main",
+          "title": "Posterior Chain",
+          "durationMinutes": 28,
+          "focus": "Hinge and hip extension",
+          "slots": [
+            {
+              "id": "deadlift",
+              "exerciseId": "fedb:deadlift-with-bands",
+              "role": "main",
+              "prescription": "4 x 8",
+              "detail": "Brace and pull evenly.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "hip-extension",
+              "exerciseId": "fedb:hip-extension-with-bands",
+              "role": "main",
+              "prescription": "4 x 12 per side",
+              "detail": "Squeeze glute at the top.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "hamstring-curl",
+              "exerciseId": "fedb:seated-band-hamstring-curl",
+              "role": "accessory",
+              "prescription": "3 x 12",
+              "detail": "Control both directions.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            }
+          ]
+        },
+        {
+          "id": "finish",
+          "title": "Calf Finish",
+          "durationMinutes": 6,
+          "focus": "Lower-leg work",
+          "slots": [
+            {
+              "id": "calf",
+              "exerciseId": "ex:01695",
+              "role": "accessory",
+              "prescription": "3 x 15",
+              "detail": "Pause at top and bottom.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "catalog:bands-conditioning-circuit-30",
+      "slug": "bands-conditioning-circuit-30",
+      "ownership": "system",
+      "version": 1,
+      "status": "active",
+      "title": "Bands Conditioning Circuit",
+      "summary": "A moderate band circuit that alternates hinge, press, row, and squat patterns.",
+      "focus": "Full Body Conditioning",
+      "focusTags": [
+        "full_body",
+        "conditioning",
+        "upper_body",
+        "lower_body"
+      ],
+      "styleTags": [
+        "conditioning",
+        "strength"
+      ],
+      "equipment": [
+        "resistance_bands"
+      ],
+      "environmentTags": [
+        "home",
+        "travel"
+      ],
+      "minExperienceLevel": "beginner",
+      "durationMinutes": 30,
+      "durationRange": {
+        "min": 25,
+        "max": 40
+      },
+      "energyLevels": [
+        "moderate"
+      ],
+      "qualityScore": 84,
+      "constraints": {
+        "contraindicationTags": [],
+        "avoidTags": [],
+        "disallowedStressors": []
+      },
+      "blocks": [
+        {
+          "id": "prep",
+          "title": "Band Prep",
+          "durationMinutes": 5,
+          "focus": "Total-body patterning",
+          "slots": [
+            {
+              "id": "pull-apart",
+              "exerciseId": "fedb:band-pull-apart",
+              "role": "warmup",
+              "prescription": "2 x 12",
+              "detail": "Light tension.",
+              "intensity": "easy",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "good-morning",
+              "exerciseId": "fedb:band-good-morning",
+              "role": "warmup",
+              "prescription": "2 x 10",
+              "detail": "Smooth hinge.",
+              "intensity": "easy",
+              "substitutionExerciseIds": []
+            }
+          ]
+        },
+        {
+          "id": "circuit",
+          "title": "Conditioning Circuit",
+          "durationMinutes": 20,
+          "focus": "Repeatable band work",
+          "slots": [
+            {
+              "id": "squat",
+              "exerciseId": "fedb:squat-with-bands",
+              "role": "main",
+              "prescription": "4 rounds x 10",
+              "detail": "Move steadily.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "press",
+              "exerciseId": "ex:02046",
+              "role": "main",
+              "prescription": "4 rounds x 10",
+              "detail": "Control the band.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "row",
+              "exerciseId": "ex:00670",
+              "role": "main",
+              "prescription": "4 rounds x 10",
+              "detail": "Pause briefly.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            }
+          ]
+        },
+        {
+          "id": "finish",
+          "title": "Posture Finish",
+          "durationMinutes": 5,
+          "focus": "Upper back",
+          "slots": [
+            {
+              "id": "face-pull",
+              "exerciseId": "ex:00534",
+              "role": "accessory",
+              "prescription": "2 x 15",
+              "detail": "Easy controlled reps.",
+              "intensity": "easy",
+              "substitutionExerciseIds": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "catalog:kettlebell-swing-strength-30",
+      "slug": "kettlebell-swing-strength-30",
+      "ownership": "system",
+      "version": 1,
+      "status": "active",
+      "title": "Kettlebell Swing Strength",
+      "summary": "A kettlebell hinge and swing session with row support.",
+      "focus": "Kettlebell Conditioning",
+      "focusTags": [
+        "conditioning",
+        "lower_body",
+        "glutes",
+        "hamstrings",
+        "upper_body"
+      ],
+      "styleTags": [
+        "strength",
+        "conditioning"
+      ],
+      "equipment": [
+        "kettlebell"
+      ],
+      "environmentTags": [
+        "home",
+        "gym"
+      ],
+      "minExperienceLevel": "intermediate",
+      "durationMinutes": 30,
+      "durationRange": {
+        "min": 25,
+        "max": 40
+      },
+      "energyLevels": [
+        "moderate",
+        "intense"
+      ],
+      "qualityScore": 86,
+      "constraints": {
+        "contraindicationTags": [],
+        "avoidTags": [],
+        "disallowedStressors": []
+      },
+      "blocks": [
+        {
+          "id": "prep",
+          "title": "Hinge Prep",
+          "durationMinutes": 5,
+          "focus": "Patterning",
+          "slots": [
+            {
+              "id": "deadlift",
+              "exerciseId": "fedb:kettlebell-one-legged-deadlift",
+              "role": "accessory",
+              "prescription": "2 x 8 per side",
+              "detail": "Use light controlled reps.",
+              "intensity": "easy",
+              "substitutionExerciseIds": []
+            }
+          ]
+        },
+        {
+          "id": "main",
+          "title": "Swing and Row",
+          "durationMinutes": 20,
+          "focus": "Power and pull",
+          "slots": [
+            {
+              "id": "swing",
+              "exerciseId": "ex:00013",
+              "role": "main",
+              "prescription": "6 x 12",
+              "detail": "Stop if the hinge gets sloppy.",
+              "intensity": "intense",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "row",
+              "exerciseId": "fedb:one-arm-kettlebell-row",
+              "role": "main",
+              "prescription": "4 x 8 per side",
+              "detail": "Pause at the top.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            }
+          ]
+        },
+        {
+          "id": "finish",
+          "title": "Easy Press",
+          "durationMinutes": 5,
+          "focus": "Upper close",
+          "slots": [
+            {
+              "id": "press",
+              "exerciseId": "fedb:kettlebell-seated-press",
+              "role": "accessory",
+              "prescription": "2 x 8",
+              "detail": "Keep this submaximal.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "catalog:kettlebell-lower-power-35",
+      "slug": "kettlebell-lower-power-35",
+      "ownership": "system",
+      "version": 1,
+      "status": "active",
+      "title": "Kettlebell Lower Power",
+      "summary": "A kettlebell lower-body workout using goblet squats, hinges, and swings.",
+      "focus": "Lower Body Strength",
+      "focusTags": [
+        "lower_body",
+        "glutes",
+        "hamstrings",
+        "quadriceps"
+      ],
+      "styleTags": [
+        "strength",
+        "conditioning"
+      ],
+      "equipment": [
+        "kettlebell"
+      ],
+      "environmentTags": [
+        "home",
+        "gym"
+      ],
+      "minExperienceLevel": "intermediate",
+      "durationMinutes": 35,
+      "durationRange": {
+        "min": 30,
+        "max": 45
+      },
+      "energyLevels": [
+        "moderate",
+        "intense"
+      ],
+      "qualityScore": 85,
+      "constraints": {
+        "contraindicationTags": [],
+        "avoidTags": [],
+        "disallowedStressors": []
+      },
+      "blocks": [
+        {
+          "id": "prep",
+          "title": "Lower Prep",
+          "durationMinutes": 6,
+          "focus": "Squat and hinge",
+          "slots": [
+            {
+              "id": "goblet-squat",
+              "exerciseId": "fedb:goblet-squat",
+              "role": "accessory",
+              "prescription": "2 x 8 light",
+              "detail": "Use this to find depth.",
+              "intensity": "easy",
+              "substitutionExerciseIds": []
+            }
+          ]
+        },
+        {
+          "id": "strength",
+          "title": "Lower Strength",
+          "durationMinutes": 24,
+          "focus": "Squat and hinge",
+          "slots": [
+            {
+              "id": "goblet-squat-main",
+              "exerciseId": "fedb:goblet-squat",
+              "role": "main",
+              "prescription": "4 x 8",
+              "detail": "Brace and sit between the hips.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "deadlift",
+              "exerciseId": "fedb:kettlebell-one-legged-deadlift",
+              "role": "main",
+              "prescription": "3 x 8 per side",
+              "detail": "Stay balanced.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "swing",
+              "exerciseId": "ex:00013",
+              "role": "main",
+              "prescription": "5 x 10",
+              "detail": "Crisp hip snaps.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            }
+          ]
+        },
+        {
+          "id": "finish",
+          "title": "Row Finish",
+          "durationMinutes": 5,
+          "focus": "Upper-back support",
+          "slots": [
+            {
+              "id": "row",
+              "exerciseId": "fedb:one-arm-kettlebell-row",
+              "role": "accessory",
+              "prescription": "2 x 10 per side",
+              "detail": "Finish smooth.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "catalog:kettlebell-upper-pull-30",
+      "slug": "kettlebell-upper-pull-30",
+      "ownership": "system",
+      "version": 1,
+      "status": "active",
+      "title": "Kettlebell Upper Pull",
+      "summary": "A kettlebell pull workout for rows, lats, and grip.",
+      "focus": "Upper Body Pull",
+      "focusTags": [
+        "upper_body",
+        "middle_back",
+        "lats",
+        "biceps"
+      ],
+      "styleTags": [
+        "strength"
+      ],
+      "equipment": [
+        "kettlebell"
+      ],
+      "environmentTags": [
+        "home",
+        "gym"
+      ],
+      "minExperienceLevel": "beginner",
+      "durationMinutes": 30,
+      "durationRange": {
+        "min": 25,
+        "max": 40
+      },
+      "energyLevels": [
+        "moderate"
+      ],
+      "qualityScore": 83,
+      "constraints": {
+        "contraindicationTags": [],
+        "avoidTags": [],
+        "disallowedStressors": []
+      },
+      "blocks": [
+        {
+          "id": "prep",
+          "title": "Pull Prep",
+          "durationMinutes": 5,
+          "focus": "Light rows",
+          "slots": [
+            {
+              "id": "row-light",
+              "exerciseId": "fedb:one-arm-kettlebell-row",
+              "role": "accessory",
+              "prescription": "2 x 8 per side light",
+              "detail": "Groove the path.",
+              "intensity": "easy",
+              "substitutionExerciseIds": []
+            }
+          ]
+        },
+        {
+          "id": "pull",
+          "title": "Pull Strength",
+          "durationMinutes": 20,
+          "focus": "Rows and hinge",
+          "slots": [
+            {
+              "id": "row",
+              "exerciseId": "fedb:two-arm-kettlebell-row",
+              "role": "main",
+              "prescription": "4 x 8",
+              "detail": "Pause hard at the top.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "one-arm-row",
+              "exerciseId": "fedb:one-arm-kettlebell-row",
+              "role": "main",
+              "prescription": "3 x 8 per side",
+              "detail": "Keep ribs down.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "deadlift",
+              "exerciseId": "fedb:kettlebell-one-legged-deadlift",
+              "role": "accessory",
+              "prescription": "3 x 8 per side",
+              "detail": "Use a controlled hinge.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            }
+          ]
+        },
+        {
+          "id": "finish",
+          "title": "Swing Flush",
+          "durationMinutes": 5,
+          "focus": "Moderate conditioning",
+          "slots": [
+            {
+              "id": "swing",
+              "exerciseId": "ex:00013",
+              "role": "main",
+              "prescription": "4 x 10",
+              "detail": "Keep power crisp.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "catalog:kettlebell-push-core-35",
+      "slug": "kettlebell-push-core-35",
+      "ownership": "system",
+      "version": 1,
+      "status": "active",
+      "title": "Kettlebell Push and Core",
+      "summary": "A kettlebell pressing session with floor press, seated press, and core-friendly hinges.",
+      "focus": "Upper Body Push",
+      "focusTags": [
+        "upper_body",
+        "chest",
+        "shoulders",
+        "triceps",
+        "core"
+      ],
+      "styleTags": [
+        "strength"
+      ],
+      "equipment": [
+        "kettlebell"
+      ],
+      "environmentTags": [
+        "home",
+        "gym"
+      ],
+      "minExperienceLevel": "beginner",
+      "durationMinutes": 35,
+      "durationRange": {
+        "min": 30,
+        "max": 45
+      },
+      "energyLevels": [
+        "moderate"
+      ],
+      "qualityScore": 83,
+      "constraints": {
+        "contraindicationTags": [],
+        "avoidTags": [],
+        "disallowedStressors": []
+      },
+      "blocks": [
+        {
+          "id": "prep",
+          "title": "Press Prep",
+          "durationMinutes": 5,
+          "focus": "Press patterning",
+          "slots": [
+            {
+              "id": "press-light",
+              "exerciseId": "fedb:kettlebell-seated-press",
+              "role": "accessory",
+              "prescription": "2 x 8 light",
+              "detail": "Move slowly.",
+              "intensity": "easy",
+              "substitutionExerciseIds": []
+            }
+          ]
+        },
+        {
+          "id": "main",
+          "title": "Push Strength",
+          "durationMinutes": 24,
+          "focus": "Pressing work",
+          "slots": [
+            {
+              "id": "floor-press",
+              "exerciseId": "fedb:one-arm-kettlebell-floor-press",
+              "role": "main",
+              "prescription": "4 x 8 per side",
+              "detail": "Keep shoulder packed.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "seated-press",
+              "exerciseId": "fedb:kettlebell-seated-press",
+              "role": "main",
+              "prescription": "3 x 8",
+              "detail": "Brace tall.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "goblet-squat",
+              "exerciseId": "fedb:goblet-squat",
+              "role": "accessory",
+              "prescription": "3 x 8 light",
+              "detail": "Use as a controlled core drill.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            }
+          ]
+        },
+        {
+          "id": "finish",
+          "title": "Row Balance",
+          "durationMinutes": 6,
+          "focus": "Upper-back balance",
+          "slots": [
+            {
+              "id": "row",
+              "exerciseId": "fedb:one-arm-kettlebell-row",
+              "role": "accessory",
+              "prescription": "2 x 10 per side",
+              "detail": "Smooth reps.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "catalog:kettlebell-full-body-45",
+      "slug": "kettlebell-full-body-45",
+      "ownership": "system",
+      "version": 1,
+      "status": "active",
+      "title": "Kettlebell Full Body",
+      "summary": "A longer kettlebell workout with squat, hinge, pull, push, and conditioning.",
+      "focus": "Full Body Strength",
+      "focusTags": [
+        "full_body",
+        "upper_body",
+        "lower_body",
+        "conditioning",
+        "core"
+      ],
+      "styleTags": [
+        "strength",
+        "conditioning"
+      ],
+      "equipment": [
+        "kettlebell"
+      ],
+      "environmentTags": [
+        "home",
+        "gym"
+      ],
+      "minExperienceLevel": "intermediate",
+      "durationMinutes": 45,
+      "durationRange": {
+        "min": 40,
+        "max": 55
+      },
+      "energyLevels": [
+        "moderate",
+        "intense"
+      ],
+      "qualityScore": 86,
+      "constraints": {
+        "contraindicationTags": [],
+        "avoidTags": [],
+        "disallowedStressors": []
+      },
+      "blocks": [
+        {
+          "id": "prep",
+          "title": "Pattern Prep",
+          "durationMinutes": 7,
+          "focus": "Squat and hinge",
+          "slots": [
+            {
+              "id": "goblet-light",
+              "exerciseId": "fedb:goblet-squat",
+              "role": "accessory",
+              "prescription": "2 x 8",
+              "detail": "Find a strong position.",
+              "intensity": "easy",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "row-light",
+              "exerciseId": "fedb:one-arm-kettlebell-row",
+              "role": "accessory",
+              "prescription": "2 x 8 per side",
+              "detail": "Use light effort.",
+              "intensity": "easy",
+              "substitutionExerciseIds": []
+            }
+          ]
+        },
+        {
+          "id": "main",
+          "title": "Full Body Work",
+          "durationMinutes": 30,
+          "focus": "Squat, pull, push",
+          "slots": [
+            {
+              "id": "goblet-squat",
+              "exerciseId": "fedb:goblet-squat",
+              "role": "main",
+              "prescription": "4 x 8",
+              "detail": "Brace and control depth.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "row",
+              "exerciseId": "fedb:one-arm-kettlebell-row",
+              "role": "main",
+              "prescription": "4 x 8 per side",
+              "detail": "Pause at the ribcage.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "floor-press",
+              "exerciseId": "fedb:one-arm-kettlebell-floor-press",
+              "role": "main",
+              "prescription": "3 x 8 per side",
+              "detail": "Keep the shoulder stable.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            }
+          ]
+        },
+        {
+          "id": "finish",
+          "title": "Swing Finish",
+          "durationMinutes": 8,
+          "focus": "Conditioning",
+          "slots": [
+            {
+              "id": "swing",
+              "exerciseId": "ex:00013",
+              "role": "main",
+              "prescription": "6 x 10",
+              "detail": "Rest until each set is crisp.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "catalog:kettlebell-easy-technique-20",
+      "slug": "kettlebell-easy-technique-20",
+      "ownership": "system",
+      "version": 1,
+      "status": "active",
+      "title": "Kettlebell Easy Technique",
+      "summary": "A short lower-intensity kettlebell technique session.",
+      "focus": "Kettlebell Technique",
+      "focusTags": [
+        "full_body",
+        "lower_body",
+        "upper_body",
+        "recovery"
+      ],
+      "styleTags": [
+        "strength",
+        "recovery"
+      ],
+      "equipment": [
+        "kettlebell"
+      ],
+      "environmentTags": [
+        "home",
+        "gym"
+      ],
+      "minExperienceLevel": "beginner",
+      "durationMinutes": 20,
+      "durationRange": {
+        "min": 15,
+        "max": 30
+      },
+      "energyLevels": [
+        "easy"
+      ],
+      "qualityScore": 82,
+      "constraints": {
+        "contraindicationTags": [],
+        "avoidTags": [],
+        "disallowedStressors": []
+      },
+      "blocks": [
+        {
+          "id": "technique",
+          "title": "Technique Practice",
+          "durationMinutes": 15,
+          "focus": "Easy patterning",
+          "slots": [
+            {
+              "id": "goblet",
+              "exerciseId": "fedb:goblet-squat",
+              "role": "accessory",
+              "prescription": "3 x 6 light",
+              "detail": "Practice depth and brace.",
+              "intensity": "easy",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "row",
+              "exerciseId": "fedb:one-arm-kettlebell-row",
+              "role": "accessory",
+              "prescription": "3 x 8 per side",
+              "detail": "Move smoothly.",
+              "intensity": "easy",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "press",
+              "exerciseId": "fedb:kettlebell-seated-press",
+              "role": "accessory",
+              "prescription": "2 x 8",
+              "detail": "Stay submaximal.",
+              "intensity": "easy",
+              "substitutionExerciseIds": []
+            }
+          ]
+        },
+        {
+          "id": "finish",
+          "title": "Easy Hinge",
+          "durationMinutes": 5,
+          "focus": "Low-volume hinge",
+          "slots": [
+            {
+              "id": "deadlift",
+              "exerciseId": "fedb:kettlebell-one-legged-deadlift",
+              "role": "accessory",
+              "prescription": "2 x 6 per side",
+              "detail": "Keep this technique-only.",
+              "intensity": "easy",
+              "substitutionExerciseIds": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "catalog:barbell-squat-strength-45",
+      "slug": "barbell-squat-strength-45",
+      "ownership": "system",
+      "version": 1,
+      "status": "active",
+      "title": "Barbell Squat Strength",
+      "summary": "A barbell lower-body strength workout centered on squats and posterior-chain assistance.",
+      "focus": "Lower Body Strength",
+      "focusTags": [
+        "lower_body",
+        "quadriceps",
+        "glutes",
+        "hamstrings",
+        "core"
+      ],
+      "styleTags": [
+        "strength",
+        "powerlifting"
+      ],
+      "equipment": [
+        "barbell"
+      ],
+      "environmentTags": [
+        "gym"
+      ],
+      "minExperienceLevel": "intermediate",
+      "durationMinutes": 45,
+      "durationRange": {
+        "min": 40,
+        "max": 55
+      },
+      "energyLevels": [
+        "moderate",
+        "intense"
+      ],
+      "qualityScore": 86,
+      "constraints": {
+        "contraindicationTags": [],
+        "avoidTags": [],
+        "disallowedStressors": []
+      },
+      "blocks": [
+        {
+          "id": "ramp",
+          "title": "Ramp Sets",
+          "durationMinutes": 10,
+          "focus": "Squat preparation",
+          "slots": [
+            {
+              "id": "squat-light",
+              "exerciseId": "fedb:barbell-squat",
+              "role": "accessory",
+              "prescription": "3 x 5 ramping",
+              "detail": "Add load gradually.",
+              "intensity": "easy",
+              "substitutionExerciseIds": []
+            }
+          ]
+        },
+        {
+          "id": "main",
+          "title": "Squat Work",
+          "durationMinutes": 28,
+          "focus": "Primary lower-body strength",
+          "slots": [
+            {
+              "id": "squat",
+              "exerciseId": "fedb:barbell-squat",
+              "role": "main",
+              "prescription": "5 x 5",
+              "detail": "Keep reps powerful and repeatable.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "lunge",
+              "exerciseId": "fedb:barbell-lunge",
+              "role": "accessory",
+              "prescription": "3 x 8 per side",
+              "detail": "Use a moderate load.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            }
+          ]
+        },
+        {
+          "id": "finish",
+          "title": "Posterior Finish",
+          "durationMinutes": 7,
+          "focus": "Hinge assistance",
+          "slots": [
+            {
+              "id": "rdl",
+              "exerciseId": "fedb:romanian-deadlift",
+              "role": "accessory",
+              "prescription": "3 x 8",
+              "detail": "Own the hinge.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "catalog:barbell-deadlift-pull-45",
+      "slug": "barbell-deadlift-pull-45",
+      "ownership": "system",
+      "version": 1,
+      "status": "active",
+      "title": "Barbell Deadlift Pull",
+      "summary": "A deadlift and barbell row session for posterior-chain and upper-back strength.",
+      "focus": "Pull Strength",
+      "focusTags": [
+        "upper_body",
+        "middle_back",
+        "lower_body",
+        "hamstrings",
+        "glutes"
+      ],
+      "styleTags": [
+        "strength",
+        "powerlifting"
+      ],
+      "equipment": [
+        "barbell"
+      ],
+      "environmentTags": [
+        "gym"
+      ],
+      "minExperienceLevel": "intermediate",
+      "durationMinutes": 45,
+      "durationRange": {
+        "min": 40,
+        "max": 55
+      },
+      "energyLevels": [
+        "moderate",
+        "intense"
+      ],
+      "qualityScore": 86,
+      "constraints": {
+        "contraindicationTags": [],
+        "avoidTags": [],
+        "disallowedStressors": []
+      },
+      "blocks": [
+        {
+          "id": "ramp",
+          "title": "Hinge Ramp",
+          "durationMinutes": 10,
+          "focus": "Deadlift preparation",
+          "slots": [
+            {
+              "id": "rdl-light",
+              "exerciseId": "fedb:romanian-deadlift",
+              "role": "accessory",
+              "prescription": "3 x 6 light",
+              "detail": "Hinge smoothly.",
+              "intensity": "easy",
+              "substitutionExerciseIds": []
+            }
+          ]
+        },
+        {
+          "id": "main",
+          "title": "Deadlift Pull",
+          "durationMinutes": 28,
+          "focus": "Primary pull work",
+          "slots": [
+            {
+              "id": "deadlift",
+              "exerciseId": "fedb:barbell-deadlift",
+              "role": "main",
+              "prescription": "5 x 3-5",
+              "detail": "Keep every rep technically clean.",
+              "intensity": "intense",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "row",
+              "exerciseId": "fedb:bent-over-barbell-row",
+              "role": "main",
+              "prescription": "4 x 8",
+              "detail": "Pause at the top.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            }
+          ]
+        },
+        {
+          "id": "finish",
+          "title": "Curl Finish",
+          "durationMinutes": 7,
+          "focus": "Arm accessory",
+          "slots": [
+            {
+              "id": "curl",
+              "exerciseId": "fedb:barbell-curl",
+              "role": "accessory",
+              "prescription": "3 x 10",
+              "detail": "Keep it strict.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "catalog:barbell-bench-upper-40",
+      "slug": "barbell-bench-upper-40",
+      "ownership": "system",
+      "version": 1,
+      "status": "active",
+      "title": "Barbell Bench Upper",
+      "summary": "A barbell upper-body pressing workout with rows and arm assistance.",
+      "focus": "Upper Body Strength",
+      "focusTags": [
+        "upper_body",
+        "chest",
+        "shoulders",
+        "triceps",
+        "middle_back"
+      ],
+      "styleTags": [
+        "strength",
+        "powerlifting"
+      ],
+      "equipment": [
+        "barbell"
+      ],
+      "environmentTags": [
+        "gym"
+      ],
+      "minExperienceLevel": "intermediate",
+      "durationMinutes": 40,
+      "durationRange": {
+        "min": 35,
+        "max": 50
+      },
+      "energyLevels": [
+        "moderate",
+        "intense"
+      ],
+      "qualityScore": 85,
+      "constraints": {
+        "contraindicationTags": [],
+        "avoidTags": [],
+        "disallowedStressors": []
+      },
+      "blocks": [
+        {
+          "id": "ramp",
+          "title": "Bench Ramp",
+          "durationMinutes": 8,
+          "focus": "Press preparation",
+          "slots": [
+            {
+              "id": "bench-light",
+              "exerciseId": "fedb:barbell-bench-press-medium-grip",
+              "role": "accessory",
+              "prescription": "3 x 5 ramping",
+              "detail": "Build gradually.",
+              "intensity": "easy",
+              "substitutionExerciseIds": []
+            }
+          ]
+        },
+        {
+          "id": "main",
+          "title": "Bench and Row",
+          "durationMinutes": 25,
+          "focus": "Press-pull strength",
+          "slots": [
+            {
+              "id": "bench",
+              "exerciseId": "fedb:barbell-bench-press-medium-grip",
+              "role": "main",
+              "prescription": "5 x 5",
+              "detail": "Press with a stable setup.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "row",
+              "exerciseId": "fedb:bent-over-barbell-row",
+              "role": "main",
+              "prescription": "4 x 8",
+              "detail": "Keep torso position fixed.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            }
+          ]
+        },
+        {
+          "id": "finish",
+          "title": "Arms",
+          "durationMinutes": 7,
+          "focus": "Accessory finish",
+          "slots": [
+            {
+              "id": "curl",
+              "exerciseId": "fedb:barbell-curl",
+              "role": "accessory",
+              "prescription": "3 x 10",
+              "detail": "Stay controlled.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "catalog:barbell-full-body-strength-55",
+      "slug": "barbell-full-body-strength-55",
+      "ownership": "system",
+      "version": 1,
+      "status": "active",
+      "title": "Barbell Full Body Strength",
+      "summary": "A longer barbell workout combining squat, press, hinge, and row patterns.",
+      "focus": "Full Body Strength",
+      "focusTags": [
+        "full_body",
+        "upper_body",
+        "lower_body",
+        "core",
+        "middle_back"
+      ],
+      "styleTags": [
+        "strength",
+        "powerlifting"
+      ],
+      "equipment": [
+        "barbell"
+      ],
+      "environmentTags": [
+        "gym"
+      ],
+      "minExperienceLevel": "advanced",
+      "durationMinutes": 55,
+      "durationRange": {
+        "min": 50,
+        "max": 65
+      },
+      "energyLevels": [
+        "intense"
+      ],
+      "qualityScore": 83,
+      "constraints": {
+        "contraindicationTags": [],
+        "avoidTags": [],
+        "disallowedStressors": []
+      },
+      "blocks": [
+        {
+          "id": "ramp",
+          "title": "Ramp Work",
+          "durationMinutes": 10,
+          "focus": "Full-body prep",
+          "slots": [
+            {
+              "id": "front-squat-light",
+              "exerciseId": "fedb:front-barbell-squat",
+              "role": "accessory",
+              "prescription": "3 x 5 light",
+              "detail": "Groove the brace.",
+              "intensity": "easy",
+              "substitutionExerciseIds": []
+            }
+          ]
+        },
+        {
+          "id": "main",
+          "title": "Main Lifts",
+          "durationMinutes": 35,
+          "focus": "Squat, press, and pull",
+          "slots": [
+            {
+              "id": "squat",
+              "exerciseId": "fedb:barbell-squat",
+              "role": "main",
+              "prescription": "4 x 5",
+              "detail": "Leave 1-2 reps in reserve.",
+              "intensity": "intense",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "bench",
+              "exerciseId": "fedb:barbell-bench-press-medium-grip",
+              "role": "main",
+              "prescription": "4 x 6",
+              "detail": "Keep the setup repeatable.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "row",
+              "exerciseId": "fedb:bent-over-barbell-row",
+              "role": "main",
+              "prescription": "4 x 8",
+              "detail": "Pull with control.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            }
+          ]
+        },
+        {
+          "id": "finish",
+          "title": "Hinge Finish",
+          "durationMinutes": 10,
+          "focus": "Posterior chain",
+          "slots": [
+            {
+              "id": "rdl",
+              "exerciseId": "fedb:romanian-deadlift",
+              "role": "accessory",
+              "prescription": "3 x 8",
+              "detail": "Own the eccentric.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "catalog:barbell-glute-bridge-lower-35",
+      "slug": "barbell-glute-bridge-lower-35",
+      "ownership": "system",
+      "version": 1,
+      "status": "active",
+      "title": "Barbell Glute Bridge Lower",
+      "summary": "A lower-body barbell session focused on glute strength and hinge assistance.",
+      "focus": "Glutes and Hamstrings",
+      "focusTags": [
+        "lower_body",
+        "glutes",
+        "hamstrings"
+      ],
+      "styleTags": [
+        "strength"
+      ],
+      "equipment": [
+        "barbell"
+      ],
+      "environmentTags": [
+        "gym"
+      ],
+      "minExperienceLevel": "intermediate",
+      "durationMinutes": 35,
+      "durationRange": {
+        "min": 30,
+        "max": 45
+      },
+      "energyLevels": [
+        "moderate"
+      ],
+      "qualityScore": 84,
+      "constraints": {
+        "contraindicationTags": [],
+        "avoidTags": [],
+        "disallowedStressors": []
+      },
+      "blocks": [
+        {
+          "id": "ramp",
+          "title": "Bridge Ramp",
+          "durationMinutes": 6,
+          "focus": "Glute prep",
+          "slots": [
+            {
+              "id": "bridge-light",
+              "exerciseId": "fedb:barbell-glute-bridge",
+              "role": "accessory",
+              "prescription": "2 x 8 light",
+              "detail": "Find position.",
+              "intensity": "easy",
+              "substitutionExerciseIds": []
+            }
+          ]
+        },
+        {
+          "id": "main",
+          "title": "Glute Strength",
+          "durationMinutes": 24,
+          "focus": "Hip extension",
+          "slots": [
+            {
+              "id": "hip-thrust",
+              "exerciseId": "fedb:barbell-hip-thrust",
+              "role": "main",
+              "prescription": "4 x 8",
+              "detail": "Pause at the top.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "glute-bridge",
+              "exerciseId": "fedb:barbell-glute-bridge",
+              "role": "main",
+              "prescription": "3 x 10",
+              "detail": "Keep ribs down.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "rdl",
+              "exerciseId": "fedb:romanian-deadlift",
+              "role": "accessory",
+              "prescription": "3 x 8",
+              "detail": "Keep shins mostly vertical.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            }
+          ]
+        },
+        {
+          "id": "finish",
+          "title": "Calves",
+          "durationMinutes": 5,
+          "focus": "Lower-leg finish",
+          "slots": [
+            {
+              "id": "calf",
+              "exerciseId": "fedb:standing-barbell-calf-raise",
+              "role": "accessory",
+              "prescription": "3 x 12",
+              "detail": "Control top and bottom.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "catalog:barbell-pull-arms-35",
+      "slug": "barbell-pull-arms-35",
+      "ownership": "system",
+      "version": 1,
+      "status": "active",
+      "title": "Barbell Pull Arms",
+      "summary": "A barbell back, trap, and biceps session.",
+      "focus": "Upper Body Pull",
+      "focusTags": [
+        "upper_body",
+        "middle_back",
+        "lats",
+        "biceps",
+        "traps"
+      ],
+      "styleTags": [
+        "strength"
+      ],
+      "equipment": [
+        "barbell"
+      ],
+      "environmentTags": [
+        "gym"
+      ],
+      "minExperienceLevel": "intermediate",
+      "durationMinutes": 35,
+      "durationRange": {
+        "min": 30,
+        "max": 45
+      },
+      "energyLevels": [
+        "moderate"
+      ],
+      "qualityScore": 82,
+      "constraints": {
+        "contraindicationTags": [],
+        "avoidTags": [],
+        "disallowedStressors": []
+      },
+      "blocks": [
+        {
+          "id": "pull",
+          "title": "Main Pulls",
+          "durationMinutes": 24,
+          "focus": "Rows and traps",
+          "slots": [
+            {
+              "id": "row",
+              "exerciseId": "fedb:bent-over-barbell-row",
+              "role": "main",
+              "prescription": "4 x 8",
+              "detail": "Keep the torso steady.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "shrug",
+              "exerciseId": "fedb:barbell-shrug",
+              "role": "main",
+              "prescription": "3 x 10",
+              "detail": "Lift straight up and down.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "curl",
+              "exerciseId": "fedb:barbell-curl",
+              "role": "accessory",
+              "prescription": "3 x 10",
+              "detail": "No swinging.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            }
+          ]
+        },
+        {
+          "id": "finish",
+          "title": "Rear Delt Row",
+          "durationMinutes": 11,
+          "focus": "Upper-back finish",
+          "slots": [
+            {
+              "id": "rear-delt-row",
+              "exerciseId": "fedb:barbell-rear-delt-row",
+              "role": "accessory",
+              "prescription": "3 x 10",
+              "detail": "Use a controlled load.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "catalog:barbell-intense-lower-60",
+      "slug": "barbell-intense-lower-60",
+      "ownership": "system",
+      "version": 1,
+      "status": "active",
+      "title": "Barbell Intense Lower",
+      "summary": "A high-effort lower-body barbell workout for advanced lifters.",
+      "focus": "Lower Body Strength",
+      "focusTags": [
+        "lower_body",
+        "quadriceps",
+        "glutes",
+        "hamstrings",
+        "core"
+      ],
+      "styleTags": [
+        "strength",
+        "powerlifting"
+      ],
+      "equipment": [
+        "barbell"
+      ],
+      "environmentTags": [
+        "gym"
+      ],
+      "minExperienceLevel": "advanced",
+      "durationMinutes": 60,
+      "durationRange": {
+        "min": 55,
+        "max": 70
+      },
+      "energyLevels": [
+        "intense"
+      ],
+      "qualityScore": 82,
+      "constraints": {
+        "contraindicationTags": [],
+        "avoidTags": [],
+        "disallowedStressors": []
+      },
+      "blocks": [
+        {
+          "id": "ramp",
+          "title": "Heavy Ramp",
+          "durationMinutes": 12,
+          "focus": "Squat and hinge prep",
+          "slots": [
+            {
+              "id": "front-squat",
+              "exerciseId": "fedb:front-barbell-squat",
+              "role": "accessory",
+              "prescription": "3 x 5 ramping",
+              "detail": "Build gradually.",
+              "intensity": "easy",
+              "substitutionExerciseIds": []
+            }
+          ]
+        },
+        {
+          "id": "main",
+          "title": "Lower Strength",
+          "durationMinutes": 38,
+          "focus": "Heavy squat and hinge",
+          "slots": [
+            {
+              "id": "squat",
+              "exerciseId": "fedb:barbell-squat",
+              "role": "main",
+              "prescription": "5 x 3-5",
+              "detail": "Use clean heavy reps.",
+              "intensity": "intense",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "deadlift",
+              "exerciseId": "fedb:barbell-deadlift",
+              "role": "main",
+              "prescription": "4 x 3",
+              "detail": "Stop if speed or position drops.",
+              "intensity": "intense",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "lunge",
+              "exerciseId": "fedb:barbell-lunge",
+              "role": "accessory",
+              "prescription": "3 x 6 per side",
+              "detail": "Use moderate loading.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            }
+          ]
+        },
+        {
+          "id": "finish",
+          "title": "Posterior Accessory",
+          "durationMinutes": 10,
+          "focus": "Hinge volume",
+          "slots": [
+            {
+              "id": "rdl",
+              "exerciseId": "fedb:romanian-deadlift",
+              "role": "accessory",
+              "prescription": "3 x 8",
+              "detail": "Control the eccentric.",
+              "intensity": "moderate",
               "substitutionExerciseIds": []
             }
           ]
@@ -226,22 +5098,41 @@
       "title": "Gym Pull and Conditioning",
       "summary": "A gym session combining cable rowing, treadmill work, and trunk stability.",
       "focus": "Pull and Conditioning",
-      "focusTags": ["upper_body", "middle_back", "conditioning", "core"],
-      "styleTags": ["strength", "conditioning", "cardio"],
-      "equipment": ["bodyweight", "cable_machine", "treadmill"],
-      "environmentTags": ["gym"],
+      "focusTags": [
+        "upper_body",
+        "middle_back",
+        "conditioning",
+        "core"
+      ],
+      "styleTags": [
+        "strength",
+        "conditioning",
+        "cardio"
+      ],
+      "equipment": [
+        "bodyweight",
+        "cable_machine",
+        "treadmill"
+      ],
+      "environmentTags": [
+        "gym"
+      ],
       "minExperienceLevel": "beginner",
       "durationMinutes": 40,
       "durationRange": {
         "min": 35,
         "max": 50
       },
-      "energyLevels": ["moderate"],
-      "qualityScore": 88,
+      "energyLevels": [
+        "moderate"
+      ],
+      "qualityScore": 90,
       "constraints": {
         "contraindicationTags": [],
         "avoidTags": [],
-        "disallowedStressors": ["upper_body_pull_fatigue"]
+        "disallowedStressors": [
+          "upper_body_pull_fatigue"
+        ]
       },
       "blocks": [
         {
@@ -257,7 +5148,9 @@
               "prescription": "8 minutes easy",
               "detail": "Increase speed gradually without pushing effort.",
               "intensity": "easy",
-              "substitutionExerciseIds": ["ex:00153"]
+              "substitutionExerciseIds": [
+                "ex:00153"
+              ]
             }
           ]
         },
@@ -300,7 +5193,632 @@
               "prescription": "12 minutes brisk",
               "detail": "Keep the effort moderate and sustainable.",
               "intensity": "moderate",
-              "substitutionExerciseIds": ["ex:00153"]
+              "substitutionExerciseIds": [
+                "ex:00153"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "catalog:cable-push-core-35",
+      "slug": "cable-push-core-35",
+      "ownership": "system",
+      "version": 1,
+      "status": "active",
+      "title": "Cable Push and Core",
+      "summary": "A cable-based push workout with chest, shoulders, triceps, and core.",
+      "focus": "Upper Body Push",
+      "focusTags": [
+        "upper_body",
+        "chest",
+        "shoulders",
+        "triceps",
+        "core"
+      ],
+      "styleTags": [
+        "strength"
+      ],
+      "equipment": [
+        "cable_machine"
+      ],
+      "environmentTags": [
+        "gym"
+      ],
+      "minExperienceLevel": "beginner",
+      "durationMinutes": 35,
+      "durationRange": {
+        "min": 30,
+        "max": 45
+      },
+      "energyLevels": [
+        "moderate"
+      ],
+      "qualityScore": 86,
+      "constraints": {
+        "contraindicationTags": [],
+        "avoidTags": [],
+        "disallowedStressors": []
+      },
+      "blocks": [
+        {
+          "id": "prep",
+          "title": "Cable Prep",
+          "durationMinutes": 5,
+          "focus": "Shoulders",
+          "slots": [
+            {
+              "id": "rear-delt",
+              "exerciseId": "fedb:cable-rear-delt-fly",
+              "role": "warmup",
+              "prescription": "2 x 12 light",
+              "detail": "Use easy tension.",
+              "intensity": "easy",
+              "substitutionExerciseIds": []
+            }
+          ]
+        },
+        {
+          "id": "push",
+          "title": "Cable Push",
+          "durationMinutes": 24,
+          "focus": "Press and shoulders",
+          "slots": [
+            {
+              "id": "chest-press",
+              "exerciseId": "fedb:cable-chest-press",
+              "role": "main",
+              "prescription": "4 x 10",
+              "detail": "Press with steady control.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "shoulder-press",
+              "exerciseId": "fedb:cable-shoulder-press",
+              "role": "main",
+              "prescription": "3 x 8-10",
+              "detail": "Brace before each rep.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "triceps",
+              "exerciseId": "fedb:cable-rope-overhead-triceps-extension",
+              "role": "accessory",
+              "prescription": "3 x 12",
+              "detail": "Keep elbows controlled.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            }
+          ]
+        },
+        {
+          "id": "core",
+          "title": "Cable Core",
+          "durationMinutes": 6,
+          "focus": "Anterior core",
+          "slots": [
+            {
+              "id": "crunch",
+              "exerciseId": "fedb:cable-crunch",
+              "role": "accessory",
+              "prescription": "3 x 12",
+              "detail": "Curl down without yanking.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "catalog:cable-pull-back-35",
+      "slug": "cable-pull-back-35",
+      "ownership": "system",
+      "version": 1,
+      "status": "active",
+      "title": "Cable Pull Back",
+      "summary": "A cable pull workout for lats, rows, rear delts, and biceps.",
+      "focus": "Upper Body Pull",
+      "focusTags": [
+        "upper_body",
+        "middle_back",
+        "lats",
+        "biceps",
+        "shoulders"
+      ],
+      "styleTags": [
+        "strength"
+      ],
+      "equipment": [
+        "cable_machine"
+      ],
+      "environmentTags": [
+        "gym"
+      ],
+      "minExperienceLevel": "beginner",
+      "durationMinutes": 35,
+      "durationRange": {
+        "min": 30,
+        "max": 45
+      },
+      "energyLevels": [
+        "moderate"
+      ],
+      "qualityScore": 88,
+      "constraints": {
+        "contraindicationTags": [],
+        "avoidTags": [],
+        "disallowedStressors": []
+      },
+      "blocks": [
+        {
+          "id": "prep",
+          "title": "Upper-Back Prep",
+          "durationMinutes": 5,
+          "focus": "Scap control",
+          "slots": [
+            {
+              "id": "face-pull",
+              "exerciseId": "fedb:face-pull",
+              "role": "warmup",
+              "prescription": "2 x 12",
+              "detail": "Light and smooth.",
+              "intensity": "easy",
+              "substitutionExerciseIds": []
+            }
+          ]
+        },
+        {
+          "id": "pull",
+          "title": "Cable Pull",
+          "durationMinutes": 24,
+          "focus": "Rows and pulldowns",
+          "slots": [
+            {
+              "id": "row",
+              "exerciseId": "fedb:seated-cable-rows",
+              "role": "main",
+              "prescription": "4 x 10",
+              "detail": "Pause back.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "pulldown",
+              "exerciseId": "fedb:wide-grip-lat-pulldown",
+              "role": "main",
+              "prescription": "4 x 8-10",
+              "detail": "Pull elbows down.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "curl",
+              "exerciseId": "fedb:cable-hammer-curls-rope-attachment",
+              "role": "accessory",
+              "prescription": "3 x 10",
+              "detail": "Keep elbows steady.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            }
+          ]
+        },
+        {
+          "id": "finish",
+          "title": "Rear Delt Finish",
+          "durationMinutes": 6,
+          "focus": "Shoulder balance",
+          "slots": [
+            {
+              "id": "rear-delt",
+              "exerciseId": "fedb:cable-rear-delt-fly",
+              "role": "accessory",
+              "prescription": "3 x 12",
+              "detail": "Move under control.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "catalog:machine-lower-accessory-35",
+      "slug": "machine-lower-accessory-35",
+      "ownership": "system",
+      "version": 1,
+      "status": "active",
+      "title": "Machine Lower Accessory",
+      "summary": "A gym machine lower-body workout for quads, hamstrings, and calves.",
+      "focus": "Lower Body Strength",
+      "focusTags": [
+        "lower_body",
+        "quadriceps",
+        "hamstrings",
+        "calves"
+      ],
+      "styleTags": [
+        "strength"
+      ],
+      "equipment": [
+        "machine"
+      ],
+      "environmentTags": [
+        "gym"
+      ],
+      "minExperienceLevel": "beginner",
+      "durationMinutes": 35,
+      "durationRange": {
+        "min": 30,
+        "max": 45
+      },
+      "energyLevels": [
+        "moderate"
+      ],
+      "qualityScore": 84,
+      "constraints": {
+        "contraindicationTags": [],
+        "avoidTags": [],
+        "disallowedStressors": []
+      },
+      "blocks": [
+        {
+          "id": "quad",
+          "title": "Quad Work",
+          "durationMinutes": 12,
+          "focus": "Knee extension",
+          "slots": [
+            {
+              "id": "leg-extension",
+              "exerciseId": "fedb:leg-extensions",
+              "role": "main",
+              "prescription": "4 x 10",
+              "detail": "Pause at the top.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            }
+          ]
+        },
+        {
+          "id": "hamstring",
+          "title": "Hamstring Work",
+          "durationMinutes": 12,
+          "focus": "Knee flexion",
+          "slots": [
+            {
+              "id": "leg-curl",
+              "exerciseId": "fedb:lying-leg-curls",
+              "role": "main",
+              "prescription": "4 x 10",
+              "detail": "Control the lowering.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            }
+          ]
+        },
+        {
+          "id": "calves-core",
+          "title": "Calves and Core",
+          "durationMinutes": 11,
+          "focus": "Accessory close",
+          "slots": [
+            {
+              "id": "calf-press",
+              "exerciseId": "fedb:calf-press",
+              "role": "accessory",
+              "prescription": "4 x 12",
+              "detail": "Full range reps.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "ab-crunch",
+              "exerciseId": "fedb:ab-crunch-machine",
+              "role": "accessory",
+              "prescription": "3 x 12",
+              "detail": "Curl down slowly.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "catalog:machine-upper-accessory-30",
+      "slug": "machine-upper-accessory-30",
+      "ownership": "system",
+      "version": 1,
+      "status": "active",
+      "title": "Machine Upper Accessory",
+      "summary": "A gym machine accessory workout for chest, rear delts, arms, and traps.",
+      "focus": "Upper Body Strength",
+      "focusTags": [
+        "upper_body",
+        "chest",
+        "shoulders",
+        "biceps",
+        "triceps",
+        "traps"
+      ],
+      "styleTags": [
+        "strength"
+      ],
+      "equipment": [
+        "machine"
+      ],
+      "environmentTags": [
+        "gym"
+      ],
+      "minExperienceLevel": "beginner",
+      "durationMinutes": 30,
+      "durationRange": {
+        "min": 25,
+        "max": 40
+      },
+      "energyLevels": [
+        "moderate"
+      ],
+      "qualityScore": 83,
+      "constraints": {
+        "contraindicationTags": [],
+        "avoidTags": [],
+        "disallowedStressors": []
+      },
+      "blocks": [
+        {
+          "id": "push-pull",
+          "title": "Machine Upper",
+          "durationMinutes": 18,
+          "focus": "Chest and rear shoulders",
+          "slots": [
+            {
+              "id": "butterfly",
+              "exerciseId": "fedb:butterfly",
+              "role": "main",
+              "prescription": "3 x 10",
+              "detail": "Keep shoulders down.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "reverse-fly",
+              "exerciseId": "fedb:reverse-machine-flyes",
+              "role": "main",
+              "prescription": "3 x 12",
+              "detail": "Squeeze the upper back.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            }
+          ]
+        },
+        {
+          "id": "arms",
+          "title": "Arms and Traps",
+          "durationMinutes": 12,
+          "focus": "Accessory finish",
+          "slots": [
+            {
+              "id": "biceps",
+              "exerciseId": "fedb:machine-bicep-curl",
+              "role": "accessory",
+              "prescription": "3 x 10",
+              "detail": "Stay strict.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "triceps",
+              "exerciseId": "fedb:machine-triceps-extension",
+              "role": "accessory",
+              "prescription": "3 x 10",
+              "detail": "Control the handle.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "shrug",
+              "exerciseId": "fedb:leverage-shrug",
+              "role": "accessory",
+              "prescription": "2 x 12",
+              "detail": "Lift straight up.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "catalog:treadmill-row-conditioning-35",
+      "slug": "treadmill-row-conditioning-35",
+      "ownership": "system",
+      "version": 1,
+      "status": "active",
+      "title": "Treadmill Row Conditioning",
+      "summary": "A gym conditioning session alternating treadmill and rower work.",
+      "focus": "Conditioning",
+      "focusTags": [
+        "conditioning",
+        "lower_body",
+        "upper_body",
+        "core"
+      ],
+      "styleTags": [
+        "cardio",
+        "conditioning"
+      ],
+      "equipment": [
+        "treadmill",
+        "rowing_machine"
+      ],
+      "environmentTags": [
+        "gym"
+      ],
+      "minExperienceLevel": "beginner",
+      "durationMinutes": 35,
+      "durationRange": {
+        "min": 30,
+        "max": 45
+      },
+      "energyLevels": [
+        "moderate",
+        "intense"
+      ],
+      "qualityScore": 84,
+      "constraints": {
+        "contraindicationTags": [],
+        "avoidTags": [],
+        "disallowedStressors": []
+      },
+      "blocks": [
+        {
+          "id": "warmup",
+          "title": "Treadmill Warm-up",
+          "durationMinutes": 8,
+          "focus": "Aerobic ramp",
+          "slots": [
+            {
+              "id": "walk",
+              "exerciseId": "fedb:walking-treadmill",
+              "role": "warmup",
+              "prescription": "8 minutes easy",
+              "detail": "Build gradually.",
+              "intensity": "easy",
+              "substitutionExerciseIds": []
+            }
+          ]
+        },
+        {
+          "id": "intervals",
+          "title": "Conditioning Intervals",
+          "durationMinutes": 20,
+          "focus": "Run and row",
+          "slots": [
+            {
+              "id": "jog",
+              "exerciseId": "fedb:jogging-treadmill",
+              "role": "main",
+              "prescription": "5 x 2 minutes moderate",
+              "detail": "Keep repeats sustainable.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "rower",
+              "exerciseId": "fedb:rowing-stationary",
+              "role": "main",
+              "prescription": "5 x 90 seconds",
+              "detail": "Drive with legs and finish tall.",
+              "intensity": "moderate",
+              "substitutionExerciseIds": []
+            }
+          ]
+        },
+        {
+          "id": "cooldown",
+          "title": "Cooldown",
+          "durationMinutes": 7,
+          "focus": "Easy walk",
+          "slots": [
+            {
+              "id": "walk-cooldown",
+              "exerciseId": "fedb:walking-treadmill",
+              "role": "recovery",
+              "prescription": "7 minutes easy",
+              "detail": "Downshift gradually.",
+              "intensity": "easy",
+              "substitutionExerciseIds": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "catalog:gym-recovery-cardio-30",
+      "slug": "gym-recovery-cardio-30",
+      "ownership": "system",
+      "version": 1,
+      "status": "active",
+      "title": "Gym Recovery Cardio",
+      "summary": "An easy gym cardio and mobility session for recovery days.",
+      "focus": "Recovery Cardio",
+      "focusTags": [
+        "recovery",
+        "conditioning",
+        "mobility"
+      ],
+      "styleTags": [
+        "cardio",
+        "recovery",
+        "mobility"
+      ],
+      "equipment": [
+        "bodyweight",
+        "treadmill"
+      ],
+      "environmentTags": [
+        "gym"
+      ],
+      "minExperienceLevel": "beginner",
+      "durationMinutes": 30,
+      "durationRange": {
+        "min": 25,
+        "max": 40
+      },
+      "energyLevels": [
+        "easy"
+      ],
+      "qualityScore": 86,
+      "constraints": {
+        "contraindicationTags": [],
+        "avoidTags": [],
+        "disallowedStressors": []
+      },
+      "blocks": [
+        {
+          "id": "cardio",
+          "title": "Easy Cardio",
+          "durationMinutes": 20,
+          "focus": "Low-intensity walk",
+          "slots": [
+            {
+              "id": "walk",
+              "exerciseId": "ex:02157",
+              "role": "main",
+              "prescription": "20 minutes easy incline",
+              "detail": "Keep effort relaxed.",
+              "intensity": "easy",
+              "substitutionExerciseIds": []
+            }
+          ]
+        },
+        {
+          "id": "mobility",
+          "title": "Mobility Reset",
+          "durationMinutes": 10,
+          "focus": "Spine and hamstrings",
+          "slots": [
+            {
+              "id": "cat-cow",
+              "exerciseId": "ex:00508",
+              "role": "recovery",
+              "prescription": "2 minutes",
+              "detail": "Breathe slowly.",
+              "intensity": "easy",
+              "substitutionExerciseIds": []
+            },
+            {
+              "id": "hamstring",
+              "exerciseId": "fedb:hamstring-stretch",
+              "role": "recovery",
+              "prescription": "60 seconds per side",
+              "detail": "Keep it gentle.",
+              "intensity": "easy",
+              "substitutionExerciseIds": []
             }
           ]
         }

@@ -165,7 +165,7 @@ describe('openExerciseLibrary', () => {
     });
 
     expect(result.decision).toBe('adapt');
-    expect(result.recipe?.id).toBe('catalog:bodyweight-foundation-30');
+    expect(result.recipe?.id).toBe('catalog:bodyweight-easy-walk-core-30');
     expect(result.score).toBeGreaterThanOrEqual(58);
     expect(result.score).toBeLessThan(82);
 
