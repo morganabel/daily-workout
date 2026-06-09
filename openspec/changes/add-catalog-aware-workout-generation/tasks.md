@@ -36,6 +36,6 @@
 
 ## 6. Evaluation And Validation
 
-- [ ] 6.1 Run catalog matching against the existing generation evaluation corpus and record schema, duration, equipment, injury/avoid, and event-sensitivity results.
-- [ ] 6.2 Add targeted evaluation/reporting metadata for catalog decisions and provider invocation.
-- [ ] 6.3 Run targeted Nx tests for shared contracts, catalog package, server-core generation, server wiring, and mobile Home/settings behavior.
+- [x] 6.1 Run catalog matching against the existing generation evaluation corpus and record schema, duration, equipment, injury/avoid, and event-sensitivity results.
+- [x] 6.2 Add targeted evaluation/reporting metadata for catalog decisions and provider invocation.
+- [x] 6.3 Run targeted Nx tests for shared contracts, catalog package, server-core generation, server wiring, and mobile Home/settings behavior.

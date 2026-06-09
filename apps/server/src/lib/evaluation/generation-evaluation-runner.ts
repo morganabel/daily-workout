@@ -19,6 +19,10 @@ import {
   DefaultStageOnePlanner,
 } from '@workout-agent-ce/server-ai';
 import {
+  openExerciseLibrary,
+  type ExerciseLibrary,
+} from '@workout-agent-ce/server-exercise-library';
+import {
   generationEvaluationReportSchema,
   type GenerationEvaluationAverageLatency,
   type GenerationEvaluationExecutionSource,
@@ -29,6 +33,7 @@ import {
   type GenerationEvaluationReport,
   type GenerationEvaluationReportEntry,
   type GenerationEvaluationScenario,
+  type GenerationEvaluationCatalogRouting,
   type GenerationContext,
   type GenerationRequest,
   workoutGenerationEvaluationCorpus,
@@ -237,6 +242,7 @@ function createHandlerBundle(
     : provider === 'openai'
     ? Boolean(process.env.OPENAI_API_KEY)
     : hasGeminiAccess;
+  let exerciseLibrary: ExerciseLibrary | undefined;
 
   return {
     handler: createGenerateHandler({
@@ -258,6 +264,10 @@ function createHandlerBundle(
         useVertexAi,
         googleCloudProject: process.env.GOOGLE_CLOUD_PROJECT,
         googleCloudLocation: process.env.GOOGLE_CLOUD_LOCATION,
+      },
+      loadExerciseLibrary: async () => {
+        exerciseLibrary ??= openExerciseLibrary();
+        return exerciseLibrary;
       },
     }),
     store,
@@ -322,6 +332,37 @@ function executionSourceForRun(
     return 'fixture';
   }
   return 'live';
+}
+
+function buildCatalogRouting(params: {
+  request: GenerationEvaluationScenario['request'];
+  plan?: GenerationEvaluationReportEntry['plan'];
+  errorCode?: string;
+  latencyMs: GenerationEvaluationLatency;
+  providerPrompt?: GenerationEvaluationProviderPrompt;
+}): GenerationEvaluationCatalogRouting {
+  const creationMode = params.request.creationMode ?? 'auto';
+  const providerInvoked = params.latencyMs.stageTwoGenerationMs !== undefined;
+  const catalogReturned = params.plan?.source === 'library';
+  const catalogDecision: GenerationEvaluationCatalogRouting['catalogDecision'] =
+    creationMode === 'ai'
+      ? 'skipped'
+      : catalogReturned
+      ? 'returned'
+      : params.errorCode === 'WORKOUT_CATALOG_NO_MATCH'
+      ? 'no-match'
+      : providerInvoked
+      ? 'provider'
+      : 'unknown';
+
+  return {
+    creationMode,
+    catalogDecision,
+    returnedSource: params.plan?.source,
+    providerInvoked,
+    providerPromptCaptured: Boolean(params.providerPrompt),
+    catalogReturned,
+  };
 }
 
 async function executeScenarioRequest(params: {
@@ -1377,6 +1418,9 @@ function renderMarkdownReport(
       `- Stage one used: ${entry.plannerSummary.usedStageOne ? 'yes' : 'no'}`
     );
     lines.push(
+      `- Catalog routing: ${entry.catalogRouting.creationMode}/${entry.catalogRouting.catalogDecision} (source: ${entry.catalogRouting.returnedSource ?? 'none'}, provider invoked: ${entry.catalogRouting.providerInvoked ? 'yes' : 'no'})`
+    );
+    lines.push(
       `- Total latency: ${formatLatencyMs(entry.latencyMs.totalRequestMs)}`
     );
     lines.push(
@@ -1606,6 +1650,12 @@ export async function runGenerationEvaluation(
             context: scenario.context,
             baselinePlan: effectiveBaselinePlan,
             latencyMs: executed.latencyMs,
+            catalogRouting: buildCatalogRouting({
+              request: scenario.request,
+              plan,
+              latencyMs: executed.latencyMs,
+              providerPrompt: executed.providerPrompt,
+            }),
             plannerSummary: executed.plannerSummary,
             providerPrompt: executed.providerPrompt,
             hardChecks: runHardChecksForScenario(
@@ -1633,6 +1683,12 @@ export async function runGenerationEvaluation(
             context: scenario.context,
             baselinePlan: effectiveBaselinePlan,
             latencyMs: executed.latencyMs,
+            catalogRouting: buildCatalogRouting({
+              request: scenario.request,
+              errorCode: errorPayload.code,
+              latencyMs: executed.latencyMs,
+              providerPrompt: executed.providerPrompt,
+            }),
             plannerSummary: executed.plannerSummary,
             providerPrompt: executed.providerPrompt,
             hardChecks: runHardChecksForScenario({

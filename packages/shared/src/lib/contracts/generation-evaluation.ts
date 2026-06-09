@@ -332,6 +332,31 @@ export type GenerationEvaluationAverageLatency = z.infer<
   typeof generationEvaluationAverageLatencySchema
 >;
 
+export const generationEvaluationCatalogDecisionSchema = z.enum([
+  'skipped',
+  'returned',
+  'provider',
+  'no-match',
+  'unknown',
+]);
+export type GenerationEvaluationCatalogDecision = z.infer<
+  typeof generationEvaluationCatalogDecisionSchema
+>;
+
+export const generationEvaluationCatalogRoutingSchema = z
+  .object({
+    creationMode: z.enum(['auto', 'library', 'ai']),
+    catalogDecision: generationEvaluationCatalogDecisionSchema,
+    returnedSource: z.enum(['ai', 'manual', 'library']).optional(),
+    providerInvoked: z.boolean(),
+    providerPromptCaptured: z.boolean(),
+    catalogReturned: z.boolean(),
+  })
+  .strict();
+export type GenerationEvaluationCatalogRouting = z.infer<
+  typeof generationEvaluationCatalogRoutingSchema
+>;
+
 export const generationEvaluationReportEntrySchema = z
   .object({
     scenarioId: evaluationScenarioIdSchema,
@@ -349,6 +374,7 @@ export const generationEvaluationReportEntrySchema = z
     hardChecks: z.array(generationEvaluationHardCheckResultSchema),
     softReview: generationEvaluationSoftReviewResultSchema.optional(),
     latencyMs: generationEvaluationLatencySchema,
+    catalogRouting: generationEvaluationCatalogRoutingSchema,
     plannerSummary: generationEvaluationPlannerSummarySchema,
     providerPrompt: generationEvaluationProviderPromptSchema.optional(),
     plan: todayPlanSchema.optional(),
