@@ -1,8 +1,8 @@
 ## 1. Shared Contracts And Preferences
 
-- [ ] 1.1 Extend shared workout contracts with `source: 'library'` and generation `creationMode` validation.
-- [ ] 1.2 Add user preference fields and defaults for AI-enabled catalog-aware creation versus library-only creation.
-- [ ] 1.3 Update shared fixtures and contract tests for library-sourced `TodayPlan` objects and existing-profile compatibility.
+- [x] 1.1 Extend shared workout contracts with `source: 'library'` and generation `creationMode` validation.
+- [x] 1.2 Add user preference fields and defaults for AI-enabled catalog-aware creation versus library-only creation.
+- [x] 1.3 Update shared fixtures and contract tests for library-sourced `TodayPlan` objects and existing-profile compatibility.
 
 ## 2. Catalog Data Model And Build
 

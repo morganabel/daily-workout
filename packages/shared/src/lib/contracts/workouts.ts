@@ -3,8 +3,11 @@ import { z } from 'zod';
 export const workoutEnergySchema = z.enum(['easy', 'moderate', 'intense']);
 export type WorkoutEnergy = z.infer<typeof workoutEnergySchema>;
 
-export const workoutSourceSchema = z.enum(['ai', 'manual']);
+export const workoutSourceSchema = z.enum(['ai', 'manual', 'library']);
 export type WorkoutSource = z.infer<typeof workoutSourceSchema>;
+
+export const workoutCreationModeSchema = z.enum(['auto', 'library', 'ai']);
+export type WorkoutCreationMode = z.infer<typeof workoutCreationModeSchema>;
 
 export const aiProviderNameSchema = z.enum(['openai', 'gemini']);
 export type AiProviderName = z.infer<typeof aiProviderNameSchema>;
@@ -3353,6 +3356,8 @@ export const generationRequestSchema = z
       .optional(),
     // Optional explicit intent when generating from an adaptive training plan recommendation.
     adaptivePlanIntent: adaptivePlanIntentSchema.optional(),
+    // Explicit generation route. Defaults are resolved by callers, not inferred from provider state.
+    creationMode: workoutCreationModeSchema.optional(),
     // Optional provider selection and model override
     provider: aiProviderSchema.optional(),
   })
@@ -3392,6 +3397,8 @@ export const userPreferencesSchema = z.object({
   focusBias: z.array(z.string()).default([]),
   // Exercises or movements to avoid
   avoid: z.array(z.string()).default([]),
+  // Whether generation may use AI-backed planning. Disabled users request library workouts explicitly.
+  aiFeaturesEnabled: z.boolean().default(true),
   // First-run onboarding answers and setup state for template-based planning.
   onboardingAnswers: onboardingAnswersSchema.optional(),
   onboardingSetupStatus: trainingBlueprintSetupStatusSchema.optional(),
@@ -3401,6 +3408,11 @@ export const userPreferencesSchema = z.object({
   adaptiveTrainingPlan: adaptiveTrainingPlanSchema.optional(),
 });
 export type UserPreferences = z.infer<typeof userPreferencesSchema>;
+
+export const resolveWorkoutCreationMode = (
+  preferences: Pick<UserPreferences, 'aiFeaturesEnabled'>
+): WorkoutCreationMode =>
+  preferences.aiFeaturesEnabled === false ? 'library' : 'auto';
 
 /**
  * Predefined equipment options for the profile selector
