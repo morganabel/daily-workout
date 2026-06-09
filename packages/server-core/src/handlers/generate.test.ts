@@ -8,7 +8,10 @@ import {
   createGenerationContextFixture,
   createTodayPlanFixture,
 } from '@workout-agent/shared/testing';
-import type { ExerciseLibrary } from '@workout-agent-ce/server-exercise-library';
+import type {
+  ExerciseLibrary,
+  WorkoutCatalogMatch,
+} from '@workout-agent-ce/server-exercise-library';
 
 import { createGenerateHandler } from './generate';
 import type {
@@ -320,6 +323,14 @@ function createExerciseLibrary(): ExerciseLibrary {
         },
       ],
     })),
+    matchWorkoutCatalog: jest.fn(() => ({
+      decision: 'none',
+      diagnostics: {
+        blockerCodes: ['constraint_conflict'],
+        candidateCount: 0,
+        reasons: [],
+      },
+    })),
     getLibraryMetadata: jest.fn(() => ({
       libraryVersion: 'test-library',
       sourceVersion: 'test-source',
@@ -328,6 +339,54 @@ function createExerciseLibrary(): ExerciseLibrary {
       plannerReadyCount: 1,
     })),
     close: jest.fn(),
+  };
+}
+
+function createCatalogMatch(
+  decision: WorkoutCatalogMatch['decision'] = 'direct'
+): WorkoutCatalogMatch {
+  const plan = createTodayPlanFixture({
+    id: 'library:bodyweight-foundation-30',
+    source: 'library',
+    focus: 'Full Body Strength',
+    equipment: ['bodyweight'],
+    generationProvenance: undefined,
+  });
+
+  return {
+    decision,
+    recipe: {
+      id: 'catalog:bodyweight-foundation-30',
+      slug: 'bodyweight-foundation-30',
+      ownership: 'system',
+      version: 1,
+      status: 'active',
+      title: 'Bodyweight Foundation',
+      summary: plan.summary,
+      focus: plan.focus,
+      targetDurationMinutes: plan.durationMinutes,
+      durationRange: { min: 25, max: 35 },
+      minExperienceLevel: 'beginner',
+      qualityScore: 92,
+      catalogVersion: 'test-catalog',
+      source: 'system',
+      equipment: ['bodyweight'],
+      focusTags: ['full_body'],
+      styleTags: ['strength'],
+      environmentTags: ['home'],
+      energyLevels: ['moderate'],
+      constraints: {},
+      blocks: [],
+    },
+    plan,
+    score: decision === 'direct' ? 94 : 72,
+    diagnostics: {
+      blockerCodes: [],
+      candidateCount: 1,
+      bestScore: decision === 'direct' ? 94 : 72,
+      selectedRecipeId: 'catalog:bodyweight-foundation-30',
+      reasons: ['test'],
+    },
   };
 }
 
@@ -536,6 +595,145 @@ describe('createGenerateHandler', () => {
     expect(router.generate).not.toHaveBeenCalled();
   });
 
+  it('returns library mode catalog workouts without provider configuration, quota, or metering', async () => {
+    const policy = createPolicyMock(false);
+    const metering = createMeteringMock();
+    const exerciseLibrary = createExerciseLibrary();
+    (exerciseLibrary.matchWorkoutCatalog as jest.Mock).mockReturnValue(
+      createCatalogMatch('direct')
+    );
+    const { handler, router, store } = createHandler({
+      exerciseLibrary,
+      policy,
+      metering,
+      config: {
+        edition: 'HOSTED',
+        defaultProvider: 'openai',
+        defaultApiKeys: {},
+      },
+    });
+
+    const response = await handler(
+      createRequest({
+        creationMode: 'library',
+        timeMinutes: 30,
+        focus: 'Full Body',
+        context: baseContext,
+      })
+    );
+    const payload = (await response.json()) as TodayPlan;
+
+    expect(response.status).toBe(200);
+    expect(payload.source).toBe('library');
+    expect(exerciseLibrary.matchWorkoutCatalog).toHaveBeenCalledTimes(1);
+    expect(policy.canGenerate).not.toHaveBeenCalled();
+    expect(router.generate).not.toHaveBeenCalled();
+    expect(metering.recordUsage).not.toHaveBeenCalled();
+    expect(store.persistPlan).toHaveBeenCalledWith(
+      'device-123',
+      expect.objectContaining({ source: 'library' }),
+      expect.objectContaining({ schemaVersion: 'catalog:test-catalog' })
+    );
+  });
+
+  it('returns no-match for library mode when the catalog cannot satisfy the request', async () => {
+    const policy = createPolicyMock();
+    const exerciseLibrary = createExerciseLibrary();
+    const { handler, router } = createHandler({
+      exerciseLibrary,
+      policy,
+      config: {
+        edition: 'HOSTED',
+        defaultProvider: 'openai',
+        defaultApiKeys: {},
+      },
+    });
+
+    const response = await handler(
+      createRequest({
+        creationMode: 'library',
+        timeMinutes: 30,
+        focus: 'Parachute intervals',
+        context: baseContext,
+      })
+    );
+    const payload = (await response.json()) as { code: string };
+
+    expect(response.status).toBe(404);
+    expect(payload.code).toBe('WORKOUT_CATALOG_NO_MATCH');
+    expect(policy.canGenerate).not.toHaveBeenCalled();
+    expect(router.generate).not.toHaveBeenCalled();
+  });
+
+  it('returns auto-mode direct catalog matches before invoking AI', async () => {
+    const exerciseLibrary = createExerciseLibrary();
+    (exerciseLibrary.matchWorkoutCatalog as jest.Mock).mockReturnValue(
+      createCatalogMatch('direct')
+    );
+    const { handler, router } = createHandler({ exerciseLibrary });
+
+    const response = await handler(
+      createRequest({
+        creationMode: 'auto',
+        timeMinutes: 30,
+        focus: 'Full Body',
+        context: baseContext,
+      })
+    );
+    const payload = (await response.json()) as TodayPlan;
+
+    expect(response.status).toBe(200);
+    expect(payload.source).toBe('library');
+    expect(router.generate).not.toHaveBeenCalled();
+  });
+
+  it('passes auto-mode adapt catalog matches into the AI path', async () => {
+    const exerciseLibrary = createExerciseLibrary();
+    (exerciseLibrary.matchWorkoutCatalog as jest.Mock).mockReturnValue(
+      createCatalogMatch('adapt')
+    );
+    const { handler, router } = createHandler({ exerciseLibrary });
+
+    const response = await handler(
+      createPlanningRequest({
+        creationMode: 'auto',
+        focus: 'Mobility reset',
+      })
+    );
+
+    expect(response.status).toBe(200);
+    expect(router.generate).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      expect.objectContaining({
+        catalogMatch: expect.objectContaining({
+          decision: 'adapt',
+          recipe: expect.objectContaining({
+            id: 'catalog:bodyweight-foundation-30',
+          }),
+        }),
+        planningBrief: expect.objectContaining({
+          fallbackReasons: expect.arrayContaining(['catalog_adapt_match']),
+        }),
+      })
+    );
+  });
+
+  it('skips catalog matching for explicit AI mode', async () => {
+    const exerciseLibrary = createExerciseLibrary();
+    const { handler, router } = createHandler({ exerciseLibrary });
+
+    const response = await handler(
+      createPlanningRequest({
+        creationMode: 'ai',
+      })
+    );
+
+    expect(response.status).toBe(200);
+    expect(exerciseLibrary.matchWorkoutCatalog).not.toHaveBeenCalled();
+    expect(router.generate).toHaveBeenCalledTimes(1);
+  });
+
   it('returns an error response on provider failure and sanitizes logged errors', async () => {
     const router = createRouterMock();
     router.generate.mockRejectedValueOnce(
@@ -694,15 +892,16 @@ describe('createGenerateHandler', () => {
 
     const loggedWarnings = warnSpy.mock.calls.map((call) => String(call[0]));
     expect(loggedWarnings.join(' ')).toContain(
-      'exercise candidate pool unavailable'
+      'workout catalog unavailable'
     );
     expect(loggedWarnings.join(' ')).toContain('sqlite bindings unavailable');
   });
 
-  it('does not lazy-load the exercise library when provider configuration is missing', async () => {
+  it('tries the catalog before returning a provider configuration error', async () => {
+    const exerciseLibrary = createExerciseLibrary();
     const loadExerciseLibrary = jest
       .fn<Promise<ExerciseLibrary | undefined>, []>()
-      .mockResolvedValue(createExerciseLibrary());
+      .mockResolvedValue(exerciseLibrary);
     const { handler, router } = createHandler({
       loadExerciseLibrary,
       config: { defaultApiKeys: {} },
@@ -718,7 +917,8 @@ describe('createGenerateHandler', () => {
 
     expect(response.status).toBe(503);
     expect(router.generate).not.toHaveBeenCalled();
-    expect(loadExerciseLibrary).not.toHaveBeenCalled();
+    expect(loadExerciseLibrary).toHaveBeenCalledTimes(1);
+    expect(exerciseLibrary.matchWorkoutCatalog).toHaveBeenCalledTimes(1);
   });
 
   it('records fallback reasons internally when planner-safe candidates are unavailable', async () => {

@@ -397,7 +397,7 @@ function buildWorkoutCatalogMatchSql(
     )`);
   }
 
-  for (const [tagType, values] of [
+  for (const [_tagType, values] of [
     ['contraindication', query.normalizedContraindicationTags],
     ['avoid', query.normalizedAvoidTags],
     ['stressor', query.normalizedDisallowedStressors],

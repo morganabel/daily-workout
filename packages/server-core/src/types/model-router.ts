@@ -3,6 +3,7 @@ import type {
   GenerationContext,
   TodayPlan,
 } from '@workout-agent/shared';
+import type { WorkoutCatalogMatch } from '@workout-agent-ce/server-exercise-library';
 import type { PlanningBrief, StageOnePlannerArtifact } from './planning';
 
 export interface ExerciseCandidateReference {
@@ -89,6 +90,12 @@ export interface ModelGenerationOptions {
    * Optional advisory artifact from the stage-one planner.
    */
   stageOneArtifact?: StageOnePlannerArtifact;
+
+  /**
+   * Advisory catalog match when auto mode found a usable but non-direct recipe.
+   * Providers may adapt this structure, but explicit library mode never reaches this path.
+   */
+  catalogMatch?: WorkoutCatalogMatch;
 
   /**
    * Optional sink for capturing the provider prompt for debugging/evaluation.

@@ -12,6 +12,7 @@ export const apiErrorCodeSchema = z.enum([
   'NOT_IMPLEMENTED',
   'INVALID_PROVIDER',
   'AI_GENERATION_ERROR',
+  'WORKOUT_CATALOG_NO_MATCH',
 ]);
 
 export type ApiErrorCode = z.infer<typeof apiErrorCodeSchema>;

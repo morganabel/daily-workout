@@ -21,11 +21,11 @@
 
 ## 4. Server Generation Integration
 
-- [ ] 4.1 Wire catalog matching into `POST /api/workouts/generate` before provider invocation.
-- [ ] 4.2 Ensure library mode bypasses provider configuration, BYOK, entitlement quota, and AI metering.
-- [ ] 4.3 Ensure auto mode returns direct catalog matches, passes ambiguous matches into planner/provider adaptation, and preserves current AI behavior for weak matches.
-- [ ] 4.4 Add internal diagnostics for catalog match decision, selected recipe identity, provider invocation, and catalog route outcome.
-- [ ] 4.5 Add server tests for library mode, auto direct match, auto adapted match, weak-match AI flow, explicit AI mode, and quota/metering boundaries.
+- [x] 4.1 Wire catalog matching into `POST /api/workouts/generate` before provider invocation.
+- [x] 4.2 Ensure library mode bypasses provider configuration, BYOK, entitlement quota, and AI metering.
+- [x] 4.3 Ensure auto mode returns direct catalog matches, passes ambiguous matches into planner/provider adaptation, and preserves current AI behavior for weak matches.
+- [x] 4.4 Add internal diagnostics for catalog match decision, selected recipe identity, provider invocation, and catalog route outcome.
+- [x] 4.5 Add server tests for library mode, auto direct match, auto adapted match, weak-match AI flow, explicit AI mode, and quota/metering boundaries.
 
 ## 5. Mobile Integration
 
