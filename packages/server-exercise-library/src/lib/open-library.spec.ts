@@ -135,4 +135,72 @@ describe('openExerciseLibrary', () => {
 
     library.close();
   });
+
+  it('returns a direct workout catalog match for a strong bodyweight request', () => {
+    const library = openExerciseLibrary();
+    const result = library.matchWorkoutCatalog({
+      timeMinutes: 30,
+      focus: 'full body strength',
+      availableEquipment: ['Bodyweight'],
+      experienceLevel: 'beginner',
+      energy: 'moderate',
+    });
+
+    expect(result.decision).toBe('direct');
+    expect(result.recipe?.id).toBe('catalog:bodyweight-foundation-30');
+    expect(result.plan?.source).toBe('library');
+    expect(result.plan?.blocks[0]?.exercises[0]?.id).toContain('ex:00508');
+
+    library.close();
+  });
+
+  it('returns an adapt workout catalog match for usable but ambiguous catalog fit', () => {
+    const library = openExerciseLibrary();
+    const result = library.matchWorkoutCatalog({
+      timeMinutes: 30,
+      focus: 'mobility reset',
+      availableEquipment: ['Bodyweight'],
+      experienceLevel: 'beginner',
+      energy: 'easy',
+    });
+
+    expect(result.decision).toBe('adapt');
+    expect(result.recipe?.id).toBe('catalog:bodyweight-foundation-30');
+    expect(result.score).toBeGreaterThanOrEqual(58);
+    expect(result.score).toBeLessThan(82);
+
+    library.close();
+  });
+
+  it('returns no workout catalog match for unsupported equipment', () => {
+    const library = openExerciseLibrary();
+    const result = library.matchWorkoutCatalog({
+      timeMinutes: 30,
+      focus: 'upper body strength',
+      availableEquipment: ['Parachute'],
+      experienceLevel: 'beginner',
+    });
+
+    expect(result.decision).toBe('none');
+    expect(result.diagnostics.blockerCodes).toContain('unsupported_equipment');
+    expect(result.plan).toBeUndefined();
+
+    library.close();
+  });
+
+  it('filters workout catalog matches by protected stressors', () => {
+    const library = openExerciseLibrary();
+    const result = library.matchWorkoutCatalog({
+      timeMinutes: 30,
+      focus: 'full body strength',
+      availableEquipment: ['Bodyweight'],
+      experienceLevel: 'beginner',
+      disallowedStressors: ['lower_body_fatigue'],
+    });
+
+    expect(result.decision).toBe('none');
+    expect(result.diagnostics.blockerCodes).toContain('stressor_conflict');
+
+    library.close();
+  });
 });

@@ -13,11 +13,11 @@
 
 ## 3. Catalog Matching And Materialization
 
-- [ ] 3.1 Implement the catalog query/matcher interface that returns `direct`, `adapt`, or `none` decisions.
-- [ ] 3.2 Implement hard filtering for equipment, experience, injuries, avoid tags, environment, duration, and event-protected stressors.
-- [ ] 3.3 Implement scoring for focus, adaptive plan intent, duration fit, energy/load, recent-session diversity, and catalog recipe quality.
-- [ ] 3.4 Implement materialization from selected recipe to canonical `TodayPlan` with `source: 'library'`.
-- [ ] 3.5 Add unit tests for direct/adapt/none thresholds, no-match diagnostics, and materialized plan validity.
+- [x] 3.1 Implement the catalog query/matcher interface that returns `direct`, `adapt`, or `none` decisions.
+- [x] 3.2 Implement hard filtering for equipment, experience, injuries, avoid tags, environment, duration, and event-protected stressors.
+- [x] 3.3 Implement scoring for focus, adaptive plan intent, duration fit, energy/load, recent-session diversity, and catalog recipe quality.
+- [x] 3.4 Implement materialization from selected recipe to canonical `TodayPlan` with `source: 'library'`.
+- [x] 3.5 Add unit tests for direct/adapt/none thresholds, no-match diagnostics, and materialized plan validity.
 
 ## 4. Server Generation Integration
 

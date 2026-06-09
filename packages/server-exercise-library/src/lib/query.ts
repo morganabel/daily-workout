@@ -16,6 +16,13 @@ import type {
   ExerciseLibrary,
   ExerciseLibraryMetadata,
   ExerciseRecord,
+  WorkoutCatalogBlock,
+  WorkoutCatalogDiagnostics,
+  WorkoutCatalogEnergy,
+  WorkoutCatalogMatch,
+  WorkoutCatalogQuery,
+  WorkoutCatalogRecipe,
+  WorkoutCatalogSlot,
   MetadataCompleteness,
 } from './types.js';
 
@@ -54,7 +61,51 @@ interface ExerciseRow {
   source_refs_json: string;
 }
 
+interface WorkoutCatalogRecipeRow {
+  id: string;
+  slug: string;
+  ownership: 'system';
+  version: number;
+  status: 'active';
+  title: string;
+  summary: string;
+  focus: string;
+  target_duration_minutes: number;
+  duration_min_minutes: number;
+  duration_max_minutes: number;
+  min_experience_level: string;
+  quality_score: number;
+  catalog_version: string;
+  source: string;
+  score: number;
+  focus_score: number;
+  duration_score: number;
+  energy_score: number;
+  diversity_score: number;
+  adaptive_score: number;
+}
+
+interface WorkoutCatalogBlockRow {
+  block_id: string;
+  block_order: number;
+  title: string;
+  duration_minutes: number;
+  focus: string;
+}
+
+interface WorkoutCatalogSlotRow extends ExerciseRow {
+  block_id: string;
+  slot_id: string;
+  slot_order: number;
+  role: string;
+  prescription: string;
+  detail: string | null;
+  intensity: WorkoutCatalogEnergy;
+}
+
 const DEFAULT_MINIMUM_COMPLETENESS: MetadataCompleteness = 'planner-ready';
+const DIRECT_MATCH_THRESHOLD = 82;
+const ADAPT_MATCH_THRESHOLD = 58;
 
 export class ExerciseLibraryQueryEngine implements ExerciseLibrary {
   constructor(private readonly database: Database.Database) {}
@@ -100,6 +151,58 @@ export class ExerciseLibraryQueryEngine implements ExerciseLibrary {
     });
   }
 
+  matchWorkoutCatalog(query: WorkoutCatalogQuery): WorkoutCatalogMatch {
+    const normalizedQuery = normalizeWorkoutCatalogQuery(query);
+    const candidates = this.database
+      .prepare(buildWorkoutCatalogMatchSql(normalizedQuery))
+      .all(...buildWorkoutCatalogMatchParams(normalizedQuery)) as
+      | WorkoutCatalogRecipeRow[]
+      | [];
+    const best = candidates[0];
+
+    if (!best) {
+      return {
+        decision: 'none',
+        diagnostics: diagnoseWorkoutCatalogEmpty(this.database, normalizedQuery),
+      };
+    }
+
+    const diagnostics = buildWorkoutCatalogDiagnostics(best, candidates.length);
+    const recipe = this.getWorkoutCatalogRecipe(best);
+    const plan = materializeWorkoutCatalogPlan(recipe, normalizedQuery);
+
+    if (best.score >= DIRECT_MATCH_THRESHOLD) {
+      return {
+        decision: 'direct',
+        recipe,
+        plan,
+        score: best.score,
+        diagnostics,
+      };
+    }
+
+    if (best.score >= ADAPT_MATCH_THRESHOLD) {
+      return {
+        decision: 'adapt',
+        recipe,
+        plan,
+        score: best.score,
+        diagnostics,
+      };
+    }
+
+    return {
+      decision: 'none',
+      recipe,
+      score: best.score,
+      diagnostics: {
+        ...diagnostics,
+        blockerCodes: [...diagnostics.blockerCodes, 'weak_match'],
+        reasons: [...diagnostics.reasons, 'best catalog score below threshold'],
+      },
+    };
+  }
+
   getLibraryMetadata(): ExerciseLibraryMetadata {
     const rows = this.database
       .prepare('SELECT key, value FROM library_metadata')
@@ -135,6 +238,582 @@ export class ExerciseLibraryQueryEngine implements ExerciseLibrary {
       diagnostics,
     };
   }
+
+  private getWorkoutCatalogRecipe(
+    row: WorkoutCatalogRecipeRow,
+  ): WorkoutCatalogRecipe {
+    const blocks = this.database
+      .prepare(
+        `SELECT block_id, block_order, title, duration_minutes, focus
+          FROM workout_catalog_blocks
+          WHERE recipe_id = ?
+          ORDER BY block_order ASC`,
+      )
+      .all(row.id) as WorkoutCatalogBlockRow[];
+
+    return {
+      id: row.id,
+      slug: row.slug,
+      ownership: row.ownership,
+      version: row.version,
+      status: row.status,
+      title: row.title,
+      summary: row.summary,
+      focus: row.focus,
+      targetDurationMinutes: row.target_duration_minutes,
+      durationRange: {
+        min: row.duration_min_minutes,
+        max: row.duration_max_minutes,
+      },
+      minExperienceLevel: row.min_experience_level as WorkoutCatalogRecipe['minExperienceLevel'],
+      qualityScore: row.quality_score,
+      catalogVersion: row.catalog_version,
+      source: row.source,
+      equipment: listWorkoutCatalogValues(
+        this.database,
+        'workout_catalog_recipe_equipment',
+        row.id,
+        'equipment_id',
+      ),
+      focusTags: listWorkoutCatalogTags(this.database, row.id, 'focus'),
+      styleTags: listWorkoutCatalogTags(this.database, row.id, 'style'),
+      environmentTags: listWorkoutCatalogTags(
+        this.database,
+        row.id,
+        'environment',
+      ),
+      energyLevels: listWorkoutCatalogTags(
+        this.database,
+        row.id,
+        'energy',
+      ) as WorkoutCatalogEnergy[],
+      constraints: listWorkoutCatalogConstraints(this.database, row.id),
+      blocks: blocks.map((block) =>
+        mapWorkoutCatalogBlock(this.database, row.id, block),
+      ),
+    };
+  }
+}
+
+interface NormalizedWorkoutCatalogQuery extends WorkoutCatalogQuery {
+  normalizedEquipment: string[];
+  normalizedFocusTags: string[];
+  normalizedAvoidTags: string[];
+  normalizedContraindicationTags: string[];
+  normalizedDisallowedStressors: string[];
+  normalizedRecentExerciseIds: string[];
+}
+
+function normalizeWorkoutCatalogQuery(
+  query: WorkoutCatalogQuery,
+): NormalizedWorkoutCatalogQuery {
+  return {
+    ...query,
+    normalizedEquipment: query.availableEquipment?.length
+      ? expandAvailableEquipment(query.availableEquipment).map(normalizeEquipmentId)
+      : [],
+    normalizedFocusTags: [
+      ...new Set([
+        ...(query.focusTags ?? []),
+        ...deriveWorkoutFocusTags(query.focus),
+        ...deriveWorkoutFocusTags(query.adaptivePlanIntent?.label),
+        ...deriveWorkoutFocusTags(query.adaptivePlanIntent?.category),
+        ...deriveWorkoutFocusTags(query.adaptivePlanIntent?.role),
+      ]),
+    ],
+    normalizedAvoidTags: [...new Set(query.avoidTags ?? [])],
+    normalizedContraindicationTags: [
+      ...new Set(query.contraindicationTags ?? []),
+    ],
+    normalizedDisallowedStressors: [
+      ...new Set([
+        ...(query.disallowedStressors ?? []),
+        ...(query.adaptivePlanIntent?.stressTags ?? []),
+      ]),
+    ],
+    normalizedRecentExerciseIds: [...new Set(query.recentExerciseIds ?? [])],
+  };
+}
+
+function deriveWorkoutFocusTags(value: string | undefined): string[] {
+  if (!value) {
+    return [];
+  }
+
+  const normalized = value.toLowerCase();
+  const tags = new Set<string>();
+
+  if (/\b(full|total)\b/.test(normalized)) {
+    tags.add('full_body');
+    tags.add('lower_body');
+    tags.add('upper_body');
+    tags.add('core');
+  }
+  if (/\bupper|push|pull|chest|shoulder|back\b/.test(normalized)) {
+    tags.add('upper_body');
+  }
+  if (/\blower|leg|squat|glute|hamstring|quad\b/.test(normalized)) {
+    tags.add('lower_body');
+  }
+  if (/\bcore|abs|trunk\b/.test(normalized)) {
+    tags.add('core');
+  }
+  if (/\bcardio|conditioning|aerobic|run|walk\b/.test(normalized)) {
+    tags.add('conditioning');
+  }
+  if (/\bmobility|recovery|stretch\b/.test(normalized)) {
+    tags.add('recovery');
+  }
+  if (/\bpull|row|back\b/.test(normalized)) {
+    tags.add('middle_back');
+  }
+
+  return [...tags];
+}
+
+function buildWorkoutCatalogMatchSql(
+  query: NormalizedWorkoutCatalogQuery,
+): string {
+  const conditions = ['wr.status = ?'];
+
+  if (query.timeMinutes) {
+    conditions.push('wr.duration_min_minutes <= ?');
+    conditions.push('wr.duration_max_minutes >= ?');
+  }
+
+  if (query.experienceLevel) {
+    conditions.push('wr.min_experience_level_rank <= ?');
+  }
+
+  if (query.normalizedEquipment.length) {
+    conditions.push(`NOT EXISTS (
+      SELECT 1
+      FROM workout_catalog_recipe_equipment wre
+      WHERE wre.recipe_id = wr.id
+        AND wre.requirement_type = 'required'
+        AND wre.equipment_id NOT IN (${query.normalizedEquipment
+          .map(() => '?')
+          .join(', ')})
+    )`);
+  }
+
+  for (const [tagType, values] of [
+    ['contraindication', query.normalizedContraindicationTags],
+    ['avoid', query.normalizedAvoidTags],
+    ['stressor', query.normalizedDisallowedStressors],
+  ] as const) {
+    if (values.length) {
+      conditions.push(`NOT EXISTS (
+        SELECT 1
+        FROM workout_catalog_slots ws
+        JOIN exercise_tags et ON et.exercise_id = ws.exercise_id
+        WHERE ws.recipe_id = wr.id
+          AND et.tag_type = ?
+          AND et.tag IN (${values.map(() => '?').join(', ')})
+      )`);
+    }
+  }
+
+  const whereClause = conditions.length
+    ? `WHERE ${conditions.join(' AND ')}`
+    : '';
+  const focusScore = query.normalizedFocusTags.length
+    ? `(SELECT COUNT(*) * 14
+        FROM workout_catalog_recipe_tags wrt
+        WHERE wrt.recipe_id = wr.id
+          AND wrt.tag_type = 'focus'
+          AND wrt.tag IN (${query.normalizedFocusTags
+            .map(() => '?')
+            .join(', ')}))`
+    : '24';
+  const durationScore = query.timeMinutes
+    ? `MAX(0, 22 - ABS(wr.target_duration_minutes - ?))`
+    : '12';
+  const energyScore = query.energy
+    ? `CASE WHEN EXISTS (
+        SELECT 1 FROM workout_catalog_recipe_tags wrt
+        WHERE wrt.recipe_id = wr.id
+          AND wrt.tag_type = 'energy'
+          AND wrt.tag = ?
+      ) THEN 12 ELSE 0 END`
+    : '8';
+  const diversityPenalty = query.normalizedRecentExerciseIds.length
+    ? `(SELECT COUNT(*) * 7
+        FROM workout_catalog_slots ws
+        WHERE ws.recipe_id = wr.id
+          AND ws.exercise_id IN (${query.normalizedRecentExerciseIds
+            .map(() => '?')
+            .join(', ')}))`
+    : '0';
+  const adaptiveScore = query.adaptivePlanIntent
+    ? `CASE
+        WHEN EXISTS (
+          SELECT 1 FROM workout_catalog_recipe_tags wrt
+          WHERE wrt.recipe_id = wr.id
+            AND wrt.tag_type IN ('focus', 'style')
+            AND wrt.tag IN (${buildAdaptiveIntentTags(query)
+              .map(() => '?')
+              .join(', ') || "'__none__'"}
+            )
+        ) THEN 10
+        ELSE 0
+      END`
+    : '0';
+
+  return `
+    SELECT
+      wr.id,
+      wr.slug,
+      wr.ownership,
+      wr.version,
+      wr.status,
+      wr.title,
+      wr.summary,
+      wr.focus,
+      wr.target_duration_minutes,
+      wr.duration_min_minutes,
+      wr.duration_max_minutes,
+      wr.min_experience_level,
+      wr.quality_score,
+      wr.catalog_version,
+      wr.source,
+      ${focusScore} AS focus_score,
+      ${durationScore} AS duration_score,
+      ${energyScore} AS energy_score,
+      MAX(0, 16 - ${diversityPenalty}) AS diversity_score,
+      ${adaptiveScore} AS adaptive_score,
+      ROUND(
+        (${focusScore}) +
+        (${durationScore}) +
+        (${energyScore}) +
+        MAX(0, 16 - ${diversityPenalty}) +
+        (${adaptiveScore}) +
+        (wr.quality_score * 0.18),
+        2
+      ) AS score
+    FROM workout_catalog_recipes wr
+    ${whereClause}
+    ORDER BY score DESC, wr.quality_score DESC, wr.id ASC
+    LIMIT ?
+  `;
+}
+
+function buildWorkoutCatalogMatchParams(
+  query: NormalizedWorkoutCatalogQuery,
+): Array<string | number> {
+  const params: Array<string | number> = [];
+
+  addWorkoutCatalogScoringParams(query, params);
+  addWorkoutCatalogScoringParams(query, params);
+
+  params.push('active');
+
+  if (query.timeMinutes) {
+    params.push(query.timeMinutes, query.timeMinutes);
+  }
+
+  if (query.experienceLevel) {
+    params.push(getExperienceRank(query.experienceLevel));
+  }
+
+  if (query.normalizedEquipment.length) {
+    params.push(...query.normalizedEquipment);
+  }
+
+  for (const [tagType, values] of [
+    ['contraindication', query.normalizedContraindicationTags],
+    ['avoid', query.normalizedAvoidTags],
+    ['stressor', query.normalizedDisallowedStressors],
+  ] as const) {
+    if (values.length) {
+      params.push(tagType, ...values);
+    }
+  }
+
+  params.push(query.limit ?? 5);
+  return params;
+}
+
+function addWorkoutCatalogScoringParams(
+  query: NormalizedWorkoutCatalogQuery,
+  params: Array<string | number>,
+): void {
+  if (query.normalizedFocusTags.length) {
+    params.push(...query.normalizedFocusTags);
+  }
+  if (query.timeMinutes) {
+    params.push(query.timeMinutes);
+  }
+  if (query.energy) {
+    params.push(query.energy);
+  }
+  if (query.normalizedRecentExerciseIds.length) {
+    params.push(...query.normalizedRecentExerciseIds);
+  }
+  if (query.adaptivePlanIntent) {
+    params.push(...buildAdaptiveIntentTags(query));
+  }
+}
+
+function buildAdaptiveIntentTags(
+  query: NormalizedWorkoutCatalogQuery,
+): string[] {
+  return [
+    ...new Set([
+      ...deriveWorkoutFocusTags(query.adaptivePlanIntent?.role),
+      ...deriveWorkoutFocusTags(query.adaptivePlanIntent?.category),
+      ...deriveWorkoutFocusTags(query.adaptivePlanIntent?.label),
+    ]),
+  ];
+}
+
+function buildWorkoutCatalogDiagnostics(
+  row: WorkoutCatalogRecipeRow,
+  candidateCount: number,
+): WorkoutCatalogDiagnostics {
+  const blockerCodes: WorkoutCatalogDiagnostics['blockerCodes'] = [];
+  const reasons = [
+    `score=${row.score}`,
+    `focus=${row.focus_score}`,
+    `duration=${row.duration_score}`,
+    `energy=${row.energy_score}`,
+    `diversity=${row.diversity_score}`,
+    `adaptive=${row.adaptive_score}`,
+  ];
+
+  if (row.focus_score <= 0) {
+    blockerCodes.push('focus_gap');
+  }
+  if (row.energy_score <= 0) {
+    blockerCodes.push('energy_gap');
+  }
+
+  return {
+    blockerCodes,
+    candidateCount,
+    bestScore: row.score,
+    selectedRecipeId: row.id,
+    reasons,
+  };
+}
+
+function diagnoseWorkoutCatalogEmpty(
+  database: Database.Database,
+  query: NormalizedWorkoutCatalogQuery,
+): WorkoutCatalogDiagnostics {
+  const blockerCodes = new Set<WorkoutCatalogDiagnostics['blockerCodes'][number]>();
+  const reasons: string[] = [];
+
+  if (query.normalizedEquipment.length) {
+    const relaxedEquipment = countWorkoutCatalogMatches(database, {
+      ...query,
+      normalizedEquipment: [],
+    });
+    if (relaxedEquipment > 0) {
+      blockerCodes.add('unsupported_equipment');
+      reasons.push(`relaxed equipment matches=${relaxedEquipment}`);
+    }
+  }
+
+  if (query.timeMinutes) {
+    const relaxedDuration = countWorkoutCatalogMatches(database, {
+      ...query,
+      timeMinutes: undefined,
+    });
+    if (relaxedDuration > 0) {
+      blockerCodes.add('duration_gap');
+      reasons.push(`relaxed duration matches=${relaxedDuration}`);
+    }
+  }
+
+  if (query.experienceLevel) {
+    const relaxedExperience = countWorkoutCatalogMatches(database, {
+      ...query,
+      experienceLevel: undefined,
+    });
+    if (relaxedExperience > 0) {
+      blockerCodes.add('experience_gap');
+      reasons.push(`relaxed experience matches=${relaxedExperience}`);
+    }
+  }
+
+  if (query.normalizedDisallowedStressors.length) {
+    const relaxedStressors = countWorkoutCatalogMatches(database, {
+      ...query,
+      normalizedDisallowedStressors: [],
+    });
+    if (relaxedStressors > 0) {
+      blockerCodes.add('stressor_conflict');
+      reasons.push(`relaxed stressors matches=${relaxedStressors}`);
+    }
+  }
+
+  if (!blockerCodes.size) {
+    blockerCodes.add('constraint_conflict');
+  }
+
+  return {
+    blockerCodes: [...blockerCodes],
+    candidateCount: 0,
+    reasons,
+  };
+}
+
+function countWorkoutCatalogMatches(
+  database: Database.Database,
+  query: NormalizedWorkoutCatalogQuery,
+): number {
+  const rows = database
+    .prepare(buildWorkoutCatalogMatchSql(query))
+    .all(...buildWorkoutCatalogMatchParams({ ...query, limit: 1 })) as
+    | WorkoutCatalogRecipeRow[]
+    | [];
+  return rows.length;
+}
+
+function listWorkoutCatalogValues(
+  database: Database.Database,
+  tableName: string,
+  recipeId: string,
+  valueColumn: string,
+): string[] {
+  const rows = database
+    .prepare(
+      `SELECT ${valueColumn} as value FROM ${tableName} WHERE recipe_id = ? ORDER BY value ASC`,
+    )
+    .all(recipeId) as Array<{ value: string }>;
+  return rows.map((row) => row.value);
+}
+
+function listWorkoutCatalogTags(
+  database: Database.Database,
+  recipeId: string,
+  tagType: string,
+): string[] {
+  const rows = database
+    .prepare(
+      `SELECT tag FROM workout_catalog_recipe_tags WHERE recipe_id = ? AND tag_type = ? ORDER BY tag ASC`,
+    )
+    .all(recipeId, tagType) as Array<{ tag: string }>;
+  return rows.map((row) => row.tag);
+}
+
+function listWorkoutCatalogConstraints(
+  database: Database.Database,
+  recipeId: string,
+): Record<string, string[]> {
+  const rows = database
+    .prepare(
+      `SELECT constraint_type, value
+        FROM workout_catalog_recipe_constraints
+        WHERE recipe_id = ?
+        ORDER BY constraint_type ASC, value ASC`,
+    )
+    .all(recipeId) as Array<{ constraint_type: string; value: string }>;
+  const constraints: Record<string, string[]> = {};
+  for (const row of rows) {
+    constraints[row.constraint_type] ??= [];
+    constraints[row.constraint_type].push(row.value);
+  }
+  return constraints;
+}
+
+function mapWorkoutCatalogBlock(
+  database: Database.Database,
+  recipeId: string,
+  block: WorkoutCatalogBlockRow,
+): WorkoutCatalogBlock {
+  const rows = database
+    .prepare(
+      `${BASE_SELECT_SQL},
+        ws.block_id,
+        ws.slot_id,
+        ws.slot_order,
+        ws.role,
+        ws.prescription,
+        ws.detail,
+        ws.intensity
+      FROM workout_catalog_slots ws
+      JOIN exercises e ON e.id = ws.exercise_id
+      WHERE ws.recipe_id = ? AND ws.block_id = ?
+      ORDER BY ws.slot_order ASC`,
+    )
+    .all(recipeId, block.block_id) as WorkoutCatalogSlotRow[];
+
+  return {
+    id: block.block_id,
+    order: block.block_order,
+    title: block.title,
+    durationMinutes: block.duration_minutes,
+    focus: block.focus,
+    slots: rows.map((row) => mapWorkoutCatalogSlot(database, recipeId, row)),
+  };
+}
+
+function mapWorkoutCatalogSlot(
+  database: Database.Database,
+  recipeId: string,
+  row: WorkoutCatalogSlotRow,
+): WorkoutCatalogSlot {
+  return {
+    id: row.slot_id,
+    order: row.slot_order,
+    exercise: mapExerciseRow(row),
+    role: row.role as WorkoutCatalogSlot['role'],
+    prescription: row.prescription,
+    detail: row.detail,
+    intensity: row.intensity,
+    substitutionExerciseIds: listWorkoutSlotSubstitutions(
+      database,
+      recipeId,
+      row.block_id,
+      row.slot_id,
+    ),
+  };
+}
+
+function listWorkoutSlotSubstitutions(
+  database: Database.Database,
+  recipeId: string,
+  blockId: string,
+  slotId: string,
+): string[] {
+  const rows = database
+    .prepare(
+      `SELECT exercise_id
+        FROM workout_catalog_slot_substitutions
+        WHERE recipe_id = ? AND block_id = ? AND slot_id = ?
+        ORDER BY substitution_order ASC`,
+    )
+    .all(recipeId, blockId, slotId) as Array<{ exercise_id: string }>;
+  return rows.map((row) => row.exercise_id);
+}
+
+function materializeWorkoutCatalogPlan(
+  recipe: WorkoutCatalogRecipe,
+  query: NormalizedWorkoutCatalogQuery,
+): WorkoutCatalogMatch['plan'] {
+  return {
+    id: `library:${recipe.slug}`,
+    focus: recipe.focus,
+    durationMinutes: query.timeMinutes ?? recipe.targetDurationMinutes,
+    equipment: recipe.equipment,
+    source: 'library',
+    energy: query.energy ?? recipe.energyLevels[0] ?? 'moderate',
+    summary: recipe.summary,
+    blocks: recipe.blocks.map((block) => ({
+      id: `${recipe.slug}:${block.id}`,
+      title: block.title,
+      durationMinutes: block.durationMinutes,
+      focus: block.focus,
+      exercises: block.slots.map((slot) => ({
+        id: `${slot.exercise.id}:${block.id}:${slot.id}`,
+        name: slot.exercise.name,
+        prescription: slot.prescription,
+        detail: slot.detail,
+      })),
+    })),
+  };
 }
 
 function diagnoseEmptyResult(
