@@ -18,6 +18,7 @@ import type { RootStackParamList } from './navigation';
 import {
   ConstraintsEditor,
   EquipmentEditor,
+  GenerationEditor,
   ProfileEditor,
   RhythmEditor,
 } from './settings/SettingsEditors';
@@ -35,6 +36,7 @@ const INITIAL_PREFERENCES: UserPreferences = {
   injuries: [],
   focusBias: [],
   avoid: [],
+  aiFeaturesEnabled: true,
 };
 
 type SettingsNavigation = NativeStackNavigationProp<
@@ -258,6 +260,13 @@ export const SettingsScreen = () => {
           <EquipmentEditor
             equipment={preferences.equipment}
             toggleEquipment={toggleEquipment}
+          />
+        );
+      case 'generation':
+        return (
+          <GenerationEditor
+            preferences={preferences}
+            updateField={updateField}
           />
         );
       default:

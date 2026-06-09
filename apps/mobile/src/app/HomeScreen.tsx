@@ -949,6 +949,11 @@ export const HomeScreen = () => {
         return;
       }
 
+      if (apiError.code === 'WORKOUT_CATALOG_NO_MATCH') {
+        Alert.alert('No catalog workout', apiError.message || fallbackMessage);
+        return;
+      }
+
       Alert.alert('Error', apiError.message || fallbackMessage);
     },
     [navigation, showUpgradeUi]

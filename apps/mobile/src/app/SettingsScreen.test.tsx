@@ -50,6 +50,7 @@ describe('SettingsScreen profile summary', () => {
       injuries: [],
       focusBias: [],
       avoid: [],
+      aiFeaturesEnabled: true,
       adaptiveTrainingPlan: plan,
     });
 
@@ -89,6 +90,39 @@ describe('SettingsScreen profile summary', () => {
             expect.objectContaining({ id: 'lift', minCount: 4, maxCount: 5 }),
           ]),
         }),
+      })
+    );
+  });
+
+  it('saves catalog-only workout creation mode', async () => {
+    mockUserRepository.getPreferences.mockResolvedValue({
+      equipment: ['Bodyweight'],
+      injuries: [],
+      focusBias: [],
+      avoid: [],
+      aiFeaturesEnabled: true,
+    });
+
+    const screen = render(<SettingsScreen />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Workout creation')).toBeTruthy();
+      expect(screen.getByText('AI + catalog')).toBeTruthy();
+    });
+
+    await act(async () => {
+      fireEvent.press(screen.getByText('Change mode'));
+    });
+    await act(async () => {
+      fireEvent.press(screen.getByText('Catalog only'));
+    });
+    await act(async () => {
+      fireEvent.press(screen.getByText('Save'));
+    });
+
+    expect(mockUserRepository.updatePreferences).toHaveBeenCalledWith(
+      expect.objectContaining({
+        aiFeaturesEnabled: false,
       })
     );
   });

@@ -1,6 +1,11 @@
 import type { ExperienceLevel, UserPreferences } from '@workout-agent/shared';
 
-export type EditorKey = 'profile' | 'rhythm' | 'constraints' | 'equipment';
+export type EditorKey =
+  | 'profile'
+  | 'rhythm'
+  | 'constraints'
+  | 'equipment'
+  | 'generation';
 
 export type PreferenceUpdater = <K extends keyof UserPreferences>(
   key: K,
@@ -34,6 +39,7 @@ export const EDITOR_TITLES: Record<EditorKey, string> = {
   rhythm: 'Training plan',
   constraints: 'Safety & constraints',
   equipment: 'Equipment',
+  generation: 'Workout creation',
 };
 
 export const EXPERIENCE_LABELS: Record<ExperienceLevel, string> = {

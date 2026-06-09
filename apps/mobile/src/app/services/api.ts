@@ -16,6 +16,7 @@ import type {
 import {
   apiErrorSchema,
   normalizeEquipmentSelection,
+  resolveWorkoutCreationMode,
 } from '@workout-agent/shared';
 import { getDeviceToken } from '../storage/deviceToken';
 import { getByokApiKey, getByokConfig } from '../storage/byokKey';
@@ -184,10 +185,12 @@ export async function fetchBillingEntitlements(): Promise<BillingEntitlementsRes
  * This replaces the mock context with real user data.
  */
 export async function buildGenerationContext(
-  request: GenerationRequest
+  request: GenerationRequest,
+  loadedPreferences?: UserPreferences
 ): Promise<GenerationContext> {
   // Get user preferences from local DB
-  const prefs: UserPreferences = await userRepository.getPreferences();
+  const prefs: UserPreferences =
+    loadedPreferences ?? (await userRepository.getPreferences());
 
   // Get recent completed sessions (last 5), excluding archived
   const recentWorkouts = await workoutRepository.listRecentSessions(5, {
@@ -276,9 +279,16 @@ export async function generateWorkout(
   const requestWithPlanningDate = { ...requestWithEvents, planningDateLocal };
 
   const isRegeneration = Boolean(requestWithPlanningDate.previousResponseId);
-  const context = await buildGenerationContext(requestWithPlanningDate);
-  const enrichedRequest: GenerationRequestPayload = {
+  const prefs = await userRepository.getPreferences();
+  const creationMode =
+    requestWithPlanningDate.creationMode ?? resolveWorkoutCreationMode(prefs);
+  const requestWithCreationMode = {
     ...requestWithPlanningDate,
+    creationMode,
+  };
+  const context = await buildGenerationContext(requestWithCreationMode, prefs);
+  const enrichedRequest: GenerationRequestPayload = {
+    ...requestWithCreationMode,
     context,
   };
 
@@ -297,6 +307,7 @@ export async function generateWorkout(
       equipmentOverride: requestWithPlanningDate.equipment,
       effectiveEquipment: context.environment.equipment,
       energy: requestWithPlanningDate.energy,
+      creationMode,
       upcomingEvents: requestWithPlanningDate.upcomingEvents?.length ?? 0,
     }
   );
@@ -311,7 +322,7 @@ export async function generateWorkout(
     startedAt: new Date(startedAt).toISOString(),
     operation: isRegeneration ? 'regenerate' : 'generate',
     provider: byokConfig?.provider,
-    request: sanitizeGenerationRequestForTrace(requestWithPlanningDate),
+    request: sanitizeGenerationRequestForTrace(requestWithCreationMode),
     scheduledDate: options?.scheduledDate,
     contextSummary: {
       equipment: context.environment.equipment,
@@ -330,7 +341,7 @@ export async function generateWorkout(
     await workoutRepository.saveGeneratedPlan(plan, {
       scheduledDate: options?.scheduledDate,
       baselineWorkoutId: requestWithPlanningDate.baselineWorkout?.id,
-      generationRequest: requestWithPlanningDate,
+      generationRequest: requestWithCreationMode,
     });
     const savedWorkout = await workoutRepository.getWorkoutByPlanId(plan.id);
     setDebugLastGenerationTrace({

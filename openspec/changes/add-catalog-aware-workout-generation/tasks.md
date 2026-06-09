@@ -29,10 +29,10 @@
 
 ## 5. Mobile Integration
 
-- [ ] 5.1 Add settings/onboarding UI and persistence for opting out of AI-powered workout creation without adding explanatory copy noise.
-- [ ] 5.2 Send the appropriate `creationMode` from mobile generation requests based on the persisted preference.
-- [ ] 5.3 Persist returned library workouts through the existing planned workout repository path and show them in Home/history/version flows.
-- [ ] 5.4 Add mobile tests proving AI-disabled mode avoids BYOK/paywall prompts and saves `source: 'library'` workouts.
+- [x] 5.1 Add settings/onboarding UI and persistence for opting out of AI-powered workout creation without adding explanatory copy noise.
+- [x] 5.2 Send the appropriate `creationMode` from mobile generation requests based on the persisted preference.
+- [x] 5.3 Persist returned library workouts through the existing planned workout repository path and show them in Home/history/version flows.
+- [x] 5.4 Add mobile tests proving AI-disabled mode avoids BYOK/paywall prompts and saves `source: 'library'` workouts.
 
 ## 6. Evaluation And Validation
 
