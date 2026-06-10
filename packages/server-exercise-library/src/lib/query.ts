@@ -83,6 +83,7 @@ interface WorkoutCatalogRecipeRow {
   energy_score: number;
   diversity_score: number;
   adaptive_score: number;
+  recipe_cooldown_penalty: number;
 }
 
 interface WorkoutCatalogBlockRow {
@@ -106,6 +107,7 @@ interface WorkoutCatalogSlotRow extends ExerciseRow {
 const DEFAULT_MINIMUM_COMPLETENESS: MetadataCompleteness = 'planner-ready';
 const DIRECT_MATCH_THRESHOLD = 82;
 const ADAPT_MATCH_THRESHOLD = 58;
+const RECENT_RECIPE_SCORE_PENALTY = 20;
 
 export class ExerciseLibraryQueryEngine implements ExerciseLibrary {
   constructor(private readonly database: Database.Database) {}
@@ -122,7 +124,7 @@ export class ExerciseLibraryQueryEngine implements ExerciseLibrary {
     const normalized = nameOrAlias.trim().toLowerCase();
     const row = this.database
       .prepare(
-        `${BASE_SELECT_SQL} FROM exercises e WHERE lower(e.name) = ? OR EXISTS (SELECT 1 FROM exercise_aliases ea WHERE ea.exercise_id = e.id AND ea.alias = ?) LIMIT 1`,
+        `${BASE_SELECT_SQL} FROM exercises e WHERE lower(e.name) = ? OR EXISTS (SELECT 1 FROM exercise_aliases ea WHERE ea.exercise_id = e.id AND ea.alias = ?) LIMIT 1`
       )
       .get(normalized, normalized) as ExerciseRow | undefined;
 
@@ -160,28 +162,35 @@ export class ExerciseLibraryQueryEngine implements ExerciseLibrary {
       | [];
     const rankedCandidates = prioritizeExactFocusCandidates(
       candidates,
-      normalizedQuery,
+      normalizedQuery
     );
     const best = rankedCandidates[0];
 
     if (!best) {
       return {
         decision: 'none',
-        diagnostics: diagnoseWorkoutCatalogEmpty(this.database, normalizedQuery),
+        diagnostics: diagnoseWorkoutCatalogEmpty(
+          this.database,
+          normalizedQuery
+        ),
       };
     }
 
     const recipe = this.getWorkoutCatalogRecipe(best);
     const strictFocusGap = hasStrictWorkoutCatalogFocusGap(
       recipe,
-      normalizedQuery,
+      normalizedQuery
     );
     const diagnostics = buildWorkoutCatalogDiagnostics(
       best,
       rankedCandidates.length,
-      strictFocusGap,
+      strictFocusGap
     );
-    const plan = materializeWorkoutCatalogPlan(recipe, normalizedQuery);
+    const plan = materializeWorkoutCatalogPlan(
+      this.database,
+      recipe,
+      normalizedQuery
+    );
 
     if (best.score >= DIRECT_MATCH_THRESHOLD && !strictFocusGap) {
       return {
@@ -252,14 +261,14 @@ export class ExerciseLibraryQueryEngine implements ExerciseLibrary {
   }
 
   private getWorkoutCatalogRecipe(
-    row: WorkoutCatalogRecipeRow,
+    row: WorkoutCatalogRecipeRow
   ): WorkoutCatalogRecipe {
     const blocks = this.database
       .prepare(
         `SELECT block_id, block_order, title, duration_minutes, focus
           FROM workout_catalog_blocks
           WHERE recipe_id = ?
-          ORDER BY block_order ASC`,
+          ORDER BY block_order ASC`
       )
       .all(row.id) as WorkoutCatalogBlockRow[];
 
@@ -277,7 +286,8 @@ export class ExerciseLibraryQueryEngine implements ExerciseLibrary {
         min: row.duration_min_minutes,
         max: row.duration_max_minutes,
       },
-      minExperienceLevel: row.min_experience_level as WorkoutCatalogRecipe['minExperienceLevel'],
+      minExperienceLevel:
+        row.min_experience_level as WorkoutCatalogRecipe['minExperienceLevel'],
       qualityScore: row.quality_score,
       catalogVersion: row.catalog_version,
       source: row.source,
@@ -285,23 +295,23 @@ export class ExerciseLibraryQueryEngine implements ExerciseLibrary {
         this.database,
         'workout_catalog_recipe_equipment',
         row.id,
-        'equipment_id',
+        'equipment_id'
       ),
       focusTags: listWorkoutCatalogTags(this.database, row.id, 'focus'),
       styleTags: listWorkoutCatalogTags(this.database, row.id, 'style'),
       environmentTags: listWorkoutCatalogTags(
         this.database,
         row.id,
-        'environment',
+        'environment'
       ),
       energyLevels: listWorkoutCatalogTags(
         this.database,
         row.id,
-        'energy',
+        'energy'
       ) as WorkoutCatalogEnergy[],
       constraints: listWorkoutCatalogConstraints(this.database, row.id),
       blocks: blocks.map((block) =>
-        mapWorkoutCatalogBlock(this.database, row.id, block),
+        mapWorkoutCatalogBlock(this.database, row.id, block)
       ),
     };
   }
@@ -314,15 +324,18 @@ interface NormalizedWorkoutCatalogQuery extends WorkoutCatalogQuery {
   normalizedContraindicationTags: string[];
   normalizedDisallowedStressors: string[];
   normalizedRecentExerciseIds: string[];
+  normalizedRecentCatalogRecipeIds: string[];
 }
 
 function normalizeWorkoutCatalogQuery(
-  query: WorkoutCatalogQuery,
+  query: WorkoutCatalogQuery
 ): NormalizedWorkoutCatalogQuery {
   return {
     ...query,
     normalizedEquipment: query.availableEquipment?.length
-      ? expandAvailableEquipment(query.availableEquipment).map(normalizeEquipmentId)
+      ? expandAvailableEquipment(query.availableEquipment).map(
+          normalizeEquipmentId
+        )
       : [],
     normalizedFocusTags: [
       ...new Set([
@@ -344,6 +357,9 @@ function normalizeWorkoutCatalogQuery(
       ]),
     ],
     normalizedRecentExerciseIds: [...new Set(query.recentExerciseIds ?? [])],
+    normalizedRecentCatalogRecipeIds: [
+      ...new Set(query.recentCatalogRecipeIds ?? []),
+    ],
   };
 }
 
@@ -384,7 +400,7 @@ function deriveWorkoutFocusTags(value: string | undefined): string[] {
 }
 
 function buildWorkoutCatalogMatchSql(
-  query: NormalizedWorkoutCatalogQuery,
+  query: NormalizedWorkoutCatalogQuery
 ): string {
   const conditions = ['wr.status = ?'];
 
@@ -463,13 +479,20 @@ function buildWorkoutCatalogMatchSql(
           SELECT 1 FROM workout_catalog_recipe_tags wrt
           WHERE wrt.recipe_id = wr.id
             AND wrt.tag_type IN ('focus', 'style')
-            AND wrt.tag IN (${buildAdaptiveIntentTags(query)
-              .map(() => '?')
-              .join(', ') || "'__none__'"}
+            AND wrt.tag IN (${
+              buildAdaptiveIntentTags(query)
+                .map(() => '?')
+                .join(', ') || "'__none__'"
+            }
             )
         ) THEN 10
         ELSE 0
       END`
+    : '0';
+  const recipeCooldownPenalty = query.normalizedRecentCatalogRecipeIds.length
+    ? `CASE WHEN wr.id IN (${query.normalizedRecentCatalogRecipeIds
+        .map(() => '?')
+        .join(', ')}) THEN ${RECENT_RECIPE_SCORE_PENALTY} ELSE 0 END`
     : '0';
 
   return `
@@ -494,13 +517,15 @@ function buildWorkoutCatalogMatchSql(
       ${energyScore} AS energy_score,
       MAX(0, 16 - ${diversityPenalty}) AS diversity_score,
       ${adaptiveScore} AS adaptive_score,
+      ${recipeCooldownPenalty} AS recipe_cooldown_penalty,
       ROUND(
         (${focusScore}) +
         (${durationScore}) +
         (${energyScore}) +
         MAX(0, 16 - ${diversityPenalty}) +
         (${adaptiveScore}) +
-        (wr.quality_score * 0.18),
+        (wr.quality_score * 0.18) -
+        (${recipeCooldownPenalty}),
         2
       ) AS score
     FROM workout_catalog_recipes wr
@@ -511,7 +536,7 @@ function buildWorkoutCatalogMatchSql(
 }
 
 function buildWorkoutCatalogMatchParams(
-  query: NormalizedWorkoutCatalogQuery,
+  query: NormalizedWorkoutCatalogQuery
 ): Array<string | number> {
   const params: Array<string | number> = [];
 
@@ -548,7 +573,7 @@ function buildWorkoutCatalogMatchParams(
 
 function addWorkoutCatalogScoringParams(
   query: NormalizedWorkoutCatalogQuery,
-  params: Array<string | number>,
+  params: Array<string | number>
 ): void {
   if (query.normalizedFocusTags.length) {
     params.push(...query.normalizedFocusTags);
@@ -565,10 +590,13 @@ function addWorkoutCatalogScoringParams(
   if (query.adaptivePlanIntent) {
     params.push(...buildAdaptiveIntentTags(query));
   }
+  if (query.normalizedRecentCatalogRecipeIds.length) {
+    params.push(...query.normalizedRecentCatalogRecipeIds);
+  }
 }
 
 function buildAdaptiveIntentTags(
-  query: NormalizedWorkoutCatalogQuery,
+  query: NormalizedWorkoutCatalogQuery
 ): string[] {
   return [
     ...new Set([
@@ -582,7 +610,7 @@ function buildAdaptiveIntentTags(
 function buildWorkoutCatalogDiagnostics(
   row: WorkoutCatalogRecipeRow,
   candidateCount: number,
-  strictFocusGap = false,
+  strictFocusGap = false
 ): WorkoutCatalogDiagnostics {
   const blockerCodes: WorkoutCatalogDiagnostics['blockerCodes'] = [];
   const reasons = [
@@ -592,6 +620,7 @@ function buildWorkoutCatalogDiagnostics(
     `energy=${row.energy_score}`,
     `diversity=${row.diversity_score}`,
     `adaptive=${row.adaptive_score}`,
+    `recipeCooldownPenalty=${row.recipe_cooldown_penalty}`,
   ];
 
   if (row.focus_score <= 0) {
@@ -603,6 +632,9 @@ function buildWorkoutCatalogDiagnostics(
   }
   if (row.energy_score <= 0) {
     blockerCodes.push('energy_gap');
+  }
+  if (row.recipe_cooldown_penalty > 0) {
+    blockerCodes.push('catalog_recipe_cooldown');
   }
 
   return {
@@ -616,7 +648,7 @@ function buildWorkoutCatalogDiagnostics(
 
 function hasStrictWorkoutCatalogFocusGap(
   recipe: WorkoutCatalogRecipe,
-  query: NormalizedWorkoutCatalogQuery,
+  query: NormalizedWorkoutCatalogQuery
 ): boolean {
   if (!isExplicitFullBodyRequest(query.focus)) {
     return false;
@@ -627,7 +659,7 @@ function hasStrictWorkoutCatalogFocusGap(
 
 function prioritizeExactFocusCandidates(
   candidates: WorkoutCatalogRecipeRow[],
-  query: NormalizedWorkoutCatalogQuery,
+  query: NormalizedWorkoutCatalogQuery
 ): WorkoutCatalogRecipeRow[] {
   const exactFocus = deriveExactRequestedFocus(query.focus);
   if (!exactFocus) {
@@ -635,12 +667,14 @@ function prioritizeExactFocusCandidates(
   }
 
   const exactCandidates = candidates.filter((candidate) =>
-    candidate.focus.toLowerCase().includes(exactFocus),
+    candidate.focus.toLowerCase().includes(exactFocus)
   );
   return exactCandidates.length > 0 ? exactCandidates : candidates;
 }
 
-function deriveExactRequestedFocus(value: string | undefined): string | undefined {
+function deriveExactRequestedFocus(
+  value: string | undefined
+): string | undefined {
   if (!value) {
     return undefined;
   }
@@ -678,9 +712,11 @@ function isExplicitFullBodyRequest(value: string | undefined): boolean {
 
 function diagnoseWorkoutCatalogEmpty(
   database: Database.Database,
-  query: NormalizedWorkoutCatalogQuery,
+  query: NormalizedWorkoutCatalogQuery
 ): WorkoutCatalogDiagnostics {
-  const blockerCodes = new Set<WorkoutCatalogDiagnostics['blockerCodes'][number]>();
+  const blockerCodes = new Set<
+    WorkoutCatalogDiagnostics['blockerCodes'][number]
+  >();
   const reasons: string[] = [];
 
   if (query.normalizedEquipment.length) {
@@ -740,7 +776,7 @@ function diagnoseWorkoutCatalogEmpty(
 
 function countWorkoutCatalogMatches(
   database: Database.Database,
-  query: NormalizedWorkoutCatalogQuery,
+  query: NormalizedWorkoutCatalogQuery
 ): number {
   const rows = database
     .prepare(buildWorkoutCatalogMatchSql(query))
@@ -754,11 +790,11 @@ function listWorkoutCatalogValues(
   database: Database.Database,
   tableName: string,
   recipeId: string,
-  valueColumn: string,
+  valueColumn: string
 ): string[] {
   const rows = database
     .prepare(
-      `SELECT ${valueColumn} as value FROM ${tableName} WHERE recipe_id = ? ORDER BY value ASC`,
+      `SELECT ${valueColumn} as value FROM ${tableName} WHERE recipe_id = ? ORDER BY value ASC`
     )
     .all(recipeId) as Array<{ value: string }>;
   return rows.map((row) => row.value);
@@ -767,11 +803,11 @@ function listWorkoutCatalogValues(
 function listWorkoutCatalogTags(
   database: Database.Database,
   recipeId: string,
-  tagType: string,
+  tagType: string
 ): string[] {
   const rows = database
     .prepare(
-      `SELECT tag FROM workout_catalog_recipe_tags WHERE recipe_id = ? AND tag_type = ? ORDER BY tag ASC`,
+      `SELECT tag FROM workout_catalog_recipe_tags WHERE recipe_id = ? AND tag_type = ? ORDER BY tag ASC`
     )
     .all(recipeId, tagType) as Array<{ tag: string }>;
   return rows.map((row) => row.tag);
@@ -779,14 +815,14 @@ function listWorkoutCatalogTags(
 
 function listWorkoutCatalogConstraints(
   database: Database.Database,
-  recipeId: string,
+  recipeId: string
 ): Record<string, string[]> {
   const rows = database
     .prepare(
       `SELECT constraint_type, value
         FROM workout_catalog_recipe_constraints
         WHERE recipe_id = ?
-        ORDER BY constraint_type ASC, value ASC`,
+        ORDER BY constraint_type ASC, value ASC`
     )
     .all(recipeId) as Array<{ constraint_type: string; value: string }>;
   const constraints: Record<string, string[]> = {};
@@ -800,7 +836,7 @@ function listWorkoutCatalogConstraints(
 function mapWorkoutCatalogBlock(
   database: Database.Database,
   recipeId: string,
-  block: WorkoutCatalogBlockRow,
+  block: WorkoutCatalogBlockRow
 ): WorkoutCatalogBlock {
   const rows = database
     .prepare(
@@ -815,7 +851,7 @@ function mapWorkoutCatalogBlock(
       FROM workout_catalog_slots ws
       JOIN exercises e ON e.id = ws.exercise_id
       WHERE ws.recipe_id = ? AND ws.block_id = ?
-      ORDER BY ws.slot_order ASC`,
+      ORDER BY ws.slot_order ASC`
     )
     .all(recipeId, block.block_id) as WorkoutCatalogSlotRow[];
 
@@ -832,7 +868,7 @@ function mapWorkoutCatalogBlock(
 function mapWorkoutCatalogSlot(
   database: Database.Database,
   recipeId: string,
-  row: WorkoutCatalogSlotRow,
+  row: WorkoutCatalogSlotRow
 ): WorkoutCatalogSlot {
   return {
     id: row.slot_id,
@@ -846,7 +882,7 @@ function mapWorkoutCatalogSlot(
       database,
       recipeId,
       row.block_id,
-      row.slot_id,
+      row.slot_id
     ),
   };
 }
@@ -855,22 +891,23 @@ function listWorkoutSlotSubstitutions(
   database: Database.Database,
   recipeId: string,
   blockId: string,
-  slotId: string,
+  slotId: string
 ): string[] {
   const rows = database
     .prepare(
       `SELECT exercise_id
         FROM workout_catalog_slot_substitutions
         WHERE recipe_id = ? AND block_id = ? AND slot_id = ?
-        ORDER BY substitution_order ASC`,
+        ORDER BY substitution_order ASC`
     )
     .all(recipeId, blockId, slotId) as Array<{ exercise_id: string }>;
   return rows.map((row) => row.exercise_id);
 }
 
 function materializeWorkoutCatalogPlan(
+  database: Database.Database,
   recipe: WorkoutCatalogRecipe,
-  query: NormalizedWorkoutCatalogQuery,
+  query: NormalizedWorkoutCatalogQuery
 ): WorkoutCatalogMatch['plan'] {
   return {
     id: `library:${recipe.slug}`,
@@ -885,19 +922,49 @@ function materializeWorkoutCatalogPlan(
       title: block.title,
       durationMinutes: block.durationMinutes,
       focus: block.focus,
-      exercises: block.slots.map((slot) => ({
-        id: `${slot.exercise.id}:${block.id}:${slot.id}`,
-        name: slot.exercise.name,
-        prescription: slot.prescription,
-        detail: slot.detail,
-      })),
+      exercises: block.slots.map((slot) => {
+        const exercise = selectWorkoutCatalogSlotExercise(
+          database,
+          slot,
+          query
+        );
+        return {
+          id: `${exercise.id}:${block.id}:${slot.id}`,
+          name: exercise.name,
+          prescription: slot.prescription,
+          detail: slot.detail,
+        };
+      }),
     })),
   };
 }
 
+function selectWorkoutCatalogSlotExercise(
+  database: Database.Database,
+  slot: WorkoutCatalogSlot,
+  query: NormalizedWorkoutCatalogQuery
+): ExerciseRecord {
+  if (!query.normalizedRecentExerciseIds.includes(slot.exercise.id)) {
+    return slot.exercise;
+  }
+
+  const substituteId = slot.substitutionExerciseIds.find(
+    (id) => !query.normalizedRecentExerciseIds.includes(id)
+  );
+  if (!substituteId) {
+    return slot.exercise;
+  }
+
+  const row = database
+    .prepare(`${BASE_SELECT_SQL} FROM exercises e WHERE e.id = ? LIMIT 1`)
+    .get(substituteId) as ExerciseRow | undefined;
+
+  return row ? mapExerciseRow(row) : slot.exercise;
+}
+
 function diagnoseEmptyResult(
   library: ExerciseLibrary,
-  query: CandidateQuery,
+  query: CandidateQuery
 ): CandidateDiagnostics {
   const blockerCodes = new Set<CandidateDiagnostics['blockerCodes'][number]>();
   const counts: CandidateDiagnostics['counts'] = {};
@@ -991,7 +1058,7 @@ SELECT
 
 function buildEligibleExerciseSql(
   query: CandidateQuery,
-  countOnly: boolean,
+  countOnly: boolean
 ): SqlBuildResult {
   const conditions: string[] = [];
   const params: Array<string | number> = [];
@@ -1013,7 +1080,7 @@ function buildEligibleExerciseSql(
 
   if (query.availableEquipment?.length) {
     const equipmentIds = expandAvailableEquipment(query.availableEquipment).map(
-      normalizeEquipmentId,
+      normalizeEquipmentId
     );
     const placeholders = equipmentIds.map(() => '?').join(', ');
     conditions.push(`NOT EXISTS (
@@ -1070,7 +1137,7 @@ function buildEligibleExerciseSql(
 
   if (query.blockRole) {
     conditions.push(
-      'EXISTS (SELECT 1 FROM exercise_roles er WHERE er.exercise_id = e.id AND er.role = ?)',
+      'EXISTS (SELECT 1 FROM exercise_roles er WHERE er.exercise_id = e.id AND er.role = ?)'
     );
     params.push(query.blockRole);
   }
@@ -1080,7 +1147,7 @@ function buildEligibleExerciseSql(
       conditions,
       params,
       'contraindication',
-      query.contraindicationTags,
+      query.contraindicationTags
     );
   }
 
@@ -1093,7 +1160,7 @@ function buildEligibleExerciseSql(
       conditions,
       params,
       'stressor',
-      query.disallowedStressors,
+      query.disallowedStressors
     );
   }
 
@@ -1177,7 +1244,7 @@ function buildFtsQuery(value: string | undefined): string | null {
 
 function buildStyleBiasScore(
   styleBias: string[] | undefined,
-  params: Array<string | number>,
+  params: Array<string | number>
 ): string {
   if (!styleBias?.length) {
     return 'CASE WHEN 1 = 1 THEN 0 END';
@@ -1190,7 +1257,7 @@ function buildStyleBiasScore(
 
 function buildTextMatchScore(
   rawSearchText: string | undefined,
-  params: Array<string | number>,
+  params: Array<string | number>
 ): string {
   const normalized = rawSearchText?.trim().toLowerCase();
   if (!normalized) {
@@ -1293,11 +1360,11 @@ function addTagExistsCondition(
   conditions: string[],
   params: Array<string | number>,
   tagType: string,
-  tags: string[],
+  tags: string[]
 ): void {
   const placeholders = tags.map(() => '?').join(', ');
   conditions.push(
-    `EXISTS (SELECT 1 FROM exercise_tags et WHERE et.exercise_id = e.id AND et.tag_type = ? AND et.tag IN (${placeholders}))`,
+    `EXISTS (SELECT 1 FROM exercise_tags et WHERE et.exercise_id = e.id AND et.tag_type = ? AND et.tag IN (${placeholders}))`
   );
   params.push(tagType, ...tags);
 }
@@ -1306,11 +1373,11 @@ function addTagExclusionCondition(
   conditions: string[],
   params: Array<string | number>,
   tagType: string,
-  tags: string[],
+  tags: string[]
 ): void {
   const placeholders = tags.map(() => '?').join(', ');
   conditions.push(
-    `NOT EXISTS (SELECT 1 FROM exercise_tags et WHERE et.exercise_id = e.id AND et.tag_type = ? AND et.tag IN (${placeholders}))`,
+    `NOT EXISTS (SELECT 1 FROM exercise_tags et WHERE et.exercise_id = e.id AND et.tag_type = ? AND et.tag IN (${placeholders}))`
   );
   params.push(tagType, ...tags);
 }
@@ -1340,12 +1407,12 @@ function mapExerciseRow(row: ExerciseRow): ExerciseRecord {
       row.experience_level_min as ExerciseRecord['experienceLevelMin'],
     loadLevel: row.load_level as ExerciseRecord['loadLevel'],
     allowedRoles: parseJsonArray(
-      row.allowed_roles_json,
+      row.allowed_roles_json
     ) as ExerciseRecord['allowedRoles'],
     metadataCompleteness: row.metadata_completeness,
     sortKey: row.sort_key,
     sourceRefs: JSON.parse(
-      row.source_refs_json,
+      row.source_refs_json
     ) as ExerciseRecord['sourceRefs'],
   };
 }

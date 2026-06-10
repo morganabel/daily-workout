@@ -354,6 +354,8 @@ export const generationEvaluationCatalogRoutingSchema = z
     providerInvoked: z.boolean(),
     providerPromptCaptured: z.boolean(),
     catalogReturned: z.boolean(),
+    catalogCooldownApplied: z.boolean().optional(),
+    catalogSeedProvided: z.boolean().optional(),
   })
   .strict();
 export type GenerationEvaluationCatalogRouting = z.infer<

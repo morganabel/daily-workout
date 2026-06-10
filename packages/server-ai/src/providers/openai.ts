@@ -40,7 +40,7 @@ export class OpenAIProvider implements AiProvider {
   async planStageOne(
     request: GenerationRequest,
     _context: GenerationContext,
-    options: AiProviderOptions,
+    options: AiProviderOptions
   ): Promise<StageOnePlannerArtifact> {
     const { log } = this;
     if (!options.apiKey) {
@@ -63,8 +63,8 @@ export class OpenAIProvider implements AiProvider {
           buildStageOnePlannerRequestPayload(
             request,
             options.planningBrief,
-            options.candidatePool,
-          ),
+            options.candidatePool
+          )
         ),
       },
     ];
@@ -73,7 +73,7 @@ export class OpenAIProvider implements AiProvider {
       provider: 'openai',
       model,
       isRegeneration: Boolean(
-        request.previousResponseId || request.baselineWorkout,
+        request.previousResponseId || request.baselineWorkout
       ),
       phase: 'stage-one-planner',
       content: JSON.stringify({ input }, null, 2),
@@ -88,7 +88,7 @@ export class OpenAIProvider implements AiProvider {
         text: {
           format: zodTextFormat(
             stageOnePlannerArtifactSchema,
-            'stage_one_planner',
+            'stage_one_planner'
           ),
         },
       });
@@ -108,9 +108,11 @@ export class OpenAIProvider implements AiProvider {
           ? (error as { status?: number }).status
           : undefined;
       throw new AiGenerationError(
-        `Provider request failed${status ? ` (${status})` : ''}: ${originalMessage}`,
+        `Provider request failed${
+          status ? ` (${status})` : ''
+        }: ${originalMessage}`,
         'REQUEST_FAILED',
-        status,
+        status
       );
     }
   }
@@ -118,7 +120,7 @@ export class OpenAIProvider implements AiProvider {
   async generate(
     request: GenerationRequest,
     context: GenerationContext,
-    options: AiProviderOptions,
+    options: AiProviderOptions
   ): Promise<GenerationResult> {
     const { log } = this;
     if (!options.apiKey) {
@@ -132,7 +134,7 @@ export class OpenAIProvider implements AiProvider {
 
     const model = options.model ?? DEFAULT_MODEL;
     const isRegeneration = Boolean(
-      request.previousResponseId || request.baselineWorkout,
+      request.previousResponseId || request.baselineWorkout
     );
 
     // Select schema version using selection algorithm
@@ -153,6 +155,7 @@ export class OpenAIProvider implements AiProvider {
               options.candidatePool,
               options.planningBrief,
               options.stageOneArtifact,
+              options.catalogSeed
             ),
           },
         ]
@@ -170,7 +173,8 @@ export class OpenAIProvider implements AiProvider {
                 options.planningBrief,
                 options.candidatePool,
                 options.stageOneArtifact,
-              ),
+                options.catalogSeed
+              )
             ),
           },
         ];
@@ -189,7 +193,7 @@ export class OpenAIProvider implements AiProvider {
             : {}),
         },
         null,
-        2,
+        2
       ),
     });
 
@@ -227,16 +231,18 @@ export class OpenAIProvider implements AiProvider {
           ? (error as { status?: number }).status
           : undefined;
       throw new AiGenerationError(
-        `Provider request failed${status ? ` (${status})` : ''}: ${originalMessage}`,
+        `Provider request failed${
+          status ? ` (${status})` : ''
+        }: ${originalMessage}`,
         'REQUEST_FAILED',
-        status,
+        status
       );
     }
 
     if (!planPayload) {
       throw new AiGenerationError(
         'Provider returned an empty response',
-        'INVALID_RESPONSE',
+        'INVALID_RESPONSE'
       );
     }
 
@@ -254,7 +260,7 @@ export class OpenAIProvider implements AiProvider {
       });
       throw new AiGenerationError(
         `LLM response transformation failed: ${transformResult.error.message}`,
-        'INVALID_RESPONSE',
+        'INVALID_RESPONSE'
       );
     }
 

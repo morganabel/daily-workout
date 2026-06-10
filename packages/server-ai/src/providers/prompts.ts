@@ -5,6 +5,7 @@ import {
   type RegenerationFeedback,
 } from '@workout-agent/shared';
 import type {
+  CatalogSeed,
   ExerciseCandidatePool,
   PlanningBrief,
   StageOnePlannerArtifact,
@@ -19,8 +20,7 @@ export const CLASSIC_STRENGTH_GUIDANCE =
 export const GYM_STRENGTH_EQUIPMENT_GUIDANCE =
   'When Gym is available for strength work, prioritize barbell, dumbbell, cable/machine, bench/rack, and bodyweight compound movements. Use resistance-band exercises sparingly, mainly for warm-up, assistance, or prehab, not as the backbone of the session.';
 
-export const INITIAL_GENERATION_INSTRUCTIONS =
-  `Generate a single workout session with at least one block and one exercise per block. Use realistic exercise names and prescriptions. Prefer the planning brief when present, otherwise use the request and context as the source of truth for focus, duration, equipment, and constraints. Prefer exercises from the candidate pool when one is provided. ${CLASSIC_STRENGTH_GUIDANCE} ${GYM_STRENGTH_EQUIPMENT_GUIDANCE} Treat user-supplied injuries and avoid lists as hard constraints. Treat planner-generated avoidances as lower-confidence guidance that should not override the user's explicit constraints. If no focus is specified, choose the most appropriate one from the available planning data.`;
+export const INITIAL_GENERATION_INSTRUCTIONS = `Generate a single workout session with at least one block and one exercise per block. Use realistic exercise names and prescriptions. Prefer the planning brief when present, otherwise use the request and context as the source of truth for focus, duration, equipment, and constraints. Prefer exercises from the candidate pool when one is provided. ${CLASSIC_STRENGTH_GUIDANCE} ${GYM_STRENGTH_EQUIPMENT_GUIDANCE} Treat user-supplied injuries and avoid lists as hard constraints. Treat planner-generated avoidances as lower-confidence guidance that should not override the user's explicit constraints. If no focus is specified, choose the most appropriate one from the available planning data.`;
 
 export const STAGE_ONE_PLANNER_SYSTEM_PROMPT =
   'You are an internal workout planning assistant. Return only valid JSON matching the schema. Resolve ambiguity, preserve hard constraints, and give advisory guidance for a final workout-generation model. Do not assemble the full workout.';
@@ -31,7 +31,7 @@ export const STAGE_ONE_PLANNER_INSTRUCTIONS =
 const MAX_PROMPT_CANDIDATE_EXERCISES = 64;
 
 export function buildCandidatePoolPromptData(
-  candidatePool?: ExerciseCandidatePool,
+  candidatePool?: ExerciseCandidatePool
 ):
   | {
       libraryVersion: string;
@@ -120,7 +120,7 @@ export function buildPlanningBriefPromptData(planningBrief?: PlanningBrief):
 }
 
 export function buildStageOnePlannerArtifactPromptData(
-  artifact?: StageOnePlannerArtifact,
+  artifact?: StageOnePlannerArtifact
 ):
   | {
       planningIntent: string;
@@ -156,7 +156,7 @@ export function buildStageOnePlannerArtifactPromptData(
 export function buildStageOnePlannerRequestPayload(
   request: GenerationRequest,
   planningBrief?: PlanningBrief,
-  candidatePool?: ExerciseCandidatePool,
+  candidatePool?: ExerciseCandidatePool
 ) {
   return {
     request: {
@@ -190,11 +190,13 @@ export function buildInitialGenerationPromptPayload(
   planningBrief?: PlanningBrief,
   candidatePool?: ExerciseCandidatePool,
   stageOneArtifact?: StageOnePlannerArtifact,
+  catalogSeed?: CatalogSeed
 ) {
   const payload = {
     planningBrief: buildPlanningBriefPromptData(planningBrief),
     stageOnePlanner: buildStageOnePlannerArtifactPromptData(stageOneArtifact),
     candidatePool: buildCandidatePoolPromptData(candidatePool),
+    catalogSeed,
     instructions: INITIAL_GENERATION_INSTRUCTIONS,
   };
 
@@ -214,7 +216,7 @@ export function buildInitialGenerationPromptPayload(
 }
 
 function buildBaselineWorkoutSummary(
-  request: GenerationRequest,
+  request: GenerationRequest
 ): string | null {
   const baselineWorkout = request.baselineWorkout;
   if (!baselineWorkout) {
@@ -244,14 +246,15 @@ export function buildRegenerationMessage(
   candidatePool?: ExerciseCandidatePool,
   planningBrief?: PlanningBrief,
   stageOneArtifact?: StageOnePlannerArtifact,
+  catalogSeed?: CatalogSeed
 ): string {
   const parts: string[] = [];
   const shouldForceExerciseChanges =
     Boolean(request.baselineWorkout) &&
     (Boolean(
       feedback?.some((item) =>
-        ['different-exercises', 'just-try-again', 'too-hard'].includes(item),
-      ),
+        ['different-exercises', 'just-try-again', 'too-hard'].includes(item)
+      )
     ) ||
       planningBrief?.variationMode === 'different-exercises' ||
       stageOneArtifact?.noveltyTarget === 'medium' ||
@@ -268,26 +271,32 @@ export function buildRegenerationMessage(
 
   if (planningBrief) {
     parts.push(
-      `Resolved session intent: ${planningBrief.resolvedFocus}. Load ceiling: ${planningBrief.loadCeiling}.`,
+      `Resolved session intent: ${planningBrief.resolvedFocus}. Load ceiling: ${planningBrief.loadCeiling}.`
     );
     if (planningBrief.userConstraints.avoid.length > 0) {
       parts.push(
-        `Hard user avoid list: ${planningBrief.userConstraints.avoid.join(', ')}. Treat these as hard constraints and do not include them.`,
+        `Hard user avoid list: ${planningBrief.userConstraints.avoid.join(
+          ', '
+        )}. Treat these as hard constraints and do not include them.`
       );
     }
     if (planningBrief.userConstraints.injuries.length > 0) {
       parts.push(
-        `Hard user injury context: ${planningBrief.userConstraints.injuries.join(', ')}. Treat these as hard constraints and keep the workout safely away from aggravating patterns.`,
+        `Hard user injury context: ${planningBrief.userConstraints.injuries.join(
+          ', '
+        )}. Treat these as hard constraints and keep the workout safely away from aggravating patterns.`
       );
     }
     if (planningBrief.disallowedStressors.length > 0) {
       parts.push(
-        `Planner-generated avoidances: ${planningBrief.disallowedStressors.join(', ')}. Use these as lower-confidence guidance unless they conflict with the user's explicit constraints.`,
+        `Planner-generated avoidances: ${planningBrief.disallowedStressors.join(
+          ', '
+        )}. Use these as lower-confidence guidance unless they conflict with the user's explicit constraints.`
       );
     }
     if (planningBrief.eventProtection) {
       parts.push(
-        `Protect freshness for ${planningBrief.eventProtection.title} on ${planningBrief.eventProtection.localDate}.`,
+        `Protect freshness for ${planningBrief.eventProtection.title} on ${planningBrief.eventProtection.localDate}.`
       );
     }
     if (
@@ -300,14 +309,16 @@ export function buildRegenerationMessage(
 
   if (stageOneArtifact) {
     parts.push(
-      `Planner intent: ${stageOneArtifact.planningIntent}. Confidence: ${stageOneArtifact.confidence}.`,
+      `Planner intent: ${stageOneArtifact.planningIntent}. Confidence: ${stageOneArtifact.confidence}.`
     );
     if (stageOneArtifact.resolvedFocus) {
       parts.push(`Planner-resolved focus: ${stageOneArtifact.resolvedFocus}.`);
     }
     if (stageOneArtifact.avoidStressors.length > 0) {
       parts.push(
-        `Planner avoid stressors: ${stageOneArtifact.avoidStressors.join(', ')}.`,
+        `Planner avoid stressors: ${stageOneArtifact.avoidStressors.join(
+          ', '
+        )}.`
       );
     }
     if (stageOneArtifact.noveltyTarget) {
@@ -385,11 +396,11 @@ export function buildRegenerationMessage(
   if (request.notes) {
     if (!hasStructured) {
       parts.push(
-        'The instructions below are free form feedback from the user. Treat the instructions below as the single source of truth. Override any prior context or workout details when there is a conflict.',
+        'The instructions below are free form feedback from the user. Treat the instructions below as the single source of truth. Override any prior context or workout details when there is a conflict.'
       );
     } else {
       parts.push(
-        'Prioritize the user instructions below over any previous context or the earlier workout. If there is a conflict, follow the new instructions.',
+        'Prioritize the user instructions below over any previous context or the earlier workout. If there is a conflict, follow the new instructions.'
       );
     }
     parts.push(`User explicit instructions: ${request.notes}`);
@@ -416,22 +427,26 @@ export function buildRegenerationMessage(
       .join(', ');
 
     parts.push(
-      `Candidate pool from exercise library v${promptData.libraryVersion}: ${formattedExercises}. ${promptData.instructions}`,
+      `Candidate pool from exercise library v${promptData.libraryVersion}: ${formattedExercises}. ${promptData.instructions}`
     );
     if (promptData.baselineExerciseIds.length > 0) {
       parts.push(
-        `Avoid repeating baseline exercises already used in the prior workout unless necessary.`,
+        `Avoid repeating baseline exercises already used in the prior workout unless necessary.`
       );
     }
   }
 
+  if (catalogSeed) {
+    parts.push(formatCatalogSeedPromptText(catalogSeed));
+  }
+
   if (shouldForceExerciseChanges) {
     parts.push(
-      'When viable alternatives exist, make meaningful exercise changes that are proportional to the feedback. If only one or two baseline exercises are the problem, it is acceptable to replace only those exercises and keep the rest of the workout aligned to the original intent. Do not just reshuffle the exact same full exercise list into new blocks or lightly rewrite prescriptions/details when the user is asking for a real change.',
+      'When viable alternatives exist, make meaningful exercise changes that are proportional to the feedback. If only one or two baseline exercises are the problem, it is acceptable to replace only those exercises and keep the rest of the workout aligned to the original intent. Do not just reshuffle the exact same full exercise list into new blocks or lightly rewrite prescriptions/details when the user is asking for a real change.'
     );
     if (promptData?.baselineExerciseIds.length) {
       parts.push(
-        'Prefer unused exercises from the candidate pool before falling back to any baseline exercise.',
+        'Prefer unused exercises from the candidate pool before falling back to any baseline exercise.'
       );
     }
   }
@@ -444,8 +459,29 @@ export function buildRegenerationMessage(
   return parts.join(' ');
 }
 
+function formatCatalogSeedPromptText(catalogSeed: CatalogSeed): string {
+  const blockSummaries = catalogSeed.blocks
+    .map((block) => {
+      const exercises = block.exercises
+        .map((exercise) => exercise.name)
+        .join(', ');
+      return `${block.title}: ${exercises}`;
+    })
+    .join('; ');
+
+  return [
+    `Catalog seed intent: ${catalogSeed.focus}, ${
+      catalogSeed.durationMinutes
+    } minutes, ${
+      catalogSeed.energy
+    } energy, equipment ${catalogSeed.equipment.join(', ')}.`,
+    `Catalog seed blocks: ${blockSummaries}.`,
+    catalogSeed.instructions,
+  ].join(' ');
+}
+
 function formatAdaptivePlanIntent(
-  adaptivePlanIntent: NonNullable<GenerationRequest['adaptivePlanIntent']>,
+  adaptivePlanIntent: NonNullable<GenerationRequest['adaptivePlanIntent']>
 ): string {
   const addOns = adaptivePlanIntent.addOnBlocks.map((block) => block.label);
   const pieces = [`primary ${adaptivePlanIntent.primaryBlock.label}`];
@@ -456,7 +492,7 @@ function formatAdaptivePlanIntent(
     pieces.push(
       `rationale ${adaptivePlanIntent.rationale
         .map((item) => item.message)
-        .join(' ')}`,
+        .join(' ')}`
     );
   }
 
@@ -465,6 +501,6 @@ function formatAdaptivePlanIntent(
 
 function usesAdaptiveBlockIntents(planningBrief: PlanningBrief): boolean {
   return planningBrief.blockIntents.some((block) =>
-    block.key.startsWith('adaptive-'),
+    block.key.startsWith('adaptive-')
   );
 }

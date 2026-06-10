@@ -63,6 +63,7 @@ export type GenerationEvaluationArtifacts = {
 export type GenerationEvaluationRunResult = {
   report: GenerationEvaluationReport;
   warnings: string[];
+  coverageNotes: string[];
   artifacts: GenerationEvaluationArtifacts;
 };
 
@@ -393,6 +394,10 @@ function buildCatalogRouting(params: {
       : providerInvoked
       ? 'provider'
       : 'unknown';
+  const catalogSeedProvided = Boolean(
+    params.providerPrompt?.content.includes('catalogSeed') ||
+      params.providerPrompt?.content.includes('Catalog seed intent')
+  );
 
   return {
     creationMode,
@@ -401,6 +406,13 @@ function buildCatalogRouting(params: {
     providerInvoked,
     providerPromptCaptured: Boolean(params.providerPrompt),
     catalogReturned,
+    catalogCooldownApplied: Boolean(
+      catalogSeedProvided ||
+        (providerInvoked &&
+          params.plan?.catalogProvenance?.matchDecision === 'direct' &&
+          params.plan.catalogProvenance.returnedDirect === false)
+    ),
+    catalogSeedProvided,
   };
 }
 
@@ -453,6 +465,12 @@ function escapeHtml(value: string): string {
 function pushUniqueWarning(warnings: string[], warning: string) {
   if (!warnings.includes(warning)) {
     warnings.push(warning);
+  }
+}
+
+function pushUniqueCoverageNote(notes: string[], note: string) {
+  if (!notes.includes(note)) {
+    notes.push(note);
   }
 }
 
@@ -784,7 +802,8 @@ function renderBar(
 function renderHtmlReport(
   report: GenerationEvaluationReport,
   options: GenerationEvaluationRunOptions,
-  warnings: string[]
+  warnings: string[],
+  coverageNotes: string[]
 ): string {
   const derived = buildDerivedStats(report);
   const failureCounts = Object.entries(report.summary.hardFailureCounts)
@@ -1087,6 +1106,12 @@ function renderHtmlReport(
           .map((warning) => `<li>${escapeHtml(warning)}</li>`)
           .join('')}</ul></section>`
       : '';
+  const coverageNotesHtml =
+    coverageNotes.length > 0
+      ? `<section class="warnings coverage-notes"><h3>Coverage Notes</h3><ul>${coverageNotes
+          .map((note) => `<li>${escapeHtml(note)}</li>`)
+          .join('')}</ul></section>`
+      : '';
 
   const libraryEntries = report.summary.executionSourceCounts.library ?? 0;
   const coverageBanner = derived.fixtureOnly
@@ -1207,6 +1232,7 @@ function renderHtmlReport(
       </section>
       ${coverageBanner}
       ${warningHtml}
+      ${coverageNotesHtml}
       <section class="summary">
         <h2>Summary</h2>
         <div class="summary-grid">
@@ -1390,7 +1416,8 @@ function renderHtmlReport(
 function renderMarkdownReport(
   report: GenerationEvaluationReport,
   options: GenerationEvaluationRunOptions,
-  warnings: string[]
+  warnings: string[],
+  coverageNotes: string[]
 ): string {
   const lines: string[] = [
     '# Workout Generation Evaluation Report',
@@ -1409,9 +1436,7 @@ function renderMarkdownReport(
     `- Failed entries: ${report.summary.failedEntries}`,
     `- Live entries: ${report.summary.liveEntries}`,
     `- Fixture-backed entries: ${report.summary.fixtureEntries}`,
-    `- Library entries: ${
-      report.summary.executionSourceCounts.library ?? 0
-    }`,
+    `- Library entries: ${report.summary.executionSourceCounts.library ?? 0}`,
     `- Avg total latency: ${formatLatencyMs(
       report.summary.averageLatencyMs.totalRequestMs
     )}`,
@@ -1434,6 +1459,12 @@ function renderMarkdownReport(
   if (warnings.length > 0) {
     lines.push('## Warnings', '');
     warnings.forEach((warning) => lines.push(`- ${warning}`));
+    lines.push('');
+  }
+
+  if (coverageNotes.length > 0) {
+    lines.push('## Coverage Notes', '');
+    coverageNotes.forEach((note) => lines.push(`- ${note}`));
     lines.push('');
   }
 
@@ -1463,7 +1494,13 @@ function renderMarkdownReport(
       `- Stage one used: ${entry.plannerSummary.usedStageOne ? 'yes' : 'no'}`
     );
     lines.push(
-      `- Catalog routing: ${entry.catalogRouting.creationMode}/${entry.catalogRouting.catalogDecision} (source: ${entry.catalogRouting.returnedSource ?? 'none'}, provider invoked: ${entry.catalogRouting.providerInvoked ? 'yes' : 'no'})`
+      `- Catalog routing: ${entry.catalogRouting.creationMode}/${
+        entry.catalogRouting.catalogDecision
+      } (source: ${
+        entry.catalogRouting.returnedSource ?? 'none'
+      }, provider invoked: ${
+        entry.catalogRouting.providerInvoked ? 'yes' : 'no'
+      })`
     );
     lines.push(
       `- Total latency: ${formatLatencyMs(entry.latencyMs.totalRequestMs)}`
@@ -1524,7 +1561,8 @@ function renderMarkdownReport(
 async function writeArtifacts(
   report: GenerationEvaluationReport,
   options: GenerationEvaluationRunOptions,
-  warnings: string[]
+  warnings: string[],
+  coverageNotes: string[]
 ): Promise<GenerationEvaluationArtifacts> {
   await mkdir(options.outputDir, { recursive: true });
 
@@ -1539,12 +1577,16 @@ async function writeArtifacts(
     .join('\n');
 
   await Promise.all([
-    writeFile(html, renderHtmlReport(report, options, warnings), 'utf8'),
+    writeFile(
+      html,
+      renderHtmlReport(report, options, warnings, coverageNotes),
+      'utf8'
+    ),
     writeFile(json, `${JSON.stringify(report, null, 2)}\n`, 'utf8'),
     writeFile(jsonl, `${jsonlBody}\n`, 'utf8'),
     writeFile(
       markdown,
-      renderMarkdownReport(report, options, warnings),
+      renderMarkdownReport(report, options, warnings, coverageNotes),
       'utf8'
     ),
     writeFile(
@@ -1552,6 +1594,7 @@ async function writeArtifacts(
       `${JSON.stringify(
         {
           warnings,
+          coverageNotes,
           artifacts: { html, json, jsonl, markdown },
           summary: report.summary,
         },
@@ -1570,8 +1613,10 @@ export async function runGenerationEvaluation(
 ): Promise<GenerationEvaluationRunResult> {
   const scenarios = selectScenarios(options);
   const warnings: string[] = [];
+  const coverageNotes: string[] = [];
   const entries: GenerationEvaluationReportEntry[] = [];
   const handlerBundles = new Map<GenerationEvaluationProvider, HandlerBundle>();
+  const catalogPrimedRegenerationRuns = new Map<string, Set<string>>();
 
   options.providers.forEach((provider) => {
     const bundle = createHandlerBundle(provider, options.edition);
@@ -1605,15 +1650,9 @@ export async function runGenerationEvaluation(
     scenarios.filter((scenario) => scenario.mode === 'regeneration').length *
     options.runs *
     liveProviders.length;
-  const liveEntryCount =
+  const liveProviderOpportunityCount =
     scenarios.length * options.runs * liveProviders.length +
     primingAttemptCount;
-  if (liveEntryCount >= 100) {
-    pushUniqueWarning(
-      warnings,
-      `This run is configured for ${liveEntryCount} live-provider attempts. Review provider cost and quota implications before sharing results.`
-    );
-  }
 
   for (const baseScenario of scenarios) {
     const scenario = buildEffectiveScenario(baseScenario, options);
@@ -1663,6 +1702,12 @@ export async function runGenerationEvaluation(
                     : scenario.request),
                   previousResponseId: primedResponseId,
                 };
+              } else if (primedPlan?.source === 'library') {
+                const providers =
+                  catalogPrimedRegenerationRuns.get(scenario.id) ??
+                  new Set<string>();
+                providers.add(provider);
+                catalogPrimedRegenerationRuns.set(scenario.id, providers);
               } else {
                 pushUniqueWarning(
                   warnings,
@@ -1795,6 +1840,33 @@ export async function runGenerationEvaluation(
       buildAverageLatency(providerEntries),
     ])
   ) as Record<string, GenerationEvaluationAverageLatency>;
+  const finalProviderGenerationCount = entries.filter(
+    (entry) => entry.catalogRouting.providerInvoked
+  ).length;
+  const stageOnePlannerInvocationCount = entries.filter(
+    (entry) => entry.plannerSummary.usedStageOne
+  ).length;
+
+  if (liveProviderOpportunityCount >= 100) {
+    pushUniqueWarning(
+      warnings,
+      `This run has ${liveProviderOpportunityCount} live-provider opportunities configured. Observed final provider generations: ${finalProviderGenerationCount}; observed stage-one planner calls: ${stageOnePlannerInvocationCount}. Review provider cost and quota implications before sharing results.`
+    );
+  }
+
+  const catalogPrimedProviderRows = Array.from(
+    catalogPrimedRegenerationRuns.values()
+  ).reduce((total, providers) => total + providers.size, 0);
+  if (catalogPrimedProviderRows > 0) {
+    pushUniqueCoverageNote(
+      coverageNotes,
+      `${catalogPrimedProviderRows} regeneration priming attempt${
+        catalogPrimedProviderRows === 1 ? '' : 's'
+      } across ${catalogPrimedRegenerationRuns.size} scenario${
+        catalogPrimedRegenerationRuns.size === 1 ? '' : 's'
+      } returned catalog baselines, so provider-continuity regeneration was not evaluated for those rows.`
+    );
+  }
 
   const report = generationEvaluationReportSchema.parse({
     corpusVersion: workoutGenerationEvaluationCorpus.version,
@@ -1814,6 +1886,11 @@ export async function runGenerationEvaluation(
     entries,
   });
 
-  const artifacts = await writeArtifacts(report, options, warnings);
-  return { report, warnings, artifacts };
+  const artifacts = await writeArtifacts(
+    report,
+    options,
+    warnings,
+    coverageNotes
+  );
+  return { report, warnings, coverageNotes, artifacts };
 }

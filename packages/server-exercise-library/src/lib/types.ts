@@ -141,6 +141,7 @@ export interface WorkoutCatalogQuery {
   avoidTags?: string[];
   disallowedStressors?: string[];
   recentExerciseIds?: string[];
+  recentCatalogRecipeIds?: string[];
   adaptivePlanIntent?: {
     role?: string;
     category?: string;
@@ -160,6 +161,7 @@ export interface WorkoutCatalogDiagnostics {
     | 'stressor_conflict'
     | 'constraint_conflict'
     | 'weak_match'
+    | 'catalog_recipe_cooldown'
   >;
   candidateCount: number;
   bestScore?: number;

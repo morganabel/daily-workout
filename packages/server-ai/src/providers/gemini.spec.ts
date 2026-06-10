@@ -1,6 +1,9 @@
 import { GeminiProvider } from './gemini';
 import { GoogleGenAI } from '@google/genai';
-import type { ExerciseCandidatePool } from '@workout-agent-ce/server-core';
+import type {
+  CatalogSeed,
+  ExerciseCandidatePool,
+} from '@workout-agent-ce/server-core';
 import type {
   GenerationRequest,
   GenerationContext,
@@ -88,6 +91,31 @@ describe('GeminiProvider', () => {
       { id: 'fedb:pushups', name: 'Pushups' },
       { id: 'fedb:chin-up', name: 'Chin-Up' },
     ],
+  };
+
+  const catalogSeed: CatalogSeed = {
+    focus: 'Full Body Strength',
+    durationMinutes: 30,
+    equipment: ['Bodyweight'],
+    source: 'library',
+    energy: 'moderate',
+    summary: 'A simple full-body session.',
+    blocks: [
+      {
+        title: 'Strength',
+        durationMinutes: 20,
+        focus: 'Full Body',
+        exercises: [
+          {
+            name: 'Bodyweight Squat',
+            prescription: '3 x 10',
+            detail: 'Controlled tempo',
+          },
+        ],
+      },
+    ],
+    instructions:
+      "Preserve the catalog seed's training intent while varying the workout enough to avoid repeating the recent version too closely.",
   };
 
   const mockStageOneArtifact = {
@@ -303,6 +331,28 @@ describe('GeminiProvider', () => {
       expect(prompt).toContain('candidatePool');
       expect(prompt).toContain('Pushups');
       expect(prompt).toContain('Chin-Up');
+    });
+
+    it('includes data-minimized catalog seed data in the initial generation prompt', async () => {
+      mockGenerateContent.mockResolvedValue({
+        text: JSON.stringify(mockLlmPlan),
+      });
+
+      await provider.generate(mockRequest, mockContext, {
+        apiKey: 'test-api-key',
+        catalogSeed,
+      });
+
+      const prompt = mockGenerateContent.mock.calls[0][0].contents;
+      expect(prompt).toContain('catalogSeed');
+      expect(prompt).toContain('Bodyweight Squat');
+      const promptPayload = JSON.parse(prompt.split('\n\n')[1] ?? '{}') as {
+        catalogSeed?: unknown;
+      };
+      const seedPayload = JSON.stringify(promptPayload.catalogSeed);
+      expect(seedPayload).not.toContain('catalog:bodyweight-foundation-30');
+      expect(seedPayload).not.toContain('catalogVersion');
+      expect(seedPayload).not.toContain('recentSessions');
     });
 
     it('should throw NO_API_KEY error when API key is missing and not using Vertex AI', async () => {

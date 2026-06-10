@@ -51,6 +51,7 @@ Options:
   --edition <value>      CE | HOSTED (default: CE)
   --creation-mode <mode> auto | library | ai (override all scenario requests)
   --output-dir <path>    output directory (default: reports/generation-evaluation/<timestamp>)
+  --timeout-ms <number>  Jest timeout for the evaluation run (default: 1800000)
   --open                 open the HTML report after generation (macOS)
   --help                 show this help message
 `);
@@ -77,7 +78,9 @@ function parseCreationMode(value) {
     return value;
   }
 
-  throw new Error(`--creation-mode must be auto, library, or ai. Received: ${value}`);
+  throw new Error(
+    `--creation-mode must be auto, library, or ai. Received: ${value}`
+  );
 }
 
 function expandProviders(values) {
@@ -116,6 +119,7 @@ function parseArgs(argv) {
   let limit;
   let creationMode;
   let openReport = false;
+  let timeoutMs = 1800000;
 
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
@@ -165,6 +169,11 @@ function parseArgs(argv) {
       index += 1;
       continue;
     }
+    if (arg === '--timeout-ms' && next) {
+      timeoutMs = parsePositiveInteger(next, '--timeout-ms');
+      index += 1;
+      continue;
+    }
     if (arg === '--open') {
       openReport = true;
     }
@@ -182,6 +191,7 @@ function parseArgs(argv) {
     limit,
     creationMode,
     openReport,
+    timeoutMs,
   };
 }
 
@@ -201,6 +211,7 @@ function main() {
       limit: options.limit,
       creationMode: options.creationMode,
     }),
+    GENERATION_EVAL_TIMEOUT_MS: String(options.timeoutMs),
   };
 
   const command = process.platform === 'win32' ? 'npx.cmd' : 'npx';
@@ -211,6 +222,7 @@ function main() {
     '--testPathPatterns=src/lib/evaluation/run-generation-evaluation.spec.ts',
     '--runInBand',
     '--skipNxCache',
+    '--forceExit',
   ];
 
   const result = spawnSync(command, args, {
@@ -241,6 +253,10 @@ function main() {
   if (summary.warnings.length > 0) {
     console.log('Warnings:');
     summary.warnings.forEach((warning) => console.log(`- ${warning}`));
+  }
+  if (summary.coverageNotes?.length > 0) {
+    console.log('Coverage notes:');
+    summary.coverageNotes.forEach((note) => console.log(`- ${note}`));
   }
 
   if (options.openReport && process.platform === 'darwin') {

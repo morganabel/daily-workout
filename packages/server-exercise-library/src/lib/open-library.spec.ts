@@ -24,11 +24,11 @@ describe('openExerciseLibrary', () => {
     expect(
       result.exercises.every(
         (exercise: ExerciseRecord) =>
-          exercise.metadataCompleteness === 'planner-ready',
-      ),
+          exercise.metadataCompleteness === 'planner-ready'
+      )
     ).toBe(true);
     const exerciseNames = result.exercises.map(
-      (exercise: ExerciseRecord) => exercise.name,
+      (exercise: ExerciseRecord) => exercise.name
     );
     expect(exerciseNames).toContain('Arm Circles');
     expect(exerciseNames).toContain('Pushups');
@@ -40,7 +40,7 @@ describe('openExerciseLibrary', () => {
     const library = openExerciseLibrary();
     const pushup = library.getExerciseByAlias('push-up');
     const inclineCurl = library.getExerciseByAlias(
-      'incline alternating dumbbell curl',
+      'incline alternating dumbbell curl'
     );
 
     expect(pushup?.id).toBe('fedb:pushups');
@@ -61,7 +61,7 @@ describe('openExerciseLibrary', () => {
 
     expect(result.diagnostics?.blockerCodes).toBeUndefined();
     const exerciseNames = result.exercises.map(
-      (exercise: ExerciseRecord) => exercise.name,
+      (exercise: ExerciseRecord) => exercise.name
     );
     expect(exerciseNames).toContain('Barbell Bench Press');
 
@@ -93,7 +93,7 @@ describe('openExerciseLibrary', () => {
     const second = library.listEligibleExercises(query);
 
     expect(first.exercises.map((exercise) => exercise.id)).toEqual(
-      second.exercises.map((exercise) => exercise.id),
+      second.exercises.map((exercise) => exercise.id)
     );
 
     library.close();
@@ -109,13 +109,13 @@ describe('openExerciseLibrary', () => {
 
     expect(
       result.exercises.some(
-        (exercise: ExerciseRecord) => exercise.id === 'fedb:pullups',
-      ),
+        (exercise: ExerciseRecord) => exercise.id === 'fedb:pullups'
+      )
     ).toBe(false);
     expect(
       result.exercises.some(
-        (exercise: ExerciseRecord) => exercise.id === 'fedb:chin-up',
-      ),
+        (exercise: ExerciseRecord) => exercise.id === 'fedb:chin-up'
+      )
     ).toBe(true);
 
     library.close();
@@ -150,6 +150,68 @@ describe('openExerciseLibrary', () => {
     expect(result.recipe?.id).toBe('catalog:bodyweight-foundation-30');
     expect(result.plan?.source).toBe('library');
     expect(result.plan?.blocks[0]?.exercises[0]?.id).toContain('ex:00508');
+
+    library.close();
+  });
+
+  it('penalizes recently used workout catalog recipes before selection', () => {
+    const library = openExerciseLibrary();
+    const query = {
+      timeMinutes: 30,
+      focus: 'full body strength',
+      availableEquipment: ['Bodyweight'],
+      experienceLevel: 'beginner' as const,
+      energy: 'moderate' as const,
+    };
+    const fresh = library.matchWorkoutCatalog(query);
+    const repeated = library.matchWorkoutCatalog({
+      ...query,
+      recentCatalogRecipeIds: ['catalog:bodyweight-foundation-30'],
+    });
+
+    expect(fresh.recipe?.id).toBe('catalog:bodyweight-foundation-30');
+    if (repeated.recipe?.id === fresh.recipe?.id) {
+      expect(repeated.diagnostics.blockerCodes).toContain(
+        'catalog_recipe_cooldown'
+      );
+      expect(repeated.score).toBeLessThan(
+        fresh.score ?? Number.POSITIVE_INFINITY
+      );
+    } else {
+      expect(repeated.recipe?.id).not.toBe('catalog:bodyweight-foundation-30');
+    }
+
+    library.close();
+  });
+
+  it('uses valid direct catalog substitutions to avoid recently used exercises', () => {
+    const library = openExerciseLibrary();
+    const result = library.matchWorkoutCatalog({
+      timeMinutes: 30,
+      focus: 'Conditioning',
+      focusTags: ['conditioning', 'recovery', 'lower_body'],
+      availableEquipment: ['Treadmill'],
+      experienceLevel: 'beginner',
+      energy: 'easy',
+      recentExerciseIds: ['ex:02157'],
+    });
+    const exerciseIds =
+      result.plan?.blocks.flatMap((block) =>
+        block.exercises.map((exercise) => exercise.id)
+      ) ?? [];
+
+    expect(result.decision).toBe('direct');
+    expect(result.recipe?.id).toBe('catalog:treadmill-recovery-cardio-30');
+    expect(exerciseIds).not.toEqual(
+      expect.arrayContaining([
+        expect.stringContaining('ex:02157:cardio:incline-walk'),
+      ])
+    );
+    expect(exerciseIds).toEqual(
+      expect.arrayContaining([
+        expect.stringMatching(/ex:(00153|00498):cardio:incline-walk/),
+      ])
+    );
 
     library.close();
   });
@@ -225,7 +287,7 @@ describe('openExerciseLibrary', () => {
         expect.objectContaining({
           id: expect.stringContaining('fedb:walking-treadmill'),
         }),
-      ]),
+      ])
     );
 
     library.close();
@@ -249,7 +311,7 @@ describe('openExerciseLibrary', () => {
         expect.objectContaining({
           id: expect.stringContaining('fedb:barbell-deadlift'),
         }),
-      ]),
+      ])
     );
 
     library.close();

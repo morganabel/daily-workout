@@ -42,6 +42,18 @@ const stringifyJson = (value: unknown): string | undefined => {
   return JSON.stringify(value);
 };
 
+const readCatalogProvenance = (
+  planJson: string | undefined
+): TodayPlan['catalogProvenance'] | undefined => {
+  if (!planJson) return undefined;
+  try {
+    const parsed = JSON.parse(planJson) as Partial<TodayPlan>;
+    return parsed.catalogProvenance;
+  } catch {
+    return undefined;
+  }
+};
+
 const sanitizeGenerationRequest = (
   request: GenerationRequest | undefined
 ): PersistedGenerationRequest | undefined => {
@@ -762,6 +774,7 @@ export class WorkoutRepository {
         ? new Date(workout.completedAt).toISOString()
         : new Date().toISOString(),
       source: (workout.source as WorkoutSessionSummary['source']) ?? 'manual',
+      catalogProvenance: readCatalogProvenance(workout.planJson ?? undefined),
       archivedAt: workout.archivedAt
         ? new Date(workout.archivedAt).toISOString()
         : undefined,

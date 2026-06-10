@@ -1,5 +1,6 @@
 import type {
   ExerciseCandidatePool,
+  CatalogSeed,
   ModelPromptCapture,
   PlanningBrief,
   StageOnePlannerArtifact,
@@ -18,6 +19,7 @@ export interface AiProviderOptions {
   model?: string;
   apiBaseUrl?: string;
   candidatePool?: ExerciseCandidatePool;
+  catalogSeed?: CatalogSeed;
   planningBrief?: PlanningBrief;
   stageOneArtifact?: StageOnePlannerArtifact;
   // Optional passthrough client for testing/mocking
@@ -48,13 +50,13 @@ export interface AiProvider {
   generate(
     request: GenerationRequest,
     context: GenerationContext,
-    options: AiProviderOptions,
+    options: AiProviderOptions
   ): Promise<GenerationResult>;
 
   planStageOne(
     request: GenerationRequest,
     context: GenerationContext,
-    options: AiProviderOptions,
+    options: AiProviderOptions
   ): Promise<StageOnePlannerArtifact>;
 }
 
@@ -62,7 +64,7 @@ export class AiGenerationError extends Error {
   constructor(
     message: string,
     public readonly code: 'NO_API_KEY' | 'REQUEST_FAILED' | 'INVALID_RESPONSE',
-    public readonly status?: number,
+    public readonly status?: number
   ) {
     super(message);
     this.name = 'AiGenerationError';

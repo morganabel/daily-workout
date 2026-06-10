@@ -41,6 +41,26 @@ export interface ModelPromptCapture {
   phase?: 'stage-one-planner' | 'stage-two-generation';
 }
 
+export interface CatalogSeed {
+  focus: string;
+  durationMinutes: number;
+  equipment: string[];
+  source: 'library';
+  energy: 'easy' | 'moderate' | 'intense';
+  summary: string;
+  blocks: Array<{
+    title: string;
+    durationMinutes: number;
+    focus: string;
+    exercises: Array<{
+      name: string;
+      prescription: string;
+      detail: string | null;
+    }>;
+  }>;
+  instructions: string;
+}
+
 /**
  * Result from a model generation call
  */
@@ -98,6 +118,13 @@ export interface ModelGenerationOptions {
   catalogMatch?: WorkoutCatalogMatch;
 
   /**
+   * Data-minimized catalog workout seed for AI adaptation. This intentionally
+   * excludes recipe IDs, catalog versions, cooldown counts, completion dates,
+   * and raw recent-session objects.
+   */
+  catalogSeed?: CatalogSeed;
+
+  /**
    * Optional sink for capturing the provider prompt for debugging/evaluation.
    */
   promptRecorder?: (capture: ModelPromptCapture) => void;
@@ -116,7 +143,7 @@ export interface ModelRouter {
   generate(
     request: GenerationRequest,
     context: GenerationContext,
-    options: ModelGenerationOptions,
+    options: ModelGenerationOptions
   ): Promise<GenerationResult>;
 
   /**

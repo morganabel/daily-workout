@@ -8,6 +8,7 @@ import type {
   UsagePolicy,
   MeteringSink,
   PlanningBrief,
+  CatalogSeed,
 } from '../types';
 import { createErrorResponse } from '../utils/errors';
 import {
@@ -23,6 +24,7 @@ import {
   generationRequestPayloadSchema,
   todayPlanSchema,
   type TodayPlan,
+  type WorkoutCatalogProvenance,
   type WorkoutCreationMode,
 } from '@workout-agent/shared';
 import type {
@@ -38,6 +40,7 @@ import {
 } from '../utils/logging';
 
 const DEFAULT_GENERATION_ETA_SECONDS = 18;
+const CATALOG_RECIPE_COOLDOWN_DAYS = 7;
 
 /**
  * Server configuration for generation
@@ -155,16 +158,109 @@ function shouldAttemptCatalog(creationMode: WorkoutCreationMode): boolean {
 
 function shouldReturnCatalogMatch(
   creationMode: WorkoutCreationMode,
-  catalogMatch: WorkoutCatalogMatch | undefined
+  catalogMatch: WorkoutCatalogMatch | undefined,
+  providerCanRun: boolean
 ): boolean {
   if (!catalogMatch?.plan) {
     return false;
   }
 
-  return (
-    catalogMatch.decision === 'direct' ||
-    (creationMode === 'library' && catalogMatch.decision === 'adapt')
+  if (creationMode === 'library') {
+    return (
+      catalogMatch.decision === 'direct' || catalogMatch.decision === 'adapt'
+    );
+  }
+
+  if (creationMode !== 'auto') {
+    return false;
+  }
+
+  if (!providerCanRun && catalogMatch.decision !== 'none') {
+    return true;
+  }
+
+  if (catalogMatch.decision !== 'direct') {
+    return false;
+  }
+
+  return !hasCatalogRecipeCooldown(catalogMatch);
+}
+
+function hasCatalogRecipeCooldown(
+  catalogMatch: WorkoutCatalogMatch | undefined
+): boolean {
+  return Boolean(
+    catalogMatch?.diagnostics.blockerCodes.includes('catalog_recipe_cooldown')
   );
+}
+
+function buildCatalogFallbackReasons(
+  catalogMatch: WorkoutCatalogMatch | undefined
+): string[] {
+  if (!catalogMatch?.plan) {
+    return [];
+  }
+
+  const reasons: string[] = [];
+  if (catalogMatch.decision === 'adapt') {
+    reasons.push('catalog_adapt_match');
+  }
+  if (hasCatalogRecipeCooldown(catalogMatch)) {
+    reasons.push('catalog_recipe_cooldown');
+  }
+  return reasons;
+}
+
+function buildCatalogProvenance({
+  catalogMatch,
+  returnedDirect,
+}: {
+  catalogMatch: WorkoutCatalogMatch;
+  returnedDirect: boolean;
+}): WorkoutCatalogProvenance | undefined {
+  const recipe = catalogMatch.recipe;
+  if (!recipe) {
+    return undefined;
+  }
+
+  return {
+    recipeId: recipe.id,
+    recipeSlug: recipe.slug,
+    ownership: recipe.ownership,
+    catalogVersion: recipe.catalogVersion,
+    matchDecision: catalogMatch.decision,
+    returnedDirect,
+  };
+}
+
+function buildCatalogSeed(
+  catalogMatch: WorkoutCatalogMatch | undefined
+): CatalogSeed | undefined {
+  const plan = catalogMatch?.plan;
+  if (!plan || !hasCatalogRecipeCooldown(catalogMatch)) {
+    return undefined;
+  }
+
+  return {
+    focus: plan.focus,
+    durationMinutes: plan.durationMinutes,
+    equipment: plan.equipment,
+    source: 'library',
+    energy: plan.energy,
+    summary: plan.summary,
+    blocks: plan.blocks.map((block) => ({
+      title: block.title,
+      durationMinutes: block.durationMinutes,
+      focus: block.focus,
+      exercises: block.exercises.map((exercise) => ({
+        name: exercise.name,
+        prescription: exercise.prescription,
+        detail: exercise.detail,
+      })),
+    })),
+    instructions:
+      "Preserve the catalog seed's training intent, duration, equipment fit, and safety constraints, but vary exercises or structure enough that the result does not repeat the recent catalog workout too closely.",
+  };
 }
 
 function buildCatalogQuery({
@@ -188,7 +284,9 @@ function buildCatalogQuery({
     ),
     availableEquipment: planningBrief.availableEquipment,
     experienceLevel: context.userProfile.experienceLevel,
-    energy: normalizeCatalogEnergy(request.energy ?? context.userProfile.energyToday),
+    energy: normalizeCatalogEnergy(
+      request.energy ?? context.userProfile.energyToday
+    ),
     contraindicationTags: normalizeContraindicationTags(
       context.preferences.injuries ?? []
     ),
@@ -199,6 +297,11 @@ function buildCatalogQuery({
       exerciseLibrary,
       previousPlan: request.baselineWorkout ?? previousPlan,
     }),
+    recentCatalogRecipeIds: resolveRecentCatalogRecipeIds({
+      context,
+      previousPlan: request.baselineWorkout ?? previousPlan,
+      planningDateLocal: request.planningDateLocal,
+    }),
     adaptivePlanIntent: request.adaptivePlanIntent
       ? {
           role: request.adaptivePlanIntent.primaryBlock.role,
@@ -208,6 +311,57 @@ function buildCatalogQuery({
         }
       : undefined,
   };
+}
+
+function resolveRecentCatalogRecipeIds({
+  context,
+  previousPlan,
+  planningDateLocal,
+}: {
+  context: Awaited<ReturnType<typeof loadGenerationContext>>;
+  previousPlan?: TodayPlan | null;
+  planningDateLocal?: string;
+}): string[] {
+  const ids = new Set<string>();
+  const previousRecipeId = getCatalogRecipeId(previousPlan);
+  if (previousRecipeId) {
+    ids.add(previousRecipeId);
+  }
+
+  const cutoffMs =
+    getPlanningTimestamp(planningDateLocal) -
+    CATALOG_RECIPE_COOLDOWN_DAYS * 24 * 60 * 60 * 1000;
+
+  for (const session of context.recentSessions) {
+    const completedAtMs = Date.parse(session.completedAt);
+    if (!Number.isNaN(completedAtMs) && completedAtMs < cutoffMs) {
+      continue;
+    }
+    const recipeId = session.catalogProvenance?.recipeId;
+    if (recipeId) {
+      ids.add(recipeId);
+    }
+  }
+
+  return [...ids];
+}
+
+function getCatalogRecipeId(plan?: TodayPlan | null): string | undefined {
+  if (plan?.catalogProvenance?.recipeId) {
+    return plan.catalogProvenance.recipeId;
+  }
+  if (plan?.source === 'library' && plan.id.startsWith('library:')) {
+    return `catalog:${plan.id.slice('library:'.length)}`;
+  }
+  return undefined;
+}
+
+function getPlanningTimestamp(planningDateLocal: string | undefined): number {
+  if (!planningDateLocal) {
+    return Date.now();
+  }
+  const parsed = Date.parse(`${planningDateLocal}T12:00:00.000Z`);
+  return Number.isNaN(parsed) ? Date.now() : parsed;
 }
 
 function normalizeCatalogEnergy(
@@ -396,8 +550,9 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
       }
       provider = deps.router.isSupportedProvider(providerHeader)
         ? (providerHeader as 'openai' | 'gemini')
-        : ((deps.config.defaultProvider ??
-            deps.router.getDefaultProvider()) as 'openai' | 'gemini');
+        : ((deps.config.defaultProvider ?? deps.router.getDefaultProvider()) as
+            | 'openai'
+            | 'gemini');
     } else if (openaiKeyHeader) {
       // Legacy: x-openai-key implies OpenAI
       provider = 'openai';
@@ -474,15 +629,13 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
       );
       let previousState: GenerationState | null = null;
 
-      if (isRegeneration) {
-        try {
-          previousState = await deps.store.getState(auth.principalId);
-        } catch (error) {
-          log.warn('failed to load previous generation state', {
-            error,
-            principalId: auth.principalId,
-          });
-        }
+      try {
+        previousState = await deps.store.getState(auth.principalId);
+      } catch (error) {
+        log.warn('failed to load previous generation state', {
+          error,
+          principalId: auth.principalId,
+        });
       }
       const providerRequest = createProviderRequest(
         generationRequest,
@@ -503,6 +656,10 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
       let exerciseLibrary: ExerciseLibrary | undefined;
       let exerciseLibraryLoadAttempted = false;
       let catalogMatch: WorkoutCatalogMatch | undefined;
+      let catalogSeed: CatalogSeed | undefined;
+      const providerCanRun = Boolean(
+        apiKey || useVertexAi || allowUnconfiguredProvider
+      );
       const loadAvailableExerciseLibrary = async (): Promise<
         ExerciseLibrary | undefined
       > => {
@@ -541,13 +698,25 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
               candidateCount: catalogMatch.diagnostics.candidateCount,
             });
 
-            if (shouldReturnCatalogMatch(creationMode, catalogMatch)) {
+            if (
+              shouldReturnCatalogMatch(
+                creationMode,
+                catalogMatch,
+                providerCanRun
+              )
+            ) {
               const validated = todayPlanSchema.parse({
                 ...catalogMatch.plan,
                 equipment: effectivePlanningBrief.availableEquipment,
+                catalogProvenance: buildCatalogProvenance({
+                  catalogMatch,
+                  returnedDirect: true,
+                }),
               });
               await deps.store.persistPlan(auth.principalId, validated, {
-                schemaVersion: `catalog:${catalogMatch.recipe?.catalogVersion ?? 'unknown'}`,
+                schemaVersion: `catalog:${
+                  catalogMatch.recipe?.catalogVersion ?? 'unknown'
+                }`,
               });
               log.info('generation completed', {
                 durationMs: Date.now() - startedAt,
@@ -584,14 +753,23 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
           );
         }
 
-        if (catalogMatch?.decision === 'adapt') {
+        const catalogFallbackReasons =
+          buildCatalogFallbackReasons(catalogMatch);
+        if (catalogFallbackReasons.length) {
           effectivePlanningBrief = {
             ...effectivePlanningBrief,
             fallbackReasons: [
               ...effectivePlanningBrief.fallbackReasons,
-              'catalog_adapt_match',
+              ...catalogFallbackReasons.filter(
+                (reason) =>
+                  !effectivePlanningBrief.fallbackReasons.includes(reason)
+              ),
             ],
           };
+          catalogSeed =
+            providerCanRun && hasCatalogRecipeCooldown(catalogMatch)
+              ? buildCatalogSeed(catalogMatch)
+              : undefined;
         }
       }
 
@@ -748,6 +926,7 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
           apiKey: useVertexAi ? undefined : apiKey ?? undefined,
           candidatePool,
           catalogMatch,
+          catalogSeed,
           planningBrief: effectivePlanningBrief,
           stageOneArtifact,
           provider,
@@ -765,6 +944,12 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
             provider,
             ...(providerResponseId ? { responseId: providerResponseId } : {}),
           },
+          catalogProvenance: catalogMatch
+            ? buildCatalogProvenance({
+                catalogMatch,
+                returnedDirect: false,
+              })
+            : undefined,
         };
       } catch (error) {
         const sanitizedMessage = sanitizeErrorMessage((error as Error).message);

@@ -4,6 +4,20 @@ import { runGenerationEvaluation } from './generation-evaluation-runner';
 
 type RunnerOptions = Parameters<typeof runGenerationEvaluation>[0];
 
+const DEFAULT_EVALUATION_TIMEOUT_MS = 600000;
+
+function loadEvaluationTimeoutMs(): number {
+  const raw = process.env.GENERATION_EVAL_TIMEOUT_MS;
+  if (!raw) {
+    return DEFAULT_EVALUATION_TIMEOUT_MS;
+  }
+
+  const parsed = Number.parseInt(raw, 10);
+  return Number.isInteger(parsed) && parsed > 0
+    ? parsed
+    : DEFAULT_EVALUATION_TIMEOUT_MS;
+}
+
 function loadOptions(): RunnerOptions | null {
   const raw = process.env.GENERATION_EVAL_OPTIONS_JSON;
   if (!raw) {
@@ -36,6 +50,6 @@ describe('generation evaluation runner', () => {
       expect(result.artifacts.json).toContain('report.json');
       expect(result.artifacts.markdown).toContain('report.md');
     },
-    600000
+    loadEvaluationTimeoutMs()
   );
 });

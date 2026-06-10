@@ -18,18 +18,18 @@ function parseLocalDate(value: string): Date {
 describe('workout generation evaluation corpus', () => {
   it('exports a valid corpus with at least 50 scenarios', () => {
     const parsed = generationEvaluationCorpusSchema.parse(
-      workoutGenerationEvaluationCorpus,
+      workoutGenerationEvaluationCorpus
     );
 
     expect(parsed.scenarios.length).toBeGreaterThanOrEqual(
-      MIN_GENERATION_EVALUATION_SCENARIOS,
+      MIN_GENERATION_EVALUATION_SCENARIOS
     );
     expect(parsed.rubricVersion).toBeTruthy();
   });
 
   it('contains unique scenario ids', () => {
     const ids = workoutGenerationEvaluationCorpus.scenarios.map(
-      (scenario) => scenario.id,
+      (scenario) => scenario.id
     );
 
     expect(new Set(ids).size).toBe(ids.length);
@@ -38,7 +38,7 @@ describe('workout generation evaluation corpus', () => {
   it('contains a meaningful set of regeneration scenarios', () => {
     const regenerationScenarios =
       workoutGenerationEvaluationCorpus.scenarios.filter(
-        (scenario) => scenario.mode === 'regeneration',
+        (scenario) => scenario.mode === 'regeneration'
       );
 
     expect(regenerationScenarios.length).toBeGreaterThanOrEqual(8);
@@ -72,15 +72,32 @@ describe('workout generation evaluation corpus', () => {
 
   it('covers long bodybuilding and powerlifting style scenarios', () => {
     const scenarioIds = new Set(
-      workoutGenerationEvaluationCorpus.scenarios.map(
-        (scenario) => scenario.id,
-      ),
+      workoutGenerationEvaluationCorpus.scenarios.map((scenario) => scenario.id)
     );
 
     expect(scenarioIds.has('advanced-bodybuilding-upper-75')).toBe(true);
     expect(scenarioIds.has('advanced-bodybuilding-leg-day-90')).toBe(true);
     expect(scenarioIds.has('advanced-powerlifting-squat-day-90')).toBe(true);
     expect(scenarioIds.has('advanced-powerlifting-deadlift-day-85')).toBe(true);
+  });
+
+  it('covers repeated catalog history scenarios', () => {
+    const scenarioIds = new Set(
+      workoutGenerationEvaluationCorpus.scenarios.map((scenario) => scenario.id)
+    );
+
+    expect(
+      scenarioIds.has('beginner-bodyweight-moderate-30-recent-catalog')
+    ).toBe(true);
+    expect(
+      scenarioIds.has('beginner-dumbbells-moderate-30-recent-catalog')
+    ).toBe(true);
+    expect(scenarioIds.has('treadmill-recovery-cardio-30-recent-catalog')).toBe(
+      true
+    );
+    expect(
+      scenarioIds.has('advanced-powerlifting-deadlift-day-85-recent-catalog')
+    ).toBe(true);
   });
 
   it('rejects initial scenarios with regeneration-only fields', () => {
@@ -155,7 +172,7 @@ describe('workout generation evaluation corpus', () => {
             ...duplicateScenario.hardExpectations,
             requireRegenerationDifference: false,
           },
-        }),
+        })
       ),
     });
 

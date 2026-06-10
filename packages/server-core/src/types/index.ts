@@ -13,6 +13,7 @@ export type {
   ExerciseCandidatePool,
   ExerciseCandidateDiagnostics,
   ExerciseCandidateReference,
+  CatalogSeed,
   ModelPromptCapture,
   GenerationResult,
   ModelGenerationOptions,
