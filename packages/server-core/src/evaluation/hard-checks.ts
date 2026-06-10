@@ -184,6 +184,29 @@ function runEquipmentFitCheck(
         'equipment-fit',
         'fail',
         `Plan uses unavailable equipment: ${unexpected.join(', ')}.`,
+    );
+}
+
+function runRequiredExerciseTermsCheck(
+  scenario: GenerationEvaluationScenario,
+  plan: TodayPlan | undefined,
+) {
+  const requiredTerms = scenario.hardExpectations.requiredExerciseTerms;
+  if (!plan || requiredTerms.length === 0) {
+    return buildResult('required-exercise-terms', 'not-applicable');
+  }
+
+  const exerciseText = buildExerciseNameText(plan);
+  const missing = requiredTerms.filter(
+    (term) => !exerciseText.includes(normalize(term)),
+  );
+
+  return missing.length === 0
+    ? buildResult('required-exercise-terms', 'pass')
+    : buildResult(
+        'required-exercise-terms',
+        'fail',
+        `Missing required exercise terms: ${missing.join(', ')}.`,
       );
 }
 
@@ -286,6 +309,7 @@ export function runHardChecksForScenario(
     runDurationFitCheck(scenario, plan),
     runFocusFitCheck(scenario, plan),
     runEquipmentFitCheck(scenario, plan),
+    runRequiredExerciseTermsCheck(scenario, plan),
     runSafetyCheck('injury-safety', hasInjuries, bannedTerms, plan),
     runSafetyCheck('avoid-list-safety', hasAvoidList, bannedTerms, plan),
     runUpcomingEventSensitivityCheck(scenario, plan),

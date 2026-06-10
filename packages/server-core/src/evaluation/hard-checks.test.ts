@@ -138,6 +138,82 @@ describe('runHardChecksForScenario', () => {
     );
   });
 
+  it('fails required-exercise-terms when a lift-specific scenario omits the lift', () => {
+    const scenario = workoutGenerationEvaluationScenarios.find(
+      (item) => item.id === 'advanced-powerlifting-deadlift-day-85'
+    );
+
+    expect(scenario).toBeDefined();
+
+    const plan = createTodayPlanFixture({
+      focus: 'Pull',
+      durationMinutes: 85,
+      equipment: ['Barbell', 'Bench', 'Pull-up Bar'],
+    });
+
+    const results = runHardChecksForScenario(scenario!, plan);
+
+    expect(
+      results.find((item) => item.name === 'required-exercise-terms')?.status
+    ).toBe('fail');
+  });
+
+  it('fails required-exercise-terms when a powerlifting bench day only includes dumbbell bench', () => {
+    const scenario = workoutGenerationEvaluationScenarios.find(
+      (item) => item.id === 'advanced-powerlifting-bench-day-75'
+    );
+
+    expect(scenario).toBeDefined();
+
+    const plan = createTodayPlanFixture({
+      focus: 'Push',
+      durationMinutes: 75,
+      equipment: ['Barbell', 'Bench', 'Dumbbells'],
+    });
+
+    const results = runHardChecksForScenario(scenario!, plan);
+
+    expect(
+      results.find((item) => item.name === 'required-exercise-terms')?.status
+    ).toBe('fail');
+  });
+
+  it('passes required-exercise-terms when the required lift is programmed', () => {
+    const scenario = workoutGenerationEvaluationScenarios.find(
+      (item) => item.id === 'advanced-powerlifting-deadlift-day-85'
+    );
+
+    expect(scenario).toBeDefined();
+
+    const plan = createTodayPlanFixture({
+      focus: 'Pull',
+      durationMinutes: 85,
+      equipment: ['Barbell', 'Bench', 'Pull-up Bar'],
+      blocks: [
+        {
+          id: 'main',
+          title: 'Deadlift Strength',
+          durationMinutes: 45,
+          focus: 'Posterior chain',
+          exercises: [
+            {
+              id: 'deadlift',
+              name: 'Barbell Deadlift',
+              prescription: '5 x 3',
+              detail: 'Build to hard but clean triples.',
+            },
+          ],
+        },
+      ],
+    });
+
+    const results = runHardChecksForScenario(scenario!, plan);
+
+    expect(
+      results.find((item) => item.name === 'required-exercise-terms')?.status
+    ).toBe('pass');
+  });
+
   it('does not fail avoid-list safety when a banned term appears only in the summary', () => {
     const scenario = workoutGenerationEvaluationScenarios.find(
       (item) => item.id === 'avoid-burpees-conditioning'

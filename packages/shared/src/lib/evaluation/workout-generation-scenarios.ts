@@ -134,6 +134,7 @@ function buildExpectations(
     requiredFocus: overrides.requiredFocus,
     disallowedFocuses: [],
     requireOnlyAvailableEquipment: true,
+    requiredExerciseTerms: [],
     bannedExerciseTerms: [],
     requireRegenerationDifference: false,
     requireUpcomingEventSensitivity: false,
@@ -2171,7 +2172,10 @@ const scenarios: GenerationEvaluationScenario[] = [
       focusBias: ['Lower Body'],
       recentSessions: [],
     }),
-    hardExpectations: { requiredFocus: 'Lower Body' },
+    hardExpectations: {
+      requiredFocus: 'Lower Body',
+      requiredExerciseTerms: ['squat'],
+    },
     softReviewHints: [
       'Should center on squat work and not drift into conditioning',
     ],
@@ -2199,7 +2203,10 @@ const scenarios: GenerationEvaluationScenario[] = [
       focusBias: ['Push'],
       recentSessions: [],
     }),
-    hardExpectations: { requiredFocus: 'Push' },
+    hardExpectations: {
+      requiredFocus: 'Push',
+      requiredExerciseTerms: ['barbell', 'bench'],
+    },
   }),
   createScenario({
     id: 'advanced-powerlifting-deadlift-day-85',
@@ -2224,7 +2231,10 @@ const scenarios: GenerationEvaluationScenario[] = [
       focusBias: ['Pull'],
       recentSessions: [],
     }),
-    hardExpectations: { requiredFocus: 'Pull' },
+    hardExpectations: {
+      requiredFocus: 'Pull',
+      requiredExerciseTerms: ['deadlift'],
+    },
     softReviewHints: [
       'Should feel posterior-chain heavy and specific to deadlift progress',
     ],
