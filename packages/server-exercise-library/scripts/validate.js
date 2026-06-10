@@ -446,7 +446,10 @@ for (const recipe of workoutCatalog.recipes) {
       }
 
       for (const requiredEquipment of exercise.requiredEquipment) {
-        if (!recipeEquipmentIds.has(requiredEquipment)) {
+        if (
+          requiredEquipment !== 'bodyweight' &&
+          !recipeEquipmentIds.has(requiredEquipment)
+        ) {
           throw new Error(
             `Workout recipe ${recipe.id} slot ${slot.id} requires ${requiredEquipment} but recipe equipment omits it`,
           );
@@ -480,7 +483,10 @@ for (const recipe of workoutCatalog.recipes) {
         }
 
         for (const requiredEquipment of substitution.requiredEquipment) {
-          if (!recipeEquipmentIds.has(requiredEquipment)) {
+          if (
+            requiredEquipment !== 'bodyweight' &&
+            !recipeEquipmentIds.has(requiredEquipment)
+          ) {
             throw new Error(
               `Workout recipe ${recipe.id} substitution ${substitutionId} requires ${requiredEquipment} but recipe equipment omits it`,
             );

@@ -158,7 +158,11 @@ export class ExerciseLibraryQueryEngine implements ExerciseLibrary {
       .all(...buildWorkoutCatalogMatchParams(normalizedQuery)) as
       | WorkoutCatalogRecipeRow[]
       | [];
-    const best = candidates[0];
+    const rankedCandidates = prioritizeExactFocusCandidates(
+      candidates,
+      normalizedQuery,
+    );
+    const best = rankedCandidates[0];
 
     if (!best) {
       return {
@@ -174,7 +178,7 @@ export class ExerciseLibraryQueryEngine implements ExerciseLibrary {
     );
     const diagnostics = buildWorkoutCatalogDiagnostics(
       best,
-      candidates.length,
+      rankedCandidates.length,
       strictFocusGap,
     );
     const plan = materializeWorkoutCatalogPlan(recipe, normalizedQuery);
@@ -619,6 +623,48 @@ function hasStrictWorkoutCatalogFocusGap(
   }
 
   return !recipe.focusTags.includes('full_body');
+}
+
+function prioritizeExactFocusCandidates(
+  candidates: WorkoutCatalogRecipeRow[],
+  query: NormalizedWorkoutCatalogQuery,
+): WorkoutCatalogRecipeRow[] {
+  const exactFocus = deriveExactRequestedFocus(query.focus);
+  if (!exactFocus) {
+    return candidates;
+  }
+
+  const exactCandidates = candidates.filter((candidate) =>
+    candidate.focus.toLowerCase().includes(exactFocus),
+  );
+  return exactCandidates.length > 0 ? exactCandidates : candidates;
+}
+
+function deriveExactRequestedFocus(value: string | undefined): string | undefined {
+  if (!value) {
+    return undefined;
+  }
+
+  const normalized = value.toLowerCase();
+  if (/\b(full|total)\b/.test(normalized)) {
+    return 'full body';
+  }
+  if (/\bupper body\b/.test(normalized)) {
+    return 'upper body';
+  }
+  if (/\blower body\b/.test(normalized)) {
+    return 'lower body';
+  }
+  if (/\bconditioning|cardio|aerobic\b/.test(normalized)) {
+    return 'conditioning';
+  }
+  if (/\bpush\b/.test(normalized)) {
+    return 'push';
+  }
+  if (/\bpull\b/.test(normalized)) {
+    return 'pull';
+  }
+  return undefined;
 }
 
 function isExplicitFullBodyRequest(value: string | undefined): boolean {

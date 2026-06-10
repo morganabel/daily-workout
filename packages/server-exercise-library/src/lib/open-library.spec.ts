@@ -172,7 +172,7 @@ describe('openExerciseLibrary', () => {
     library.close();
   });
 
-  it('does not direct-return a non-full-body recipe for an explicit full-body request', () => {
+  it('returns a full-body recipe for an explicit full-body request', () => {
     const library = openExerciseLibrary();
     const result = library.matchWorkoutCatalog({
       timeMinutes: 25,
@@ -183,10 +183,74 @@ describe('openExerciseLibrary', () => {
       contraindicationTags: ['shoulder_irritation'],
     });
 
-    expect(result.decision).toBe('adapt');
-    expect(result.recipe?.id).toBe('catalog:bodyweight-glute-core-30');
-    expect(result.recipe?.focusTags).not.toContain('full_body');
-    expect(result.diagnostics.blockerCodes).toContain('focus_gap');
+    expect(result.decision).toBe('direct');
+    expect(result.recipe?.focusTags).toContain('full_body');
+    expect(result.diagnostics.blockerCodes).not.toContain('focus_gap');
+
+    library.close();
+  });
+
+  it('prioritizes exact upper-body catalog matches over broad full-body matches', () => {
+    const library = openExerciseLibrary();
+    const result = library.matchWorkoutCatalog({
+      timeMinutes: 30,
+      focus: 'Upper Body',
+      availableEquipment: ['Dumbbell'],
+      experienceLevel: 'beginner',
+      energy: 'moderate',
+    });
+
+    expect(result.decision).not.toBe('none');
+    expect(result.recipe?.id).toBe('catalog:dumbbell-upper-body-30');
+    expect(result.recipe?.focus).toContain('Upper Body');
+
+    library.close();
+  });
+
+  it('returns the treadmill recovery catalog workout for recovery cardio requests', () => {
+    const library = openExerciseLibrary();
+    const result = library.matchWorkoutCatalog({
+      timeMinutes: 30,
+      focus: 'Conditioning',
+      availableEquipment: ['Treadmill'],
+      experienceLevel: 'beginner',
+      energy: 'easy',
+      contraindicationTags: ['lower_body_fatigue'],
+    });
+
+    expect(result.decision).not.toBe('none');
+    expect(result.recipe?.id).toBe('catalog:treadmill-recovery-cardio-30');
+    expect(result.plan?.blocks.flatMap((block) => block.exercises)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: expect.stringContaining('fedb:walking-treadmill'),
+        }),
+      ]),
+    );
+
+    library.close();
+  });
+
+  it('returns a real deadlift workout for advanced powerlifting pull requests', () => {
+    const library = openExerciseLibrary();
+    const result = library.matchWorkoutCatalog({
+      timeMinutes: 85,
+      focus: 'Pull',
+      availableEquipment: ['Barbell', 'Pull-up Bar'],
+      experienceLevel: 'advanced',
+      energy: 'intense',
+      styleBias: ['powerlifting'],
+    });
+
+    expect(result.decision).toBe('direct');
+    expect(result.recipe?.id).toBe('catalog:powerlifting-deadlift-day-85');
+    expect(result.plan?.blocks.flatMap((block) => block.exercises)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: expect.stringContaining('fedb:barbell-deadlift'),
+        }),
+      ]),
+    );
 
     library.close();
   });
