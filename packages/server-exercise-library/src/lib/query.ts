@@ -167,11 +167,19 @@ export class ExerciseLibraryQueryEngine implements ExerciseLibrary {
       };
     }
 
-    const diagnostics = buildWorkoutCatalogDiagnostics(best, candidates.length);
     const recipe = this.getWorkoutCatalogRecipe(best);
+    const strictFocusGap = hasStrictWorkoutCatalogFocusGap(
+      recipe,
+      normalizedQuery,
+    );
+    const diagnostics = buildWorkoutCatalogDiagnostics(
+      best,
+      candidates.length,
+      strictFocusGap,
+    );
     const plan = materializeWorkoutCatalogPlan(recipe, normalizedQuery);
 
-    if (best.score >= DIRECT_MATCH_THRESHOLD) {
+    if (best.score >= DIRECT_MATCH_THRESHOLD && !strictFocusGap) {
       return {
         decision: 'direct',
         recipe,
@@ -570,6 +578,7 @@ function buildAdaptiveIntentTags(
 function buildWorkoutCatalogDiagnostics(
   row: WorkoutCatalogRecipeRow,
   candidateCount: number,
+  strictFocusGap = false,
 ): WorkoutCatalogDiagnostics {
   const blockerCodes: WorkoutCatalogDiagnostics['blockerCodes'] = [];
   const reasons = [
@@ -584,6 +593,10 @@ function buildWorkoutCatalogDiagnostics(
   if (row.focus_score <= 0) {
     blockerCodes.push('focus_gap');
   }
+  if (strictFocusGap && !blockerCodes.includes('focus_gap')) {
+    blockerCodes.push('focus_gap');
+    reasons.push('strict full-body focus missing');
+  }
   if (row.energy_score <= 0) {
     blockerCodes.push('energy_gap');
   }
@@ -595,6 +608,26 @@ function buildWorkoutCatalogDiagnostics(
     selectedRecipeId: row.id,
     reasons,
   };
+}
+
+function hasStrictWorkoutCatalogFocusGap(
+  recipe: WorkoutCatalogRecipe,
+  query: NormalizedWorkoutCatalogQuery,
+): boolean {
+  if (!isExplicitFullBodyRequest(query.focus)) {
+    return false;
+  }
+
+  return !recipe.focusTags.includes('full_body');
+}
+
+function isExplicitFullBodyRequest(value: string | undefined): boolean {
+  if (!value) {
+    return false;
+  }
+
+  const normalized = value.toLowerCase();
+  return /\b(total|full)\b/.test(normalized);
 }
 
 function diagnoseWorkoutCatalogEmpty(

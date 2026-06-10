@@ -172,6 +172,25 @@ describe('openExerciseLibrary', () => {
     library.close();
   });
 
+  it('does not direct-return a non-full-body recipe for an explicit full-body request', () => {
+    const library = openExerciseLibrary();
+    const result = library.matchWorkoutCatalog({
+      timeMinutes: 25,
+      focus: 'Full Body',
+      availableEquipment: ['Bodyweight'],
+      experienceLevel: 'beginner',
+      energy: 'moderate',
+      contraindicationTags: ['shoulder_irritation'],
+    });
+
+    expect(result.decision).toBe('adapt');
+    expect(result.recipe?.id).toBe('catalog:bodyweight-glute-core-30');
+    expect(result.recipe?.focusTags).not.toContain('full_body');
+    expect(result.diagnostics.blockerCodes).toContain('focus_gap');
+
+    library.close();
+  });
+
   it('returns no workout catalog match for unsupported equipment', () => {
     const library = openExerciseLibrary();
     const result = library.matchWorkoutCatalog({
