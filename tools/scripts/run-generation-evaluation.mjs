@@ -49,6 +49,7 @@ Options:
   --scenario <id>        run only selected scenario id (repeatable)
   --limit <number>       cap total scenarios after filtering
   --edition <value>      CE | HOSTED (default: CE)
+  --creation-mode <mode> auto | library | ai (override all scenario requests)
   --output-dir <path>    output directory (default: reports/generation-evaluation/<timestamp>)
   --open                 open the HTML report after generation (macOS)
   --help                 show this help message
@@ -69,6 +70,14 @@ function parsePositiveInteger(value, flagName) {
   }
 
   return parsed;
+}
+
+function parseCreationMode(value) {
+  if (value === 'auto' || value === 'library' || value === 'ai') {
+    return value;
+  }
+
+  throw new Error(`--creation-mode must be auto, library, or ai. Received: ${value}`);
 }
 
 function expandProviders(values) {
@@ -105,6 +114,7 @@ function parseArgs(argv) {
     timestamp
   );
   let limit;
+  let creationMode;
   let openReport = false;
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -140,6 +150,11 @@ function parseArgs(argv) {
       index += 1;
       continue;
     }
+    if (arg === '--creation-mode' && next) {
+      creationMode = parseCreationMode(next);
+      index += 1;
+      continue;
+    }
     if (arg === '--output-dir' && next) {
       outputDir = path.isAbsolute(next) ? next : path.join(process.cwd(), next);
       index += 1;
@@ -165,6 +180,7 @@ function parseArgs(argv) {
     scenarioIds,
     tags,
     limit,
+    creationMode,
     openReport,
   };
 }
@@ -183,6 +199,7 @@ function main() {
       scenarioIds: options.scenarioIds,
       tags: options.tags,
       limit: options.limit,
+      creationMode: options.creationMode,
     }),
   };
 

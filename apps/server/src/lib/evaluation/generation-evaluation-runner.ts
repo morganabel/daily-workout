@@ -46,6 +46,7 @@ export type GenerationEvaluationRunOptions = {
   runs: number;
   edition: 'CE' | 'HOSTED';
   outputDir: string;
+  creationMode?: NonNullable<GenerationRequest['creationMode']>;
   scenarioIds?: string[];
   tags?: string[];
   limit?: number;
@@ -325,9 +326,47 @@ function buildPrimingRequest(scenario: GenerationEvaluationScenario) {
   return scenario.context ? { ...request, context: scenario.context } : request;
 }
 
+function buildEffectiveScenario(
+  scenario: GenerationEvaluationScenario,
+  options: GenerationEvaluationRunOptions
+): GenerationEvaluationScenario {
+  if (!options.creationMode) {
+    return scenario;
+  }
+
+  const request: GenerationEvaluationScenario['request'] = {
+    ...scenario.request,
+    creationMode: options.creationMode,
+  };
+
+  if (
+    options.creationMode === 'library' &&
+    scenario.mode === 'regeneration' &&
+    scenario.baselinePlan &&
+    !request.baselineWorkout
+  ) {
+    request.baselineWorkout = scenario.baselinePlan;
+  }
+
+  return {
+    ...scenario,
+    request,
+  };
+}
+
 function executionSourceForRun(
-  provider: GenerationEvaluationProvider
+  provider: GenerationEvaluationProvider,
+  body: unknown
 ): GenerationEvaluationExecutionSource {
+  if (
+    body &&
+    typeof body === 'object' &&
+    'creationMode' in body &&
+    body.creationMode === 'library'
+  ) {
+    return 'library';
+  }
+
   if (provider === 'fixture') {
     return 'fixture';
   }
@@ -390,7 +429,7 @@ async function executeScenarioRequest(params: {
   return {
     responseStatus: response.status,
     payload,
-    executionSource: executionSourceForRun(params.provider),
+    executionSource: executionSourceForRun(params.provider, params.body),
     stateHasPlan: Boolean(state.plan),
     latencyMs: {
       totalRequestMs,
@@ -1049,6 +1088,7 @@ function renderHtmlReport(
           .join('')}</ul></section>`
       : '';
 
+  const libraryEntries = report.summary.executionSourceCounts.library ?? 0;
   const coverageBanner = derived.fixtureOnly
     ? `<section class="warnings fixture-only-banner"><h3>Fixture-Only Run</h3><p>This report contains no live provider generations. It is useful for plumbing and rubric checks, but it does not tell you how OpenAI or Gemini are behaving yet.</p><div class="pill-row"><span class="badge badge-fail">live entries: 0</span><span class="badge badge-skip">fixture entries: ${report.summary.fixtureEntries}</span></div></section>`
     : report.summary.fixtureEntries > 0
@@ -1085,6 +1125,7 @@ function renderHtmlReport(
       .status-skipped, .not-applicable { color: var(--warn); }
       .source-live { color: var(--accent); }
       .source-fixture { color: var(--warn); }
+      .source-library { color: var(--success); }
       .entry-card { margin-bottom: 14px; overflow: hidden; }
       .entry-card[hidden] { display: none; }
       .entry-card summary { list-style: none; display: flex; justify-content: space-between; gap: 16px; padding: 20px; cursor: pointer; }
@@ -1161,6 +1202,7 @@ function renderHtmlReport(
           <span class="badge source-fixture">fixture: ${
             report.summary.fixtureEntries
           }</span>
+          <span class="badge source-library">library: ${libraryEntries}</span>
         </div>
       </section>
       ${coverageBanner}
@@ -1367,6 +1409,9 @@ function renderMarkdownReport(
     `- Failed entries: ${report.summary.failedEntries}`,
     `- Live entries: ${report.summary.liveEntries}`,
     `- Fixture-backed entries: ${report.summary.fixtureEntries}`,
+    `- Library entries: ${
+      report.summary.executionSourceCounts.library ?? 0
+    }`,
     `- Avg total latency: ${formatLatencyMs(
       report.summary.averageLatencyMs.totalRequestMs
     )}`,
@@ -1552,9 +1597,10 @@ export async function runGenerationEvaluation(
     }
   });
 
-  const liveProviders = options.providers.filter(
-    (provider) => provider !== 'fixture'
-  );
+  const liveProviders =
+    options.creationMode === 'library'
+      ? []
+      : options.providers.filter((provider) => provider !== 'fixture');
   const primingAttemptCount =
     scenarios.filter((scenario) => scenario.mode === 'regeneration').length *
     options.runs *
@@ -1569,7 +1615,9 @@ export async function runGenerationEvaluation(
     );
   }
 
-  for (const scenario of scenarios) {
+  for (const baseScenario of scenarios) {
+    const scenario = buildEffectiveScenario(baseScenario, options);
+
     for (const provider of options.providers) {
       const bundle = handlerBundles.get(provider);
       if (!bundle) {
@@ -1581,7 +1629,11 @@ export async function runGenerationEvaluation(
         let effectiveBaselinePlan = scenario.baselinePlan;
         let requestBody = buildRequestBody(scenario);
 
-        if (scenario.mode === 'regeneration' && provider !== 'fixture') {
+        if (
+          scenario.mode === 'regeneration' &&
+          provider !== 'fixture' &&
+          options.creationMode !== 'library'
+        ) {
           if (!bundle.hasConfiguredAccess && options.edition === 'CE') {
             pushUniqueWarning(
               warnings,
@@ -1710,7 +1762,9 @@ export async function runGenerationEvaluation(
   const liveEntries = entries.filter(
     (entry) => entry.executionSource === 'live'
   ).length;
-  const fixtureEntries = entries.length - liveEntries;
+  const fixtureEntries = entries.filter(
+    (entry) => entry.executionSource === 'fixture'
+  ).length;
   const executionSourceCounts = entries.reduce<Record<string, number>>(
     (acc, entry) => {
       acc[entry.executionSource] = (acc[entry.executionSource] ?? 0) + 1;

@@ -232,6 +232,7 @@ export type GenerationEvaluationRunStatus = z.infer<
 export const generationEvaluationExecutionSourceSchema = z.enum([
   'live',
   'fixture',
+  'library',
 ]);
 export type GenerationEvaluationExecutionSource = z.infer<
   typeof generationEvaluationExecutionSourceSchema
