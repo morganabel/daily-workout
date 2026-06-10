@@ -73,6 +73,7 @@ type HandlerBundle = {
   hasConfiguredAccess: boolean;
   router: PromptCapturingRouter;
   planner: PromptCapturingStageOnePlanner;
+  close: () => void;
 };
 
 type ExecutedScenarioResult = {
@@ -276,6 +277,10 @@ function createHandlerBundle(
     hasConfiguredAccess,
     planner,
     router,
+    close: () => {
+      exerciseLibrary?.close();
+      exerciseLibrary = undefined;
+    },
   };
 }
 
@@ -1892,5 +1897,8 @@ export async function runGenerationEvaluation(
     warnings,
     coverageNotes
   );
+  for (const bundle of handlerBundles.values()) {
+    bundle.close();
+  }
   return { report, warnings, coverageNotes, artifacts };
 }

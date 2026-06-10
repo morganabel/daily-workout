@@ -222,7 +222,6 @@ function main() {
     '--testPathPatterns=src/lib/evaluation/run-generation-evaluation.spec.ts',
     '--runInBand',
     '--skipNxCache',
-    '--forceExit',
   ];
 
   const result = spawnSync(command, args, {
