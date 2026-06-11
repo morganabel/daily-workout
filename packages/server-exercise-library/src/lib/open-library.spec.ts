@@ -234,6 +234,23 @@ describe('openExerciseLibrary', () => {
     library.close();
   });
 
+  it('returns no catalog match for an unrecognized explicit focus', () => {
+    const library = openExerciseLibrary();
+    const result = library.matchWorkoutCatalog({
+      timeMinutes: 30,
+      focus: 'Parachute intervals',
+      availableEquipment: ['Bodyweight'],
+      experienceLevel: 'beginner',
+      energy: 'moderate',
+    });
+
+    expect(result.decision).toBe('none');
+    expect(result.diagnostics.blockerCodes).toContain('focus_gap');
+    expect(result.score).toBeLessThan(58);
+
+    library.close();
+  });
+
   it('returns a full-body recipe for an explicit full-body request', () => {
     const library = openExerciseLibrary();
     const result = library.matchWorkoutCatalog({

@@ -247,9 +247,10 @@ function buildCatalogSeed(
   catalogMatch: WorkoutCatalogMatch | undefined
 ): CatalogSeed | undefined {
   const plan = catalogMatch?.plan;
-  if (!plan || !hasCatalogRecipeCooldown(catalogMatch)) {
+  if (!plan || !shouldProvideCatalogSeed(catalogMatch)) {
     return undefined;
   }
+  const hasCooldown = hasCatalogRecipeCooldown(catalogMatch);
 
   return {
     focus: plan.focus,
@@ -268,9 +269,20 @@ function buildCatalogSeed(
         detail: exercise.detail,
       })),
     })),
-    instructions:
-      "Preserve the catalog seed's training intent, duration, equipment fit, and safety constraints, but vary exercises or structure enough that the result does not repeat the recent catalog workout too closely.",
+    instructions: hasCooldown
+      ? "Preserve the catalog seed's training intent, duration, equipment fit, and safety constraints, but vary exercises or structure enough that the result does not repeat the recent catalog workout too closely."
+      : "Preserve the catalog seed's training intent, duration, equipment fit, and safety constraints while adapting the exercises, structure, or prescriptions to better fit the user's request.",
   };
+}
+
+function shouldProvideCatalogSeed(
+  catalogMatch: WorkoutCatalogMatch | undefined
+): boolean {
+  return Boolean(
+    isUsableCatalogMatch(catalogMatch) &&
+      (catalogMatch?.decision === 'adapt' ||
+        hasCatalogRecipeCooldown(catalogMatch))
+  );
 }
 
 function buildCatalogQuery({
@@ -667,6 +679,7 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
       let exerciseLibraryLoadAttempted = false;
       let catalogMatch: WorkoutCatalogMatch | undefined;
       let catalogSeed: CatalogSeed | undefined;
+      let catalogUnavailable = false;
       const providerCanRun = Boolean(
         apiKey || useVertexAi || allowUnconfiguredProvider
       );
@@ -749,6 +762,7 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
             }
           }
         } catch (error) {
+          catalogUnavailable = true;
           log.warn('workout catalog unavailable', {
             message: sanitizeErrorMessage((error as Error).message),
             creationMode,
@@ -756,6 +770,14 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
         }
 
         if (creationMode === 'library') {
+          if (catalogUnavailable) {
+            return errorResponse(
+              'WORKOUT_CATALOG_UNAVAILABLE',
+              'Workout catalog is temporarily unavailable',
+              503
+            );
+          }
+
           return errorResponse(
             'WORKOUT_CATALOG_NO_MATCH',
             'No catalog workout matched this request',
@@ -776,10 +798,9 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
               ),
             ],
           };
-          catalogSeed =
-            providerCanRun && hasCatalogRecipeCooldown(catalogMatch)
-              ? buildCatalogSeed(catalogMatch)
-              : undefined;
+          catalogSeed = providerCanRun
+            ? buildCatalogSeed(catalogMatch)
+            : undefined;
         }
       }
 

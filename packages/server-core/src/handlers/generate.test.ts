@@ -668,6 +668,40 @@ describe('createGenerateHandler', () => {
     expect(router.generate).not.toHaveBeenCalled();
   });
 
+  it('returns service unavailable for library mode when the catalog errors', async () => {
+    const policy = createPolicyMock();
+    const exerciseLibrary = createExerciseLibrary();
+    (exerciseLibrary.matchWorkoutCatalog as jest.Mock).mockImplementation(
+      () => {
+        throw new Error('sqlite locked');
+      }
+    );
+    const { handler, router } = createHandler({
+      exerciseLibrary,
+      policy,
+      config: {
+        edition: 'HOSTED',
+        defaultProvider: 'openai',
+        defaultApiKeys: {},
+      },
+    });
+
+    const response = await handler(
+      createRequest({
+        creationMode: 'library',
+        timeMinutes: 30,
+        focus: 'Full Body',
+        context: baseContext,
+      })
+    );
+    const payload = (await response.json()) as { code: string };
+
+    expect(response.status).toBe(503);
+    expect(payload.code).toBe('WORKOUT_CATALOG_UNAVAILABLE');
+    expect(policy.canGenerate).not.toHaveBeenCalled();
+    expect(router.generate).not.toHaveBeenCalled();
+  });
+
   it('returns auto-mode direct catalog matches before invoking AI', async () => {
     const exerciseLibrary = createExerciseLibrary();
     (exerciseLibrary.matchWorkoutCatalog as jest.Mock).mockReturnValue(
@@ -914,9 +948,19 @@ describe('createGenerateHandler', () => {
         planningBrief: expect.objectContaining({
           fallbackReasons: expect.arrayContaining(['catalog_adapt_match']),
         }),
+        catalogSeed: expect.objectContaining({
+          focus: 'Full Body Strength',
+          source: 'library',
+          instructions: expect.stringContaining('training intent'),
+        }),
       })
     );
-    expect(router.generate.mock.calls[0][2].catalogSeed).toBeUndefined();
+    const catalogSeed = router.generate.mock.calls[0][2].catalogSeed;
+    expect(JSON.stringify(catalogSeed)).not.toContain(
+      'catalog:bodyweight-foundation-30'
+    );
+    expect(JSON.stringify(catalogSeed)).not.toContain('test-catalog');
+    expect(JSON.stringify(catalogSeed)).not.toContain('recentSessions');
   });
 
   it('does not attach catalog provenance when the catalog decision is none', async () => {

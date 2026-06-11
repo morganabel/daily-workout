@@ -108,6 +108,7 @@ const DEFAULT_MINIMUM_COMPLETENESS: MetadataCompleteness = 'planner-ready';
 const DIRECT_MATCH_THRESHOLD = 82;
 const ADAPT_MATCH_THRESHOLD = 58;
 const RECENT_RECIPE_SCORE_PENALTY = 20;
+const UNRECOGNIZED_FOCUS_SCORE = -40;
 
 export class ExerciseLibraryQueryEngine implements ExerciseLibrary {
   constructor(private readonly database: Database.Database) {}
@@ -324,6 +325,7 @@ export class ExerciseLibraryQueryEngine implements ExerciseLibrary {
 interface NormalizedWorkoutCatalogQuery extends WorkoutCatalogQuery {
   normalizedEquipment: string[];
   normalizedFocusTags: string[];
+  hasUnrecognizedExplicitFocus: boolean;
   normalizedAvoidTags: string[];
   normalizedContraindicationTags: string[];
   normalizedDisallowedStressors: string[];
@@ -334,6 +336,17 @@ interface NormalizedWorkoutCatalogQuery extends WorkoutCatalogQuery {
 function normalizeWorkoutCatalogQuery(
   query: WorkoutCatalogQuery
 ): NormalizedWorkoutCatalogQuery {
+  const explicitFocusTags = deriveWorkoutFocusTags(query.focus);
+  const normalizedFocusTags = [
+    ...new Set([
+      ...(query.focusTags ?? []),
+      ...explicitFocusTags,
+      ...deriveWorkoutFocusTags(query.adaptivePlanIntent?.label),
+      ...deriveWorkoutFocusTags(query.adaptivePlanIntent?.category),
+      ...deriveWorkoutFocusTags(query.adaptivePlanIntent?.role),
+    ]),
+  ];
+
   return {
     ...query,
     normalizedEquipment: query.availableEquipment?.length
@@ -341,15 +354,12 @@ function normalizeWorkoutCatalogQuery(
           normalizeEquipmentId
         )
       : [],
-    normalizedFocusTags: [
-      ...new Set([
-        ...(query.focusTags ?? []),
-        ...deriveWorkoutFocusTags(query.focus),
-        ...deriveWorkoutFocusTags(query.adaptivePlanIntent?.label),
-        ...deriveWorkoutFocusTags(query.adaptivePlanIntent?.category),
-        ...deriveWorkoutFocusTags(query.adaptivePlanIntent?.role),
-      ]),
-    ],
+    normalizedFocusTags,
+    hasUnrecognizedExplicitFocus: Boolean(
+      query.focus?.trim() &&
+        explicitFocusTags.length === 0 &&
+        normalizedFocusTags.length === 0
+    ),
     normalizedAvoidTags: [...new Set(query.avoidTags ?? [])],
     normalizedContraindicationTags: [
       ...new Set(query.contraindicationTags ?? []),
@@ -457,6 +467,8 @@ function buildWorkoutCatalogMatchSql(
           AND wrt.tag IN (${query.normalizedFocusTags
             .map(() => '?')
             .join(', ')}))`
+    : query.hasUnrecognizedExplicitFocus
+    ? `${UNRECOGNIZED_FOCUS_SCORE}`
     : '24';
   const durationScore = query.timeMinutes
     ? `MAX(0, 22 - ABS(wr.target_duration_minutes - ?))`
@@ -1003,7 +1015,10 @@ function scaleWorkoutCatalogBlockDurations(
           right.duration - left.duration || left.fractional - right.fractional
       );
     for (const allocation of reducible) {
-      while (allocation.duration > 1 && allocatedTotal > targetDurationMinutes) {
+      while (
+        allocation.duration > 1 &&
+        allocatedTotal > targetDurationMinutes
+      ) {
         allocation.duration -= 1;
         allocatedTotal -= 1;
       }
