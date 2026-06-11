@@ -194,6 +194,16 @@ function hasCatalogRecipeCooldown(
   );
 }
 
+function isUsableCatalogMatch(
+  catalogMatch: WorkoutCatalogMatch | undefined
+): boolean {
+  return (
+    catalogMatch?.recipe !== undefined &&
+    catalogMatch.plan !== undefined &&
+    (catalogMatch.decision === 'direct' || catalogMatch.decision === 'adapt')
+  );
+}
+
 function buildCatalogFallbackReasons(
   catalogMatch: WorkoutCatalogMatch | undefined
 ): string[] {
@@ -773,6 +783,10 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
         }
       }
 
+      const providerCatalogMatch = isUsableCatalogMatch(catalogMatch)
+        ? catalogMatch
+        : undefined;
+
       if (
         !apiKey &&
         !useVertexAi &&
@@ -925,7 +939,7 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
         const result = await deps.router.generate(providerRequest, context, {
           apiKey: useVertexAi ? undefined : apiKey ?? undefined,
           candidatePool,
-          catalogMatch,
+          catalogMatch: providerCatalogMatch,
           catalogSeed,
           planningBrief: effectivePlanningBrief,
           stageOneArtifact,
@@ -944,9 +958,9 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
             provider,
             ...(providerResponseId ? { responseId: providerResponseId } : {}),
           },
-          catalogProvenance: catalogMatch
+          catalogProvenance: providerCatalogMatch
             ? buildCatalogProvenance({
-                catalogMatch,
+                catalogMatch: providerCatalogMatch,
                 returnedDirect: false,
               })
             : undefined,

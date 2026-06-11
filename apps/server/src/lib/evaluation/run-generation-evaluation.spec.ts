@@ -1,3 +1,4 @@
+import os from 'node:os';
 import path from 'node:path';
 
 import { runGenerationEvaluation } from './generation-evaluation-runner';
@@ -34,6 +35,27 @@ function loadOptions(): RunnerOptions | null {
 }
 
 describe('generation evaluation runner', () => {
+  it('classifies auto-mode catalog fixture rows as library execution source', async () => {
+    const outputDir = path.join(
+      os.tmpdir(),
+      `workout-generation-eval-source-${Date.now()}`
+    );
+
+    const result = await runGenerationEvaluation({
+      providers: ['fixture'],
+      runs: 1,
+      edition: 'CE',
+      outputDir,
+      scenarioIds: ['beginner-bodyweight-moderate-30'],
+    });
+    const entry = result.report.entries[0];
+
+    expect(entry.plan?.source).toBe('library');
+    expect(entry.executionSource).toBe('library');
+    expect(result.report.summary.fixtureEntries).toBe(0);
+    expect(result.report.summary.executionSourceCounts.library).toBe(1);
+  });
+
   it(
     'executes the evaluation workflow and writes report artifacts',
     async () => {

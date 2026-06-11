@@ -192,7 +192,11 @@ export class ExerciseLibraryQueryEngine implements ExerciseLibrary {
       normalizedQuery
     );
 
-    if (best.score >= DIRECT_MATCH_THRESHOLD && !strictFocusGap) {
+    if (
+      best.score >= DIRECT_MATCH_THRESHOLD &&
+      !strictFocusGap &&
+      !diagnostics.blockerCodes.includes('energy_gap')
+    ) {
       return {
         decision: 'direct',
         recipe,
@@ -909,18 +913,27 @@ function materializeWorkoutCatalogPlan(
   recipe: WorkoutCatalogRecipe,
   query: NormalizedWorkoutCatalogQuery
 ): WorkoutCatalogMatch['plan'] {
+  const targetDurationMinutes = Math.max(
+    query.timeMinutes ?? recipe.targetDurationMinutes,
+    recipe.blocks.length
+  );
+  const blockDurations = scaleWorkoutCatalogBlockDurations(
+    recipe.blocks,
+    targetDurationMinutes
+  );
+
   return {
     id: `library:${recipe.slug}`,
     focus: recipe.focus,
-    durationMinutes: query.timeMinutes ?? recipe.targetDurationMinutes,
+    durationMinutes: targetDurationMinutes,
     equipment: recipe.equipment,
     source: 'library',
-    energy: query.energy ?? recipe.energyLevels[0] ?? 'moderate',
+    energy: resolveWorkoutCatalogPlanEnergy(recipe, query),
     summary: recipe.summary,
-    blocks: recipe.blocks.map((block) => ({
+    blocks: recipe.blocks.map((block, index) => ({
       id: `${recipe.slug}:${block.id}`,
       title: block.title,
-      durationMinutes: block.durationMinutes,
+      durationMinutes: blockDurations[index] ?? block.durationMinutes,
       focus: block.focus,
       exercises: block.slots.map((slot) => {
         const exercise = selectWorkoutCatalogSlotExercise(
@@ -937,6 +950,87 @@ function materializeWorkoutCatalogPlan(
       }),
     })),
   };
+}
+
+function resolveWorkoutCatalogPlanEnergy(
+  recipe: WorkoutCatalogRecipe,
+  query: NormalizedWorkoutCatalogQuery
+): WorkoutCatalogEnergy {
+  if (query.energy && recipe.energyLevels.includes(query.energy)) {
+    return query.energy;
+  }
+
+  return recipe.energyLevels[0] ?? 'moderate';
+}
+
+function scaleWorkoutCatalogBlockDurations(
+  blocks: WorkoutCatalogBlock[],
+  targetDurationMinutes: number
+): number[] {
+  const originalTotal = blocks.reduce(
+    (total, block) => total + block.durationMinutes,
+    0
+  );
+  if (
+    !Number.isFinite(targetDurationMinutes) ||
+    targetDurationMinutes <= 0 ||
+    originalTotal <= 0 ||
+    targetDurationMinutes === originalTotal
+  ) {
+    return blocks.map((block) => block.durationMinutes);
+  }
+
+  const allocations = blocks.map((block, index) => {
+    const raw = (block.durationMinutes * targetDurationMinutes) / originalTotal;
+    const floor = Math.floor(raw);
+    return {
+      index,
+      duration: Math.max(1, floor),
+      fractional: raw - floor,
+    };
+  });
+
+  let allocatedTotal = allocations.reduce(
+    (total, allocation) => total + allocation.duration,
+    0
+  );
+
+  if (allocatedTotal > targetDurationMinutes) {
+    const reducible = allocations
+      .slice()
+      .sort(
+        (left, right) =>
+          right.duration - left.duration || left.fractional - right.fractional
+      );
+    for (const allocation of reducible) {
+      while (allocation.duration > 1 && allocatedTotal > targetDurationMinutes) {
+        allocation.duration -= 1;
+        allocatedTotal -= 1;
+      }
+      if (allocatedTotal === targetDurationMinutes) {
+        break;
+      }
+    }
+  }
+
+  if (allocatedTotal < targetDurationMinutes) {
+    const expandable = allocations
+      .slice()
+      .sort(
+        (left, right) =>
+          right.fractional - left.fractional || left.index - right.index
+      );
+    let cursor = 0;
+    while (allocatedTotal < targetDurationMinutes && expandable.length > 0) {
+      expandable[cursor % expandable.length].duration += 1;
+      allocatedTotal += 1;
+      cursor += 1;
+    }
+  }
+
+  return allocations
+    .sort((left, right) => left.index - right.index)
+    .map((allocation) => allocation.duration);
 }
 
 function selectWorkoutCatalogSlotExercise(

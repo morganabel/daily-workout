@@ -919,6 +919,43 @@ describe('createGenerateHandler', () => {
     expect(router.generate.mock.calls[0][2].catalogSeed).toBeUndefined();
   });
 
+  it('does not attach catalog provenance when the catalog decision is none', async () => {
+    const exerciseLibrary = createExerciseLibrary();
+    (exerciseLibrary.matchWorkoutCatalog as jest.Mock).mockReturnValue({
+      ...createCatalogMatch('none', { score: 40 }),
+      diagnostics: {
+        blockerCodes: ['weak_match'],
+        candidateCount: 1,
+        bestScore: 40,
+        selectedRecipeId: 'catalog:bodyweight-foundation-30',
+        reasons: ['best catalog score below threshold'],
+      },
+    });
+    const router = createRouterMock(
+      createTodayPlanFixture({ id: 'ai-plan', source: 'ai' })
+    );
+    const { handler } = createHandler({ exerciseLibrary, router });
+
+    const response = await handler(
+      createPlanningRequest({
+        creationMode: 'auto',
+        focus: 'Unusual unsupported focus',
+      })
+    );
+    const payload = (await response.json()) as TodayPlan;
+
+    expect(response.status).toBe(200);
+    expect(payload.source).toBe('ai');
+    expect(payload.catalogProvenance).toBeUndefined();
+    expect(router.generate).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      expect.objectContaining({
+        catalogMatch: undefined,
+      })
+    );
+  });
+
   it('skips catalog matching for explicit AI mode', async () => {
     const exerciseLibrary = createExerciseLibrary();
     const { handler, router } = createHandler({ exerciseLibrary });

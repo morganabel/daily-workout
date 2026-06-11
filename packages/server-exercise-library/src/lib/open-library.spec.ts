@@ -248,6 +248,34 @@ describe('openExerciseLibrary', () => {
     expect(result.decision).toBe('direct');
     expect(result.recipe?.focusTags).toContain('full_body');
     expect(result.diagnostics.blockerCodes).not.toContain('focus_gap');
+    expect(result.plan?.durationMinutes).toBe(25);
+    expect(
+      result.plan?.blocks.reduce(
+        (total, block) => total + block.durationMinutes,
+        0
+      )
+    ).toBe(25);
+
+    library.close();
+  });
+
+  it('routes energy-mismatched catalog recipes through adaptation instead of direct return', () => {
+    const library = openExerciseLibrary();
+    const result = library.matchWorkoutCatalog({
+      timeMinutes: 25,
+      focus: 'Full Body',
+      availableEquipment: ['Bodyweight'],
+      experienceLevel: 'beginner',
+      energy: 'intense',
+      contraindicationTags: ['shoulder_irritation'],
+    });
+
+    expect(result.recipe?.id).toBe(
+      'catalog:bodyweight-shoulder-safe-full-body-25'
+    );
+    expect(result.decision).toBe('adapt');
+    expect(result.plan?.energy).toBe('easy');
+    expect(result.diagnostics.blockerCodes).toContain('energy_gap');
 
     library.close();
   });

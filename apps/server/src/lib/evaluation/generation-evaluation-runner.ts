@@ -360,20 +360,34 @@ function buildEffectiveScenario(
   };
 }
 
-function executionSourceForRun(
-  provider: GenerationEvaluationProvider,
-  body: unknown
-): GenerationEvaluationExecutionSource {
+function getReturnedPlanSource(body: unknown): string | undefined {
+  if (!body || typeof body !== 'object') {
+    return undefined;
+  }
+
+  const source = (body as { source?: unknown }).source;
+  return typeof source === 'string' ? source : undefined;
+}
+
+function executionSourceForRun(params: {
+  provider: GenerationEvaluationProvider;
+  body: unknown;
+  payload: unknown;
+}): GenerationEvaluationExecutionSource {
+  if (getReturnedPlanSource(params.payload) === 'library') {
+    return 'library';
+  }
+
   if (
-    body &&
-    typeof body === 'object' &&
-    'creationMode' in body &&
-    body.creationMode === 'library'
+    params.body &&
+    typeof params.body === 'object' &&
+    'creationMode' in params.body &&
+    params.body.creationMode === 'library'
   ) {
     return 'library';
   }
 
-  if (provider === 'fixture') {
+  if (params.provider === 'fixture') {
     return 'fixture';
   }
   return 'live';
@@ -446,7 +460,11 @@ async function executeScenarioRequest(params: {
   return {
     responseStatus: response.status,
     payload,
-    executionSource: executionSourceForRun(params.provider, params.body),
+    executionSource: executionSourceForRun({
+      provider: params.provider,
+      body: params.body,
+      payload,
+    }),
     stateHasPlan: Boolean(state.plan),
     latencyMs: {
       totalRequestMs,
