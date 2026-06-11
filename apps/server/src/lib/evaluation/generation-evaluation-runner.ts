@@ -19,6 +19,10 @@ import {
   DefaultStageOnePlanner,
 } from '@workout-agent-ce/server-ai';
 import {
+  openExerciseLibrary,
+  type ExerciseLibrary,
+} from '@workout-agent-ce/server-exercise-library';
+import {
   generationEvaluationReportSchema,
   type GenerationEvaluationAverageLatency,
   type GenerationEvaluationExecutionSource,
@@ -29,6 +33,7 @@ import {
   type GenerationEvaluationReport,
   type GenerationEvaluationReportEntry,
   type GenerationEvaluationScenario,
+  type GenerationEvaluationCatalogRouting,
   type GenerationContext,
   type GenerationRequest,
   workoutGenerationEvaluationCorpus,
@@ -41,6 +46,7 @@ export type GenerationEvaluationRunOptions = {
   runs: number;
   edition: 'CE' | 'HOSTED';
   outputDir: string;
+  creationMode?: NonNullable<GenerationRequest['creationMode']>;
   scenarioIds?: string[];
   tags?: string[];
   limit?: number;
@@ -57,6 +63,7 @@ export type GenerationEvaluationArtifacts = {
 export type GenerationEvaluationRunResult = {
   report: GenerationEvaluationReport;
   warnings: string[];
+  coverageNotes: string[];
   artifacts: GenerationEvaluationArtifacts;
 };
 
@@ -66,6 +73,7 @@ type HandlerBundle = {
   hasConfiguredAccess: boolean;
   router: PromptCapturingRouter;
   planner: PromptCapturingStageOnePlanner;
+  close: () => void;
 };
 
 type ExecutedScenarioResult = {
@@ -237,6 +245,7 @@ function createHandlerBundle(
     : provider === 'openai'
     ? Boolean(process.env.OPENAI_API_KEY)
     : hasGeminiAccess;
+  let exerciseLibrary: ExerciseLibrary | undefined;
 
   return {
     handler: createGenerateHandler({
@@ -259,11 +268,19 @@ function createHandlerBundle(
         googleCloudProject: process.env.GOOGLE_CLOUD_PROJECT,
         googleCloudLocation: process.env.GOOGLE_CLOUD_LOCATION,
       },
+      loadExerciseLibrary: async () => {
+        exerciseLibrary ??= openExerciseLibrary();
+        return exerciseLibrary;
+      },
     }),
     store,
     hasConfiguredAccess,
     planner,
     router,
+    close: () => {
+      exerciseLibrary?.close();
+      exerciseLibrary = undefined;
+    },
   };
 }
 
@@ -315,13 +332,107 @@ function buildPrimingRequest(scenario: GenerationEvaluationScenario) {
   return scenario.context ? { ...request, context: scenario.context } : request;
 }
 
-function executionSourceForRun(
-  provider: GenerationEvaluationProvider
-): GenerationEvaluationExecutionSource {
-  if (provider === 'fixture') {
+function buildEffectiveScenario(
+  scenario: GenerationEvaluationScenario,
+  options: GenerationEvaluationRunOptions
+): GenerationEvaluationScenario {
+  if (!options.creationMode) {
+    return scenario;
+  }
+
+  const request: GenerationEvaluationScenario['request'] = {
+    ...scenario.request,
+    creationMode: options.creationMode,
+  };
+
+  if (
+    options.creationMode === 'library' &&
+    scenario.mode === 'regeneration' &&
+    scenario.baselinePlan &&
+    !request.baselineWorkout
+  ) {
+    request.baselineWorkout = scenario.baselinePlan;
+  }
+
+  return {
+    ...scenario,
+    request,
+  };
+}
+
+function getReturnedPlanSource(body: unknown): string | undefined {
+  if (!body || typeof body !== 'object') {
+    return undefined;
+  }
+
+  const source = (body as { source?: unknown }).source;
+  return typeof source === 'string' ? source : undefined;
+}
+
+function executionSourceForRun(params: {
+  provider: GenerationEvaluationProvider;
+  body: unknown;
+  payload: unknown;
+}): GenerationEvaluationExecutionSource {
+  if (getReturnedPlanSource(params.payload) === 'library') {
+    return 'library';
+  }
+
+  if (
+    params.body &&
+    typeof params.body === 'object' &&
+    'creationMode' in params.body &&
+    params.body.creationMode === 'library'
+  ) {
+    return 'library';
+  }
+
+  if (params.provider === 'fixture') {
     return 'fixture';
   }
   return 'live';
+}
+
+function buildCatalogRouting(params: {
+  request: GenerationEvaluationScenario['request'];
+  plan?: GenerationEvaluationReportEntry['plan'];
+  errorCode?: string;
+  latencyMs: GenerationEvaluationLatency;
+  providerPrompt?: GenerationEvaluationProviderPrompt;
+}): GenerationEvaluationCatalogRouting {
+  const creationMode = params.request.creationMode ?? 'auto';
+  const providerInvoked = params.latencyMs.stageTwoGenerationMs !== undefined;
+  const catalogReturned = params.plan?.source === 'library';
+  const catalogDecision: GenerationEvaluationCatalogRouting['catalogDecision'] =
+    creationMode === 'ai'
+      ? 'skipped'
+      : catalogReturned
+      ? 'returned'
+      : params.errorCode === 'WORKOUT_CATALOG_NO_MATCH'
+      ? 'no-match'
+      : providerInvoked
+      ? 'provider'
+      : 'unknown';
+  const catalogSeedProvided = Boolean(
+    params.providerPrompt?.content.includes('catalogSeed') ||
+      params.providerPrompt?.content.includes('Catalog seed intent')
+  );
+
+  return {
+    creationMode,
+    catalogDecision,
+    returnedSource: params.plan?.source,
+    providerInvoked,
+    providerPromptCaptured: Boolean(params.providerPrompt),
+    catalogReturned,
+    catalogCooldownApplied: Boolean(
+      catalogSeedProvided ||
+        (providerInvoked &&
+          params.plan?.catalogProvenance?.matchDecision === 'direct' &&
+          params.plan.catalogProvenance.returnedDirect === false)
+    ),
+    catalogSeedProvided,
+  };
 }
 
 async function executeScenarioRequest(params: {
@@ -349,7 +460,11 @@ async function executeScenarioRequest(params: {
   return {
     responseStatus: response.status,
     payload,
-    executionSource: executionSourceForRun(params.provider),
+    executionSource: executionSourceForRun({
+      provider: params.provider,
+      body: params.body,
+      payload,
+    }),
     stateHasPlan: Boolean(state.plan),
     latencyMs: {
       totalRequestMs,
@@ -373,6 +488,12 @@ function escapeHtml(value: string): string {
 function pushUniqueWarning(warnings: string[], warning: string) {
   if (!warnings.includes(warning)) {
     warnings.push(warning);
+  }
+}
+
+function pushUniqueCoverageNote(notes: string[], note: string) {
+  if (!notes.includes(note)) {
+    notes.push(note);
   }
 }
 
@@ -704,7 +825,8 @@ function renderBar(
 function renderHtmlReport(
   report: GenerationEvaluationReport,
   options: GenerationEvaluationRunOptions,
-  warnings: string[]
+  warnings: string[],
+  coverageNotes: string[]
 ): string {
   const derived = buildDerivedStats(report);
   const failureCounts = Object.entries(report.summary.hardFailureCounts)
@@ -1007,7 +1129,14 @@ function renderHtmlReport(
           .map((warning) => `<li>${escapeHtml(warning)}</li>`)
           .join('')}</ul></section>`
       : '';
+  const coverageNotesHtml =
+    coverageNotes.length > 0
+      ? `<section class="warnings coverage-notes"><h3>Coverage Notes</h3><ul>${coverageNotes
+          .map((note) => `<li>${escapeHtml(note)}</li>`)
+          .join('')}</ul></section>`
+      : '';
 
+  const libraryEntries = report.summary.executionSourceCounts.library ?? 0;
   const coverageBanner = derived.fixtureOnly
     ? `<section class="warnings fixture-only-banner"><h3>Fixture-Only Run</h3><p>This report contains no live provider generations. It is useful for plumbing and rubric checks, but it does not tell you how OpenAI or Gemini are behaving yet.</p><div class="pill-row"><span class="badge badge-fail">live entries: 0</span><span class="badge badge-skip">fixture entries: ${report.summary.fixtureEntries}</span></div></section>`
     : report.summary.fixtureEntries > 0
@@ -1044,6 +1173,7 @@ function renderHtmlReport(
       .status-skipped, .not-applicable { color: var(--warn); }
       .source-live { color: var(--accent); }
       .source-fixture { color: var(--warn); }
+      .source-library { color: var(--success); }
       .entry-card { margin-bottom: 14px; overflow: hidden; }
       .entry-card[hidden] { display: none; }
       .entry-card summary { list-style: none; display: flex; justify-content: space-between; gap: 16px; padding: 20px; cursor: pointer; }
@@ -1120,10 +1250,12 @@ function renderHtmlReport(
           <span class="badge source-fixture">fixture: ${
             report.summary.fixtureEntries
           }</span>
+          <span class="badge source-library">library: ${libraryEntries}</span>
         </div>
       </section>
       ${coverageBanner}
       ${warningHtml}
+      ${coverageNotesHtml}
       <section class="summary">
         <h2>Summary</h2>
         <div class="summary-grid">
@@ -1307,7 +1439,8 @@ function renderHtmlReport(
 function renderMarkdownReport(
   report: GenerationEvaluationReport,
   options: GenerationEvaluationRunOptions,
-  warnings: string[]
+  warnings: string[],
+  coverageNotes: string[]
 ): string {
   const lines: string[] = [
     '# Workout Generation Evaluation Report',
@@ -1326,6 +1459,7 @@ function renderMarkdownReport(
     `- Failed entries: ${report.summary.failedEntries}`,
     `- Live entries: ${report.summary.liveEntries}`,
     `- Fixture-backed entries: ${report.summary.fixtureEntries}`,
+    `- Library entries: ${report.summary.executionSourceCounts.library ?? 0}`,
     `- Avg total latency: ${formatLatencyMs(
       report.summary.averageLatencyMs.totalRequestMs
     )}`,
@@ -1348,6 +1482,12 @@ function renderMarkdownReport(
   if (warnings.length > 0) {
     lines.push('## Warnings', '');
     warnings.forEach((warning) => lines.push(`- ${warning}`));
+    lines.push('');
+  }
+
+  if (coverageNotes.length > 0) {
+    lines.push('## Coverage Notes', '');
+    coverageNotes.forEach((note) => lines.push(`- ${note}`));
     lines.push('');
   }
 
@@ -1375,6 +1515,15 @@ function renderMarkdownReport(
     );
     lines.push(
       `- Stage one used: ${entry.plannerSummary.usedStageOne ? 'yes' : 'no'}`
+    );
+    lines.push(
+      `- Catalog routing: ${entry.catalogRouting.creationMode}/${
+        entry.catalogRouting.catalogDecision
+      } (source: ${
+        entry.catalogRouting.returnedSource ?? 'none'
+      }, provider invoked: ${
+        entry.catalogRouting.providerInvoked ? 'yes' : 'no'
+      })`
     );
     lines.push(
       `- Total latency: ${formatLatencyMs(entry.latencyMs.totalRequestMs)}`
@@ -1435,7 +1584,8 @@ function renderMarkdownReport(
 async function writeArtifacts(
   report: GenerationEvaluationReport,
   options: GenerationEvaluationRunOptions,
-  warnings: string[]
+  warnings: string[],
+  coverageNotes: string[]
 ): Promise<GenerationEvaluationArtifacts> {
   await mkdir(options.outputDir, { recursive: true });
 
@@ -1450,12 +1600,16 @@ async function writeArtifacts(
     .join('\n');
 
   await Promise.all([
-    writeFile(html, renderHtmlReport(report, options, warnings), 'utf8'),
+    writeFile(
+      html,
+      renderHtmlReport(report, options, warnings, coverageNotes),
+      'utf8'
+    ),
     writeFile(json, `${JSON.stringify(report, null, 2)}\n`, 'utf8'),
     writeFile(jsonl, `${jsonlBody}\n`, 'utf8'),
     writeFile(
       markdown,
-      renderMarkdownReport(report, options, warnings),
+      renderMarkdownReport(report, options, warnings, coverageNotes),
       'utf8'
     ),
     writeFile(
@@ -1463,6 +1617,7 @@ async function writeArtifacts(
       `${JSON.stringify(
         {
           warnings,
+          coverageNotes,
           artifacts: { html, json, jsonl, markdown },
           summary: report.summary,
         },
@@ -1481,8 +1636,10 @@ export async function runGenerationEvaluation(
 ): Promise<GenerationEvaluationRunResult> {
   const scenarios = selectScenarios(options);
   const warnings: string[] = [];
+  const coverageNotes: string[] = [];
   const entries: GenerationEvaluationReportEntry[] = [];
   const handlerBundles = new Map<GenerationEvaluationProvider, HandlerBundle>();
+  const catalogPrimedRegenerationRuns = new Map<string, Set<string>>();
 
   options.providers.forEach((provider) => {
     const bundle = createHandlerBundle(provider, options.edition);
@@ -1508,202 +1665,261 @@ export async function runGenerationEvaluation(
     }
   });
 
-  const liveProviders = options.providers.filter(
-    (provider) => provider !== 'fixture'
-  );
-  const primingAttemptCount =
-    scenarios.filter((scenario) => scenario.mode === 'regeneration').length *
-    options.runs *
-    liveProviders.length;
-  const liveEntryCount =
-    scenarios.length * options.runs * liveProviders.length +
-    primingAttemptCount;
-  if (liveEntryCount >= 100) {
-    pushUniqueWarning(
-      warnings,
-      `This run is configured for ${liveEntryCount} live-provider attempts. Review provider cost and quota implications before sharing results.`
-    );
-  }
+  try {
+    const liveProviders =
+      options.creationMode === 'library'
+        ? []
+        : options.providers.filter((provider) => provider !== 'fixture');
+    const primingAttemptCount =
+      scenarios.filter((scenario) => scenario.mode === 'regeneration').length *
+      options.runs *
+      liveProviders.length;
+    const liveProviderOpportunityCount =
+      scenarios.length * options.runs * liveProviders.length +
+      primingAttemptCount;
 
-  for (const scenario of scenarios) {
-    for (const provider of options.providers) {
-      const bundle = handlerBundles.get(provider);
-      if (!bundle) {
-        continue;
-      }
+    for (const baseScenario of scenarios) {
+      const scenario = buildEffectiveScenario(baseScenario, options);
 
-      for (let runIndex = 1; runIndex <= options.runs; runIndex += 1) {
-        const runId = `${scenario.id}-${provider}-${runIndex}`;
-        let effectiveBaselinePlan = scenario.baselinePlan;
-        let requestBody = buildRequestBody(scenario);
+      for (const provider of options.providers) {
+        const bundle = handlerBundles.get(provider);
+        if (!bundle) {
+          continue;
+        }
 
-        if (scenario.mode === 'regeneration' && provider !== 'fixture') {
-          if (!bundle.hasConfiguredAccess && options.edition === 'CE') {
-            pushUniqueWarning(
-              warnings,
-              `Could not prime live regeneration for ${scenario.id} (${provider}); configured access is unavailable.`
-            );
-          } else {
-            const primingResult = await executeScenarioRequest({
-              bundle,
-              provider,
-              token: `${runId}-prime`,
-              body: buildPrimingRequest(scenario),
-            });
+        for (let runIndex = 1; runIndex <= options.runs; runIndex += 1) {
+          const runId = `${scenario.id}-${provider}-${runIndex}`;
+          let effectiveBaselinePlan = scenario.baselinePlan;
+          let requestBody = buildRequestBody(scenario);
 
-            if (
-              primingResult.responseStatus === 200 &&
-              primingResult.executionSource === 'live'
-            ) {
-              const primedPlan =
-                primingResult.payload as GenerationEvaluationReportEntry['plan'];
-              const primedResponseId = primedPlan?.responseId;
+          if (
+            scenario.mode === 'regeneration' &&
+            provider !== 'fixture' &&
+            options.creationMode !== 'library'
+          ) {
+            if (!bundle.hasConfiguredAccess && options.edition === 'CE') {
+              pushUniqueWarning(
+                warnings,
+                `Could not prime live regeneration for ${scenario.id} (${provider}); configured access is unavailable.`
+              );
+            } else {
+              const primingResult = await executeScenarioRequest({
+                bundle,
+                provider,
+                token: `${runId}-prime`,
+                body: buildPrimingRequest(scenario),
+              });
 
-              if (primedResponseId) {
-                effectiveBaselinePlan = primedPlan;
-                requestBody = {
-                  ...(scenario.context
-                    ? { ...scenario.request, context: scenario.context }
-                    : scenario.request),
-                  previousResponseId: primedResponseId,
-                };
+              if (
+                primingResult.responseStatus === 200 &&
+                primingResult.executionSource === 'live'
+              ) {
+                const primedPlan =
+                  primingResult.payload as GenerationEvaluationReportEntry['plan'];
+                const primedResponseId = primedPlan?.responseId;
+
+                if (primedResponseId) {
+                  effectiveBaselinePlan = primedPlan;
+                  requestBody = {
+                    ...(scenario.context
+                      ? { ...scenario.request, context: scenario.context }
+                      : scenario.request),
+                    previousResponseId: primedResponseId,
+                  };
+                } else if (primedPlan?.source === 'library') {
+                  const providers =
+                    catalogPrimedRegenerationRuns.get(scenario.id) ??
+                    new Set<string>();
+                  providers.add(provider);
+                  catalogPrimedRegenerationRuns.set(scenario.id, providers);
+                } else {
+                  pushUniqueWarning(
+                    warnings,
+                    `Could not prime live regeneration for ${scenario.id} (${provider}); the baseline response had no responseId.`
+                  );
+                }
               } else {
                 pushUniqueWarning(
                   warnings,
-                  `Could not prime live regeneration for ${scenario.id} (${provider}); the baseline response had no responseId.`
+                  `Could not prime live regeneration for ${scenario.id} (${provider}); baseline generation was not live.`
                 );
               }
-            } else {
-              pushUniqueWarning(
-                warnings,
-                `Could not prime live regeneration for ${scenario.id} (${provider}); baseline generation was not live.`
-              );
             }
           }
-        }
 
-        const executed = await executeScenarioRequest({
-          bundle,
-          provider,
-          token: runId,
-          body: requestBody,
-        });
-
-        if (executed.responseStatus === 200) {
-          const plan =
-            executed.payload as GenerationEvaluationReportEntry['plan'];
-          entries.push({
-            scenarioId: scenario.id,
-            scenarioTitle: scenario.title,
-            scenarioDescription: scenario.description,
-            scenarioTags: scenario.tags,
-            scenarioMode: scenario.mode,
-            runId,
+          const executed = await executeScenarioRequest({
+            bundle,
             provider,
-            executionSource: executed.executionSource,
-            status: 'success',
-            request: scenario.request,
-            context: scenario.context,
-            baselinePlan: effectiveBaselinePlan,
-            latencyMs: executed.latencyMs,
-            plannerSummary: executed.plannerSummary,
-            providerPrompt: executed.providerPrompt,
-            hardChecks: runHardChecksForScenario(
-              {
+            token: runId,
+            body: requestBody,
+          });
+
+          if (executed.responseStatus === 200) {
+            const plan =
+              executed.payload as GenerationEvaluationReportEntry['plan'];
+            entries.push({
+              scenarioId: scenario.id,
+              scenarioTitle: scenario.title,
+              scenarioDescription: scenario.description,
+              scenarioTags: scenario.tags,
+              scenarioMode: scenario.mode,
+              runId,
+              provider,
+              executionSource: executed.executionSource,
+              status: 'success',
+              request: scenario.request,
+              context: scenario.context,
+              baselinePlan: effectiveBaselinePlan,
+              latencyMs: executed.latencyMs,
+              catalogRouting: buildCatalogRouting({
+                request: scenario.request,
+                plan,
+                latencyMs: executed.latencyMs,
+                providerPrompt: executed.providerPrompt,
+              }),
+              plannerSummary: executed.plannerSummary,
+              providerPrompt: executed.providerPrompt,
+              hardChecks: runHardChecksForScenario(
+                {
+                  ...scenario,
+                  baselinePlan: effectiveBaselinePlan,
+                },
+                plan
+              ),
+              plan,
+            });
+          } else {
+            const errorPayload = parseErrorPayload(executed.payload);
+            entries.push({
+              scenarioId: scenario.id,
+              scenarioTitle: scenario.title,
+              scenarioDescription: scenario.description,
+              scenarioTags: scenario.tags,
+              scenarioMode: scenario.mode,
+              runId,
+              provider,
+              executionSource: executed.executionSource,
+              status: 'generation-error',
+              request: scenario.request,
+              context: scenario.context,
+              baselinePlan: effectiveBaselinePlan,
+              latencyMs: executed.latencyMs,
+              catalogRouting: buildCatalogRouting({
+                request: scenario.request,
+                errorCode: errorPayload.code,
+                latencyMs: executed.latencyMs,
+                providerPrompt: executed.providerPrompt,
+              }),
+              plannerSummary: executed.plannerSummary,
+              providerPrompt: executed.providerPrompt,
+              hardChecks: runHardChecksForScenario({
                 ...scenario,
                 baselinePlan: effectiveBaselinePlan,
-              },
-              plan
-            ),
-            plan,
-          });
-        } else {
-          const errorPayload = parseErrorPayload(executed.payload);
-          entries.push({
-            scenarioId: scenario.id,
-            scenarioTitle: scenario.title,
-            scenarioDescription: scenario.description,
-            scenarioTags: scenario.tags,
-            scenarioMode: scenario.mode,
-            runId,
-            provider,
-            executionSource: executed.executionSource,
-            status: 'generation-error',
-            request: scenario.request,
-            context: scenario.context,
-            baselinePlan: effectiveBaselinePlan,
-            latencyMs: executed.latencyMs,
-            plannerSummary: executed.plannerSummary,
-            providerPrompt: executed.providerPrompt,
-            hardChecks: runHardChecksForScenario({
-              ...scenario,
-              baselinePlan: effectiveBaselinePlan,
-            }),
-            errorCode: errorPayload.code,
-            errorMessage:
-              errorPayload.message ?? `HTTP ${executed.responseStatus}`,
-          });
+              }),
+              errorCode: errorPayload.code,
+              errorMessage:
+                errorPayload.message ?? `HTTP ${executed.responseStatus}`,
+            });
+          }
         }
       }
     }
+
+    const successfulEntries = entries.filter(
+      (entry) => entry.status === 'success'
+    ).length;
+    const liveEntries = entries.filter(
+      (entry) => entry.executionSource === 'live'
+    ).length;
+    const fixtureEntries = entries.filter(
+      (entry) => entry.executionSource === 'fixture'
+    ).length;
+    const executionSourceCounts = entries.reduce<Record<string, number>>(
+      (acc, entry) => {
+        acc[entry.executionSource] = (acc[entry.executionSource] ?? 0) + 1;
+        return acc;
+      },
+      {}
+    );
+    const hardFailureCounts = entries.reduce<Record<string, number>>(
+      (acc, entry) => {
+        const entryFailures = summarizeHardFailures(entry.hardChecks);
+        for (const [name, count] of Object.entries(entryFailures)) {
+          acc[name] = (acc[name] ?? 0) + count;
+        }
+        return acc;
+      },
+      {}
+    );
+    const averageLatencyMs = buildAverageLatency(entries);
+    const entriesByProvider = entries.reduce<
+      Record<string, GenerationEvaluationReportEntry[]>
+    >((acc, entry) => {
+      (acc[entry.provider] ??= []).push(entry);
+      return acc;
+    }, {});
+    const averageLatencyByProvider = Object.fromEntries(
+      Object.entries(entriesByProvider).map(([provider, providerEntries]) => [
+        provider,
+        buildAverageLatency(providerEntries),
+      ])
+    ) as Record<string, GenerationEvaluationAverageLatency>;
+    const finalProviderGenerationCount = entries.filter(
+      (entry) => entry.catalogRouting.providerInvoked
+    ).length;
+    const stageOnePlannerInvocationCount = entries.filter(
+      (entry) => entry.plannerSummary.usedStageOne
+    ).length;
+
+    if (liveProviderOpportunityCount >= 100) {
+      pushUniqueWarning(
+        warnings,
+        `This run has ${liveProviderOpportunityCount} live-provider opportunities configured. Observed final provider generations: ${finalProviderGenerationCount}; observed stage-one planner calls: ${stageOnePlannerInvocationCount}. Review provider cost and quota implications before sharing results.`
+      );
+    }
+
+    const catalogPrimedProviderRows = Array.from(
+      catalogPrimedRegenerationRuns.values()
+    ).reduce((total, providers) => total + providers.size, 0);
+    if (catalogPrimedProviderRows > 0) {
+      pushUniqueCoverageNote(
+        coverageNotes,
+        `${catalogPrimedProviderRows} regeneration priming attempt${
+          catalogPrimedProviderRows === 1 ? '' : 's'
+        } across ${catalogPrimedRegenerationRuns.size} scenario${
+          catalogPrimedRegenerationRuns.size === 1 ? '' : 's'
+        } returned catalog baselines, so provider-continuity regeneration was not evaluated for those rows.`
+      );
+    }
+
+    const report = generationEvaluationReportSchema.parse({
+      corpusVersion: workoutGenerationEvaluationCorpus.version,
+      rubricVersion: workoutGenerationEvaluationCorpus.rubricVersion,
+      generatedAt: new Date().toISOString(),
+      summary: {
+        totalEntries: entries.length,
+        successfulEntries,
+        failedEntries: entries.length - successfulEntries,
+        liveEntries,
+        fixtureEntries,
+        executionSourceCounts,
+        hardFailureCounts,
+        averageLatencyMs,
+        averageLatencyByProvider,
+      },
+      entries,
+    });
+
+    const artifacts = await writeArtifacts(
+      report,
+      options,
+      warnings,
+      coverageNotes
+    );
+    return { report, warnings, coverageNotes, artifacts };
+  } finally {
+    for (const bundle of handlerBundles.values()) {
+      bundle.close();
+    }
   }
-
-  const successfulEntries = entries.filter(
-    (entry) => entry.status === 'success'
-  ).length;
-  const liveEntries = entries.filter(
-    (entry) => entry.executionSource === 'live'
-  ).length;
-  const fixtureEntries = entries.length - liveEntries;
-  const executionSourceCounts = entries.reduce<Record<string, number>>(
-    (acc, entry) => {
-      acc[entry.executionSource] = (acc[entry.executionSource] ?? 0) + 1;
-      return acc;
-    },
-    {}
-  );
-  const hardFailureCounts = entries.reduce<Record<string, number>>(
-    (acc, entry) => {
-      const entryFailures = summarizeHardFailures(entry.hardChecks);
-      for (const [name, count] of Object.entries(entryFailures)) {
-        acc[name] = (acc[name] ?? 0) + count;
-      }
-      return acc;
-    },
-    {}
-  );
-  const averageLatencyMs = buildAverageLatency(entries);
-  const entriesByProvider = entries.reduce<
-    Record<string, GenerationEvaluationReportEntry[]>
-  >((acc, entry) => {
-    (acc[entry.provider] ??= []).push(entry);
-    return acc;
-  }, {});
-  const averageLatencyByProvider = Object.fromEntries(
-    Object.entries(entriesByProvider).map(([provider, providerEntries]) => [
-      provider,
-      buildAverageLatency(providerEntries),
-    ])
-  ) as Record<string, GenerationEvaluationAverageLatency>;
-
-  const report = generationEvaluationReportSchema.parse({
-    corpusVersion: workoutGenerationEvaluationCorpus.version,
-    rubricVersion: workoutGenerationEvaluationCorpus.rubricVersion,
-    generatedAt: new Date().toISOString(),
-    summary: {
-      totalEntries: entries.length,
-      successfulEntries,
-      failedEntries: entries.length - successfulEntries,
-      liveEntries,
-      fixtureEntries,
-      executionSourceCounts,
-      hardFailureCounts,
-      averageLatencyMs,
-      averageLatencyByProvider,
-    },
-    entries,
-  });
-
-  const artifacts = await writeArtifacts(report, options, warnings);
-  return { report, warnings, artifacts };
 }

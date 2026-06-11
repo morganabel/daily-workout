@@ -1,6 +1,9 @@
 import { OpenAIProvider } from './openai';
 import OpenAI from 'openai';
-import type { ExerciseCandidatePool } from '@workout-agent-ce/server-core';
+import type {
+  CatalogSeed,
+  ExerciseCandidatePool,
+} from '@workout-agent-ce/server-core';
 import {
   type GenerationRequest,
   type GenerationContext,
@@ -30,7 +33,7 @@ jest.mock('../llm-transformer', () => {
     getDefaultSchemaVersion: jest.fn(() => 'v1-current'),
     getSchemaForVersion: jest.fn((version: string) => {
       const { llmTodayPlanSchema } = jest.requireActual(
-        '@workout-agent/shared',
+        '@workout-agent/shared'
       );
       return llmTodayPlanSchema;
     }),
@@ -113,6 +116,31 @@ describe('OpenAIProvider', () => {
     ],
   };
 
+  const catalogSeed: CatalogSeed = {
+    focus: 'Full Body Strength',
+    durationMinutes: 30,
+    equipment: ['Bodyweight'],
+    source: 'library',
+    energy: 'moderate',
+    summary: 'A simple full-body session.',
+    blocks: [
+      {
+        title: 'Main Circuit',
+        durationMinutes: 24,
+        focus: 'Squat, push, and core',
+        exercises: [
+          {
+            name: 'Bodyweight Squat',
+            prescription: '3 x 12',
+            detail: 'Smooth reps.',
+          },
+        ],
+      },
+    ],
+    instructions:
+      "Preserve the catalog seed's training intent, but vary the workout enough to avoid a close repeat.",
+  };
+
   const mockStageOneArtifact = {
     mode: 'llm-assisted' as const,
     confidence: 'high' as const,
@@ -139,7 +167,7 @@ describe('OpenAIProvider', () => {
           responses: {
             parse: mockResponsesParse,
           },
-        }) as unknown as InstanceType<typeof OpenAI>,
+        } as unknown as InstanceType<typeof OpenAI>)
     );
   });
 
@@ -163,7 +191,7 @@ describe('OpenAIProvider', () => {
             expect.objectContaining({ role: 'system' }),
             expect.objectContaining({ role: 'user' }),
           ]),
-        }),
+        })
       );
     });
 
@@ -193,7 +221,7 @@ describe('OpenAIProvider', () => {
               role: 'user',
             }),
           ]),
-        }),
+        })
       );
     });
 
@@ -211,7 +239,7 @@ describe('OpenAIProvider', () => {
       expect(mockResponsesParse).toHaveBeenCalledWith(
         expect.objectContaining({
           model: 'gpt-4o',
-        }),
+        })
       );
     });
 
@@ -257,7 +285,7 @@ describe('OpenAIProvider', () => {
               content: expect.any(String),
             }),
           ],
-        }),
+        })
       );
     });
 
@@ -273,12 +301,38 @@ describe('OpenAIProvider', () => {
       });
 
       const userInput = mockResponsesParse.mock.calls[0][0].input.find(
-        (item: { role: string }) => item.role === 'user',
+        (item: { role: string }) => item.role === 'user'
       );
 
       expect(userInput.content).toContain('candidatePool');
       expect(userInput.content).toContain('Pushups');
       expect(userInput.content).toContain('Chin-Up');
+    });
+
+    it('includes data-minimized catalog seed data in initial generation input', async () => {
+      mockResponsesParse.mockResolvedValue({
+        id: 'resp-abc123',
+        output_parsed: mockLlmPlan,
+      });
+
+      await provider.generate(mockRequest, mockContext, {
+        apiKey: 'sk-test-key',
+        catalogSeed,
+      });
+
+      const userInput = mockResponsesParse.mock.calls[0][0].input.find(
+        (item: { role: string }) => item.role === 'user'
+      );
+
+      expect(userInput.content).toContain('catalogSeed');
+      expect(userInput.content).toContain('Bodyweight Squat');
+      const promptPayload = JSON.parse(userInput.content) as {
+        catalogSeed?: unknown;
+      };
+      const seedPayload = JSON.stringify(promptPayload.catalogSeed);
+      expect(seedPayload).not.toContain('catalog:bodyweight-foundation-30');
+      expect(seedPayload).not.toContain('catalogVersion');
+      expect(seedPayload).not.toContain('recentSessions');
     });
 
     it('should use default API base when not provided', async () => {
@@ -299,7 +353,7 @@ describe('OpenAIProvider', () => {
 
     it('should throw NO_API_KEY error when API key is missing', async () => {
       await expect(
-        provider.generate(mockRequest, mockContext, {}),
+        provider.generate(mockRequest, mockContext, {})
       ).rejects.toThrow(AiGenerationError);
 
       try {
@@ -308,7 +362,7 @@ describe('OpenAIProvider', () => {
         expect(error).toBeInstanceOf(AiGenerationError);
         expect((error as AiGenerationError).code).toBe('NO_API_KEY');
         expect((error as AiGenerationError).message).toContain(
-          'Missing API key',
+          'Missing API key'
         );
       }
     });
@@ -319,7 +373,7 @@ describe('OpenAIProvider', () => {
       await expect(
         provider.generate(mockRequest, mockContext, {
           apiKey: 'sk-test-key',
-        }),
+        })
       ).rejects.toThrow(AiGenerationError);
 
       try {
@@ -330,7 +384,7 @@ describe('OpenAIProvider', () => {
         expect(error).toBeInstanceOf(AiGenerationError);
         expect((error as AiGenerationError).code).toBe('REQUEST_FAILED');
         expect((error as AiGenerationError).message).toContain(
-          'Invalid authentication',
+          'Invalid authentication'
         );
       }
     });
@@ -344,7 +398,7 @@ describe('OpenAIProvider', () => {
       await expect(
         provider.generate(mockRequest, mockContext, {
           apiKey: 'sk-test-key',
-        }),
+        })
       ).rejects.toThrow(AiGenerationError);
 
       try {
@@ -355,7 +409,7 @@ describe('OpenAIProvider', () => {
         expect(error).toBeInstanceOf(AiGenerationError);
         expect((error as AiGenerationError).code).toBe('INVALID_RESPONSE');
         expect((error as AiGenerationError).message).toContain(
-          'empty response',
+          'empty response'
         );
       }
     });
@@ -406,7 +460,7 @@ describe('OpenAIProvider', () => {
           text: expect.objectContaining({
             format: expect.any(Object),
           }),
-        }),
+        })
       );
     });
 
@@ -422,10 +476,10 @@ describe('OpenAIProvider', () => {
       });
 
       expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringContaining('"msg":"model call completed"'),
+        expect.stringContaining('"msg":"model call completed"')
       );
       expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringContaining('"isRegeneration":false'),
+        expect.stringContaining('"isRegeneration":false')
       );
 
       consoleSpy.mockRestore();
@@ -449,10 +503,10 @@ describe('OpenAIProvider', () => {
       });
 
       expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringContaining('"msg":"model call completed"'),
+        expect.stringContaining('"msg":"model call completed"')
       );
       expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringContaining('"isRegeneration":true'),
+        expect.stringContaining('"isRegeneration":true')
       );
 
       consoleSpy.mockRestore();

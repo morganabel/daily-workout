@@ -39,6 +39,7 @@ export const hardCheckNameSchema = z.enum([
   'duration-fit',
   'focus-fit',
   'equipment-fit',
+  'required-exercise-terms',
   'injury-safety',
   'avoid-list-safety',
   'upcoming-event-sensitivity',
@@ -56,6 +57,7 @@ export const generationEvaluationHardExpectationsSchema = z
     requiredFocus: z.string().optional(),
     disallowedFocuses: z.array(z.string()).max(5).default([]),
     requireOnlyAvailableEquipment: z.boolean().default(true),
+    requiredExerciseTerms: z.array(z.string()).max(20).default([]),
     bannedExerciseTerms: z.array(z.string()).max(20).default([]),
     requireRegenerationDifference: z.boolean().default(false),
     requireUpcomingEventSensitivity: z.boolean().default(false),
@@ -230,6 +232,7 @@ export type GenerationEvaluationRunStatus = z.infer<
 export const generationEvaluationExecutionSourceSchema = z.enum([
   'live',
   'fixture',
+  'library',
 ]);
 export type GenerationEvaluationExecutionSource = z.infer<
   typeof generationEvaluationExecutionSourceSchema
@@ -332,6 +335,33 @@ export type GenerationEvaluationAverageLatency = z.infer<
   typeof generationEvaluationAverageLatencySchema
 >;
 
+export const generationEvaluationCatalogDecisionSchema = z.enum([
+  'skipped',
+  'returned',
+  'provider',
+  'no-match',
+  'unknown',
+]);
+export type GenerationEvaluationCatalogDecision = z.infer<
+  typeof generationEvaluationCatalogDecisionSchema
+>;
+
+export const generationEvaluationCatalogRoutingSchema = z
+  .object({
+    creationMode: z.enum(['auto', 'library', 'ai']),
+    catalogDecision: generationEvaluationCatalogDecisionSchema,
+    returnedSource: z.enum(['ai', 'manual', 'library']).optional(),
+    providerInvoked: z.boolean(),
+    providerPromptCaptured: z.boolean(),
+    catalogReturned: z.boolean(),
+    catalogCooldownApplied: z.boolean().optional(),
+    catalogSeedProvided: z.boolean().optional(),
+  })
+  .strict();
+export type GenerationEvaluationCatalogRouting = z.infer<
+  typeof generationEvaluationCatalogRoutingSchema
+>;
+
 export const generationEvaluationReportEntrySchema = z
   .object({
     scenarioId: evaluationScenarioIdSchema,
@@ -349,6 +379,7 @@ export const generationEvaluationReportEntrySchema = z
     hardChecks: z.array(generationEvaluationHardCheckResultSchema),
     softReview: generationEvaluationSoftReviewResultSchema.optional(),
     latencyMs: generationEvaluationLatencySchema,
+    catalogRouting: generationEvaluationCatalogRoutingSchema,
     plannerSummary: generationEvaluationPlannerSummarySchema,
     providerPrompt: generationEvaluationProviderPromptSchema.optional(),
     plan: todayPlanSchema.optional(),

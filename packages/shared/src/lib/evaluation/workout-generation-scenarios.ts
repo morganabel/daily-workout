@@ -101,6 +101,38 @@ function buildSession(params: {
   };
 }
 
+function buildCatalogSession(params: {
+  id: string;
+  name: string;
+  focus: string;
+  durationMinutes: number;
+  completedAt: string;
+  recipeId: string;
+  recipeSlug: string;
+  catalogVersion?: string;
+  matchDecision?: 'direct' | 'adapt';
+  returnedDirect?: boolean;
+  perceivedEffort?: WorkoutEnergy;
+}): GenerationContext['recentSessions'][number] {
+  return {
+    id: params.id,
+    name: params.name,
+    focus: params.focus,
+    durationMinutes: params.durationMinutes,
+    completedAt: params.completedAt,
+    source: 'library',
+    perceivedEffort: params.perceivedEffort,
+    catalogProvenance: {
+      recipeId: params.recipeId,
+      recipeSlug: params.recipeSlug,
+      ownership: 'system',
+      catalogVersion: params.catalogVersion ?? '2026.06.09',
+      matchDecision: params.matchDecision ?? 'direct',
+      returnedDirect: params.returnedDirect ?? true,
+    },
+  };
+}
+
 function buildEvent(params: {
   kind: string;
   title: string;
@@ -134,6 +166,7 @@ function buildExpectations(
     requiredFocus: overrides.requiredFocus,
     disallowedFocuses: [],
     requireOnlyAvailableEquipment: true,
+    requiredExerciseTerms: [],
     bannedExerciseTerms: [],
     requireRegenerationDifference: false,
     requireUpcomingEventSensitivity: false,
@@ -221,6 +254,44 @@ const scenarios: GenerationEvaluationScenario[] = [
     hardExpectations: { requiredFocus: 'Full Body' },
   }),
   createScenario({
+    id: 'beginner-bodyweight-moderate-30-recent-catalog',
+    title:
+      'Beginner bodyweight moderate 30-minute session after recent catalog match',
+    description:
+      'A beginner asks for the same strong bodyweight catalog fit after recently completing that catalog workout.',
+    tags: ['beginner', 'bodyweight', 'moderate', 'catalog-cooldown', 'initial'],
+    mode: 'initial',
+    request: {
+      creationMode: 'auto',
+      timeMinutes: 30,
+      energy: 'moderate',
+      focus: 'Full Body',
+    },
+    context: buildContext({
+      experienceLevel: 'beginner',
+      equipment: ['Bodyweight'],
+      timeAvailableMinutes: 30,
+      energyToday: 'moderate',
+      primaryGoal: 'general fitness',
+      recentSessions: [
+        buildCatalogSession({
+          id: 'catalog-bodyweight-foundation-recent',
+          name: 'Bodyweight Foundation',
+          focus: 'Full Body Strength',
+          durationMinutes: 30,
+          completedAt: relativeCompletedAt({ daysAgo: 2, hour: 8 }),
+          perceivedEffort: 'moderate',
+          recipeId: 'catalog:bodyweight-foundation-30',
+          recipeSlug: 'bodyweight-foundation-30',
+        }),
+      ],
+    }),
+    hardExpectations: { requiredFocus: 'Full Body' },
+    softReviewHints: [
+      'Should preserve the catalog intent without exactly repeating the prior bodyweight workout',
+    ],
+  }),
+  createScenario({
     id: 'beginner-bodyweight-intense-20',
     title: 'Beginner bodyweight intense 20-minute session',
     description:
@@ -290,6 +361,45 @@ const scenarios: GenerationEvaluationScenario[] = [
       recentSessions: [],
     }),
     hardExpectations: { requiredFocus: 'Full Body' },
+  }),
+  createScenario({
+    id: 'beginner-dumbbells-moderate-30-recent-catalog',
+    title:
+      'Beginner dumbbells moderate 30-minute session after recent catalog match',
+    description:
+      'A beginner asks for a dumbbell full-body workout after recently completing the matching catalog workout.',
+    tags: ['beginner', 'dumbbells', 'moderate', 'catalog-cooldown', 'initial'],
+    mode: 'initial',
+    request: {
+      creationMode: 'auto',
+      timeMinutes: 30,
+      equipment: ['Dumbbells'],
+      energy: 'moderate',
+      focus: 'Full Body',
+    },
+    context: buildContext({
+      experienceLevel: 'beginner',
+      equipment: ['Dumbbells'],
+      timeAvailableMinutes: 30,
+      energyToday: 'moderate',
+      primaryGoal: 'general strength',
+      recentSessions: [
+        buildCatalogSession({
+          id: 'catalog-dumbbell-full-body-recent',
+          name: 'Dumbbell Full-Body Strength',
+          focus: 'Full Body Strength',
+          durationMinutes: 30,
+          completedAt: relativeCompletedAt({ daysAgo: 3, hour: 17 }),
+          perceivedEffort: 'moderate',
+          recipeId: 'catalog:dumbbell-full-body-strength-30',
+          recipeSlug: 'dumbbell-full-body-strength-30',
+        }),
+      ],
+    }),
+    hardExpectations: { requiredFocus: 'Full Body' },
+    softReviewHints: [
+      'Should not be a verbatim repeat of the recent dumbbell catalog workout',
+    ],
   }),
   createScenario({
     id: 'beginner-dumbbells-upper-30',
@@ -727,6 +837,49 @@ const scenarios: GenerationEvaluationScenario[] = [
       recentSessions: [],
     }),
     hardExpectations: { requiredFocus: 'Conditioning' },
+  }),
+  createScenario({
+    id: 'treadmill-recovery-cardio-30-recent-catalog',
+    title:
+      'Treadmill recovery cardio 30-minute session after recent catalog match',
+    description:
+      'A user asks for the treadmill recovery catalog fit after recently completing that exact catalog workout.',
+    tags: ['treadmill', 'recovery', 'cardio', 'catalog-cooldown', 'initial'],
+    mode: 'initial',
+    request: {
+      creationMode: 'auto',
+      timeMinutes: 30,
+      equipment: ['Treadmill'],
+      energy: 'easy',
+      focus: 'Conditioning',
+    },
+    context: buildContext({
+      experienceLevel: 'beginner',
+      equipment: ['Treadmill'],
+      timeAvailableMinutes: 30,
+      energyToday: 'easy',
+      primaryGoal: 'general health',
+      recentSessions: [
+        buildCatalogSession({
+          id: 'catalog-treadmill-recovery-recent',
+          name: 'Treadmill Recovery Cardio',
+          focus: 'Recovery Cardio',
+          durationMinutes: 30,
+          completedAt: relativeCompletedAt({ daysAgo: 1, hour: 10 }),
+          perceivedEffort: 'easy',
+          recipeId: 'catalog:treadmill-recovery-cardio-30',
+          recipeSlug: 'treadmill-recovery-cardio-30',
+        }),
+      ],
+    }),
+    hardExpectations: {
+      requiredFocus: 'Conditioning',
+      requiredExerciseTerms: ['treadmill'],
+      bannedExerciseTerms: ['bench press', 'deadlift', 'squat rack'],
+    },
+    softReviewHints: [
+      'Should stay recovery-cardio specific while varying the recent treadmill catalog version',
+    ],
   }),
   createScenario({
     id: 'shoulder-constraint-bodyweight',
@@ -2171,7 +2324,10 @@ const scenarios: GenerationEvaluationScenario[] = [
       focusBias: ['Lower Body'],
       recentSessions: [],
     }),
-    hardExpectations: { requiredFocus: 'Lower Body' },
+    hardExpectations: {
+      requiredFocus: 'Lower Body',
+      requiredExerciseTerms: ['squat'],
+    },
     softReviewHints: [
       'Should center on squat work and not drift into conditioning',
     ],
@@ -2199,7 +2355,10 @@ const scenarios: GenerationEvaluationScenario[] = [
       focusBias: ['Push'],
       recentSessions: [],
     }),
-    hardExpectations: { requiredFocus: 'Push' },
+    hardExpectations: {
+      requiredFocus: 'Push',
+      requiredExerciseTerms: ['barbell', 'bench'],
+    },
   }),
   createScenario({
     id: 'advanced-powerlifting-deadlift-day-85',
@@ -2224,9 +2383,64 @@ const scenarios: GenerationEvaluationScenario[] = [
       focusBias: ['Pull'],
       recentSessions: [],
     }),
-    hardExpectations: { requiredFocus: 'Pull' },
+    hardExpectations: {
+      requiredFocus: 'Pull',
+      requiredExerciseTerms: ['deadlift'],
+    },
     softReviewHints: [
       'Should feel posterior-chain heavy and specific to deadlift progress',
+    ],
+  }),
+  createScenario({
+    id: 'advanced-powerlifting-deadlift-day-85-recent-catalog',
+    title:
+      'Advanced powerlifting deadlift day 85-minute session after recent catalog match',
+    description:
+      'An advanced powerlifter asks for another deadlift-focused day after recently completing the matching catalog workout.',
+    tags: [
+      'advanced',
+      'powerlifting',
+      'pull',
+      'long',
+      'catalog-cooldown',
+      'initial',
+    ],
+    mode: 'initial',
+    request: {
+      creationMode: 'auto',
+      timeMinutes: 85,
+      equipment: ['Barbell', 'Bench', 'Pull-up Bar'],
+      energy: 'intense',
+      focus: 'Pull',
+    },
+    context: buildContext({
+      experienceLevel: 'advanced',
+      equipment: ['Barbell', 'Bench', 'Pull-up Bar'],
+      timeAvailableMinutes: 85,
+      energyToday: 'intense',
+      primaryGoal: 'powerlifting total',
+      preferredStyle: 'Powerlifting',
+      focusBias: ['Pull'],
+      recentSessions: [
+        buildCatalogSession({
+          id: 'catalog-powerlifting-deadlift-recent',
+          name: 'Powerlifting Deadlift Day',
+          focus: 'Pull',
+          durationMinutes: 85,
+          completedAt: relativeCompletedAt({ daysAgo: 4, hour: 16 }),
+          perceivedEffort: 'intense',
+          recipeId: 'catalog:powerlifting-deadlift-day-85',
+          recipeSlug: 'powerlifting-deadlift-day-85',
+        }),
+      ],
+    }),
+    hardExpectations: {
+      requiredFocus: 'Pull',
+      requiredExerciseTerms: ['deadlift'],
+      bannedExerciseTerms: ['dumbbell bench press'],
+    },
+    softReviewHints: [
+      'Should remain a real deadlift day while avoiding an exact repeat of the recent catalog recipe',
     ],
   }),
   createScenario({

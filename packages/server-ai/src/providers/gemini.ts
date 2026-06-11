@@ -44,7 +44,7 @@ export class GeminiProvider implements AiProvider {
   async planStageOne(
     request: GenerationRequest,
     _context: GenerationContext,
-    options: AiProviderOptions,
+    options: AiProviderOptions
   ): Promise<StageOnePlannerArtifact> {
     const { log } = this;
     const vertexEnv = getVertexEnvConfig();
@@ -52,9 +52,9 @@ export class GeminiProvider implements AiProvider {
       options.useVertexAi ??
       Boolean(
         !options.apiKey &&
-        vertexEnv.enabled &&
-        vertexEnv.projectId &&
-        vertexEnv.location,
+          vertexEnv.enabled &&
+          vertexEnv.projectId &&
+          vertexEnv.location
       );
 
     const clientConfig: GoogleGenAIOptions = {};
@@ -83,15 +83,15 @@ export class GeminiProvider implements AiProvider {
       buildStageOnePlannerRequestPayload(
         request,
         options.planningBrief,
-        options.candidatePool,
-      ),
+        options.candidatePool
+      )
     )}`;
 
     options.promptRecorder?.({
       provider: 'gemini',
       model,
       isRegeneration: Boolean(
-        request.previousResponseId || request.baselineWorkout,
+        request.previousResponseId || request.baselineWorkout
       ),
       phase: 'stage-one-planner',
       content: prompt,
@@ -129,9 +129,11 @@ export class GeminiProvider implements AiProvider {
           ? (error as { status?: number }).status
           : undefined;
       throw new AiGenerationError(
-        `Provider request failed${status ? ` (${status})` : ''}: ${originalMessage}`,
+        `Provider request failed${
+          status ? ` (${status})` : ''
+        }: ${originalMessage}`,
         'REQUEST_FAILED',
-        status,
+        status
       );
     }
   }
@@ -139,7 +141,7 @@ export class GeminiProvider implements AiProvider {
   async generate(
     request: GenerationRequest,
     context: GenerationContext,
-    options: AiProviderOptions,
+    options: AiProviderOptions
   ): Promise<GenerationResult> {
     const { log } = this;
     const vertexEnv = getVertexEnvConfig();
@@ -147,9 +149,9 @@ export class GeminiProvider implements AiProvider {
       options.useVertexAi ??
       Boolean(
         !options.apiKey &&
-        vertexEnv.enabled &&
-        vertexEnv.projectId &&
-        vertexEnv.location,
+          vertexEnv.enabled &&
+          vertexEnv.projectId &&
+          vertexEnv.location
       );
 
     const clientConfig: GoogleGenAIOptions = {};
@@ -176,7 +178,7 @@ export class GeminiProvider implements AiProvider {
     const model = options.model ?? DEFAULT_MODEL;
 
     const isRegeneration = Boolean(
-      request.previousResponseId || request.baselineWorkout,
+      request.previousResponseId || request.baselineWorkout
     );
 
     // Select schema version using selection algorithm
@@ -198,6 +200,7 @@ export class GeminiProvider implements AiProvider {
         options.candidatePool,
         options.planningBrief,
         options.stageOneArtifact,
+        options.catalogSeed
       );
     } else {
       prompt = `${SYSTEM_PROMPT}\n\n${JSON.stringify(
@@ -207,7 +210,8 @@ export class GeminiProvider implements AiProvider {
           options.planningBrief,
           options.candidatePool,
           options.stageOneArtifact,
-        ),
+          options.catalogSeed
+        )
       )}`;
     }
 
@@ -267,16 +271,18 @@ export class GeminiProvider implements AiProvider {
           ? (error as { status?: number }).status
           : undefined;
       throw new AiGenerationError(
-        `Provider request failed${status ? ` (${status})` : ''}: ${originalMessage}`,
+        `Provider request failed${
+          status ? ` (${status})` : ''
+        }: ${originalMessage}`,
         'REQUEST_FAILED',
-        status,
+        status
       );
     }
 
     if (!planPayload) {
       throw new AiGenerationError(
         'Provider returned an empty response',
-        'INVALID_RESPONSE',
+        'INVALID_RESPONSE'
       );
     }
 
@@ -294,7 +300,7 @@ export class GeminiProvider implements AiProvider {
       });
       throw new AiGenerationError(
         `LLM response transformation failed: ${transformResult.error.message}`,
-        'INVALID_RESPONSE',
+        'INVALID_RESPONSE'
       );
     }
 

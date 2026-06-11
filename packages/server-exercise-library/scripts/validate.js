@@ -39,7 +39,7 @@ function normalizeSideBaseName(value) {
     .trim();
 }
 
-const [canonical, manifest, readinessReport, enums, tags, equipment] =
+const [canonical, manifest, readinessReport, enums, tags, equipment, workoutCatalog] =
   await Promise.all([
     readJson(paths.generatedCanonical),
     readJson(paths.generatedManifest),
@@ -47,6 +47,7 @@ const [canonical, manifest, readinessReport, enums, tags, equipment] =
     readJson(paths.enumsVocab),
     readJson(paths.tagsVocab),
     readJson(paths.equipmentVocab),
+    readJson(paths.systemWorkoutCatalog),
   ]);
 
 const equipmentIds = new Set(equipment.items.map((entry) => entry.id));
@@ -72,12 +73,14 @@ const sourceIds = new Set();
 const duplicateGroups = new Map();
 const tokenOrderDuplicateGroups = new Map();
 const canonicalKeys = new Map();
+const canonicalById = new Map();
 
 for (const exercise of canonical) {
   if (ids.has(exercise.id)) {
     throw new Error(`Duplicate canonical id: ${exercise.id}`);
   }
   ids.add(exercise.id);
+  canonicalById.set(exercise.id, exercise);
 
   if (legacySourceIdPattern.test(exercise.id)) {
     throw new Error(
@@ -319,6 +322,181 @@ if ((readinessReport.countsByRiskTier?.low ?? 0) < 400) {
   );
 }
 
+const workoutRecipeIds = new Set();
+const workoutRecipeSlugs = new Set();
+const workoutEnergyLevels = new Set(['easy', 'moderate', 'intense']);
+
+if (workoutCatalog.schemaVersion !== 1) {
+  throw new Error(
+    `Unsupported workout catalog schema version: ${workoutCatalog.schemaVersion}`,
+  );
+}
+
+if (!workoutCatalog.catalogVersion) {
+  throw new Error('Workout catalog must declare catalogVersion');
+}
+
+if (
+  !Array.isArray(workoutCatalog.recipes) ||
+  workoutCatalog.recipes.length < 50
+) {
+  throw new Error('Workout catalog must contain at least 50 recipes');
+}
+
+for (const recipe of workoutCatalog.recipes) {
+  if (workoutRecipeIds.has(recipe.id)) {
+    throw new Error(`Duplicate workout recipe id: ${recipe.id}`);
+  }
+  workoutRecipeIds.add(recipe.id);
+
+  if (workoutRecipeSlugs.has(recipe.slug)) {
+    throw new Error(`Duplicate workout recipe slug: ${recipe.slug}`);
+  }
+  workoutRecipeSlugs.add(recipe.slug);
+
+  if (recipe.ownership !== 'system') {
+    throw new Error(`Workout recipe ${recipe.id} has unsupported ownership`);
+  }
+
+  if (recipe.status !== 'active') {
+    throw new Error(`Workout recipe ${recipe.id} is not active`);
+  }
+
+  if (!experienceLevels.has(recipe.minExperienceLevel)) {
+    throw new Error(
+      `Workout recipe ${recipe.id} has unknown experience level ${recipe.minExperienceLevel}`,
+    );
+  }
+
+  if (recipe.durationRange.min > recipe.durationMinutes) {
+    throw new Error(
+      `Workout recipe ${recipe.id} duration minimum exceeds target`,
+    );
+  }
+
+  if (recipe.durationRange.max < recipe.durationMinutes) {
+    throw new Error(
+      `Workout recipe ${recipe.id} duration maximum is below target`,
+    );
+  }
+
+  if (recipe.qualityScore < 0 || recipe.qualityScore > 100) {
+    throw new Error(`Workout recipe ${recipe.id} qualityScore is out of range`);
+  }
+
+  for (const equipmentId of recipe.equipment) {
+    if (!equipmentIds.has(equipmentId)) {
+      throw new Error(
+        `Workout recipe ${recipe.id} has unknown equipment ${equipmentId}`,
+      );
+    }
+  }
+
+  for (const energy of recipe.energyLevels) {
+    if (!workoutEnergyLevels.has(energy)) {
+      throw new Error(
+        `Workout recipe ${recipe.id} has unknown energy level ${energy}`,
+      );
+    }
+  }
+
+  const recipeEquipmentIds = new Set(recipe.equipment);
+  const blockDuration = recipe.blocks.reduce(
+    (total, block) => total + block.durationMinutes,
+    0,
+  );
+  if (blockDuration !== recipe.durationMinutes) {
+    throw new Error(
+      `Workout recipe ${recipe.id} block duration ${blockDuration} does not match target ${recipe.durationMinutes}`,
+    );
+  }
+
+  const slotIds = new Set();
+  for (const block of recipe.blocks) {
+    if (!block.slots.length) {
+      throw new Error(`Workout recipe ${recipe.id} block ${block.id} is empty`);
+    }
+
+    for (const slot of block.slots) {
+      const slotKey = `${block.id}:${slot.id}`;
+      if (slotIds.has(slotKey)) {
+        throw new Error(
+          `Workout recipe ${recipe.id} has duplicate slot ${slotKey}`,
+        );
+      }
+      slotIds.add(slotKey);
+
+      if (!roles.has(slot.role)) {
+        throw new Error(
+          `Workout recipe ${recipe.id} slot ${slot.id} has unknown role ${slot.role}`,
+        );
+      }
+
+      const exercise = canonicalById.get(slot.exerciseId);
+      if (!exercise) {
+        throw new Error(
+          `Workout recipe ${recipe.id} references unknown exercise ${slot.exerciseId}`,
+        );
+      }
+
+      if (exercise.metadataCompleteness !== 'planner-ready') {
+        throw new Error(
+          `Workout recipe ${recipe.id} references non planner-ready exercise ${slot.exerciseId}`,
+        );
+      }
+
+      for (const requiredEquipment of exercise.requiredEquipment) {
+        if (
+          requiredEquipment !== 'bodyweight' &&
+          !recipeEquipmentIds.has(requiredEquipment)
+        ) {
+          throw new Error(
+            `Workout recipe ${recipe.id} slot ${slot.id} requires ${requiredEquipment} but recipe equipment omits it`,
+          );
+        }
+      }
+
+      if (!exercise.allowedRoles.includes(slot.role)) {
+        throw new Error(
+          `Workout recipe ${recipe.id} uses ${slot.exerciseId} as unsupported role ${slot.role}`,
+        );
+      }
+
+      for (const substitutionId of slot.substitutionExerciseIds) {
+        const substitution = canonicalById.get(substitutionId);
+        if (!substitution) {
+          throw new Error(
+            `Workout recipe ${recipe.id} references unknown substitution ${substitutionId}`,
+          );
+        }
+
+        if (substitution.metadataCompleteness !== 'planner-ready') {
+          throw new Error(
+            `Workout recipe ${recipe.id} references non planner-ready substitution ${substitutionId}`,
+          );
+        }
+
+        if (!substitution.allowedRoles.includes(slot.role)) {
+          throw new Error(
+            `Workout recipe ${recipe.id} uses substitution ${substitutionId} as unsupported role ${slot.role} for slot ${slot.id}`,
+          );
+        }
+
+        for (const requiredEquipment of substitution.requiredEquipment) {
+          if (
+            requiredEquipment !== 'bodyweight' &&
+            !recipeEquipmentIds.has(requiredEquipment)
+          ) {
+            throw new Error(
+              `Workout recipe ${recipe.id} substitution ${substitutionId} requires ${requiredEquipment} but recipe equipment omits it`,
+            );
+          }
+        }
+      }
+    }
+  }
+}
+
 const database = new Database(paths.publicSqlite, {
   readonly: true,
   fileMustExist: true,
@@ -514,8 +692,98 @@ for (const smokeQuery of smokeQueries) {
   }
 }
 
+const workoutRecipeCount = database
+  .prepare('SELECT COUNT(*) as count FROM workout_catalog_recipes')
+  .get();
+if ((workoutRecipeCount?.count ?? 0) !== workoutCatalog.recipes.length) {
+  throw new Error('Workout catalog recipe count mismatch in SQLite');
+}
+
+const workoutSlotCount = database
+  .prepare('SELECT COUNT(*) as count FROM workout_catalog_slots')
+  .get();
+if ((workoutSlotCount?.count ?? 0) < 8) {
+  throw new Error('Expected at least 8 workout catalog slots in SQLite');
+}
+
+const workoutSubstitutionCount = database
+  .prepare('SELECT COUNT(*) as count FROM workout_catalog_slot_substitutions')
+  .get();
+if ((workoutSubstitutionCount?.count ?? 0) < 5) {
+  throw new Error(
+    'Expected at least 5 workout catalog substitutions in SQLite',
+  );
+}
+
+const invalidWorkoutExerciseRefs = database
+  .prepare(
+    `SELECT COUNT(*) as count
+      FROM workout_catalog_slots ws
+      LEFT JOIN exercises e ON e.id = ws.exercise_id
+      WHERE e.id IS NULL OR e.metadata_completeness != 'planner-ready'`,
+  )
+  .get();
+if ((invalidWorkoutExerciseRefs?.count ?? 0) !== 0) {
+  throw new Error('Workout catalog slots must reference planner-ready exercises');
+}
+
+const representativeWorkoutQueries = [
+  {
+    name: 'bodyweight 30 minute catalog option',
+    sql: `SELECT COUNT(*) as count
+      FROM workout_catalog_recipes wr
+      WHERE wr.duration_min_minutes <= 30
+        AND wr.duration_max_minutes >= 30
+        AND EXISTS (
+          SELECT 1 FROM workout_catalog_recipe_equipment wre
+          WHERE wre.recipe_id = wr.id AND wre.equipment_id = 'bodyweight'
+        )`,
+  },
+  {
+    name: 'dumbbell upper catalog option',
+    sql: `SELECT COUNT(*) as count
+      FROM workout_catalog_recipes wr
+      WHERE EXISTS (
+          SELECT 1 FROM workout_catalog_recipe_tags wrt
+          WHERE wrt.recipe_id = wr.id
+            AND wrt.tag_type = 'focus'
+            AND wrt.tag = 'upper_body'
+        )
+        AND EXISTS (
+          SELECT 1 FROM workout_catalog_recipe_equipment wre
+          WHERE wre.recipe_id = wr.id AND wre.equipment_id = 'dumbbell'
+        )`,
+  },
+  {
+    name: 'gym conditioning catalog option',
+    sql: `SELECT COUNT(*) as count
+      FROM workout_catalog_recipes wr
+      WHERE EXISTS (
+          SELECT 1 FROM workout_catalog_recipe_tags wrt
+          WHERE wrt.recipe_id = wr.id
+            AND wrt.tag_type = 'environment'
+            AND wrt.tag = 'gym'
+        )
+        AND EXISTS (
+          SELECT 1 FROM workout_catalog_recipe_tags wrt
+          WHERE wrt.recipe_id = wr.id
+            AND wrt.tag_type = 'style'
+            AND wrt.tag = 'conditioning'
+        )`,
+  },
+];
+
+for (const representativeQuery of representativeWorkoutQueries) {
+  const row = database.prepare(representativeQuery.sql).get();
+  if ((row?.count ?? 0) < 1) {
+    throw new Error(
+      `Workout catalog smoke query failed: ${representativeQuery.name}`,
+    );
+  }
+}
+
 database.close();
 
 console.log(
-  `Validated ${canonical.length} exercises (${manifest.plannerReadyCount} planner-ready)`,
+  `Validated ${canonical.length} exercises (${manifest.plannerReadyCount} planner-ready) and ${workoutCatalog.recipes.length} workout recipes`,
 );

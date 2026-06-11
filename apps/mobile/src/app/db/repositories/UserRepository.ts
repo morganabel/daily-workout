@@ -19,6 +19,7 @@ const DEFAULT_PREFERENCES: UserPreferences = {
   injuries: [],
   focusBias: [],
   avoid: [],
+  aiFeaturesEnabled: true,
 };
 
 const ONBOARDING_GOAL_LABELS: Record<OnboardingGoal, string> = {

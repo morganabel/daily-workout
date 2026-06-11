@@ -3,11 +3,31 @@ import { z } from 'zod';
 export const workoutEnergySchema = z.enum(['easy', 'moderate', 'intense']);
 export type WorkoutEnergy = z.infer<typeof workoutEnergySchema>;
 
-export const workoutSourceSchema = z.enum(['ai', 'manual']);
+export const workoutSourceSchema = z.enum(['ai', 'manual', 'library']);
 export type WorkoutSource = z.infer<typeof workoutSourceSchema>;
+
+export const workoutCreationModeSchema = z.enum(['auto', 'library', 'ai']);
+export type WorkoutCreationMode = z.infer<typeof workoutCreationModeSchema>;
 
 export const aiProviderNameSchema = z.enum(['openai', 'gemini']);
 export type AiProviderName = z.infer<typeof aiProviderNameSchema>;
+
+export const catalogMatchDecisionSchema = z.enum(['direct', 'adapt', 'none']);
+export type CatalogMatchDecision = z.infer<typeof catalogMatchDecisionSchema>;
+
+export const workoutCatalogProvenanceSchema = z
+  .object({
+    recipeId: z.string(),
+    recipeSlug: z.string(),
+    ownership: z.string(),
+    catalogVersion: z.string(),
+    matchDecision: catalogMatchDecisionSchema,
+    returnedDirect: z.boolean(),
+  })
+  .strict();
+export type WorkoutCatalogProvenance = z.infer<
+  typeof workoutCatalogProvenanceSchema
+>;
 
 const workoutExerciseBaseSchema = z.object({
   name: z.string(),
@@ -61,6 +81,7 @@ export const todayPlanSchema = todayPlanBaseSchema.extend({
     })
     .strict()
     .optional(),
+  catalogProvenance: workoutCatalogProvenanceSchema.optional(),
 });
 export type TodayPlan = z.infer<typeof todayPlanSchema>;
 
@@ -150,6 +171,7 @@ export const workoutSessionSummarySchema = z.object({
   durationMinutes: z.number().int().positive(),
   focus: z.string(),
   source: workoutSourceSchema.optional(),
+  catalogProvenance: workoutCatalogProvenanceSchema.optional(),
   // When set, the session is archived/hidden from recency contexts
   archivedAt: z.string().optional(),
   isFavorite: z.boolean().optional(),
@@ -1681,13 +1703,7 @@ export const ADAPTIVE_PPL_HYPERTROPHY_BLOCKS = [
     defaultDurationMinutes: 15,
     targetContributions: [{ targetId: 'recovery', count: 1 }],
     compatibleAddOnBlockIds: [],
-    conflictsWithBlockIds: [
-      'push',
-      'pull',
-      'legs',
-      'upper-pump',
-      'lower-pump',
-    ],
+    conflictsWithBlockIds: ['push', 'pull', 'legs', 'upper-pump', 'lower-pump'],
   },
 ] satisfies AdaptiveTrainingBlock[];
 
@@ -2748,7 +2764,8 @@ export const TRAINING_TEMPLATE_DEFINITIONS: Record<
     name: 'Hypertrophy starter',
     summary:
       'Two approachable muscle-building days with light cardio and recovery.',
-    weeklyRhythm: '2 hypertrophy days, 1 easy cardio day, mobility and recovery',
+    weeklyRhythm:
+      '2 hypertrophy days, 1 easy cardio day, mobility and recovery',
     durationAssumptions: { targetMinutes: 35, minimumUsefulMinutes: 20 },
     slotSequence: HYPERTROPHY_STARTER_SLOT_SEQUENCE,
     adaptivePlanTemplate: {
@@ -2811,8 +2828,7 @@ export const TRAINING_TEMPLATE_DEFINITIONS: Record<
       blocks: ADAPTIVE_PPL_HYPERTROPHY_BLOCKS,
       targetRanges: ADAPTIVE_PPL_HYPERTROPHY_TARGET_RANGES,
       typicalWeekPreferences: ADAPTIVE_PPL_HYPERTROPHY_TYPICAL_WEEK,
-      recommendationSettings:
-        ADAPTIVE_PPL_HYPERTROPHY_RECOMMENDATION_SETTINGS,
+      recommendationSettings: ADAPTIVE_PPL_HYPERTROPHY_RECOMMENDATION_SETTINGS,
     },
   },
   'ppl-conditioning': {
@@ -3353,6 +3369,8 @@ export const generationRequestSchema = z
       .optional(),
     // Optional explicit intent when generating from an adaptive training plan recommendation.
     adaptivePlanIntent: adaptivePlanIntentSchema.optional(),
+    // Explicit generation route. Defaults are resolved by callers, not inferred from provider state.
+    creationMode: workoutCreationModeSchema.optional(),
     // Optional provider selection and model override
     provider: aiProviderSchema.optional(),
   })
@@ -3392,6 +3410,8 @@ export const userPreferencesSchema = z.object({
   focusBias: z.array(z.string()).default([]),
   // Exercises or movements to avoid
   avoid: z.array(z.string()).default([]),
+  // Whether generation may use AI-backed planning. Disabled users request library workouts explicitly.
+  aiFeaturesEnabled: z.boolean().default(true),
   // First-run onboarding answers and setup state for template-based planning.
   onboardingAnswers: onboardingAnswersSchema.optional(),
   onboardingSetupStatus: trainingBlueprintSetupStatusSchema.optional(),
@@ -3401,6 +3421,11 @@ export const userPreferencesSchema = z.object({
   adaptiveTrainingPlan: adaptiveTrainingPlanSchema.optional(),
 });
 export type UserPreferences = z.infer<typeof userPreferencesSchema>;
+
+export const resolveWorkoutCreationMode = (
+  preferences: Pick<UserPreferences, 'aiFeaturesEnabled'>
+): WorkoutCreationMode =>
+  preferences.aiFeaturesEnabled === false ? 'library' : 'auto';
 
 /**
  * Predefined equipment options for the profile selector

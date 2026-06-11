@@ -8,7 +8,10 @@ import {
   createGenerationContextFixture,
   createTodayPlanFixture,
 } from '@workout-agent/shared/testing';
-import type { ExerciseLibrary } from '@workout-agent-ce/server-exercise-library';
+import type {
+  ExerciseLibrary,
+  WorkoutCatalogMatch,
+} from '@workout-agent-ce/server-exercise-library';
 
 import { createGenerateHandler } from './generate';
 import type {
@@ -320,6 +323,14 @@ function createExerciseLibrary(): ExerciseLibrary {
         },
       ],
     })),
+    matchWorkoutCatalog: jest.fn(() => ({
+      decision: 'none',
+      diagnostics: {
+        blockerCodes: ['constraint_conflict'],
+        candidateCount: 0,
+        reasons: [],
+      },
+    })),
     getLibraryMetadata: jest.fn(() => ({
       libraryVersion: 'test-library',
       sourceVersion: 'test-source',
@@ -328,6 +339,57 @@ function createExerciseLibrary(): ExerciseLibrary {
       plannerReadyCount: 1,
     })),
     close: jest.fn(),
+  };
+}
+
+function createCatalogMatch(
+  decision: WorkoutCatalogMatch['decision'] = 'direct',
+  overrides: Partial<WorkoutCatalogMatch> = {}
+): WorkoutCatalogMatch {
+  const plan = createTodayPlanFixture({
+    id: 'library:bodyweight-foundation-30',
+    source: 'library',
+    focus: 'Full Body Strength',
+    equipment: ['bodyweight'],
+    generationProvenance: undefined,
+  });
+
+  return {
+    decision,
+    recipe: {
+      id: 'catalog:bodyweight-foundation-30',
+      slug: 'bodyweight-foundation-30',
+      ownership: 'system',
+      version: 1,
+      status: 'active',
+      title: 'Bodyweight Foundation',
+      summary: plan.summary,
+      focus: plan.focus,
+      targetDurationMinutes: plan.durationMinutes,
+      durationRange: { min: 25, max: 35 },
+      minExperienceLevel: 'beginner',
+      qualityScore: 92,
+      catalogVersion: 'test-catalog',
+      source: 'system',
+      equipment: ['bodyweight'],
+      focusTags: ['full_body'],
+      styleTags: ['strength'],
+      environmentTags: ['home'],
+      energyLevels: ['moderate'],
+      constraints: {},
+      blocks: [],
+      ...overrides.recipe,
+    },
+    plan: overrides.plan ?? plan,
+    score: overrides.score ?? (decision === 'direct' ? 94 : 72),
+    diagnostics: {
+      blockerCodes: [],
+      candidateCount: 1,
+      bestScore: decision === 'direct' ? 94 : 72,
+      selectedRecipeId: 'catalog:bodyweight-foundation-30',
+      reasons: ['test'],
+      ...overrides.diagnostics,
+    },
   };
 }
 
@@ -536,6 +598,423 @@ describe('createGenerateHandler', () => {
     expect(router.generate).not.toHaveBeenCalled();
   });
 
+  it('returns library mode catalog workouts without provider configuration, quota, or metering', async () => {
+    const policy = createPolicyMock(false);
+    const metering = createMeteringMock();
+    const exerciseLibrary = createExerciseLibrary();
+    (exerciseLibrary.matchWorkoutCatalog as jest.Mock).mockReturnValue(
+      createCatalogMatch('direct')
+    );
+    const { handler, router, store } = createHandler({
+      exerciseLibrary,
+      policy,
+      metering,
+      config: {
+        edition: 'HOSTED',
+        defaultProvider: 'openai',
+        defaultApiKeys: {},
+      },
+    });
+
+    const response = await handler(
+      createRequest({
+        creationMode: 'library',
+        timeMinutes: 30,
+        focus: 'Full Body',
+        context: baseContext,
+      })
+    );
+    const payload = (await response.json()) as TodayPlan;
+
+    expect(response.status).toBe(200);
+    expect(payload.source).toBe('library');
+    expect(exerciseLibrary.matchWorkoutCatalog).toHaveBeenCalledTimes(1);
+    expect(policy.canGenerate).not.toHaveBeenCalled();
+    expect(router.generate).not.toHaveBeenCalled();
+    expect(metering.recordUsage).not.toHaveBeenCalled();
+    expect(store.persistPlan).toHaveBeenCalledWith(
+      'device-123',
+      expect.objectContaining({ source: 'library' }),
+      expect.objectContaining({ schemaVersion: 'catalog:test-catalog' })
+    );
+  });
+
+  it('returns no-match for library mode when the catalog cannot satisfy the request', async () => {
+    const policy = createPolicyMock();
+    const exerciseLibrary = createExerciseLibrary();
+    const { handler, router } = createHandler({
+      exerciseLibrary,
+      policy,
+      config: {
+        edition: 'HOSTED',
+        defaultProvider: 'openai',
+        defaultApiKeys: {},
+      },
+    });
+
+    const response = await handler(
+      createRequest({
+        creationMode: 'library',
+        timeMinutes: 30,
+        focus: 'Parachute intervals',
+        context: baseContext,
+      })
+    );
+    const payload = (await response.json()) as { code: string };
+
+    expect(response.status).toBe(404);
+    expect(payload.code).toBe('WORKOUT_CATALOG_NO_MATCH');
+    expect(policy.canGenerate).not.toHaveBeenCalled();
+    expect(router.generate).not.toHaveBeenCalled();
+  });
+
+  it('returns service unavailable for library mode when the catalog errors', async () => {
+    const policy = createPolicyMock();
+    const exerciseLibrary = createExerciseLibrary();
+    (exerciseLibrary.matchWorkoutCatalog as jest.Mock).mockImplementation(
+      () => {
+        throw new Error('sqlite locked');
+      }
+    );
+    const { handler, router } = createHandler({
+      exerciseLibrary,
+      policy,
+      config: {
+        edition: 'HOSTED',
+        defaultProvider: 'openai',
+        defaultApiKeys: {},
+      },
+    });
+
+    const response = await handler(
+      createRequest({
+        creationMode: 'library',
+        timeMinutes: 30,
+        focus: 'Full Body',
+        context: baseContext,
+      })
+    );
+    const payload = (await response.json()) as { code: string };
+
+    expect(response.status).toBe(503);
+    expect(payload.code).toBe('WORKOUT_CATALOG_UNAVAILABLE');
+    expect(policy.canGenerate).not.toHaveBeenCalled();
+    expect(router.generate).not.toHaveBeenCalled();
+  });
+
+  it('returns auto-mode direct catalog matches before invoking AI', async () => {
+    const exerciseLibrary = createExerciseLibrary();
+    (exerciseLibrary.matchWorkoutCatalog as jest.Mock).mockReturnValue(
+      createCatalogMatch('direct')
+    );
+    const { handler, router } = createHandler({ exerciseLibrary });
+
+    const response = await handler(
+      createRequest({
+        creationMode: 'auto',
+        timeMinutes: 30,
+        focus: 'Full Body',
+        context: baseContext,
+      })
+    );
+    const payload = (await response.json()) as TodayPlan;
+
+    expect(response.status).toBe(200);
+    expect(payload.source).toBe('library');
+    expect(payload.catalogProvenance).toEqual({
+      recipeId: 'catalog:bodyweight-foundation-30',
+      recipeSlug: 'bodyweight-foundation-30',
+      ownership: 'system',
+      catalogVersion: 'test-catalog',
+      matchDecision: 'direct',
+      returnedDirect: true,
+    });
+    expect(router.generate).not.toHaveBeenCalled();
+  });
+
+  it('routes cooled-down auto-mode direct catalog matches to AI with a bounded catalog seed', async () => {
+    const exerciseLibrary = createExerciseLibrary();
+    (exerciseLibrary.matchWorkoutCatalog as jest.Mock).mockReturnValue(
+      createCatalogMatch('direct', {
+        diagnostics: {
+          blockerCodes: ['catalog_recipe_cooldown'],
+          reasons: ['recipeCooldownPenalty=20'],
+        },
+      })
+    );
+    const router = createRouterMock(
+      createTodayPlanFixture({ id: 'cooled-down-ai-plan', source: 'ai' })
+    );
+    const { handler } = createHandler({ exerciseLibrary, router });
+
+    const response = await handler(
+      createPlanningRequest({
+        creationMode: 'auto',
+        focus: 'Full Body',
+      })
+    );
+    const payload = (await response.json()) as TodayPlan;
+
+    expect(response.status).toBe(200);
+    expect(payload.source).toBe('ai');
+    expect(payload.catalogProvenance).toEqual({
+      recipeId: 'catalog:bodyweight-foundation-30',
+      recipeSlug: 'bodyweight-foundation-30',
+      ownership: 'system',
+      catalogVersion: 'test-catalog',
+      matchDecision: 'direct',
+      returnedDirect: false,
+    });
+    expect(router.generate).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      expect.objectContaining({
+        catalogMatch: expect.objectContaining({ decision: 'direct' }),
+        catalogSeed: expect.objectContaining({
+          focus: 'Full Body Strength',
+          source: 'library',
+          instructions: expect.stringContaining('training intent'),
+        }),
+        planningBrief: expect.objectContaining({
+          fallbackReasons: expect.arrayContaining(['catalog_recipe_cooldown']),
+        }),
+      })
+    );
+
+    const catalogSeed = router.generate.mock.calls[0][2].catalogSeed;
+    expect(JSON.stringify(catalogSeed)).not.toContain(
+      'catalog:bodyweight-foundation-30'
+    );
+    expect(JSON.stringify(catalogSeed)).not.toContain('test-catalog');
+    expect(JSON.stringify(catalogSeed)).not.toContain('recentSessions');
+  });
+
+  it('returns cooled-down auto-mode catalog matches directly when no provider can run', async () => {
+    const exerciseLibrary = createExerciseLibrary();
+    (exerciseLibrary.matchWorkoutCatalog as jest.Mock).mockReturnValue(
+      createCatalogMatch('direct', {
+        diagnostics: {
+          blockerCodes: ['catalog_recipe_cooldown'],
+          reasons: ['recipeCooldownPenalty=20'],
+        },
+      })
+    );
+    const { handler, router } = createHandler({
+      exerciseLibrary,
+      config: {
+        edition: 'CE',
+        defaultProvider: 'openai',
+        defaultApiKeys: {},
+      },
+    });
+
+    const response = await handler(
+      createRequest({
+        creationMode: 'auto',
+        timeMinutes: 30,
+        focus: 'Full Body',
+        context: baseContext,
+      })
+    );
+    const payload = (await response.json()) as TodayPlan;
+
+    expect(response.status).toBe(200);
+    expect(payload.source).toBe('library');
+    expect(payload.catalogProvenance?.returnedDirect).toBe(true);
+    expect(router.generate).not.toHaveBeenCalled();
+  });
+
+  it('keeps library mode on catalog even when the recipe is cooled down', async () => {
+    const exerciseLibrary = createExerciseLibrary();
+    (exerciseLibrary.matchWorkoutCatalog as jest.Mock).mockReturnValue(
+      createCatalogMatch('adapt', {
+        diagnostics: {
+          blockerCodes: ['catalog_recipe_cooldown'],
+          reasons: ['recipeCooldownPenalty=20'],
+        },
+      })
+    );
+    const { handler, router } = createHandler({
+      exerciseLibrary,
+      config: {
+        edition: 'HOSTED',
+        defaultProvider: 'openai',
+        defaultApiKeys: {},
+      },
+    });
+
+    const response = await handler(
+      createRequest({
+        creationMode: 'library',
+        timeMinutes: 30,
+        focus: 'Full Body',
+        context: baseContext,
+      })
+    );
+    const payload = (await response.json()) as TodayPlan;
+
+    expect(response.status).toBe(200);
+    expect(payload.source).toBe('library');
+    expect(payload.catalogProvenance?.matchDecision).toBe('adapt');
+    expect(payload.catalogProvenance?.returnedDirect).toBe(true);
+    expect(router.generate).not.toHaveBeenCalled();
+  });
+
+  it('passes recent catalog recipe ids from previous plan and recent sessions to catalog matching', async () => {
+    const exerciseLibrary = createExerciseLibrary();
+    (exerciseLibrary.matchWorkoutCatalog as jest.Mock).mockReturnValue(
+      createCatalogMatch('direct')
+    );
+    const previousPlan = createTodayPlanFixture({
+      id: 'library:previous-bodyweight-30',
+      source: 'library',
+      catalogProvenance: {
+        recipeId: 'catalog:previous-bodyweight-30',
+        recipeSlug: 'previous-bodyweight-30',
+        ownership: 'system',
+        catalogVersion: 'test-catalog',
+        matchDecision: 'direct',
+        returnedDirect: true,
+      },
+    });
+    const store = createStoreMock(previousPlan);
+    const context: GenerationContext = {
+      ...baseContext,
+      recentSessions: [
+        {
+          id: 'session-1',
+          name: 'Bodyweight Foundation',
+          focus: 'Full Body Strength',
+          durationMinutes: 30,
+          completedAt: '2026-06-08T12:00:00.000Z',
+          source: 'library',
+          catalogProvenance: {
+            recipeId: 'catalog:bodyweight-foundation-30',
+            recipeSlug: 'bodyweight-foundation-30',
+            ownership: 'system',
+            catalogVersion: 'test-catalog',
+            matchDecision: 'direct',
+            returnedDirect: true,
+          },
+        },
+      ],
+    };
+    const { handler } = createHandler({ exerciseLibrary, store });
+
+    const response = await handler(
+      createPlanningRequest({
+        creationMode: 'auto',
+        planningDateLocal: '2026-06-10',
+        context,
+      })
+    );
+
+    expect(response.status).toBe(200);
+    expect(exerciseLibrary.matchWorkoutCatalog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        recentCatalogRecipeIds: expect.arrayContaining([
+          'catalog:previous-bodyweight-30',
+          'catalog:bodyweight-foundation-30',
+        ]),
+      })
+    );
+  });
+
+  it('passes auto-mode adapt catalog matches into the AI path', async () => {
+    const exerciseLibrary = createExerciseLibrary();
+    (exerciseLibrary.matchWorkoutCatalog as jest.Mock).mockReturnValue(
+      createCatalogMatch('adapt')
+    );
+    const { handler, router } = createHandler({ exerciseLibrary });
+
+    const response = await handler(
+      createPlanningRequest({
+        creationMode: 'auto',
+        focus: 'Mobility reset',
+      })
+    );
+
+    expect(response.status).toBe(200);
+    expect(router.generate).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      expect.objectContaining({
+        catalogMatch: expect.objectContaining({
+          decision: 'adapt',
+          recipe: expect.objectContaining({
+            id: 'catalog:bodyweight-foundation-30',
+          }),
+        }),
+        planningBrief: expect.objectContaining({
+          fallbackReasons: expect.arrayContaining(['catalog_adapt_match']),
+        }),
+        catalogSeed: expect.objectContaining({
+          focus: 'Full Body Strength',
+          source: 'library',
+          instructions: expect.stringContaining('training intent'),
+        }),
+      })
+    );
+    const catalogSeed = router.generate.mock.calls[0][2].catalogSeed;
+    expect(JSON.stringify(catalogSeed)).not.toContain(
+      'catalog:bodyweight-foundation-30'
+    );
+    expect(JSON.stringify(catalogSeed)).not.toContain('test-catalog');
+    expect(JSON.stringify(catalogSeed)).not.toContain('recentSessions');
+  });
+
+  it('does not attach catalog provenance when the catalog decision is none', async () => {
+    const exerciseLibrary = createExerciseLibrary();
+    (exerciseLibrary.matchWorkoutCatalog as jest.Mock).mockReturnValue({
+      ...createCatalogMatch('none', { score: 40 }),
+      diagnostics: {
+        blockerCodes: ['weak_match'],
+        candidateCount: 1,
+        bestScore: 40,
+        selectedRecipeId: 'catalog:bodyweight-foundation-30',
+        reasons: ['best catalog score below threshold'],
+      },
+    });
+    const router = createRouterMock(
+      createTodayPlanFixture({ id: 'ai-plan', source: 'ai' })
+    );
+    const { handler } = createHandler({ exerciseLibrary, router });
+
+    const response = await handler(
+      createPlanningRequest({
+        creationMode: 'auto',
+        focus: 'Unusual unsupported focus',
+      })
+    );
+    const payload = (await response.json()) as TodayPlan;
+
+    expect(response.status).toBe(200);
+    expect(payload.source).toBe('ai');
+    expect(payload.catalogProvenance).toBeUndefined();
+    expect(router.generate).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      expect.objectContaining({
+        catalogMatch: undefined,
+      })
+    );
+  });
+
+  it('skips catalog matching for explicit AI mode', async () => {
+    const exerciseLibrary = createExerciseLibrary();
+    const { handler, router } = createHandler({ exerciseLibrary });
+
+    const response = await handler(
+      createPlanningRequest({
+        creationMode: 'ai',
+      })
+    );
+
+    expect(response.status).toBe(200);
+    expect(exerciseLibrary.matchWorkoutCatalog).not.toHaveBeenCalled();
+    expect(router.generate).toHaveBeenCalledTimes(1);
+  });
+
   it('returns an error response on provider failure and sanitizes logged errors', async () => {
     const router = createRouterMock();
     router.generate.mockRejectedValueOnce(
@@ -693,16 +1172,15 @@ describe('createGenerateHandler', () => {
     );
 
     const loggedWarnings = warnSpy.mock.calls.map((call) => String(call[0]));
-    expect(loggedWarnings.join(' ')).toContain(
-      'exercise candidate pool unavailable'
-    );
+    expect(loggedWarnings.join(' ')).toContain('workout catalog unavailable');
     expect(loggedWarnings.join(' ')).toContain('sqlite bindings unavailable');
   });
 
-  it('does not lazy-load the exercise library when provider configuration is missing', async () => {
+  it('tries the catalog before returning a provider configuration error', async () => {
+    const exerciseLibrary = createExerciseLibrary();
     const loadExerciseLibrary = jest
       .fn<Promise<ExerciseLibrary | undefined>, []>()
-      .mockResolvedValue(createExerciseLibrary());
+      .mockResolvedValue(exerciseLibrary);
     const { handler, router } = createHandler({
       loadExerciseLibrary,
       config: { defaultApiKeys: {} },
@@ -718,7 +1196,8 @@ describe('createGenerateHandler', () => {
 
     expect(response.status).toBe(503);
     expect(router.generate).not.toHaveBeenCalled();
-    expect(loadExerciseLibrary).not.toHaveBeenCalled();
+    expect(loadExerciseLibrary).toHaveBeenCalledTimes(1);
+    expect(exerciseLibrary.matchWorkoutCatalog).toHaveBeenCalledTimes(1);
   });
 
   it('records fallback reasons internally when planner-safe candidates are unavailable', async () => {

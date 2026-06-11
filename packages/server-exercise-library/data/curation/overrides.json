@@ -159,6 +159,10 @@
       "Dumbbell Seated Calf Raise"
     ]
   },
+  "ex:00534": {
+    "name": "Face Pull with Bands",
+    "promotionSource": "override"
+  },
   "ex:00546": {
     "_drop": true
   },
@@ -1356,6 +1360,7 @@
     ]
   },
   "fedb:bench-press-with-bands": {
+    "name": "Bench Press with Bands",
     "aliases": [
       "Band Bench Press"
     ]
@@ -1781,9 +1786,14 @@
     ]
   },
   "fedb:shoulder-press-with-bands": {
+    "name": "Shoulder Press with Bands",
     "aliases": [
       "Band Shoulder Press"
     ]
+  },
+  "fedb:lateral-raise-with-bands": {
+    "name": "Lateral Raise with Bands",
+    "promotionSource": "override"
   },
   "fedb:side-neck-stretch": {
     "aliases": [

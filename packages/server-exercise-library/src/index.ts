@@ -18,4 +18,13 @@ export type {
   ExperienceLevel,
   LoadLevel,
   MetadataCompleteness,
+  WorkoutCatalogBlock,
+  WorkoutCatalogDecision,
+  WorkoutCatalogDiagnostics,
+  WorkoutCatalogEnergy,
+  WorkoutCatalogMaterializedPlan,
+  WorkoutCatalogMatch,
+  WorkoutCatalogQuery,
+  WorkoutCatalogRecipe,
+  WorkoutCatalogSlot,
 } from './lib/types.js';

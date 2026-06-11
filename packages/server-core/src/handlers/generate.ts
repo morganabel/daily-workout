@@ -7,6 +7,8 @@ import type {
   StageOnePlannerArtifact,
   UsagePolicy,
   MeteringSink,
+  PlanningBrief,
+  CatalogSeed,
 } from '../types';
 import { createErrorResponse } from '../utils/errors';
 import {
@@ -22,8 +24,15 @@ import {
   generationRequestPayloadSchema,
   todayPlanSchema,
   type TodayPlan,
+  type WorkoutCatalogProvenance,
+  type WorkoutCreationMode,
 } from '@workout-agent/shared';
-import type { ExerciseLibrary } from '@workout-agent-ce/server-exercise-library';
+import type {
+  ExerciseLibrary,
+  WorkoutCatalogEnergy,
+  WorkoutCatalogMatch,
+  WorkoutCatalogQuery,
+} from '@workout-agent-ce/server-exercise-library';
 import {
   attachRequestId,
   createRequestContext,
@@ -31,6 +40,7 @@ import {
 } from '../utils/logging';
 
 const DEFAULT_GENERATION_ETA_SECONDS = 18;
+const CATALOG_RECIPE_COOLDOWN_DAYS = 7;
 
 /**
  * Server configuration for generation
@@ -142,6 +152,322 @@ function createProviderRequest(
   };
 }
 
+function shouldAttemptCatalog(creationMode: WorkoutCreationMode): boolean {
+  return creationMode === 'auto' || creationMode === 'library';
+}
+
+function shouldReturnCatalogMatch(
+  creationMode: WorkoutCreationMode,
+  catalogMatch: WorkoutCatalogMatch | undefined,
+  providerCanRun: boolean
+): boolean {
+  if (!catalogMatch?.plan) {
+    return false;
+  }
+
+  if (creationMode === 'library') {
+    return (
+      catalogMatch.decision === 'direct' || catalogMatch.decision === 'adapt'
+    );
+  }
+
+  if (creationMode !== 'auto') {
+    return false;
+  }
+
+  if (!providerCanRun && catalogMatch.decision !== 'none') {
+    return true;
+  }
+
+  if (catalogMatch.decision !== 'direct') {
+    return false;
+  }
+
+  return !hasCatalogRecipeCooldown(catalogMatch);
+}
+
+function hasCatalogRecipeCooldown(
+  catalogMatch: WorkoutCatalogMatch | undefined
+): boolean {
+  return Boolean(
+    catalogMatch?.diagnostics.blockerCodes.includes('catalog_recipe_cooldown')
+  );
+}
+
+function isUsableCatalogMatch(
+  catalogMatch: WorkoutCatalogMatch | undefined
+): boolean {
+  return (
+    catalogMatch?.recipe !== undefined &&
+    catalogMatch.plan !== undefined &&
+    (catalogMatch.decision === 'direct' || catalogMatch.decision === 'adapt')
+  );
+}
+
+function buildCatalogFallbackReasons(
+  catalogMatch: WorkoutCatalogMatch | undefined
+): string[] {
+  if (!catalogMatch?.plan) {
+    return [];
+  }
+
+  const reasons: string[] = [];
+  if (catalogMatch.decision === 'adapt') {
+    reasons.push('catalog_adapt_match');
+  }
+  if (hasCatalogRecipeCooldown(catalogMatch)) {
+    reasons.push('catalog_recipe_cooldown');
+  }
+  return reasons;
+}
+
+function buildCatalogProvenance({
+  catalogMatch,
+  returnedDirect,
+}: {
+  catalogMatch: WorkoutCatalogMatch;
+  returnedDirect: boolean;
+}): WorkoutCatalogProvenance | undefined {
+  const recipe = catalogMatch.recipe;
+  if (!recipe) {
+    return undefined;
+  }
+
+  return {
+    recipeId: recipe.id,
+    recipeSlug: recipe.slug,
+    ownership: recipe.ownership,
+    catalogVersion: recipe.catalogVersion,
+    matchDecision: catalogMatch.decision,
+    returnedDirect,
+  };
+}
+
+function buildCatalogSeed(
+  catalogMatch: WorkoutCatalogMatch | undefined
+): CatalogSeed | undefined {
+  const plan = catalogMatch?.plan;
+  if (!plan || !shouldProvideCatalogSeed(catalogMatch)) {
+    return undefined;
+  }
+  const hasCooldown = hasCatalogRecipeCooldown(catalogMatch);
+
+  return {
+    focus: plan.focus,
+    durationMinutes: plan.durationMinutes,
+    equipment: plan.equipment,
+    source: 'library',
+    energy: plan.energy,
+    summary: plan.summary,
+    blocks: plan.blocks.map((block) => ({
+      title: block.title,
+      durationMinutes: block.durationMinutes,
+      focus: block.focus,
+      exercises: block.exercises.map((exercise) => ({
+        name: exercise.name,
+        prescription: exercise.prescription,
+        detail: exercise.detail,
+      })),
+    })),
+    instructions: hasCooldown
+      ? "Preserve the catalog seed's training intent, duration, equipment fit, and safety constraints, but vary exercises or structure enough that the result does not repeat the recent catalog workout too closely."
+      : "Preserve the catalog seed's training intent, duration, equipment fit, and safety constraints while adapting the exercises, structure, or prescriptions to better fit the user's request.",
+  };
+}
+
+function shouldProvideCatalogSeed(
+  catalogMatch: WorkoutCatalogMatch | undefined
+): boolean {
+  return Boolean(
+    isUsableCatalogMatch(catalogMatch) &&
+      (catalogMatch?.decision === 'adapt' ||
+        hasCatalogRecipeCooldown(catalogMatch))
+  );
+}
+
+function buildCatalogQuery({
+  request,
+  context,
+  planningBrief,
+  exerciseLibrary,
+  previousPlan,
+}: {
+  request: GenerationRequestWithContext;
+  context: Awaited<ReturnType<typeof loadGenerationContext>>;
+  planningBrief: PlanningBrief;
+  exerciseLibrary: ExerciseLibrary;
+  previousPlan?: TodayPlan | null;
+}): WorkoutCatalogQuery {
+  return {
+    timeMinutes: planningBrief.durationMinutes,
+    focus: planningBrief.resolvedFocus,
+    focusTags: planningBrief.blockIntents.flatMap(
+      (intent) => intent.candidateFocusTags
+    ),
+    availableEquipment: planningBrief.availableEquipment,
+    experienceLevel: context.userProfile.experienceLevel,
+    energy: normalizeCatalogEnergy(
+      request.energy ?? context.userProfile.energyToday
+    ),
+    contraindicationTags: normalizeContraindicationTags(
+      context.preferences.injuries ?? []
+    ),
+    avoidTags: normalizeAvoidTags(context.preferences.avoid ?? []),
+    disallowedStressors: planningBrief.disallowedStressors,
+    recentExerciseIds: resolveRecentExerciseIds({
+      context,
+      exerciseLibrary,
+      previousPlan: request.baselineWorkout ?? previousPlan,
+    }),
+    recentCatalogRecipeIds: resolveRecentCatalogRecipeIds({
+      context,
+      previousPlan: request.baselineWorkout ?? previousPlan,
+      planningDateLocal: request.planningDateLocal,
+    }),
+    adaptivePlanIntent: request.adaptivePlanIntent
+      ? {
+          role: request.adaptivePlanIntent.primaryBlock.role,
+          category: request.adaptivePlanIntent.primaryBlock.category,
+          label: request.adaptivePlanIntent.primaryBlock.label,
+          stressTags: request.adaptivePlanIntent.primaryBlock.stressTags,
+        }
+      : undefined,
+  };
+}
+
+function resolveRecentCatalogRecipeIds({
+  context,
+  previousPlan,
+  planningDateLocal,
+}: {
+  context: Awaited<ReturnType<typeof loadGenerationContext>>;
+  previousPlan?: TodayPlan | null;
+  planningDateLocal?: string;
+}): string[] {
+  const ids = new Set<string>();
+  const previousRecipeId = getCatalogRecipeId(previousPlan);
+  if (previousRecipeId) {
+    ids.add(previousRecipeId);
+  }
+
+  const cutoffMs =
+    getPlanningTimestamp(planningDateLocal) -
+    CATALOG_RECIPE_COOLDOWN_DAYS * 24 * 60 * 60 * 1000;
+
+  for (const session of context.recentSessions) {
+    const completedAtMs = Date.parse(session.completedAt);
+    if (!Number.isNaN(completedAtMs) && completedAtMs < cutoffMs) {
+      continue;
+    }
+    const recipeId = session.catalogProvenance?.recipeId;
+    if (recipeId) {
+      ids.add(recipeId);
+    }
+  }
+
+  return [...ids];
+}
+
+function getCatalogRecipeId(plan?: TodayPlan | null): string | undefined {
+  if (plan?.catalogProvenance?.recipeId) {
+    return plan.catalogProvenance.recipeId;
+  }
+  if (plan?.source === 'library' && plan.id.startsWith('library:')) {
+    return `catalog:${plan.id.slice('library:'.length)}`;
+  }
+  return undefined;
+}
+
+function getPlanningTimestamp(planningDateLocal: string | undefined): number {
+  if (!planningDateLocal) {
+    return Date.now();
+  }
+  const parsed = Date.parse(`${planningDateLocal}T12:00:00.000Z`);
+  return Number.isNaN(parsed) ? Date.now() : parsed;
+}
+
+function normalizeCatalogEnergy(
+  value: string | undefined
+): WorkoutCatalogEnergy | undefined {
+  return value === 'easy' || value === 'moderate' || value === 'intense'
+    ? value
+    : undefined;
+}
+
+function resolveRecentExerciseIds({
+  context,
+  exerciseLibrary,
+  previousPlan,
+}: {
+  context: Awaited<ReturnType<typeof loadGenerationContext>>;
+  exerciseLibrary: ExerciseLibrary;
+  previousPlan?: TodayPlan | null;
+}): string[] {
+  const ids = new Set<string>();
+
+  for (const block of previousPlan?.blocks ?? []) {
+    for (const exercise of block.exercises) {
+      ids.add(exercise.id.split(':').slice(0, 2).join(':'));
+    }
+  }
+
+  for (const name of context.recentSessions.flatMap(
+    (session) => session.exerciseNames ?? []
+  )) {
+    const exercise = exerciseLibrary.getExerciseByAlias(name);
+    if (exercise) {
+      ids.add(exercise.id);
+    }
+  }
+
+  return [...ids].slice(0, 30);
+}
+
+function normalizeToken(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, '_');
+}
+
+function normalizeContraindicationTags(values: string[]): string[] {
+  const tags = new Set<string>();
+
+  for (const value of values) {
+    const normalized = normalizeToken(value);
+    if (normalized.includes('shoulder')) {
+      tags.add('shoulder_irritation');
+    }
+    if (normalized.includes('back') || normalized.includes('lumbar')) {
+      tags.add('lower_back_sensitivity');
+    }
+    if (normalized.includes('knee')) {
+      tags.add('knee_sensitivity');
+    }
+  }
+
+  return [...tags];
+}
+
+function normalizeAvoidTags(values: string[]): string[] {
+  const tags = new Set<string>();
+
+  for (const value of values) {
+    const normalized = normalizeToken(value);
+    if (normalized.includes('burpee')) {
+      tags.add('burpee');
+    }
+    if (normalized.includes('jump')) {
+      tags.add('jumping');
+    }
+    if (normalized.includes('overhead')) {
+      tags.add('overhead_pressing');
+    }
+  }
+
+  return [...tags];
+}
+
 /**
  * Factory for creating the POST /api/workouts/generate handler
  *
@@ -220,6 +546,7 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
     }
 
     const generationRequest: GenerationRequestWithContext = parseResult.data;
+    const creationMode = generationRequest.creationMode ?? 'auto';
 
     // Extract provider from header (defaults based on legacy header or config)
     const providerHeader = request.headers
@@ -233,14 +560,21 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
     // Determine provider: explicit header > legacy x-openai-key inference > config default
     let provider: 'openai' | 'gemini';
     if (providerHeader) {
-      if (!deps.router.isSupportedProvider(providerHeader)) {
+      if (
+        !deps.router.isSupportedProvider(providerHeader) &&
+        creationMode !== 'library'
+      ) {
         return errorResponse(
           'INVALID_PROVIDER',
           `Unsupported provider: ${providerHeader}. Supported providers: openai, gemini`,
           400
         );
       }
-      provider = providerHeader as 'openai' | 'gemini';
+      provider = deps.router.isSupportedProvider(providerHeader)
+        ? (providerHeader as 'openai' | 'gemini')
+        : ((deps.config.defaultProvider ?? deps.router.getDefaultProvider()) as
+            | 'openai'
+            | 'gemini');
     } else if (openaiKeyHeader) {
       // Legacy: x-openai-key implies OpenAI
       provider = 'openai';
@@ -283,47 +617,7 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
       deps.config.allowUnconfiguredProvider
     );
 
-    // Check BYOK requirement for hosted edition
-    if (
-      !apiKey &&
-      !useVertexAi &&
-      deps.config.edition === 'HOSTED' &&
-      !allowUnconfiguredProvider
-    ) {
-      return errorResponse(
-        'BYOK_REQUIRED',
-        `API key required for ${provider} provider in hosted mode`,
-        402
-      );
-    }
-
-    if (!apiKey && !useVertexAi && !allowUnconfiguredProvider) {
-      return errorResponse(
-        'AI_PROVIDER_NOT_CONFIGURED',
-        `No API key or server-managed ${provider} provider configuration is available`,
-        503
-      );
-    }
-
-    // Check policy (quota/rate limits) for managed-key requests only.
-    // BYOK requests are self-funded and bypass entitlement quotas.
     let quotaReservationActive = false;
-    if (deps.policy && !isByok) {
-      const policyResult = await deps.policy.canGenerate(
-        auth.userId,
-        generationRequest
-      );
-      if (!policyResult.allowed) {
-        return errorResponse(
-          'QUOTA_EXCEEDED',
-          policyResult.reason ?? 'Quota exceeded',
-          policyResult.statusCode ?? 429,
-          undefined,
-          policyResult.upgrade
-        );
-      }
-      quotaReservationActive = true;
-    }
 
     const rollbackManagedReservation = async (): Promise<void> => {
       if (!quotaReservationActive) {
@@ -357,15 +651,13 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
       );
       let previousState: GenerationState | null = null;
 
-      if (isRegeneration) {
-        try {
-          previousState = await deps.store.getState(auth.principalId);
-        } catch (error) {
-          log.warn('failed to load previous generation state', {
-            error,
-            principalId: auth.principalId,
-          });
-        }
+      try {
+        previousState = await deps.store.getState(auth.principalId);
+      } catch (error) {
+        log.warn('failed to load previous generation state', {
+          error,
+          principalId: auth.principalId,
+        });
       }
       const providerRequest = createProviderRequest(
         generationRequest,
@@ -383,14 +675,185 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
       let candidatePool:
         | ReturnType<typeof buildExerciseCandidatePool>
         | undefined;
+      let exerciseLibrary: ExerciseLibrary | undefined;
+      let exerciseLibraryLoadAttempted = false;
+      let catalogMatch: WorkoutCatalogMatch | undefined;
+      let catalogSeed: CatalogSeed | undefined;
+      let catalogUnavailable = false;
+      const providerCanRun = Boolean(
+        apiKey || useVertexAi || allowUnconfiguredProvider
+      );
+      const loadAvailableExerciseLibrary = async (): Promise<
+        ExerciseLibrary | undefined
+      > => {
+        if (exerciseLibrary) {
+          return exerciseLibrary;
+        }
+        if (exerciseLibraryLoadAttempted) {
+          return undefined;
+        }
+
+        exerciseLibraryLoadAttempted = true;
+        exerciseLibrary =
+          deps.exerciseLibrary ?? (await deps.loadExerciseLibrary?.());
+        return exerciseLibrary;
+      };
+
+      if (shouldAttemptCatalog(creationMode)) {
+        try {
+          const catalogLibrary = await loadAvailableExerciseLibrary();
+          if (catalogLibrary) {
+            catalogMatch = catalogLibrary.matchWorkoutCatalog(
+              buildCatalogQuery({
+                request: providerRequest,
+                context,
+                planningBrief: effectivePlanningBrief,
+                exerciseLibrary: catalogLibrary,
+                previousPlan: previousState?.plan,
+              })
+            );
+            log.info('workout catalog match evaluated', {
+              creationMode,
+              decision: catalogMatch.decision,
+              selectedRecipeId: catalogMatch.diagnostics.selectedRecipeId,
+              score: catalogMatch.score,
+              blockerCodes: catalogMatch.diagnostics.blockerCodes,
+              candidateCount: catalogMatch.diagnostics.candidateCount,
+            });
+
+            if (
+              shouldReturnCatalogMatch(
+                creationMode,
+                catalogMatch,
+                providerCanRun
+              )
+            ) {
+              const validated = todayPlanSchema.parse({
+                ...catalogMatch.plan,
+                equipment: effectivePlanningBrief.availableEquipment,
+                catalogProvenance: buildCatalogProvenance({
+                  catalogMatch,
+                  returnedDirect: true,
+                }),
+              });
+              await deps.store.persistPlan(auth.principalId, validated, {
+                schemaVersion: `catalog:${
+                  catalogMatch.recipe?.catalogVersion ?? 'unknown'
+                }`,
+              });
+              log.info('generation completed', {
+                durationMs: Date.now() - startedAt,
+                source: 'library',
+                creationMode,
+                catalogDecision: catalogMatch.decision,
+                selectedRecipeId: catalogMatch.recipe?.id,
+                isRegeneration,
+              });
+
+              const response = Response.json(validated);
+              attachRequestId(response, requestId);
+              log.info('request completed', {
+                method: request.method,
+                path: urlPath,
+                status: 200,
+                durationMs: Date.now() - startedAt,
+              });
+              return response;
+            }
+          }
+        } catch (error) {
+          catalogUnavailable = true;
+          log.warn('workout catalog unavailable', {
+            message: sanitizeErrorMessage((error as Error).message),
+            creationMode,
+          });
+        }
+
+        if (creationMode === 'library') {
+          if (catalogUnavailable) {
+            return errorResponse(
+              'WORKOUT_CATALOG_UNAVAILABLE',
+              'Workout catalog is temporarily unavailable',
+              503
+            );
+          }
+
+          return errorResponse(
+            'WORKOUT_CATALOG_NO_MATCH',
+            'No catalog workout matched this request',
+            404
+          );
+        }
+
+        const catalogFallbackReasons =
+          buildCatalogFallbackReasons(catalogMatch);
+        if (catalogFallbackReasons.length) {
+          effectivePlanningBrief = {
+            ...effectivePlanningBrief,
+            fallbackReasons: [
+              ...effectivePlanningBrief.fallbackReasons,
+              ...catalogFallbackReasons.filter(
+                (reason) =>
+                  !effectivePlanningBrief.fallbackReasons.includes(reason)
+              ),
+            ],
+          };
+          catalogSeed = providerCanRun
+            ? buildCatalogSeed(catalogMatch)
+            : undefined;
+        }
+      }
+
+      const providerCatalogMatch = isUsableCatalogMatch(catalogMatch)
+        ? catalogMatch
+        : undefined;
+
+      if (
+        !apiKey &&
+        !useVertexAi &&
+        deps.config.edition === 'HOSTED' &&
+        !allowUnconfiguredProvider
+      ) {
+        return errorResponse(
+          'BYOK_REQUIRED',
+          `API key required for ${provider} provider in hosted mode`,
+          402
+        );
+      }
+
+      if (!apiKey && !useVertexAi && !allowUnconfiguredProvider) {
+        return errorResponse(
+          'AI_PROVIDER_NOT_CONFIGURED',
+          `No API key or server-managed ${provider} provider configuration is available`,
+          503
+        );
+      }
+
+      // Check policy (quota/rate limits) for managed-key requests only.
+      // BYOK requests are self-funded and bypass entitlement quotas.
+      if (deps.policy && !isByok) {
+        const policyResult = await deps.policy.canGenerate(
+          auth.userId,
+          generationRequest
+        );
+        if (!policyResult.allowed) {
+          return errorResponse(
+            'QUOTA_EXCEEDED',
+            policyResult.reason ?? 'Quota exceeded',
+            policyResult.statusCode ?? 429,
+            undefined,
+            policyResult.upgrade
+          );
+        }
+        quotaReservationActive = true;
+      }
 
       if (
         (deps.exerciseLibrary || deps.loadExerciseLibrary) &&
         (apiKey || useVertexAi)
       ) {
         try {
-          const exerciseLibrary =
-            deps.exerciseLibrary ?? (await deps.loadExerciseLibrary?.());
+          const exerciseLibrary = await loadAvailableExerciseLibrary();
 
           if (exerciseLibrary) {
             candidatePool = buildExerciseCandidatePool({
@@ -466,9 +929,12 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
 
       // Log generation start (NEVER log API keys, prompts, or free-form feedback)
       log.info('generation started', {
+        creationMode,
         provider,
         hasApiKey: Boolean(apiKey),
         isByok,
+        catalogDecision: catalogMatch?.decision,
+        catalogRecipeId: catalogMatch?.recipe?.id,
         isRegeneration: effectivePlanningBrief.regeneration.isRegeneration,
         focusMode: effectivePlanningBrief.focusMode,
         resolvedFocus: effectivePlanningBrief.resolvedFocus,
@@ -494,6 +960,8 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
         const result = await deps.router.generate(providerRequest, context, {
           apiKey: useVertexAi ? undefined : apiKey ?? undefined,
           candidatePool,
+          catalogMatch: providerCatalogMatch,
+          catalogSeed,
           planningBrief: effectivePlanningBrief,
           stageOneArtifact,
           provider,
@@ -511,6 +979,12 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
             provider,
             ...(providerResponseId ? { responseId: providerResponseId } : {}),
           },
+          catalogProvenance: providerCatalogMatch
+            ? buildCatalogProvenance({
+                catalogMatch: providerCatalogMatch,
+                returnedDirect: false,
+              })
+            : undefined,
         };
       } catch (error) {
         const sanitizedMessage = sanitizeErrorMessage((error as Error).message);
@@ -541,6 +1015,9 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
       log.info('generation completed', {
         durationMs: Date.now() - startedAt,
         source: 'ai',
+        creationMode,
+        catalogDecision: catalogMatch?.decision,
+        catalogRecipeId: catalogMatch?.recipe?.id,
         isRegeneration,
         responseId,
         schemaVersion,

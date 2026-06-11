@@ -82,6 +82,7 @@ describe('buildGenerationContext', () => {
       focusBias: [],
       avoid: [],
       preferredStyle: 'Hybrid',
+      aiFeaturesEnabled: true,
     });
     mockPlannedEventRepository.listUpcomingEventContext.mockResolvedValue([]);
   });
@@ -169,6 +170,7 @@ describe('generateWorkout', () => {
       focusBias: [],
       avoid: [],
       preferredStyle: 'Hybrid',
+      aiFeaturesEnabled: true,
     });
     mockWorkoutRepository.listRecentSessions.mockResolvedValue([] as any);
     mockWorkoutRepository.getWorkoutByPlanId.mockResolvedValue({
@@ -224,6 +226,7 @@ describe('generateWorkout', () => {
     const payload = JSON.parse(requestInit.body as string);
 
     expect(payload.previousResponseId).toBe('resp-baseline');
+    expect(payload.creationMode).toBe('auto');
     expect(payload.planningDateLocal).toBe('2026-04-15');
     expect(payload.baselineWorkout.id).toBe('plan-existing');
     expect(payload.context).toEqual(
@@ -248,12 +251,51 @@ describe('generateWorkout', () => {
           baselineWorkout,
           feedback: ['different-exercises'],
           planningDateLocal: '2026-04-15',
+          creationMode: 'auto',
         }),
       }
     );
     expect(
       mockWorkoutRepository.pruneRejectedWorkoutVersions
     ).toHaveBeenCalledTimes(1);
+  });
+
+  it('sends library creation mode when AI features are disabled', async () => {
+    mockUserRepository.getPreferences.mockResolvedValue({
+      equipment: ['Bodyweight'],
+      injuries: [],
+      focusBias: [],
+      avoid: [],
+      aiFeaturesEnabled: false,
+    });
+    const generatedPlan = createTodayPlanFixture({
+      id: 'library-plan',
+      source: 'library',
+    });
+
+    (global.fetch as jest.Mock).mockResolvedValue({
+      ok: true,
+      json: jest.fn().mockResolvedValue(generatedPlan),
+    });
+
+    await generateWorkout({
+      timeMinutes: 30,
+      focus: 'Smart',
+      energy: 'easy',
+    });
+
+    const [, requestInit] = (global.fetch as jest.Mock).mock.calls[0];
+    const payload = JSON.parse(requestInit.body as string);
+
+    expect(payload.creationMode).toBe('library');
+    expect(mockWorkoutRepository.saveGeneratedPlan).toHaveBeenCalledWith(
+      generatedPlan,
+      expect.objectContaining({
+        generationRequest: expect.objectContaining({
+          creationMode: 'library',
+        }),
+      })
+    );
   });
 
   it('sends device-local planning date and effective profile equipment for default generation', async () => {

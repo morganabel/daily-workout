@@ -126,6 +126,126 @@ export interface CandidateResult {
   diagnostics?: CandidateDiagnostics;
 }
 
+export type WorkoutCatalogDecision = 'direct' | 'adapt' | 'none';
+
+export type WorkoutCatalogEnergy = 'easy' | 'moderate' | 'intense';
+
+export interface WorkoutCatalogQuery {
+  timeMinutes?: number;
+  focus?: string;
+  focusTags?: string[];
+  availableEquipment?: string[];
+  experienceLevel?: ExperienceLevel;
+  energy?: WorkoutCatalogEnergy;
+  contraindicationTags?: string[];
+  avoidTags?: string[];
+  disallowedStressors?: string[];
+  recentExerciseIds?: string[];
+  recentCatalogRecipeIds?: string[];
+  adaptivePlanIntent?: {
+    role?: string;
+    category?: string;
+    label?: string;
+    stressTags?: string[];
+  };
+  limit?: number;
+}
+
+export interface WorkoutCatalogDiagnostics {
+  blockerCodes: Array<
+    | 'unsupported_equipment'
+    | 'duration_gap'
+    | 'experience_gap'
+    | 'focus_gap'
+    | 'energy_gap'
+    | 'stressor_conflict'
+    | 'constraint_conflict'
+    | 'weak_match'
+    | 'catalog_recipe_cooldown'
+  >;
+  candidateCount: number;
+  bestScore?: number;
+  selectedRecipeId?: string;
+  reasons: string[];
+}
+
+export interface WorkoutCatalogSlot {
+  id: string;
+  order: number;
+  exercise: ExerciseRecord;
+  role: ExerciseRole;
+  prescription: string;
+  detail: string | null;
+  intensity: WorkoutCatalogEnergy;
+  substitutionExerciseIds: string[];
+}
+
+export interface WorkoutCatalogBlock {
+  id: string;
+  order: number;
+  title: string;
+  durationMinutes: number;
+  focus: string;
+  slots: WorkoutCatalogSlot[];
+}
+
+export interface WorkoutCatalogRecipe {
+  id: string;
+  slug: string;
+  ownership: 'system';
+  version: number;
+  status: 'active';
+  title: string;
+  summary: string;
+  focus: string;
+  targetDurationMinutes: number;
+  durationRange: {
+    min: number;
+    max: number;
+  };
+  minExperienceLevel: ExperienceLevel;
+  qualityScore: number;
+  catalogVersion: string;
+  source: string;
+  equipment: string[];
+  focusTags: string[];
+  styleTags: string[];
+  environmentTags: string[];
+  energyLevels: WorkoutCatalogEnergy[];
+  constraints: Record<string, string[]>;
+  blocks: WorkoutCatalogBlock[];
+}
+
+export interface WorkoutCatalogMaterializedPlan {
+  id: string;
+  focus: string;
+  durationMinutes: number;
+  equipment: string[];
+  source: 'library';
+  energy: WorkoutCatalogEnergy;
+  summary: string;
+  blocks: Array<{
+    id: string;
+    title: string;
+    durationMinutes: number;
+    focus: string;
+    exercises: Array<{
+      id: string;
+      name: string;
+      prescription: string;
+      detail: string | null;
+    }>;
+  }>;
+}
+
+export interface WorkoutCatalogMatch {
+  decision: WorkoutCatalogDecision;
+  recipe?: WorkoutCatalogRecipe;
+  plan?: WorkoutCatalogMaterializedPlan;
+  score?: number;
+  diagnostics: WorkoutCatalogDiagnostics;
+}
+
 export interface ExerciseLibraryMetadata {
   libraryVersion: string;
   sourceVersion: string;
@@ -140,6 +260,7 @@ export interface ExerciseLibrary {
   countEligibleExercises(query: CandidateQuery): number;
   listEligibleExercises(query: CandidateQuery): CandidateResult;
   listVariationCandidates(query: CandidateQuery): CandidateResult;
+  matchWorkoutCatalog(query: WorkoutCatalogQuery): WorkoutCatalogMatch;
   getLibraryMetadata(): ExerciseLibraryMetadata;
   close(): void;
 }

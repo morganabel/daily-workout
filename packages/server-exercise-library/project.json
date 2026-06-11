@@ -10,9 +10,16 @@
         "command": "node packages/server-exercise-library/scripts/build-canonical.js"
       }
     },
-    "build-db": {
+    "build-catalog": {
       "executor": "nx:run-commands",
       "dependsOn": ["build-canonical"],
+      "options": {
+        "command": "node packages/server-exercise-library/scripts/build-system-workouts.js"
+      }
+    },
+    "build-db": {
+      "executor": "nx:run-commands",
+      "dependsOn": ["build-canonical", "build-catalog"],
       "options": {
         "command": "node packages/server-exercise-library/scripts/build-sqlite.js"
       }

@@ -22,6 +22,7 @@ import {
   GYM_EQUIPMENT,
   isAutoFocus,
   normalizeEquipmentSelection,
+  resolveWorkoutCreationMode,
   todayPlanSchema,
   userPreferencesSchema,
   type GenerationRequest,
@@ -306,6 +307,29 @@ describe('isAutoFocus', () => {
 });
 
 describe('generation request upcoming events', () => {
+  it('accepts explicit workout creation modes', () => {
+    for (const creationMode of ['auto', 'library', 'ai'] as const) {
+      const result = generationRequestSchema.safeParse({
+        timeMinutes: 30,
+        creationMode,
+      });
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.creationMode).toBe(creationMode);
+      }
+    }
+  });
+
+  it('rejects unknown workout creation modes', () => {
+    const result = generationRequestSchema.safeParse({
+      timeMinutes: 30,
+      creationMode: 'fallback',
+    });
+
+    expect(result.success).toBe(false);
+  });
+
   it('accepts up to the maximum upcoming events', () => {
     const upcomingEvents = Array.from(
       { length: MAX_UPCOMING_EVENTS },
@@ -654,7 +678,30 @@ describe('training blueprint contracts', () => {
       expect(result.data.adaptiveTrainingPlan).toBeUndefined();
       expect(result.data.injuries).toEqual([]);
       expect(result.data.avoid).toEqual([]);
+      expect(result.data.aiFeaturesEnabled).toBe(true);
     }
+  });
+
+  it('persists explicit AI opt-out preferences', () => {
+    const result = userPreferencesSchema.safeParse({
+      equipment: ['Bodyweight'],
+      aiFeaturesEnabled: false,
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.aiFeaturesEnabled).toBe(false);
+      expect(resolveWorkoutCreationMode(result.data)).toBe('library');
+    }
+  });
+
+  it('resolves AI-enabled preferences to automatic workout creation', () => {
+    const preferences = userPreferencesSchema.parse({
+      equipment: ['Dumbbells'],
+      aiFeaturesEnabled: true,
+    });
+
+    expect(resolveWorkoutCreationMode(preferences)).toBe('auto');
   });
 
   it('creates a valid adaptive PPL conditioning plan from template data', () => {
@@ -946,6 +993,17 @@ describe('training blueprint contracts', () => {
 });
 
 describe('today plan provenance', () => {
+  it('accepts library workouts as canonical plans', () => {
+    const result = todayPlanSchema.safeParse(
+      createTodayPlanFixture({
+        source: 'library',
+        generationProvenance: undefined,
+      })
+    );
+
+    expect(result.success).toBe(true);
+  });
+
   it('accepts minimal regeneration provenance on the canonical plan', () => {
     const result = todayPlanSchema.safeParse(
       createTodayPlanFixture({

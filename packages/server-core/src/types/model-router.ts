@@ -3,6 +3,7 @@ import type {
   GenerationContext,
   TodayPlan,
 } from '@workout-agent/shared';
+import type { WorkoutCatalogMatch } from '@workout-agent-ce/server-exercise-library';
 import type { PlanningBrief, StageOnePlannerArtifact } from './planning';
 
 export interface ExerciseCandidateReference {
@@ -38,6 +39,26 @@ export interface ModelPromptCapture {
   isRegeneration: boolean;
   content: string;
   phase?: 'stage-one-planner' | 'stage-two-generation';
+}
+
+export interface CatalogSeed {
+  focus: string;
+  durationMinutes: number;
+  equipment: string[];
+  source: 'library';
+  energy: 'easy' | 'moderate' | 'intense';
+  summary: string;
+  blocks: Array<{
+    title: string;
+    durationMinutes: number;
+    focus: string;
+    exercises: Array<{
+      name: string;
+      prescription: string;
+      detail: string | null;
+    }>;
+  }>;
+  instructions: string;
 }
 
 /**
@@ -91,6 +112,19 @@ export interface ModelGenerationOptions {
   stageOneArtifact?: StageOnePlannerArtifact;
 
   /**
+   * Advisory catalog match when auto mode found a usable but non-direct recipe.
+   * Providers may adapt this structure, but explicit library mode never reaches this path.
+   */
+  catalogMatch?: WorkoutCatalogMatch;
+
+  /**
+   * Data-minimized catalog workout seed for AI adaptation. This intentionally
+   * excludes recipe IDs, catalog versions, cooldown counts, completion dates,
+   * and raw recent-session objects.
+   */
+  catalogSeed?: CatalogSeed;
+
+  /**
    * Optional sink for capturing the provider prompt for debugging/evaluation.
    */
   promptRecorder?: (capture: ModelPromptCapture) => void;
@@ -109,7 +143,7 @@ export interface ModelRouter {
   generate(
     request: GenerationRequest,
     context: GenerationContext,
-    options: ModelGenerationOptions,
+    options: ModelGenerationOptions
   ): Promise<GenerationResult>;
 
   /**

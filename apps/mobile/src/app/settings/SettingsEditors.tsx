@@ -76,6 +76,50 @@ export const ProfileEditor = ({
   </View>
 );
 
+export const GenerationEditor = ({
+  preferences,
+  updateField,
+}: ProfileEditorProps) => (
+  <View style={styles.editorSection}>
+    <Pressable
+      style={[
+        styles.levelCard,
+        preferences.aiFeaturesEnabled !== false && styles.levelCardSelected,
+      ]}
+      onPress={() => updateField('aiFeaturesEnabled', true)}
+      accessibilityRole="radio"
+      accessibilityState={{ selected: preferences.aiFeaturesEnabled !== false }}
+    >
+      <Text
+        style={[
+          styles.levelLabel,
+          preferences.aiFeaturesEnabled !== false && styles.levelLabelSelected,
+        ]}
+      >
+        AI + catalog
+      </Text>
+    </Pressable>
+    <Pressable
+      style={[
+        styles.levelCard,
+        preferences.aiFeaturesEnabled === false && styles.levelCardSelected,
+      ]}
+      onPress={() => updateField('aiFeaturesEnabled', false)}
+      accessibilityRole="radio"
+      accessibilityState={{ selected: preferences.aiFeaturesEnabled === false }}
+    >
+      <Text
+        style={[
+          styles.levelLabel,
+          preferences.aiFeaturesEnabled === false && styles.levelLabelSelected,
+        ]}
+      >
+        Catalog only
+      </Text>
+    </Pressable>
+  </View>
+);
+
 type RhythmEditorProps = {
   plan: UserPreferences['adaptiveTrainingPlan'];
   updateTargetRange: (

@@ -137,6 +137,24 @@ export const SettingsSummary = ({
       </SummaryCard>
 
       <SummaryCard
+        title="Workout creation"
+        icon="sparkles-outline"
+        actionLabel="Change mode"
+        onAction={() => onOpenEditor('generation')}
+      >
+        <View style={styles.pillWrap}>
+          <SummaryPill
+            label={
+              preferences.aiFeaturesEnabled === false
+                ? 'Catalog only'
+                : 'AI + catalog'
+            }
+            tone="primary"
+          />
+        </View>
+      </SummaryCard>
+
+      <SummaryCard
         title="Training plan"
         eyebrow="Weekly rhythm"
         icon="pulse-outline"

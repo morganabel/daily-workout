@@ -58,7 +58,7 @@ export class DefaultModelRouter implements ModelRouter {
   async generate(
     request: GenerationRequest,
     context: GenerationContext,
-    options: ModelGenerationOptions,
+    options: ModelGenerationOptions
   ): Promise<GenerationResult> {
     if (!options.apiKey && !options.useVertexAi) {
       throw new AiGenerationError('Missing API key', 'NO_API_KEY');
@@ -70,13 +70,14 @@ export class DefaultModelRouter implements ModelRouter {
     if (!provider) {
       throw new AiGenerationError(
         `Provider '${providerName}' is not registered`,
-        'REQUEST_FAILED',
+        'REQUEST_FAILED'
       );
     }
 
     const providerOptions: AiProviderOptions = {
       apiKey: options.apiKey,
       candidatePool: options.candidatePool,
+      catalogSeed: options.catalogSeed,
       planningBrief: options.planningBrief,
       stageOneArtifact: options.stageOneArtifact,
       model: options.model,
@@ -104,7 +105,7 @@ export class DefaultStageOnePlanner implements StageOnePlanner {
   async plan(
     request: GenerationRequest,
     context: GenerationContext,
-    options: StageOnePlanningOptions,
+    options: StageOnePlanningOptions
   ) {
     if (!options.apiKey && !options.useVertexAi) {
       throw new AiGenerationError('Missing API key', 'NO_API_KEY');
@@ -116,7 +117,7 @@ export class DefaultStageOnePlanner implements StageOnePlanner {
     if (!provider) {
       throw new AiGenerationError(
         `Provider '${providerName}' is not registered`,
-        'REQUEST_FAILED',
+        'REQUEST_FAILED'
       );
     }
 

@@ -843,6 +843,38 @@ describe('HomeScreen', () => {
     );
   });
 
+  it('shows catalog no-match errors without opening BYOK or Paywall', async () => {
+    const { generateWorkout } = require('./services/api');
+    generateWorkout.mockRejectedValue({
+      code: 'WORKOUT_CATALOG_NO_MATCH',
+      message: 'No catalog workout matched this request',
+    });
+    const alertSpy = jest.spyOn(Alert, 'alert');
+
+    mockUseHomeData.mockReturnValue(baseHookState);
+
+    const { getByText } = render(<HomeScreen />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    await act(async () => {
+      fireEvent.press(getByText("Generate today's workout"));
+      await Promise.resolve();
+    });
+
+    expect(mockNavigate).not.toHaveBeenCalledWith('Paywall', {
+      source: 'quota',
+    });
+    expect(mockNavigate).not.toHaveBeenCalledWith('Launch', {
+      openByok: true,
+    });
+    expect(alertSpy).toHaveBeenCalledWith(
+      'No catalog workout',
+      'No catalog workout matched this request'
+    );
+  });
+
   it('renders active plan view when plan exists', async () => {
     const plan = createTodayPlanFixture();
     mockUseHomeData.mockReturnValue({

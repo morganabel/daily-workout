@@ -106,7 +106,9 @@ describe('WorkoutRepository', () => {
         note: 'Knees felt good.',
       });
 
-      const session = await workoutRepository.toGenerationContextSession(workout);
+      const session = await workoutRepository.toGenerationContextSession(
+        workout
+      );
 
       expect(session.notes).toBe('Knees felt good.');
       expect(session.exerciseNames).toEqual([]);
@@ -526,6 +528,35 @@ describe('WorkoutRepository', () => {
       expect(session.completedSetCount).toBe(1);
     });
 
+    it('round-trips catalog provenance through saved plans into generation context', async () => {
+      const catalogProvenance = {
+        recipeId: 'catalog:bodyweight-foundation-30',
+        recipeSlug: 'bodyweight-foundation-30',
+        ownership: 'system',
+        catalogVersion: 'test-catalog',
+        matchDecision: 'direct' as const,
+        returnedDirect: true,
+      };
+      const plan = createTodayPlanFixture({
+        id: 'library:bodyweight-foundation-30',
+        source: 'library',
+        catalogProvenance,
+      });
+      await workoutRepository.saveGeneratedPlan(plan);
+      const workout = await workoutRepository.getWorkoutByPlanId(plan.id);
+      if (!workout) {
+        throw new Error('Expected saved workout');
+      }
+
+      const summary = workoutRepository.toSessionSummary(workout);
+      const session = await workoutRepository.toGenerationContextSession(
+        workout
+      );
+
+      expect(summary.catalogProvenance).toEqual(catalogProvenance);
+      expect(session.catalogProvenance).toEqual(catalogProvenance);
+    });
+
     it('caps exercise names to the generation context contract limit', async () => {
       const plan = createTodayPlanFixture({
         id: 'plan-many-exercises',
@@ -550,7 +581,9 @@ describe('WorkoutRepository', () => {
         throw new Error('Expected saved workout');
       }
 
-      const session = await workoutRepository.toGenerationContextSession(workout);
+      const session = await workoutRepository.toGenerationContextSession(
+        workout
+      );
 
       expect(session.exerciseNames).toHaveLength(30);
       expect(session.exerciseNames).not.toContain('Exercise 31');
