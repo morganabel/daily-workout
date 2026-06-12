@@ -28,7 +28,7 @@ This change is deliberately limited to attribution, migration, and deterministic
 
 Add session-level attribution to `workouts`, not only to `exercises`. The implementation may use a single JSON column for forward compatibility or explicit columns plus a JSON payload, but the persisted record must be available without reading every exercise log.
 
-The attribution payload must include program id, program version, source block id when known, optional template id, optional projection id, schedule strategy, source kind, and attribution confidence.
+The attribution payload must include program id, program version, primary source block id when known, add-on source block ids when the session combines blocks, optional template id, optional projection id, schedule strategy, source kind, and attribution confidence.
 
 Source kind enumerates how the session attached to the program: `generated` (created from a coach recommendation or projection), `manual-log` (user logged against a coach session), `quick-log`, `substitution` (an alternative the coach recommended in place of blocked or skipped work), and `legacy-inferred`. The `substitution` kind exists so later projection repair can retire skipped ordered work explicitly instead of treating the substitute as normal completion of the original block.
 
@@ -49,6 +49,10 @@ LLMs may explain strategy choice in later UI, but the stored strategy is not sil
 ### 5. Migration Preserves Current Behavior
 
 Existing adaptive plan v1 data is migrated into coach-program-aware shape while preserving blocks, target ranges, typical preferences, pinned sessions, recommendation settings, source template id, coach notes, and rationale. This change should not alter the next-workout recommendation result except where metadata-first attribution makes an existing session link more reliable.
+
+### 6. Generation Intent Is Forward-Compatible
+
+Adaptive plan intent may gain client-local coach metadata before every self-hosted server is upgraded. The mobile client sends only the server-compatible adaptive intent allowlist to generation APIs, while preserving the richer local intent for persistence, attribution stamping, and debug traces. New projection or exercise-slot fields must be added to the server payload only after there is an explicit compatibility decision or capability check.
 
 ## Risks / Trade-offs
 

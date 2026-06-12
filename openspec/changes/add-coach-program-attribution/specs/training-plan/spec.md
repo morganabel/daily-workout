@@ -23,6 +23,11 @@ Adaptive training plan history interpretation MUST use session-level coach attri
 - **WHEN** a completed workout has session-level source block attribution
 - **THEN** resolver history uses that source block to count the completed exposure
 
+#### Scenario: Combined session attribution drives target progress
+
+- **WHEN** a completed workout has session-level primary and add-on block attribution
+- **THEN** resolver target progress counts all attributed source blocks that contribute to the target
+
 #### Scenario: Exercise block metadata is secondary
 
 - **WHEN** exercise-level block ids exist but session-level attribution points to a different source block

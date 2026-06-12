@@ -6,7 +6,7 @@ Coach projection and repair cannot be correct until completed, skipped, generate
 
 - Add coach-program contract fields for session-level workout attribution and attribution confidence.
 - Add a WatermelonDB schema migration for session-level attribution on `workouts` records.
-- Stamp generated workouts with program id, program version, source block id, optional projection id, optional template id, schedule strategy, and attribution confidence.
+- Stamp generated workouts with program id, program version, primary/add-on source block ids, optional projection id, optional template id, schedule strategy, and attribution confidence.
 - Allow manual and quick logs to attach to a projected or recommended coach session when the user logs against that session.
 - Migrate existing adaptive plans into coach-program-aware plan data without changing current recommendation behavior.
 - Keep legacy name/focus matching only as a low-confidence fallback for old workouts.

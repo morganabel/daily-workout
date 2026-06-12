@@ -4,7 +4,7 @@
 
 The system MUST persist coach-program attribution at the workout session level for workouts generated from, logged against, completed from, or skipped from a coach program. Attribution MUST be available from the session record without requiring exercise-level logs.
 
-Attribution MUST include program id, program version, source block id when known, optional template id, optional projection id, schedule strategy, source kind, and attribution confidence. Source kind MUST distinguish generated, manual-log, quick-log, substitution, and legacy-inferred sources so substituted work is not recorded as normal completion of the original block.
+Attribution MUST include program id, program version, primary source block id when known, add-on source block ids when a session combines blocks, optional template id, optional projection id, schedule strategy, source kind, and attribution confidence. Source kind MUST distinguish generated, manual-log, quick-log, substitution, and legacy-inferred sources so substituted work is not recorded as normal completion of the original block.
 
 #### Scenario: Generated workout stores attribution
 
@@ -20,6 +20,11 @@ Attribution MUST include program id, program version, source block id when known
 
 - **WHEN** a workout session has no detailed exercise logs
 - **THEN** the system can still identify its coach-program source from session-level attribution
+
+#### Scenario: Combined session stores add-on attribution
+
+- **WHEN** a generated workout combines a primary coach block with add-on blocks
+- **THEN** the saved workout session stores the primary source block and add-on source blocks for target-progress accounting
 
 ### Requirement: Attribution Confidence
 
@@ -62,3 +67,13 @@ The system MUST represent strategy changes after initial seeding as explicit pro
 
 - **WHEN** a model suggests a different planning strategy
 - **THEN** the stored program strategy remains unchanged unless the system creates an explicit program revision
+
+### Requirement: Forward-Compatible Generation Intent
+
+The system MUST keep client-local coach intent metadata compatible with self-hosted server version skew. Generation API payloads MUST send only fields supported by the server-compatible adaptive intent contract unless a capability check allows newer fields. Local persistence, attribution stamping, and debug traces MAY retain richer client-local intent metadata.
+
+#### Scenario: Client-only intent metadata stays local
+
+- **WHEN** adaptive intent includes coach metadata newer than the server-compatible generation contract
+- **THEN** the generation API payload omits those client-only fields
+- **AND** local persistence still retains them for attribution and debugging
