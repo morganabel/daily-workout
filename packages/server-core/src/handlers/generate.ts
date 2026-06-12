@@ -18,6 +18,7 @@ import {
 import { derivePlanningBrief } from '../utils/planning';
 import {
   buildExerciseCandidatePool,
+  PROMPT_CANDIDATE_LIMIT,
   rerankExerciseCandidatePool,
 } from '../utils/exercise-library';
 import {
@@ -41,6 +42,67 @@ import {
 
 const DEFAULT_GENERATION_ETA_SECONDS = 18;
 const CATALOG_RECIPE_COOLDOWN_DAYS = 7;
+
+type ExerciseCandidatePoolSummary = ReturnType<
+  typeof buildExerciseCandidatePool
+>;
+
+function promoteStageOneForCandidateOverflow(
+  planningBrief: PlanningBrief,
+  candidatePool?: ExerciseCandidatePoolSummary
+): PlanningBrief {
+  if (
+    !candidatePool ||
+    planningBrief.stagedPlanning.reasons.includes('candidate-overflow')
+  ) {
+    return planningBrief;
+  }
+
+  if (candidatePool.totalEligibleCount <= PROMPT_CANDIDATE_LIMIT) {
+    return planningBrief;
+  }
+
+  const hasRoleBuckets = (candidatePool.candidateBuckets?.length ?? 0) > 1;
+  const hasMultipleBlockIntents = planningBrief.blockIntents.length > 1;
+  const broadFocus = isBroadCandidateSelectionFocus(planningBrief);
+
+  if (!hasRoleBuckets && !hasMultipleBlockIntents && !broadFocus) {
+    return planningBrief;
+  }
+
+  return {
+    ...planningBrief,
+    stagedPlanning: {
+      mode: 'llm-assisted',
+      shouldRun: true,
+      reasons: [...planningBrief.stagedPlanning.reasons, 'candidate-overflow'],
+    },
+  };
+}
+
+function isBroadCandidateSelectionFocus(planningBrief: PlanningBrief): boolean {
+  const text = [
+    planningBrief.requestedFocus,
+    planningBrief.resolvedFocus,
+    ...planningBrief.blockIntents.flatMap((block) => [
+      block.focus,
+      block.objective,
+      ...block.candidateFocusTags,
+    ]),
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+
+  return (
+    text.includes('upper body') ||
+    text.includes('upper_body') ||
+    text.includes('full body') ||
+    text.includes('full_body') ||
+    text.includes('hypertrophy') ||
+    text.includes('strength')
+  );
+}
 
 /**
  * Server configuration for generation
@@ -872,10 +934,16 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
                 fallbackReasons: candidatePool.diagnostics.blockerCodes,
               };
             }
+            effectivePlanningBrief = promoteStageOneForCandidateOverflow(
+              effectivePlanningBrief,
+              candidatePool
+            );
             log.info('exercise candidate pool prepared', {
               libraryVersion: candidatePool.libraryVersion,
               totalEligibleCount: candidatePool.totalEligibleCount,
               candidateCount: candidatePool.candidateExercises.length,
+              stagedPlanningReasons:
+                effectivePlanningBrief.stagedPlanning.reasons,
               baselineExerciseCount: candidatePool.baselineExerciseIds.length,
               blockerCodes: candidatePool.diagnostics?.blockerCodes,
               fallbackReasons: effectivePlanningBrief.fallbackReasons,

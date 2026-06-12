@@ -152,6 +152,7 @@ describe('OpenAIProvider', () => {
     styleBiases: ['athletic'],
     loadBias: 'moderate' as const,
     noveltyTarget: 'medium' as const,
+    selectionIntent: 'pull_biased' as const,
     rerankHints: ['prefer vertical pulls'],
     candidateInstructions: ['keep lower-body fatigue minimal'],
   };

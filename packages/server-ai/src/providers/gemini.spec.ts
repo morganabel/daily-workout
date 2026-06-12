@@ -129,6 +129,7 @@ describe('GeminiProvider', () => {
     styleBiases: ['athletic'],
     loadBias: 'moderate' as const,
     noveltyTarget: 'medium' as const,
+    selectionIntent: 'push_biased' as const,
     rerankHints: ['prefer pressing movements'],
     candidateInstructions: ['keep lower-body fatigue minimal'],
   };

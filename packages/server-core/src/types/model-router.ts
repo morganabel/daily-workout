@@ -21,12 +21,33 @@ export interface ExerciseCandidateReference {
 export interface ExerciseCandidateDiagnostics {
   blockerCodes: string[];
   counts?: Record<string, number>;
+  buckets?: ExerciseCandidateBucketDiagnostics[];
+}
+
+export interface ExerciseCandidateBucketDiagnostics {
+  key: string;
+  title: string;
+  quota: number;
+  availableCount: number;
+  selectedCount: number;
+  shortfall: number;
+}
+
+export interface ExerciseCandidateBucket {
+  key: string;
+  title: string;
+  quota: number;
+  availableCount: number;
+  selectedCount: number;
+  shortfall: number;
+  candidateExercises: ExerciseCandidateReference[];
 }
 
 export interface ExerciseCandidatePool {
   libraryVersion: string;
   totalEligibleCount: number;
   candidateExercises: ExerciseCandidateReference[];
+  candidateBuckets?: ExerciseCandidateBucket[];
   baselineExerciseIds: string[];
   searchText?: string;
   diagnostics?: ExerciseCandidateDiagnostics;

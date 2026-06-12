@@ -6,6 +6,7 @@ import type {
 } from '@workout-agent/shared';
 
 export type {
+  PlanningCandidateSelectionIntent,
   PlanningLoadCeiling,
   PlanningNoveltyTarget,
   PlanningStageOneActivation,

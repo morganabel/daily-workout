@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import {
+  planningCandidateSelectionIntentSchema,
   planningLoadCeilingSchema,
   planningNoveltyTargetSchema,
   planningStageOneConfidenceSchema,
@@ -17,12 +18,13 @@ export const stageOnePlannerArtifactSchema = z.object({
   styleBiases: z.array(z.string()),
   loadBias: planningLoadCeilingSchema.nullable(),
   noveltyTarget: planningNoveltyTargetSchema.nullable(),
+  selectionIntent: planningCandidateSelectionIntentSchema.nullable(),
   rerankHints: z.array(z.string()),
   candidateInstructions: z.array(z.string()),
 });
 
 export function parseStageOnePlannerArtifact(
-  input: unknown,
+  input: unknown
 ): StageOnePlannerArtifact {
   if (input && typeof input === 'object') {
     try {
@@ -32,6 +34,7 @@ export function parseStageOnePlannerArtifact(
         resolvedFocus: parsed.resolvedFocus ?? undefined,
         loadBias: parsed.loadBias ?? undefined,
         noveltyTarget: parsed.noveltyTarget ?? undefined,
+        selectionIntent: parsed.selectionIntent ?? undefined,
       };
     } catch {
       // Fall back to tolerant normalization when providers omit fields like `mode`.
@@ -45,7 +48,7 @@ export function parseStageOnePlannerArtifact(
     confidence: normalizeEnum(
       record.confidence,
       ['low', 'medium', 'high'],
-      'medium',
+      'medium'
     ),
     planningIntent:
       typeof record.planningIntent === 'string' && record.planningIntent.trim()
@@ -61,12 +64,23 @@ export function parseStageOnePlannerArtifact(
     loadBias: normalizeEnum(
       record.loadBias,
       ['low', 'moderate', 'high', 'unknown'],
-      'unknown',
+      'unknown'
     ),
     noveltyTarget: normalizeNullableEnum(record.noveltyTarget, [
       'low',
       'medium',
       'high',
+    ]),
+    selectionIntent: normalizeNullableEnum(record.selectionIntent, [
+      'balanced_upper',
+      'push_biased',
+      'pull_biased',
+      'accessory_biased',
+      'constraint_limited',
+      'balanced_full_body',
+      'lower_body_biased',
+      'conditioning_biased',
+      'unspecified',
     ]),
     rerankHints: normalizeStringArray(record.rerankHints),
     candidateInstructions: normalizeStringArray(record.candidateInstructions),
@@ -77,6 +91,7 @@ export function parseStageOnePlannerArtifact(
     resolvedFocus: parsed.resolvedFocus ?? undefined,
     loadBias: parsed.loadBias ?? undefined,
     noveltyTarget: parsed.noveltyTarget ?? undefined,
+    selectionIntent: parsed.selectionIntent ?? undefined,
   };
 }
 
@@ -94,7 +109,7 @@ function normalizeStringArray(value: unknown): string[] {
 function normalizeEnum<const T extends readonly string[]>(
   value: unknown,
   allowed: T,
-  fallback: T[number],
+  fallback: T[number]
 ): T[number] {
   if (typeof value !== 'string') {
     return fallback;
@@ -106,7 +121,7 @@ function normalizeEnum<const T extends readonly string[]>(
 
 function normalizeNullableEnum<const T extends readonly string[]>(
   value: unknown,
-  allowed: T,
+  allowed: T
 ): T[number] | null {
   if (typeof value !== 'string') {
     return null;

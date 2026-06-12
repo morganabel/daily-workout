@@ -111,6 +111,7 @@ function createStageOnePlannerMock(): jest.Mocked<StageOnePlanner> {
       styleBiases: ['athletic'],
       loadBias: 'moderate',
       noveltyTarget: 'medium',
+      selectionIntent: 'balanced_upper',
       rerankHints: ['prefer pulling and core accessories'],
       candidateInstructions: ['keep lower-body fatigue minimal'],
     }),
@@ -1412,6 +1413,81 @@ describe('createGenerateHandler', () => {
     );
   });
 
+  it('runs the stage-one planner for explicit broad requests when the candidate pool overflows the prompt budget', async () => {
+    const router = createRouterMock();
+    const planner = createStageOnePlannerMock();
+    const exerciseLibrary = createExerciseLibrary();
+    exerciseLibrary.listEligibleExercises = jest.fn(() => ({
+      libraryVersion: 'test-library',
+      totalEligibleCount: 96,
+      exercises: [
+        {
+          id: 'fedb:pushups',
+          slug: 'pushups',
+          name: 'Pushups',
+          aliases: ['push-up'],
+          description: 'desc',
+          instructionSteps: ['step'],
+          requiredEquipment: ['bodyweight'],
+          optionalEquipment: [],
+          focusTags: ['upper_body'],
+          movementTags: ['push'],
+          styleTags: ['strength'],
+          stressorTags: [],
+          contraindicationTags: [],
+          avoidTags: [],
+          impactLevel: 'low',
+          noiseLevel: 'quiet',
+          spaceFootprint: 'small',
+          travelFriendly: true,
+          floorRequired: true,
+          experienceLevelMin: 'beginner',
+          loadLevel: 'moderate',
+          allowedRoles: ['main'],
+          metadataCompleteness: 'planner-ready',
+          sortKey: 10,
+          sourceRefs: [],
+        },
+      ],
+    }));
+    const { handler } = createHandler({
+      router,
+      planner,
+      exerciseLibrary,
+      config: {
+        edition: 'CE',
+        defaultProvider: 'openai',
+        enableStageOnePlanner: true,
+      },
+    });
+
+    const response = await handler(createPlanningRequest());
+
+    expect(response.status).toBe(200);
+    expect(planner.plan).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      expect.objectContaining({
+        planningBrief: expect.objectContaining({
+          stagedPlanning: expect.objectContaining({
+            mode: 'llm-assisted',
+            shouldRun: true,
+            reasons: ['candidate-overflow'],
+          }),
+        }),
+      })
+    );
+    expect(router.generate).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      expect.objectContaining({
+        stageOneArtifact: expect.objectContaining({
+          selectionIntent: 'balanced_upper',
+        }),
+      })
+    );
+  });
+
   it('falls back to single-pass generation when the stage-one planner feature flag is disabled', async () => {
     const router = createRouterMock();
     const planner = createStageOnePlannerMock();
@@ -1596,18 +1672,18 @@ describe('createGenerateHandler', () => {
       totalEligibleCount: 2,
       exercises: [
         {
-          id: 'fedb:squat',
-          slug: 'bodyweight-squat',
-          name: 'Bodyweight Squat',
-          aliases: ['squat'],
+          id: 'fedb:row',
+          slug: 'bodyweight-row',
+          name: 'Bodyweight Row',
+          aliases: ['row'],
           description: 'desc',
           instructionSteps: ['step'],
           requiredEquipment: ['bodyweight'],
           optionalEquipment: [],
-          focusTags: ['lower_body'],
-          movementTags: ['squat'],
+          focusTags: ['upper_body', 'middle_back'],
+          movementTags: ['pull', 'row'],
           styleTags: ['strength'],
-          stressorTags: ['lower_body_fatigue'],
+          stressorTags: ['upper_body_pull_fatigue'],
           contraindicationTags: [],
           avoidTags: [],
           impactLevel: 'low',
@@ -1677,7 +1753,7 @@ describe('createGenerateHandler', () => {
         candidatePool: expect.objectContaining({
           candidateExercises: [
             expect.objectContaining({ id: 'fedb:pushups' }),
-            expect.objectContaining({ id: 'fedb:squat' }),
+            expect.objectContaining({ id: 'fedb:row' }),
           ],
         }),
       })
