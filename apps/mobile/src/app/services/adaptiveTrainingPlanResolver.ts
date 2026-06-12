@@ -5,6 +5,7 @@ import type {
   AdaptiveTrainingBlock,
   AdaptiveTrainingPlan,
   AdaptiveTrainingTargetPriority,
+  CoachProgramAttribution,
   UpcomingEventContext,
   WorkoutSessionSummary,
 } from '@workout-agent/shared';
@@ -63,30 +64,99 @@ const sessionMatchesBlock = (
   return labels.some((label) => focus.includes(label) || name.includes(label));
 };
 
+type SessionBlockAttribution = {
+  block: AdaptiveTrainingBlock;
+  blocks: AdaptiveTrainingBlock[];
+  attribution: CoachProgramAttribution;
+  source: 'explicit' | 'legacy';
+};
+
+type AttributedRecentSession = {
+  session: WorkoutSessionSummary;
+  completedLocalDate: string;
+  attribution: SessionBlockAttribution;
+};
+
 const getBlockById = (
   plan: AdaptiveTrainingPlan,
   blockId: string
 ): AdaptiveTrainingBlock | undefined =>
   plan.blocks.find((block) => block.id === blockId);
 
-const getRecentBlockIds = (
-  plan: AdaptiveTrainingPlan,
-  recentSessions: WorkoutSessionSummary[]
-): string[] =>
-  recentSessions
-    .filter((session) => !session.archivedAt)
-    .map((session) =>
-      plan.blocks.find((block) => sessionMatchesBlock(session, block))
-    )
-    .filter((block): block is AdaptiveTrainingBlock => Boolean(block))
-    .map((block) => block.id);
+const uniqueBlocks = (
+  blocks: Array<AdaptiveTrainingBlock | undefined>
+): AdaptiveTrainingBlock[] => {
+  const seen = new Set<string>();
+  return blocks.filter((block): block is AdaptiveTrainingBlock => {
+    if (!block || seen.has(block.id)) {
+      return false;
+    }
+    seen.add(block.id);
+    return true;
+  });
+};
 
-const getRecentBlockContexts = (
+const createLegacyAttribution = (
+  plan: AdaptiveTrainingPlan,
+  blocks: AdaptiveTrainingBlock[]
+): CoachProgramAttribution => ({
+  programId: plan.id,
+  programVersion: plan.programVersion ?? 1,
+  sourceBlockId: blocks[0]?.id,
+  addOnBlockIds: blocks.slice(1).map((block) => block.id),
+  templateId: plan.sourceTemplateId,
+  scheduleStrategy: plan.scheduleStrategy ?? 'weekly-target-balance',
+  sourceKind: 'legacy-inferred',
+  confidence: 'low',
+});
+
+export const getSessionBlockAttribution = (
+  plan: AdaptiveTrainingPlan,
+  session: WorkoutSessionSummary
+): SessionBlockAttribution | undefined => {
+  const stamped = session.coachProgramAttribution;
+  if (
+    stamped?.programId === plan.id &&
+    stamped.sourceKind !== 'legacy-inferred' &&
+    stamped.confidence !== 'low'
+  ) {
+    const primaryBlock = stamped.sourceBlockId
+      ? getBlockById(plan, stamped.sourceBlockId)
+      : undefined;
+    const blocks = uniqueBlocks([
+      primaryBlock,
+      ...(stamped.addOnBlockIds ?? []).map((blockId) =>
+        getBlockById(plan, blockId)
+      ),
+    ]);
+    const block = primaryBlock ?? blocks[0];
+    if (block) {
+      return { block, blocks, attribution: stamped, source: 'explicit' };
+    }
+  }
+
+  const legacyBlocks = plan.blocks.filter((block) =>
+    sessionMatchesBlock(session, block)
+  );
+  const legacyBlock = legacyBlocks[0];
+  if (!legacyBlock) {
+    return undefined;
+  }
+
+  return {
+    block: legacyBlock,
+    blocks: legacyBlocks,
+    source: 'legacy',
+    attribution: createLegacyAttribution(plan, legacyBlocks),
+  };
+};
+
+const getAttributedRecentSessions = (
   input: Pick<
     AdaptiveTrainingPlanResolverInput,
-    'plan' | 'planningDateLocal' | 'recentSessions'
+    'plan' | 'recentSessions'
   >
-): RecentBlockContext[] =>
+): AttributedRecentSession[] =>
   input.recentSessions
     .filter((session) => !session.archivedAt)
     .map((session) => {
@@ -94,72 +164,86 @@ const getRecentBlockContexts = (
       if (!Number.isFinite(completedAt)) {
         return null;
       }
-
-      const ageDays = daysBetweenLocalDates(
-        input.planningDateLocal,
-        formatLocalDate(new Date(completedAt))
-      );
-      if (ageDays < 0 || ageDays > RECOVERY_STRESS_WINDOW_DAYS) {
+      const attribution = getSessionBlockAttribution(input.plan, session);
+      if (!attribution) {
         return null;
       }
-
-      const block = input.plan.blocks.find((candidate) =>
-        sessionMatchesBlock(session, candidate)
-      );
-
-      return block ? { block, ageDays } : null;
+      return {
+        session,
+        completedLocalDate: formatLocalDate(new Date(completedAt)),
+        attribution,
+      };
     })
-    .filter((context): context is RecentBlockContext => Boolean(context));
+    .filter(
+      (item): item is AttributedRecentSession => Boolean(item)
+    );
 
-export const computeAdaptiveTargetProgress = (
+const getRecentBlockIds = (
+  attributedSessions: AttributedRecentSession[]
+): string[] => attributedSessions.map((item) => item.attribution.block.id);
+
+const getRecentBlockContexts = (
   input: Pick<
     AdaptiveTrainingPlanResolverInput,
-    'plan' | 'planningDateLocal' | 'recentSessions'
-  >
+    'planningDateLocal'
+  >,
+  attributedSessions: AttributedRecentSession[]
+): RecentBlockContext[] =>
+  attributedSessions.flatMap((item) => {
+    const ageDays = daysBetweenLocalDates(
+      input.planningDateLocal,
+      item.completedLocalDate
+    );
+    if (ageDays < 0 || ageDays > RECOVERY_STRESS_WINDOW_DAYS) {
+      return [];
+    }
+
+    return item.attribution.blocks.map((block) => ({ block, ageDays }));
+  });
+
+const blockContributesToTarget = (
+  block: AdaptiveTrainingBlock,
+  target: AdaptiveTrainingPlan['targetRanges'][number]
+): boolean => {
+  if (target.appliesTo.blockIds.includes(block.id)) {
+    return true;
+  }
+  if (target.appliesTo.categories.includes(block.category)) {
+    return true;
+  }
+  return block.stressTags.some((tag) =>
+    target.appliesTo.stressTags.includes(tag)
+  );
+};
+
+const computeAdaptiveTargetProgressFromAttributions = (
+  input: Pick<AdaptiveTrainingPlanResolverInput, 'plan' | 'planningDateLocal'>,
+  attributedSessions: AttributedRecentSession[]
 ): AdaptivePlanTargetProgress[] => {
   return input.plan.targetRanges.map((target) => {
-    const count = input.recentSessions.reduce((total, session) => {
-      if (session.archivedAt) {
-        return total;
-      }
-
-      const completedAt = Date.parse(session.completedAt);
-      if (!Number.isFinite(completedAt)) {
-        return total;
-      }
-
+    const count = attributedSessions.reduce((total, item) => {
       const ageDays = daysBetweenLocalDates(
         input.planningDateLocal,
-        formatLocalDate(new Date(completedAt))
+        item.completedLocalDate
       );
       if (ageDays < 0 || ageDays >= target.windowDays) {
         return total;
       }
 
-      const matchingBlock = input.plan.blocks.find((block) => {
-        if (!sessionMatchesBlock(session, block)) {
-          return false;
-        }
-        if (target.appliesTo.blockIds.includes(block.id)) {
-          return true;
-        }
-        if (target.appliesTo.categories.includes(block.category)) {
-          return true;
-        }
-        return block.stressTags.some((tag) =>
-          target.appliesTo.stressTags.includes(tag)
-        );
-      });
+      return (
+        total +
+        item.attribution.blocks.reduce((sessionTotal, block) => {
+          if (!blockContributesToTarget(block, target)) {
+            return sessionTotal;
+          }
 
-      if (!matchingBlock) {
-        return total;
-      }
+          const contribution = block.targetContributions.find(
+            (item) => item.targetId === target.id
+          );
 
-      const contribution = matchingBlock.targetContributions.find(
-        (item) => item.targetId === target.id
+          return sessionTotal + (contribution?.count ?? 1);
+        }, 0)
       );
-
-      return total + (contribution?.count ?? 1);
     }, 0);
 
     return {
@@ -171,6 +255,18 @@ export const computeAdaptiveTargetProgress = (
       windowDays: target.windowDays,
     };
   });
+};
+
+export const computeAdaptiveTargetProgress = (
+  input: Pick<
+    AdaptiveTrainingPlanResolverInput,
+    'plan' | 'planningDateLocal' | 'recentSessions'
+  >
+): AdaptivePlanTargetProgress[] => {
+  return computeAdaptiveTargetProgressFromAttributions(
+    input,
+    getAttributedRecentSessions(input)
+  );
 };
 
 const getEventSearchText = (event: UpcomingEventContext): string =>
@@ -581,7 +677,11 @@ export const resolveAdaptiveTrainingRecommendation = (
   const activeBlocks = input.plan.blocks.filter(
     (block) => block.category !== 'accessory'
   );
-  const targetProgress = computeAdaptiveTargetProgress(input);
+  const attributedRecentSessions = getAttributedRecentSessions(input);
+  const targetProgress = computeAdaptiveTargetProgressFromAttributions(
+    input,
+    attributedRecentSessions
+  );
   const pinnedSession = input.plan.sessionPreferences.find(
     (session) =>
       session.status === 'pinned' &&
@@ -620,8 +720,11 @@ export const resolveAdaptiveTrainingRecommendation = (
       projectionStatus: 'pinned',
     });
   }
-  const recentBlockIds = getRecentBlockIds(input.plan, input.recentSessions);
-  const recentContexts = getRecentBlockContexts(input);
+  const recentBlockIds = getRecentBlockIds(attributedRecentSessions);
+  const recentContexts = getRecentBlockContexts(
+    input,
+    attributedRecentSessions
+  );
   const protectedStressTags = getProtectedEventStressTags(input);
   const scoredBlocks = activeBlocks
     .map((block) =>

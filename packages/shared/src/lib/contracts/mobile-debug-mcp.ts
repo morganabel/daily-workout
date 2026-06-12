@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import {
+  coachProgramAttributionSchema,
   generationRequestSchema,
   generationStatusSchema,
   offlineHintSchema,
@@ -190,6 +191,7 @@ export const mobileDebugSeedHistoryInputSchema = z
           durationMinutes: z.number().int().positive(),
           completedAt: z.number().int().positive().optional(),
           note: z.string().optional(),
+          coachProgramAttribution: coachProgramAttributionSchema.optional(),
         })
         .strict(),
     ),
@@ -267,6 +269,7 @@ export const mobileDebugQuickLogInputSchema = z
     durationMinutes: z.number().int().positive(),
     completedAt: z.number().int().positive().optional(),
     note: z.string().optional(),
+    coachProgramAttribution: coachProgramAttributionSchema.optional(),
   })
   .strict();
 export type MobileDebugQuickLogInput = z.infer<

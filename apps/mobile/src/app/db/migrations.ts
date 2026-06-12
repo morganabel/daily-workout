@@ -111,5 +111,20 @@ export const migrations = schemaMigrations({
         }),
       ],
     },
+    {
+      toVersion: 9,
+      steps: [
+        addColumns({
+          table: 'workouts',
+          columns: [
+            {
+              name: 'coach_program_attribution_json',
+              type: 'string',
+              isOptional: true,
+            },
+          ],
+        }),
+      ],
+    },
   ],
 });

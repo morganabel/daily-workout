@@ -1,6 +1,7 @@
 import { workoutRepository } from './WorkoutRepository';
 import { database } from '../index';
 import { createTodayPlanFixture } from '@workout-agent/shared/testing';
+import type { CoachProgramAttribution } from '@workout-agent/shared';
 import { Q } from '@nozbe/watermelondb';
 
 // Helper to get timestamp from WatermelonDB date field (can be Date object or number)
@@ -8,6 +9,17 @@ const getTimestamp = (value: number | Date | undefined | null): number => {
   if (value instanceof Date) return value.getTime();
   return value ?? 0;
 };
+
+const coachProgramAttribution = {
+  programId: 'plan-ppl',
+  programVersion: 1,
+  sourceBlockId: 'push',
+  templateId: 'ppl-conditioning',
+  projectionId: 'projection-1',
+  scheduleStrategy: 'ordered-rotation',
+  sourceKind: 'quick-log',
+  confidence: 'high',
+} satisfies CoachProgramAttribution;
 
 describe('WorkoutRepository', () => {
   // Clean up workouts after each test
@@ -115,6 +127,22 @@ describe('WorkoutRepository', () => {
       expect(session.completedSetCount).toBe(0);
     });
 
+    it('round-trips quick-log coach attribution without exercise logs', async () => {
+      const workout = await workoutRepository.quickLogManualSession({
+        name: 'Coach quick log',
+        focus: 'Push',
+        durationMinutes: 35,
+        coachProgramAttribution,
+      });
+
+      const summary = workoutRepository.toSessionSummary(workout);
+      const detail = await workoutRepository.getSessionDetailById(workout.id);
+
+      expect(summary.coachProgramAttribution).toEqual(coachProgramAttribution);
+      expect(detail.coachProgramAttribution).toEqual(coachProgramAttribution);
+      expect(detail.exercises).toEqual([]);
+    });
+
     it('leaves summary as null/undefined when no note provided', async () => {
       const workout = await workoutRepository.quickLogManualSession({
         name: 'Quick HIIT',
@@ -151,6 +179,159 @@ describe('WorkoutRepository', () => {
   });
 
   describe('generated workout versions', () => {
+    it('stamps generated workouts with coach attribution from adaptive intent', async () => {
+      await workoutRepository.saveGeneratedPlan(
+        createTodayPlanFixture({
+          id: 'coach-plan-generated',
+          focus: 'Upper Body',
+        }),
+        {
+          generationRequest: {
+            focus: 'Push',
+            adaptivePlanIntent: {
+              planId: 'plan-ppl',
+              programVersion: 3,
+              scheduleStrategy: 'ordered-rotation',
+              recommendationId: 'recommendation-1',
+              projectionId: 'projection-1',
+              sourceTemplateId: 'ppl-conditioning',
+              primaryBlock: {
+                blockId: 'push',
+                label: 'Push',
+                category: 'strength',
+                role: 'push',
+              },
+              addOnBlocks: [
+                {
+                  blockId: 'easy-cardio',
+                  label: 'Easy Cardio',
+                  category: 'cardio',
+                },
+              ],
+              targetRangeContext: [],
+              rationale: [],
+            },
+          },
+        }
+      );
+
+      const workout = await workoutRepository.getWorkoutByPlanId(
+        'coach-plan-generated'
+      );
+      expect(workout).toBeTruthy();
+      expect(workoutRepository.toSessionSummary(workout!)).toMatchObject({
+        coachProgramAttribution: {
+          programId: 'plan-ppl',
+          programVersion: 3,
+          sourceBlockId: 'push',
+          addOnBlockIds: ['easy-cardio'],
+          templateId: 'ppl-conditioning',
+          projectionId: 'projection-1',
+          scheduleStrategy: 'ordered-rotation',
+          sourceKind: 'generated',
+          confidence: 'high',
+        },
+      });
+    });
+
+    it('preserves generated coach attribution through status and metadata mutations', async () => {
+      await workoutRepository.saveGeneratedPlan(
+        createTodayPlanFixture({ id: 'coach-plan-preserve' }),
+        {
+          generationRequest: {
+            focus: 'Push',
+            adaptivePlanIntent: {
+              planId: 'plan-ppl',
+              programVersion: 1,
+              scheduleStrategy: 'ordered-rotation',
+              sourceTemplateId: 'ppl-conditioning',
+              primaryBlock: {
+                blockId: 'push',
+                label: 'Push',
+                category: 'strength',
+              },
+              addOnBlocks: [],
+              targetRangeContext: [],
+              rationale: [],
+            },
+          },
+        }
+      );
+
+      const workout = await workoutRepository.getWorkoutByPlanId(
+        'coach-plan-preserve'
+      );
+      expect(workout).toBeTruthy();
+
+      await workoutRepository.completeWorkoutById(workout!.id, 30 * 60);
+      await workoutRepository.toggleFavoriteWorkout(workout!.id);
+      await workoutRepository.archiveWorkoutById(workout!.id);
+      await workoutRepository.unarchiveWorkoutById(workout!.id);
+
+      const updatedWorkout = await workoutRepository.getWorkoutByPlanId(
+        'coach-plan-preserve'
+      );
+
+      expect(updatedWorkout?.status).toBe('completed');
+      expect(workoutRepository.toSessionSummary(updatedWorkout!)).toMatchObject(
+        {
+          coachProgramAttribution: {
+            programId: 'plan-ppl',
+            programVersion: 1,
+            sourceBlockId: 'push',
+            scheduleStrategy: 'ordered-rotation',
+            sourceKind: 'generated',
+            confidence: 'high',
+          },
+        }
+      );
+    });
+
+    it('preserves generated coach attribution when a planned workout is skipped', async () => {
+      await workoutRepository.saveGeneratedPlan(
+        createTodayPlanFixture({ id: 'coach-plan-skipped' }),
+        {
+          generationRequest: {
+            focus: 'Push',
+            adaptivePlanIntent: {
+              planId: 'plan-ppl',
+              programVersion: 1,
+              scheduleStrategy: 'ordered-rotation',
+              sourceTemplateId: 'ppl-conditioning',
+              primaryBlock: {
+                blockId: 'push',
+                label: 'Push',
+                category: 'strength',
+              },
+              addOnBlocks: [],
+              targetRangeContext: [],
+              rationale: [],
+            },
+          },
+        }
+      );
+
+      const workout = await workoutRepository.getWorkoutByPlanId(
+        'coach-plan-skipped'
+      );
+      expect(workout).toBeTruthy();
+
+      await workoutRepository.skipWorkoutById(workout!.id);
+      const skipped = await workoutRepository.getWorkoutByPlanId(
+        'coach-plan-skipped'
+      );
+
+      expect(skipped?.status).toBe('skipped');
+      expect(workoutRepository.toSessionSummary(skipped!)).toMatchObject({
+        coachProgramAttribution: {
+          programId: 'plan-ppl',
+          sourceBlockId: 'push',
+          sourceKind: 'generated',
+          confidence: 'high',
+        },
+      });
+    });
+
     it('appends regeneration versions without deleting the previous suggestion', async () => {
       const firstPlan = createTodayPlanFixture({
         id: 'plan-v1',

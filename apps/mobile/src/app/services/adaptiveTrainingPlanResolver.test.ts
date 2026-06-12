@@ -7,6 +7,7 @@ import {
 } from '@workout-agent/shared';
 import {
   computeAdaptiveTargetProgress,
+  getSessionBlockAttribution,
   resolveAdaptiveTrainingRecommendation,
 } from './adaptiveTrainingPlanResolver';
 
@@ -240,6 +241,141 @@ describe('adaptive training plan resolver', () => {
     });
 
     expect(recommendation.primaryBlockId).toBe('legs');
+  });
+
+  it('uses explicit session attribution when the workout title conflicts with the block', () => {
+    const recommendation = resolveAdaptiveTrainingRecommendation({
+      plan: createPlan(),
+      planningDateLocal: '2026-04-15',
+      recentSessions: [
+        {
+          ...session('renamed-session', 'Pull', '2026-04-14T12:00:00.000Z'),
+          name: 'Pull day renamed by AI',
+          coachProgramAttribution: {
+            programId: 'plan-ppl',
+            programVersion: 1,
+            sourceBlockId: 'push',
+            templateId: 'ppl-conditioning',
+            scheduleStrategy: 'ordered-rotation',
+            sourceKind: 'generated',
+            confidence: 'high',
+          },
+        },
+      ],
+    });
+
+    expect(recommendation.primaryBlockId).toBe('pull');
+  });
+
+  it('uses session-level attribution without exercise-level block metadata', () => {
+    const plan = createUpperLowerPlan();
+    const progress = computeAdaptiveTargetProgress({
+      plan,
+      planningDateLocal: '2026-04-15',
+      recentSessions: [
+        {
+          ...session(
+            'attributed-session',
+            'Renamed session',
+            '2026-04-14T12:00:00.000Z'
+          ),
+          coachProgramAttribution: {
+            programId: plan.id,
+            programVersion: 1,
+            sourceBlockId: 'lower-strength',
+            templateId: 'balanced-foundation',
+            scheduleStrategy: 'weekly-target-balance',
+            sourceKind: 'manual-log',
+            confidence: 'high',
+          },
+        },
+      ],
+    });
+
+    expect(
+      progress.find(
+        (target: AdaptivePlanTargetProgress) => target.targetId === 'strength'
+      )?.count
+    ).toBe(1);
+  });
+
+  it('counts all legacy blocks named in combined sessions', () => {
+    const progress = computeAdaptiveTargetProgress({
+      plan: createPlan(),
+      planningDateLocal: '2026-04-20',
+      recentSessions: [
+        session(
+          'combined-legacy',
+          'Pull + Easy Cardio',
+          '2026-04-19T12:00:00.000Z'
+        ),
+      ],
+    });
+
+    expect(
+      progress.find(
+        (target: AdaptivePlanTargetProgress) => target.targetId === 'lift'
+      )?.count
+    ).toBe(1);
+    expect(
+      progress.find(
+        (target: AdaptivePlanTargetProgress) => target.targetId === 'cardio'
+      )?.count
+    ).toBe(1);
+  });
+
+  it('counts primary and add-on blocks from session attribution', () => {
+    const progress = computeAdaptiveTargetProgress({
+      plan: createPlan(),
+      planningDateLocal: '2026-04-20',
+      recentSessions: [
+        {
+          ...session(
+            'combined-attributed',
+            'Renamed combined session',
+            '2026-04-19T12:00:00.000Z'
+          ),
+          coachProgramAttribution: {
+            programId: 'plan-ppl',
+            programVersion: 1,
+            sourceBlockId: 'pull',
+            addOnBlockIds: ['easy-cardio'],
+            templateId: 'ppl-conditioning',
+            scheduleStrategy: 'ordered-rotation',
+            sourceKind: 'generated',
+            confidence: 'high',
+          },
+        },
+      ],
+    });
+
+    expect(
+      progress.find(
+        (target: AdaptivePlanTargetProgress) => target.targetId === 'lift'
+      )?.count
+    ).toBe(1);
+    expect(
+      progress.find(
+        (target: AdaptivePlanTargetProgress) => target.targetId === 'cardio'
+      )?.count
+    ).toBe(1);
+  });
+
+  it('marks legacy title/focus matches as low-confidence attribution', () => {
+    const attribution = getSessionBlockAttribution(
+      createPlan(),
+      session('legacy-push', 'Push', '2026-04-14T12:00:00.000Z')
+    );
+
+    expect(attribution).toMatchObject({
+      source: 'legacy',
+      block: expect.objectContaining({ id: 'push' }),
+      attribution: expect.objectContaining({
+        sourceBlockId: 'push',
+        sourceKind: 'legacy-inferred',
+        confidence: 'low',
+      }),
+    });
   });
 
   it('computes rolling target progress from recent completed sessions', () => {

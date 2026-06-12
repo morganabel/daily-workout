@@ -38,6 +38,7 @@ export default class Workout extends Model {
   @field('change_label') changeLabel?: string;
   // Provider response ID for continuity-aware regeneration.
   @field('response_id') responseId?: string;
+  @field('coach_program_attribution_json') coachProgramAttributionJson?: string;
   @readonly @date('created_at') createdAt: number;
   @readonly @date('updated_at') updatedAt: number;
 

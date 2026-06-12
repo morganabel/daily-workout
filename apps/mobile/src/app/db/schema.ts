@@ -1,7 +1,7 @@
 import { appSchema, tableSchema } from '@nozbe/watermelondb';
 
 export const schema = appSchema({
-  version: 8,
+  version: 9,
   tables: [
     tableSchema({
       name: 'users',
@@ -43,6 +43,11 @@ export const schema = appSchema({
         { name: 'change_label', type: 'string', isOptional: true },
         // Provider response ID for continuity-aware regeneration.
         { name: 'response_id', type: 'string', isOptional: true },
+        {
+          name: 'coach_program_attribution_json',
+          type: 'string',
+          isOptional: true,
+        },
         { name: 'created_at', type: 'number' },
         { name: 'updated_at', type: 'number' },
       ],

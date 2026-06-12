@@ -1,4 +1,5 @@
 import type {
+  CoachProgramAttribution,
   GenerationContext,
   WorkoutSessionSummary,
 } from '@workout-agent/shared';
@@ -395,7 +396,10 @@ describe('generateWorkout', () => {
       timeMinutes: 70,
       adaptivePlanIntent: {
         planId: 'plan-ppl',
+        programVersion: 4,
+        scheduleStrategy: 'ordered-rotation',
         recommendationId: 'rec-pull-cardio',
+        projectionId: 'projection-pull-cardio',
         sourceTemplateId: 'ppl-conditioning',
         primaryBlock: {
           blockId: 'pull',
@@ -418,6 +422,9 @@ describe('generateWorkout', () => {
         targetRangeContext: [],
         rationale: [],
         projectionStatus: 'projected',
+        exerciseSlotPolicy: {
+          preserveMainLifts: true,
+        },
       },
     });
 
@@ -430,11 +437,25 @@ describe('generateWorkout', () => {
         primaryBlock: expect.objectContaining({ blockId: 'pull' }),
       })
     );
+    expect(payload.adaptivePlanIntent).not.toHaveProperty('programVersion');
+    expect(payload.adaptivePlanIntent).not.toHaveProperty('scheduleStrategy');
+    expect(payload.adaptivePlanIntent).not.toHaveProperty('projectionId');
+    expect(payload.adaptivePlanIntent).not.toHaveProperty(
+      'exerciseSlotPolicy'
+    );
     expect(mockWorkoutRepository.saveGeneratedPlan).toHaveBeenCalledWith(
       generatedPlan,
       expect.objectContaining({
         generationRequest: expect.objectContaining({
-          adaptivePlanIntent: expect.objectContaining({ planId: 'plan-ppl' }),
+          adaptivePlanIntent: expect.objectContaining({
+            planId: 'plan-ppl',
+            programVersion: 4,
+            scheduleStrategy: 'ordered-rotation',
+            projectionId: 'projection-pull-cardio',
+            exerciseSlotPolicy: expect.objectContaining({
+              preserveMainLifts: true,
+            }),
+          }),
         }),
       })
     );
@@ -602,6 +623,46 @@ describe('quickLogWorkout', () => {
       durationMinutes: 45,
       completedAt,
       note: 'Felt great!',
+    });
+  });
+
+  it('passes coach attribution through quick log params', async () => {
+    const mockWorkout = { id: 'quick-log-coach' };
+    const mockSummary: WorkoutSessionSummary = {
+      id: 'quick-log-coach',
+      name: 'Coach Push',
+      focus: 'Push',
+      durationMinutes: 35,
+      completedAt: new Date().toISOString(),
+      source: 'manual',
+    };
+    const coachProgramAttribution = {
+      programId: 'plan-ppl',
+      programVersion: 1,
+      sourceBlockId: 'push',
+      templateId: 'ppl-conditioning',
+      scheduleStrategy: 'ordered-rotation',
+      sourceKind: 'quick-log',
+      confidence: 'high',
+    } satisfies CoachProgramAttribution;
+
+    mockWorkoutRepository.quickLogManualSession.mockResolvedValue(
+      mockWorkout as any
+    );
+    mockWorkoutRepository.toSessionSummary.mockReturnValue(mockSummary);
+
+    await quickLogWorkout({
+      name: 'Coach Push',
+      focus: 'Push',
+      durationMinutes: 35,
+      coachProgramAttribution,
+    });
+
+    expect(mockWorkoutRepository.quickLogManualSession).toHaveBeenCalledWith({
+      name: 'Coach Push',
+      focus: 'Push',
+      durationMinutes: 35,
+      coachProgramAttribution,
     });
   });
 });
