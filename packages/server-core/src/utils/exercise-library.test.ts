@@ -213,6 +213,60 @@ describe('buildExerciseCandidatePool', () => {
     );
   });
 
+  it('selects higher-scoring candidates within each bucket before applying quotas', () => {
+    const pushExercises = Array.from({ length: 26 }, (_, index) =>
+      createExercise(`push-${index}`, {
+        name: `Push ${index}`,
+        movementTags: ['compound', 'push', 'press'],
+        stressorTags: ['upper_body_push_fatigue'],
+      })
+    );
+    const weakPullExercises = Array.from({ length: 25 }, (_, index) =>
+      createExercise(`weak-pull-${index}`, {
+        name: `Weak Pull ${index}`,
+        focusTags: ['upper_body', 'lats'],
+        movementTags: ['isolation'],
+      })
+    );
+    const strongPullExercise = createExercise('strong-row', {
+      name: 'Strong Row',
+      focusTags: ['upper_body', 'lats', 'middle_back'],
+      movementTags: ['compound', 'pull', 'row'],
+      stressorTags: ['upper_body_pull_fatigue'],
+    });
+    const accessoryExercises = Array.from({ length: 13 }, (_, index) =>
+      createExercise(`accessory-${index}`, {
+        name: `Accessory ${index}`,
+        movementTags: ['isolation'],
+      })
+    );
+    const library = createExerciseLibrary([
+      ...pushExercises,
+      ...weakPullExercises,
+      strongPullExercise,
+      ...accessoryExercises,
+    ]);
+
+    const pool = buildExerciseCandidatePool({
+      exerciseLibrary: library,
+      request: { focus: 'Upper Body' },
+      context: createContext(),
+      planningBrief: createPlanningBrief(),
+    });
+    const pullBucket = pool.candidateBuckets?.find(
+      (bucket) => bucket.key === 'main:upper_back_pull'
+    );
+
+    expect(pullBucket?.availableCount).toBe(26);
+    expect(pullBucket?.candidateExercises).toHaveLength(25);
+    expect(
+      pullBucket?.candidateExercises.map((candidate) => candidate.id)
+    ).toContain('strong-row');
+    expect(
+      pullBucket?.candidateExercises.map((candidate) => candidate.id)
+    ).not.toContain('weak-pull-24');
+  });
+
   it('uses all planning block intents for retrieval and candidate grouping', () => {
     const library = createExerciseLibrary([
       createExercise('push', {

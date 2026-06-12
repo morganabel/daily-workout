@@ -37,6 +37,12 @@ interface CandidateBucketSpec {
   scoreCandidate: (candidate: ExerciseCandidateReference) => number;
 }
 
+interface CandidateBucketAssignment {
+  candidate: ExerciseCandidateReference;
+  index: number;
+  score: number;
+}
+
 export interface ExerciseCandidatePoolSummary extends ExerciseCandidatePool {
   query: CandidateQuery;
 }
@@ -274,17 +280,17 @@ function buildCandidateBuckets(
     return undefined;
   }
 
-  const assigned = new Map<string, ExerciseCandidateReference[]>(
+  const assigned = new Map<string, CandidateBucketAssignment[]>(
     specs.map((spec) => [spec.key, []])
   );
   const usedIds = new Set<string>();
 
-  for (const candidate of candidates) {
+  for (const [candidateIndex, candidate] of candidates.entries()) {
     if (usedIds.has(candidate.id)) {
       continue;
     }
 
-    const bestSpec = specs
+    const bestMatch = specs
       .map((spec, index) => ({
         spec,
         index,
@@ -297,13 +303,17 @@ function buildCandidateBuckets(
         }
 
         return left.index - right.index;
-      })[0]?.spec;
+      })[0];
 
-    if (!bestSpec) {
+    if (!bestMatch) {
       continue;
     }
 
-    assigned.get(bestSpec.key)?.push(candidate);
+    assigned.get(bestMatch.spec.key)?.push({
+      candidate,
+      index: candidateIndex,
+      score: bestMatch.score,
+    });
     usedIds.add(candidate.id);
   }
 
@@ -312,7 +322,16 @@ function buildCandidateBuckets(
   let selectedTotal = 0;
 
   for (const spec of specs) {
-    const bucketCandidates = assigned.get(spec.key) ?? [];
+    const bucketCandidates = (assigned.get(spec.key) ?? [])
+      .slice()
+      .sort((left, right) => {
+        if (right.score !== left.score) {
+          return right.score - left.score;
+        }
+
+        return left.index - right.index;
+      })
+      .map(({ candidate }) => candidate);
     const selected = bucketCandidates.slice(0, spec.quota);
     selectedByBucket.set(spec.key, selected);
     overflowByBucket.set(spec.key, bucketCandidates.slice(spec.quota));
