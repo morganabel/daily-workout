@@ -1,12 +1,16 @@
 import {
   ADAPTIVE_PPL_CONDITIONING_BLOCKS,
+  coachProgramAttributionSchema,
+  createCoachProgramStrategyRevision,
   adaptivePlanIntentSchema,
   adaptiveTrainingPlanSchema,
   buildGenerationRequestFromQuickActions,
   createAdaptiveTrainingPlanFromTemplate,
   createTrainingBlueprintFromOnboarding,
+  migrateAdaptiveTrainingPlanToCoachProgramAware,
   normalizeQuickActionValue,
   plannedSlotMetadataSchema,
+  selectCoachStrategyForTemplate,
   selectTrainingTemplateId,
   supportsAdaptiveTrainingPlan,
   TRAINING_TEMPLATE_DEFINITIONS,
@@ -634,6 +638,55 @@ describe('training blueprint contracts', () => {
     expect(blueprint.slotSequence).toEqual(
       TRAINING_TEMPLATE_DEFINITIONS['strength-starter'].slotSequence
     );
+    expect(blueprint.coachStrategySelection).toEqual(
+      selectCoachStrategyForTemplate('strength-starter')
+    );
+  });
+
+  it('validates session-level coach program attribution', () => {
+    const result = coachProgramAttributionSchema.safeParse({
+      programId: 'plan-ppl',
+      programVersion: 2,
+      sourceBlockId: 'push',
+      addOnBlockIds: ['easy-cardio'],
+      templateId: 'ppl-conditioning',
+      projectionId: 'projection-1',
+      scheduleStrategy: 'ordered-rotation',
+      sourceKind: 'generated',
+      confidence: 'high',
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it('allows forward-compatible metadata on adaptive plan intent', () => {
+    const result = adaptivePlanIntentSchema.safeParse({
+      planId: 'plan-ppl',
+      programVersion: 1,
+      scheduleStrategy: 'ordered-rotation',
+      futureIntentField: { value: 'ignored by older planners' },
+      primaryBlock: {
+        blockId: 'push',
+        label: 'Push',
+        category: 'strength',
+      },
+      addOnBlocks: [],
+      targetRangeContext: [],
+      rationale: [],
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it('selects deterministic coach strategies from template defaults', () => {
+    expect(selectCoachStrategyForTemplate('balanced-foundation')).toMatchObject({
+      strategy: 'weekly-target-balance',
+      reason: expect.stringContaining('Balanced foundation'),
+    });
+    expect(selectCoachStrategyForTemplate('ppl-conditioning')).toMatchObject({
+      strategy: 'ordered-rotation',
+      reason: expect.stringContaining('Lift conditioning'),
+    });
   });
 
   it('scales starter-week lifting density by experience and template intent', () => {
@@ -749,7 +802,86 @@ describe('training blueprint contracts', () => {
       expect(
         result.data.recommendationSettings.preferredRotationBlockIds
       ).toEqual(['push', 'pull', 'legs']);
+      expect(result.data.programVersion).toBe(1);
+      expect(result.data.scheduleStrategy).toBe('ordered-rotation');
+      expect(result.data.strategySelection).toEqual(
+        selectCoachStrategyForTemplate('ppl-conditioning')
+      );
+      expect(result.data.revisions).toEqual([]);
     }
+  });
+
+  it('migrates existing adaptive plan v1 data into coach program metadata', () => {
+    const plan = createAdaptiveTrainingPlanFromTemplate('balanced-foundation', {
+      id: 'plan-balanced',
+      activeFrom: '2026-04-15',
+      updatedAt: '2026-04-15T12:00:00.000Z',
+    });
+    const legacyPlan = {
+      schemaVersion: plan.schemaVersion,
+      id: plan.id,
+      sourceTemplateId: plan.sourceTemplateId,
+      mode: plan.mode,
+      activeFrom: plan.activeFrom,
+      activeUntil: plan.activeUntil,
+      blocks: plan.blocks,
+      targetRanges: plan.targetRanges,
+      typicalWeekPreferences: plan.typicalWeekPreferences,
+      sessionPreferences: plan.sessionPreferences,
+      recommendationSettings: plan.recommendationSettings,
+      status: plan.status,
+      updatedAt: plan.updatedAt,
+    };
+
+    const migrated = migrateAdaptiveTrainingPlanToCoachProgramAware(
+      legacyPlan as typeof plan
+    );
+
+    expect(migrated).toMatchObject({
+      id: 'plan-balanced',
+      blocks: plan.blocks,
+      targetRanges: plan.targetRanges,
+      typicalWeekPreferences: plan.typicalWeekPreferences,
+      sessionPreferences: plan.sessionPreferences,
+      recommendationSettings: plan.recommendationSettings,
+      sourceTemplateId: 'balanced-foundation',
+      status: 'active',
+      updatedAt: '2026-04-15T12:00:00.000Z',
+      programVersion: 1,
+      scheduleStrategy: 'weekly-target-balance',
+      strategySelection: selectCoachStrategyForTemplate('balanced-foundation'),
+      revisions: [],
+    });
+  });
+
+  it('records explicit program strategy revisions with a reason', () => {
+    const plan = createAdaptiveTrainingPlanFromTemplate('balanced-foundation', {
+      id: 'plan-balanced',
+      activeFrom: '2026-04-15',
+      updatedAt: '2026-04-15T12:00:00.000Z',
+    });
+
+    const revised = createCoachProgramStrategyRevision(plan, {
+      scheduleStrategy: 'ordered-rotation',
+      reason: 'User chose a sequence-sensitive strength phase.',
+      createdAt: '2026-04-20T12:00:00.000Z',
+    });
+
+    expect(revised.programVersion).toBe(2);
+    expect(revised.scheduleStrategy).toBe('ordered-rotation');
+    expect(revised.strategySelection).toEqual({
+      strategy: 'ordered-rotation',
+      reason: 'User chose a sequence-sensitive strength phase.',
+    });
+    expect(revised.revisions).toEqual([
+      expect.objectContaining({
+        version: 2,
+        previousVersion: 1,
+        scheduleStrategy: 'ordered-rotation',
+        previousScheduleStrategy: 'weekly-target-balance',
+        reason: 'User chose a sequence-sensitive strength phase.',
+      }),
+    ]);
   });
 
   it('keeps hard lifting streaks conservative except advanced five-day lifting plans', () => {

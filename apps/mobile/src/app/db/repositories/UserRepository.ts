@@ -4,6 +4,7 @@ import { Q } from '@nozbe/watermelondb';
 import {
   adaptiveTrainingPlanSchema,
   createAdaptiveTrainingPlanFromTemplate,
+  migrateAdaptiveTrainingPlanToCoachProgramAware,
   trainingBlueprintSchema,
   type AdaptiveTrainingPlan,
   type OnboardingAnswers,
@@ -70,7 +71,14 @@ export class UserRepository {
       const parsed = JSON.parse(user.preferences);
       const result = userPreferencesSchema.safeParse(parsed);
       if (result.success) {
-        return result.data;
+        return {
+          ...result.data,
+          adaptiveTrainingPlan: result.data.adaptiveTrainingPlan
+            ? migrateAdaptiveTrainingPlanToCoachProgramAware(
+                result.data.adaptiveTrainingPlan
+              )
+            : undefined,
+        };
       }
       console.warn('Invalid preferences format, using defaults:', result.error);
       return DEFAULT_PREFERENCES;

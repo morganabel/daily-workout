@@ -5,6 +5,7 @@
 import type {
   ApiError,
   BillingEntitlementsResponse,
+  CoachProgramAttribution,
   TodayPlan,
   GenerationRequest,
   GenerationRequestPayload,
@@ -236,6 +237,41 @@ const sanitizeGenerationRequestForTrace = (
   return { ...request };
 };
 
+const stripClientOnlyAdaptiveIntentFields = (
+  request: GenerationRequestPayload
+): GenerationRequestPayload => {
+  if (!request.adaptivePlanIntent) {
+    return request;
+  }
+
+  const {
+    planId,
+    recommendationId,
+    sourceTemplateId,
+    primaryBlock,
+    addOnBlocks,
+    targetRangeContext,
+    rationale,
+    projectionStatus,
+  } = request.adaptivePlanIntent;
+
+  const serverAdaptivePlanIntent = {
+    planId,
+    recommendationId,
+    sourceTemplateId,
+    primaryBlock,
+    addOnBlocks,
+    targetRangeContext,
+    rationale,
+    projectionStatus,
+  };
+
+  return {
+    ...request,
+    adaptivePlanIntent: serverAdaptivePlanIntent,
+  };
+};
+
 const getErrorCode = (error: unknown): string | undefined => {
   if (error && typeof error === 'object' && 'code' in error) {
     const code = (error as { code?: unknown }).code;
@@ -291,6 +327,7 @@ export async function generateWorkout(
     ...requestWithCreationMode,
     context,
   };
+  const serverRequest = stripClientOnlyAdaptiveIntentFields(enrichedRequest);
 
   console.log(
     isRegeneration
@@ -335,7 +372,7 @@ export async function generateWorkout(
   try {
     const plan = await apiRequest<TodayPlan>('/api/workouts/generate', {
       method: 'POST',
-      body: JSON.stringify(enrichedRequest),
+      body: JSON.stringify(serverRequest),
     });
 
     await workoutRepository.saveGeneratedPlan(plan, {
@@ -432,6 +469,7 @@ export async function quickLogWorkout(params: {
   durationMinutes: number;
   completedAt?: number;
   note?: string;
+  coachProgramAttribution?: CoachProgramAttribution;
 }): Promise<WorkoutSessionSummary> {
   const workout = await workoutRepository.quickLogManualSession(params);
   return workoutRepository.toSessionSummary(workout);

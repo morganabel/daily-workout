@@ -1,5 +1,6 @@
 import { Q } from '@nozbe/watermelondb';
 import type {
+  CoachProgramAttribution,
   GenerationContext,
   GenerationRequest,
   RegenerationFeedback,
@@ -10,7 +11,11 @@ import type {
   WorkoutSetLog,
   WeightUnit,
 } from '@workout-agent/shared';
-import { workoutEnergySchema } from '@workout-agent/shared';
+import {
+  coachProgramAttributionSchema,
+  selectCoachStrategyForTemplate,
+  workoutEnergySchema,
+} from '@workout-agent/shared';
 import { endOfDay, parseLocalDate, startOfDay } from '../../utils/date';
 import { database } from '../index';
 import Workout from '../models/Workout';
@@ -42,6 +47,18 @@ const stringifyJson = (value: unknown): string | undefined => {
   return JSON.stringify(value);
 };
 
+const parseCoachProgramAttribution = (
+  value: string | undefined | null
+): CoachProgramAttribution | undefined => {
+  if (!value) return undefined;
+  try {
+    const result = coachProgramAttributionSchema.safeParse(JSON.parse(value));
+    return result.success ? result.data : undefined;
+  } catch {
+    return undefined;
+  }
+};
+
 const readCatalogProvenance = (
   planJson: string | undefined
 ): TodayPlan['catalogProvenance'] | undefined => {
@@ -69,6 +86,32 @@ const sanitizeGenerationRequest = (
   if (request.feedback?.length) sanitized.feedback = request.feedback;
 
   return Object.keys(sanitized).length > 0 ? sanitized : undefined;
+};
+
+const buildGeneratedCoachProgramAttribution = (
+  request: GenerationRequest | undefined
+): CoachProgramAttribution | undefined => {
+  const intent = request?.adaptivePlanIntent;
+  if (!intent) return undefined;
+
+  const templateId = intent.sourceTemplateId;
+  const scheduleStrategy =
+    intent.scheduleStrategy ??
+    (templateId
+      ? selectCoachStrategyForTemplate(templateId).strategy
+      : 'weekly-target-balance');
+
+  return coachProgramAttributionSchema.parse({
+    programId: intent.planId,
+    programVersion: intent.programVersion ?? 1,
+    sourceBlockId: intent.primaryBlock.blockId,
+    addOnBlockIds: intent.addOnBlocks.map((block) => block.blockId),
+    templateId,
+    projectionId: intent.projectionId,
+    scheduleStrategy,
+    sourceKind: 'generated',
+    confidence: 'high',
+  });
 };
 
 const buildRequestedChanges = (
@@ -363,6 +406,8 @@ export class WorkoutRepository {
     const generationRequest = sanitizeGenerationRequest(
       options?.generationRequest
     );
+    const coachProgramAttributionFromIntent =
+      buildGeneratedCoachProgramAttribution(options?.generationRequest);
     const requestedChanges = buildRequestedChanges(generationRequest);
     payload.workout.scheduledDate = scheduledDate;
 
@@ -387,6 +432,11 @@ export class WorkoutRepository {
           baselineWorkout = matches[0] ?? null;
         }
       }
+      const coachProgramAttribution =
+        coachProgramAttributionFromIntent ??
+        parseCoachProgramAttribution(
+          baselineWorkout?.coachProgramAttributionJson
+        );
 
       const generationGroupId = baselineWorkout
         ? this.getWorkoutGenerationGroupId(baselineWorkout)
@@ -449,6 +499,7 @@ export class WorkoutRepository {
         w.changeLabel = changeLabel;
         // Store provider response ID for continuity-aware regeneration.
         w.responseId = payload.workout.responseId ?? undefined;
+        w.coachProgramAttributionJson = stringifyJson(coachProgramAttribution);
       });
 
       for (const exercisePayload of payload.exercises) {
@@ -774,6 +825,9 @@ export class WorkoutRepository {
         ? new Date(workout.completedAt).toISOString()
         : new Date().toISOString(),
       source: (workout.source as WorkoutSessionSummary['source']) ?? 'manual',
+      coachProgramAttribution: parseCoachProgramAttribution(
+        workout.coachProgramAttributionJson
+      ),
       catalogProvenance: readCatalogProvenance(workout.planJson ?? undefined),
       archivedAt: workout.archivedAt
         ? new Date(workout.archivedAt).toISOString()
@@ -849,6 +903,16 @@ export class WorkoutRepository {
     });
   }
 
+  async skipWorkoutById(workoutId: string) {
+    const workout = await this.workouts.find(workoutId);
+    await database.write(async () => {
+      await workout.update((w) => {
+        w.status = 'skipped';
+        w.archivedAt = undefined;
+      });
+    });
+  }
+
   async discardPlannedWorkout() {
     await database.write(async () => {
       const planned = await this.workouts
@@ -898,6 +962,7 @@ export class WorkoutRepository {
     durationMinutes: number;
     completedAt?: number;
     note?: string;
+    coachProgramAttribution?: CoachProgramAttribution;
   }): Promise<Workout> {
     const now = Date.now();
     const completedAt = params.completedAt ?? now;
@@ -918,6 +983,11 @@ export class WorkoutRepository {
         w.completedAt = completedAt;
         w.durationSeconds = durationSeconds;
         w.archivedAt = undefined;
+        w.coachProgramAttributionJson = stringifyJson(
+          params.coachProgramAttribution
+            ? coachProgramAttributionSchema.parse(params.coachProgramAttribution)
+            : undefined
+        );
       });
       return workout;
     });

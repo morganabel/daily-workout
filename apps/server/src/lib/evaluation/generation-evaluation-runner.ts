@@ -18,10 +18,7 @@ import {
   DefaultModelRouter,
   DefaultStageOnePlanner,
 } from '@workout-agent-ce/server-ai';
-import {
-  openExerciseLibrary,
-  type ExerciseLibrary,
-} from '@workout-agent-ce/server-exercise-library';
+import type { ExerciseLibrary } from '@workout-agent-ce/server-exercise-library';
 import {
   generationEvaluationReportSchema,
   type GenerationEvaluationAverageLatency,
@@ -269,7 +266,14 @@ function createHandlerBundle(
         googleCloudLocation: process.env.GOOGLE_CLOUD_LOCATION,
       },
       loadExerciseLibrary: async () => {
-        exerciseLibrary ??= openExerciseLibrary();
+        if (!exerciseLibrary) {
+          // Keep the SQLite-backed exercise library behind the same lazy
+          // boundary used by normal server wiring.
+          const { openExerciseLibrary } = await import(
+            '@workout-agent-ce/server-exercise-library'
+          );
+          exerciseLibrary = openExerciseLibrary();
+        }
         return exerciseLibrary;
       },
     }),

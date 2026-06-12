@@ -12,6 +12,76 @@ export type WorkoutCreationMode = z.infer<typeof workoutCreationModeSchema>;
 export const aiProviderNameSchema = z.enum(['openai', 'gemini']);
 export type AiProviderName = z.infer<typeof aiProviderNameSchema>;
 
+export const coachScheduleStrategySchema = z.enum([
+  'ordered-rotation',
+  'weekly-target-balance',
+  'fixed-calendar',
+  'minimum-effective-dose',
+  'event-prep',
+]);
+export type CoachScheduleStrategy = z.infer<
+  typeof coachScheduleStrategySchema
+>;
+
+export const coachAttributionSourceKindSchema = z.enum([
+  'generated',
+  'manual-log',
+  'quick-log',
+  'substitution',
+  'legacy-inferred',
+]);
+export type CoachAttributionSourceKind = z.infer<
+  typeof coachAttributionSourceKindSchema
+>;
+
+export const coachAttributionConfidenceSchema = z.enum([
+  'high',
+  'medium',
+  'low',
+]);
+export type CoachAttributionConfidence = z.infer<
+  typeof coachAttributionConfidenceSchema
+>;
+
+export const coachProgramAttributionSchema = z
+  .object({
+    programId: z.string().min(1),
+    programVersion: z.number().int().positive(),
+    sourceBlockId: z.string().min(1).optional(),
+    addOnBlockIds: z.array(z.string().min(1)).optional(),
+    templateId: z.string().min(1).optional(),
+    projectionId: z.string().min(1).optional(),
+    scheduleStrategy: coachScheduleStrategySchema,
+    sourceKind: coachAttributionSourceKindSchema,
+    confidence: coachAttributionConfidenceSchema,
+  })
+  .strict();
+export type CoachProgramAttribution = z.infer<
+  typeof coachProgramAttributionSchema
+>;
+
+export const coachStrategySelectionSchema = z
+  .object({
+    strategy: coachScheduleStrategySchema,
+    reason: z.string().min(1),
+  })
+  .strict();
+export type CoachStrategySelection = z.infer<
+  typeof coachStrategySelectionSchema
+>;
+
+export const coachProgramRevisionSchema = z
+  .object({
+    version: z.number().int().positive(),
+    previousVersion: z.number().int().positive().optional(),
+    scheduleStrategy: coachScheduleStrategySchema,
+    previousScheduleStrategy: coachScheduleStrategySchema.optional(),
+    reason: z.string().min(1),
+    createdAt: z.string().datetime(),
+  })
+  .strict();
+export type CoachProgramRevision = z.infer<typeof coachProgramRevisionSchema>;
+
 export const catalogMatchDecisionSchema = z.enum(['direct', 'adapt', 'none']);
 export type CatalogMatchDecision = z.infer<typeof catalogMatchDecisionSchema>;
 
@@ -171,6 +241,7 @@ export const workoutSessionSummarySchema = z.object({
   durationMinutes: z.number().int().positive(),
   focus: z.string(),
   source: workoutSourceSchema.optional(),
+  coachProgramAttribution: coachProgramAttributionSchema.optional(),
   catalogProvenance: workoutCatalogProvenanceSchema.optional(),
   // When set, the session is archived/hidden from recency contexts
   archivedAt: z.string().optional(),
@@ -329,6 +400,7 @@ export const trainingBlueprintSchema = z
     templateId: trainingTemplateIdSchema,
     onboardingAnswers: onboardingAnswersSchema.optional(),
     weeklyRhythm: z.string(),
+    coachStrategySelection: coachStrategySelectionSchema.optional(),
     durationAssumptions: durationAssumptionsSchema,
     equipmentLocationAssumptions: equipmentLocationAssumptionsSchema,
     slotSequence: z.array(starterWeekSlotSchema).min(1),
@@ -595,6 +667,10 @@ export const adaptiveTrainingPlanSchema = z
       .array(adaptivePlanSessionPreferenceSchema)
       .default([]),
     recommendationSettings: adaptiveRecommendationSettingsSchema,
+    programVersion: z.number().int().positive().default(1),
+    scheduleStrategy: coachScheduleStrategySchema.optional(),
+    strategySelection: coachStrategySelectionSchema.optional(),
+    revisions: z.array(coachProgramRevisionSchema).default([]),
     status: adaptiveTrainingPlanStatusSchema,
     updatedAt: z.string().datetime(),
   })
@@ -759,7 +835,10 @@ export type AdaptivePlanBlockIntent = z.infer<
 export const adaptivePlanIntentSchema = z
   .object({
     planId: z.string().min(1),
+    programVersion: z.number().int().positive().optional(),
+    scheduleStrategy: coachScheduleStrategySchema.optional(),
     recommendationId: z.string().min(1).optional(),
+    projectionId: z.string().min(1).optional(),
     sourceTemplateId: trainingTemplateIdSchema.optional(),
     primaryBlock: adaptivePlanBlockIntentSchema,
     addOnBlocks: z.array(adaptivePlanBlockIntentSchema).default([]),
@@ -767,7 +846,7 @@ export const adaptivePlanIntentSchema = z
     rationale: z.array(adaptiveRecommendationRationaleSchema).default([]),
     projectionStatus: adaptiveProjectionStatusSchema.optional(),
   })
-  .strict();
+  .passthrough();
 export type AdaptivePlanIntent = z.infer<typeof adaptivePlanIntentSchema>;
 
 export const trainingTemplateDefinitionSchema = z
@@ -776,6 +855,8 @@ export const trainingTemplateDefinitionSchema = z
     name: z.string(),
     summary: z.string(),
     weeklyRhythm: z.string(),
+    defaultScheduleStrategy: coachScheduleStrategySchema,
+    defaultScheduleStrategyReason: z.string().min(1),
     durationAssumptions: durationAssumptionsSchema,
     slotSequence: z.array(starterWeekSlotSchema).min(1),
     adaptivePlanTemplate: z
@@ -2669,6 +2750,9 @@ export const TRAINING_TEMPLATE_DEFINITIONS: Record<
     summary:
       'A low-friction start with two strength days, easy cardio, and recovery.',
     weeklyRhythm: '2 strength days, 1 easy cardio day, mobility and recovery',
+    defaultScheduleStrategy: 'weekly-target-balance',
+    defaultScheduleStrategyReason:
+      'Balanced starter prioritizes weekly exposure balance over a strict session order.',
     durationAssumptions: { targetMinutes: 30, minimumUsefulMinutes: 15 },
     slotSequence: BALANCED_STARTER_SLOT_SEQUENCE,
     adaptivePlanTemplate: createAdaptivePlanTemplateFromSlots({
@@ -2680,6 +2764,9 @@ export const TRAINING_TEMPLATE_DEFINITIONS: Record<
     name: 'Balanced foundation',
     summary: 'A simple mix of strength, conditioning, mobility, and recovery.',
     weeklyRhythm: '3 strength / conditioning days, 2 recovery or mobility days',
+    defaultScheduleStrategy: 'weekly-target-balance',
+    defaultScheduleStrategyReason:
+      'Balanced foundation prioritizes weekly target balance across strength, conditioning, and recovery.',
     durationAssumptions: { targetMinutes: 35, minimumUsefulMinutes: 20 },
     slotSequence: [
       createSlot(0, 'full-body', 'Full body strength', 35),
@@ -2705,6 +2792,9 @@ export const TRAINING_TEMPLATE_DEFINITIONS: Record<
       'A balanced advanced week with strength, conditioning, intervals, and recovery.',
     weeklyRhythm:
       '3 strength days, 2 conditioning exposures, mobility and recovery',
+    defaultScheduleStrategy: 'weekly-target-balance',
+    defaultScheduleStrategyReason:
+      'Balanced performance prioritizes weekly target balance across strength and conditioning exposures.',
     durationAssumptions: { targetMinutes: 45, minimumUsefulMinutes: 30 },
     slotSequence: BALANCED_PERFORMANCE_SLOT_SEQUENCE,
     adaptivePlanTemplate: createAdaptivePlanTemplateFromSlots({
@@ -2717,6 +2807,9 @@ export const TRAINING_TEMPLATE_DEFINITIONS: Record<
     summary:
       'Two full-body strength days with plenty of space to practice and recover.',
     weeklyRhythm: '2 strength days, 1 easy conditioning day, recovery between',
+    defaultScheduleStrategy: 'weekly-target-balance',
+    defaultScheduleStrategyReason:
+      'Strength starter prioritizes weekly strength practice without requiring a strict block sequence.',
     durationAssumptions: { targetMinutes: 35, minimumUsefulMinutes: 20 },
     slotSequence: STRENGTH_STARTER_SLOT_SEQUENCE,
     adaptivePlanTemplate: createAdaptivePlanTemplateFromSlots({
@@ -2729,6 +2822,9 @@ export const TRAINING_TEMPLATE_DEFINITIONS: Record<
     summary: 'Full-body strength exposures with enough recovery to progress.',
     weeklyRhythm:
       '3 strength days, 1 conditioning day, recovery between harder days',
+    defaultScheduleStrategy: 'weekly-target-balance',
+    defaultScheduleStrategyReason:
+      'Strength foundation prioritizes weekly strength exposure balance with recovery spacing.',
     durationAssumptions: { targetMinutes: 45, minimumUsefulMinutes: 30 },
     slotSequence: [
       createSlot(0, 'full-body', 'Full body strength', 45),
@@ -2753,6 +2849,9 @@ export const TRAINING_TEMPLATE_DEFINITIONS: Record<
     summary:
       'Four strength exposures with conditioning and recovery placed around harder days.',
     weeklyRhythm: '4 strength days, 1 conditioning day, mobility and recovery',
+    defaultScheduleStrategy: 'ordered-rotation',
+    defaultScheduleStrategyReason:
+      'Strength performance has distinct strength exposures that benefit from rotating through planned blocks.',
     durationAssumptions: { targetMinutes: 55, minimumUsefulMinutes: 35 },
     slotSequence: STRENGTH_PERFORMANCE_SLOT_SEQUENCE,
     adaptivePlanTemplate: createAdaptivePlanTemplateFromSlots({
@@ -2766,6 +2865,9 @@ export const TRAINING_TEMPLATE_DEFINITIONS: Record<
       'Two approachable muscle-building days with light cardio and recovery.',
     weeklyRhythm:
       '2 hypertrophy days, 1 easy cardio day, mobility and recovery',
+    defaultScheduleStrategy: 'weekly-target-balance',
+    defaultScheduleStrategyReason:
+      'Hypertrophy starter prioritizes weekly hypertrophy exposure balance without a strict sequence.',
     durationAssumptions: { targetMinutes: 35, minimumUsefulMinutes: 20 },
     slotSequence: HYPERTROPHY_STARTER_SLOT_SEQUENCE,
     adaptivePlanTemplate: {
@@ -2782,6 +2884,9 @@ export const TRAINING_TEMPLATE_DEFINITIONS: Record<
     summary: 'Simple muscle-building exposures with recovery and light cardio.',
     weeklyRhythm:
       '3 hypertrophy days, 1 easy cardio day, mobility and recovery',
+    defaultScheduleStrategy: 'weekly-target-balance',
+    defaultScheduleStrategyReason:
+      'Hypertrophy foundation prioritizes weekly hypertrophy target balance with recovery.',
     durationAssumptions: { targetMinutes: 45, minimumUsefulMinutes: 30 },
     slotSequence: [
       createSlot(0, 'full-body', 'Upper lift', 45),
@@ -2806,6 +2911,9 @@ export const TRAINING_TEMPLATE_DEFINITIONS: Record<
     summary:
       'Four spaced upper/lower lifting days with a light cardio touchpoint.',
     weeklyRhythm: '4 lift days, 1 easy cardio day, recovery after lower work',
+    defaultScheduleStrategy: 'ordered-rotation',
+    defaultScheduleStrategyReason:
+      'Upper/lower hypertrophy depends on rotating through distinct upper and lower lifting blocks.',
     durationAssumptions: { targetMinutes: 45, minimumUsefulMinutes: 30 },
     slotSequence: UPPER_LOWER_HYPERTROPHY_SLOT_SEQUENCE,
     adaptivePlanTemplate: {
@@ -2822,6 +2930,9 @@ export const TRAINING_TEMPLATE_DEFINITIONS: Record<
     summary:
       'An advanced five-day lifting week with a PPL wave and upper/lower pump work.',
     weeklyRhythm: '5 lift days with recovery after the first PPL wave',
+    defaultScheduleStrategy: 'ordered-rotation',
+    defaultScheduleStrategyReason:
+      'PPL hypertrophy depends on rotating through a sequence of split lifting blocks.',
     durationAssumptions: { targetMinutes: 50, minimumUsefulMinutes: 35 },
     slotSequence: PPL_HYPERTROPHY_SLOT_SEQUENCE,
     adaptivePlanTemplate: {
@@ -2836,6 +2947,9 @@ export const TRAINING_TEMPLATE_DEFINITIONS: Record<
     name: 'Lift conditioning',
     summary: 'Lifting days spaced around easy cardio and sprint conditioning.',
     weeklyRhythm: '3 lift days, 1 easy cardio day, 1 sprint day',
+    defaultScheduleStrategy: 'ordered-rotation',
+    defaultScheduleStrategyReason:
+      'Lift conditioning depends on rotating through push, pull, and legs while balancing conditioning.',
     durationAssumptions: { targetMinutes: 50, minimumUsefulMinutes: 35 },
     slotSequence: PPL_CONDITIONING_SLOT_SEQUENCE,
     adaptivePlanTemplate: {
@@ -2851,6 +2965,9 @@ export const TRAINING_TEMPLATE_DEFINITIONS: Record<
     summary: 'Conditioning-first training with enough strength to hold muscle.',
     weeklyRhythm:
       '2 strength circuits, 2 conditioning days, mobility and recovery',
+    defaultScheduleStrategy: 'weekly-target-balance',
+    defaultScheduleStrategyReason:
+      'Fat-loss conditioning prioritizes weekly conditioning and strength exposure balance.',
     durationAssumptions: { targetMinutes: 35, minimumUsefulMinutes: 20 },
     slotSequence: [
       createSlot(0, 'full-body', 'Strength circuit', 35),
@@ -2875,6 +2992,9 @@ export const TRAINING_TEMPLATE_DEFINITIONS: Record<
     summary: 'Cardio-forward training with strength support and recovery.',
     weeklyRhythm:
       '2 cardio days, 2 support strength days, mobility and recovery',
+    defaultScheduleStrategy: 'weekly-target-balance',
+    defaultScheduleStrategyReason:
+      'Endurance support prioritizes weekly cardio, strength support, and recovery balance.',
     durationAssumptions: { targetMinutes: 40, minimumUsefulMinutes: 25 },
     slotSequence: [
       createSlot(0, 'conditioning', 'Easy cardio', 40),
@@ -2899,6 +3019,9 @@ export const TRAINING_TEMPLATE_DEFINITIONS: Record<
     summary: 'Mobility-led training with stability strength and easy movement.',
     weeklyRhythm:
       '3 mobility sessions, 1 stability strength day, optional easy cardio',
+    defaultScheduleStrategy: 'weekly-target-balance',
+    defaultScheduleStrategyReason:
+      'Mobility foundation prioritizes weekly mobility exposure balance with optional support work.',
     durationAssumptions: { targetMinutes: 25, minimumUsefulMinutes: 15 },
     slotSequence: [
       createSlot(0, 'mobility', 'Mobility flow', 25),
@@ -2924,6 +3047,9 @@ export const TRAINING_TEMPLATE_DEFINITIONS: Record<
       'Short, low-friction sessions for minimal equipment or travel weeks.',
     weeklyRhythm:
       'Short strength, mobility, and flexible conditioning sessions',
+    defaultScheduleStrategy: 'weekly-target-balance',
+    defaultScheduleStrategyReason:
+      'Busy travel prioritizes flexible weekly target balance around limited time and equipment.',
     durationAssumptions: { targetMinutes: 25, minimumUsefulMinutes: 15 },
     slotSequence: [
       createSlot(0, 'full-body', 'Bodyweight strength', 25),
@@ -3029,11 +3155,13 @@ export const createTrainingBlueprintFromOnboarding = (
 ): TrainingBlueprint => {
   const template =
     TRAINING_TEMPLATE_DEFINITIONS[selectTrainingTemplateId(answers)];
+  const coachStrategySelection = selectCoachStrategyForTemplate(template.id);
 
   return trainingBlueprintSchema.parse({
     templateId: template.id,
     onboardingAnswers: answers,
     weeklyRhythm: template.weeklyRhythm,
+    coachStrategySelection,
     durationAssumptions: template.durationAssumptions,
     equipmentLocationAssumptions: {
       environment: answers.environment,
@@ -3044,6 +3172,16 @@ export const createTrainingBlueprintFromOnboarding = (
     editStatus: options.editStatus ?? 'accepted',
     horizonDays: options.horizonDays ?? 7,
     updatedAt: options.updatedAt,
+  });
+};
+
+export const selectCoachStrategyForTemplate = (
+  templateId: TrainingTemplateId
+): CoachStrategySelection => {
+  const template = TRAINING_TEMPLATE_DEFINITIONS[templateId];
+  return coachStrategySelectionSchema.parse({
+    strategy: template.defaultScheduleStrategy,
+    reason: template.defaultScheduleStrategyReason,
   });
 };
 
@@ -3058,6 +3196,7 @@ export const createAdaptiveTrainingPlanFromTemplate = (
 ): AdaptiveTrainingPlan => {
   const templateDefinition = TRAINING_TEMPLATE_DEFINITIONS[templateId];
   const template = getAdaptivePlanTemplate(templateDefinition);
+  const strategySelection = selectCoachStrategyForTemplate(templateId);
 
   return adaptiveTrainingPlanSchema.parse({
     schemaVersion: 1,
@@ -3071,8 +3210,60 @@ export const createAdaptiveTrainingPlanFromTemplate = (
     typicalWeekPreferences: template.typicalWeekPreferences,
     sessionPreferences: [],
     recommendationSettings: template.recommendationSettings,
+    programVersion: 1,
+    scheduleStrategy: strategySelection.strategy,
+    strategySelection,
+    revisions: [],
     status: 'active',
     updatedAt: options.updatedAt,
+  });
+};
+
+export const migrateAdaptiveTrainingPlanToCoachProgramAware = (
+  plan: AdaptiveTrainingPlan
+): AdaptiveTrainingPlan => {
+  const parsed = adaptiveTrainingPlanSchema.parse(plan);
+  const strategySelection =
+    parsed.strategySelection ??
+    selectCoachStrategyForTemplate(parsed.sourceTemplateId);
+
+  return adaptiveTrainingPlanSchema.parse({
+    ...parsed,
+    programVersion: parsed.programVersion ?? 1,
+    scheduleStrategy: parsed.scheduleStrategy ?? strategySelection.strategy,
+    strategySelection,
+    revisions: parsed.revisions ?? [],
+  });
+};
+
+export const createCoachProgramStrategyRevision = (
+  plan: AdaptiveTrainingPlan,
+  input: {
+    scheduleStrategy: CoachScheduleStrategy;
+    reason: string;
+    createdAt: string;
+  }
+): AdaptiveTrainingPlan => {
+  const current = migrateAdaptiveTrainingPlanToCoachProgramAware(plan);
+  const revision = coachProgramRevisionSchema.parse({
+    version: current.programVersion + 1,
+    previousVersion: current.programVersion,
+    scheduleStrategy: input.scheduleStrategy,
+    previousScheduleStrategy: current.scheduleStrategy,
+    reason: input.reason,
+    createdAt: input.createdAt,
+  });
+
+  return adaptiveTrainingPlanSchema.parse({
+    ...current,
+    programVersion: revision.version,
+    scheduleStrategy: revision.scheduleStrategy,
+    strategySelection: {
+      strategy: revision.scheduleStrategy,
+      reason: revision.reason,
+    },
+    revisions: [...current.revisions, revision],
+    updatedAt: input.createdAt,
   });
 };
 
@@ -3152,6 +3343,7 @@ export const workoutLogPayloadSchema = z
     completedAt: z.string().optional(),
     durationSeconds: z.number().int().nonnegative().optional(),
     exercises: z.array(workoutExerciseLogSchema).optional(),
+    coachProgramAttribution: coachProgramAttributionSchema.optional(),
   })
   .strict();
 export type WorkoutLogPayload = z.infer<typeof workoutLogPayloadSchema>;
@@ -3482,5 +3674,6 @@ export const quickLogPayloadSchema = z.object({
   durationMinutes: z.number().int().positive(),
   note: z.string().optional(),
   completedAt: z.string().optional(),
+  coachProgramAttribution: coachProgramAttributionSchema.optional(),
 });
 export type QuickLogPayload = z.infer<typeof quickLogPayloadSchema>;

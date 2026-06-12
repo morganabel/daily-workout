@@ -155,6 +155,8 @@ const buildAdaptivePlanIntent = (
 
   return {
     planId: adaptivePlan.id,
+    programVersion: adaptivePlan.programVersion,
+    scheduleStrategy: adaptivePlan.scheduleStrategy,
     recommendationId: recommendation.id,
     sourceTemplateId: adaptivePlan.sourceTemplateId,
     primaryBlock: toBlockIntent(primaryBlock),

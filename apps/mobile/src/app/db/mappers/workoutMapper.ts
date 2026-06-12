@@ -1,4 +1,5 @@
 import type {
+  CoachProgramAttribution,
   TodayPlan,
   WorkoutBlock,
   WorkoutExercise,
@@ -30,6 +31,7 @@ export type WorkoutRowLike = {
   changeLabel?: string | null;
   // Provider response ID for continuity-aware regeneration.
   responseId?: string | null;
+  coachProgramAttributionJson?: string | null;
   createdAt?: number | null;
   updatedAt?: number | null;
 };
@@ -41,6 +43,7 @@ export type WorkoutVersionMetadata = {
   regenerationNotes?: string;
   requestedChanges?: Record<string, unknown>;
   changeLabel?: string;
+  coachProgramAttribution?: CoachProgramAttribution;
 };
 
 export type TodayPlanWithVersionMetadata = TodayPlan & {
@@ -224,6 +227,7 @@ export const planToPersistence = (
     isSelected: true,
     // Store provider response ID for continuity-aware regeneration.
     responseId: plan.responseId,
+    coachProgramAttributionJson: null,
     createdAt: timestamp,
     updatedAt: timestamp,
   };
