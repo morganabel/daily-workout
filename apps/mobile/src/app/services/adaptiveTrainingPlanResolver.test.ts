@@ -267,6 +267,30 @@ describe('adaptive training plan resolver', () => {
     expect(recommendation.primaryBlockId).toBe('pull');
   });
 
+  it('uses low-confidence explicit attribution before legacy title matching', () => {
+    const attribution = getSessionBlockAttribution(createPlan(), {
+      ...session(
+        'low-confidence-manual',
+        'Pull day renamed by user',
+        '2026-04-14T12:00:00.000Z'
+      ),
+      coachProgramAttribution: {
+        programId: 'plan-ppl',
+        programVersion: 1,
+        sourceBlockId: 'push',
+        templateId: 'ppl-conditioning',
+        scheduleStrategy: 'ordered-rotation',
+        sourceKind: 'manual-log',
+        confidence: 'low',
+      },
+    });
+
+    expect(attribution).toMatchObject({
+      source: 'explicit',
+      block: expect.objectContaining({ id: 'push' }),
+    });
+  });
+
   it('uses session-level attribution without exercise-level block metadata', () => {
     const plan = createUpperLowerPlan();
     const progress = computeAdaptiveTargetProgress({

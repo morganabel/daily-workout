@@ -234,6 +234,86 @@ describe('WorkoutRepository', () => {
       });
     });
 
+    it('inherits coach attribution from baseline workout during regeneration', async () => {
+      await workoutRepository.saveGeneratedPlan(
+        createTodayPlanFixture({
+          id: 'coach-plan-regeneration-v1',
+          focus: 'Upper Body',
+        }),
+        {
+          generationRequest: {
+            focus: 'Push',
+            adaptivePlanIntent: {
+              planId: 'plan-ppl',
+              programVersion: 2,
+              scheduleStrategy: 'ordered-rotation',
+              recommendationId: 'recommendation-1',
+              projectionId: 'projection-1',
+              sourceTemplateId: 'ppl-conditioning',
+              primaryBlock: {
+                blockId: 'push',
+                label: 'Push',
+                category: 'strength',
+                role: 'push',
+              },
+              addOnBlocks: [
+                {
+                  blockId: 'easy-cardio',
+                  label: 'Easy Cardio',
+                  category: 'cardio',
+                },
+              ],
+              targetRangeContext: [],
+              rationale: [],
+            },
+          },
+        }
+      );
+
+      const firstWorkout = await workoutRepository.getWorkoutByPlanId(
+        'coach-plan-regeneration-v1'
+      );
+      if (!firstWorkout) {
+        throw new Error('Expected baseline workout');
+      }
+
+      await workoutRepository.saveGeneratedPlan(
+        createTodayPlanFixture({
+          id: 'coach-plan-regeneration-v2',
+          focus: 'Upper Body',
+        }),
+        {
+          baselineWorkoutId: firstWorkout.id,
+          generationRequest: {
+            focus: 'Push',
+            feedback: ['different-exercises'],
+          },
+        }
+      );
+
+      const regeneratedWorkout = await workoutRepository.getWorkoutByPlanId(
+        'coach-plan-regeneration-v2'
+      );
+      if (!regeneratedWorkout) {
+        throw new Error('Expected regenerated workout');
+      }
+      expect(
+        workoutRepository.toSessionSummary(regeneratedWorkout)
+      ).toMatchObject({
+        coachProgramAttribution: {
+          programId: 'plan-ppl',
+          programVersion: 2,
+          sourceBlockId: 'push',
+          addOnBlockIds: ['easy-cardio'],
+          templateId: 'ppl-conditioning',
+          projectionId: 'projection-1',
+          scheduleStrategy: 'ordered-rotation',
+          sourceKind: 'generated',
+          confidence: 'high',
+        },
+      });
+    });
+
     it('preserves generated coach attribution through status and metadata mutations', async () => {
       await workoutRepository.saveGeneratedPlan(
         createTodayPlanFixture({ id: 'coach-plan-preserve' }),

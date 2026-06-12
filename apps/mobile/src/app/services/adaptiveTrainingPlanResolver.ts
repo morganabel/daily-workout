@@ -117,8 +117,7 @@ export const getSessionBlockAttribution = (
   const stamped = session.coachProgramAttribution;
   if (
     stamped?.programId === plan.id &&
-    stamped.sourceKind !== 'legacy-inferred' &&
-    stamped.confidence !== 'low'
+    stamped.sourceKind !== 'legacy-inferred'
   ) {
     const primaryBlock = stamped.sourceBlockId
       ? getBlockById(plan, stamped.sourceBlockId)

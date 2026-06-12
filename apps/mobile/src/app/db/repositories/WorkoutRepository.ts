@@ -406,9 +406,8 @@ export class WorkoutRepository {
     const generationRequest = sanitizeGenerationRequest(
       options?.generationRequest
     );
-    const coachProgramAttribution = buildGeneratedCoachProgramAttribution(
-      options?.generationRequest
-    );
+    const coachProgramAttributionFromIntent =
+      buildGeneratedCoachProgramAttribution(options?.generationRequest);
     const requestedChanges = buildRequestedChanges(generationRequest);
     payload.workout.scheduledDate = scheduledDate;
 
@@ -433,6 +432,11 @@ export class WorkoutRepository {
           baselineWorkout = matches[0] ?? null;
         }
       }
+      const coachProgramAttribution =
+        coachProgramAttributionFromIntent ??
+        parseCoachProgramAttribution(
+          baselineWorkout?.coachProgramAttributionJson
+        );
 
       const generationGroupId = baselineWorkout
         ? this.getWorkoutGenerationGroupId(baselineWorkout)
