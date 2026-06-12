@@ -20,15 +20,24 @@ export const CLASSIC_STRENGTH_GUIDANCE =
 export const GYM_STRENGTH_EQUIPMENT_GUIDANCE =
   'When Gym is available for strength work, prioritize barbell, dumbbell, cable/machine, bench/rack, and bodyweight compound movements. Use resistance-band exercises sparingly, mainly for warm-up, assistance, or prehab, not as the backbone of the session.';
 
-export const INITIAL_GENERATION_INSTRUCTIONS = `Generate a single workout session with at least one block and one exercise per block. Use realistic exercise names and prescriptions. Prefer the planning brief when present, otherwise use the request and context as the source of truth for focus, duration, equipment, and constraints. Prefer exercises from the candidate pool when one is provided. ${CLASSIC_STRENGTH_GUIDANCE} ${GYM_STRENGTH_EQUIPMENT_GUIDANCE} Treat user-supplied injuries and avoid lists as hard constraints. Treat planner-generated avoidances as lower-confidence guidance that should not override the user's explicit constraints. If no focus is specified, choose the most appropriate one from the available planning data.`;
+export const INITIAL_GENERATION_INSTRUCTIONS = `Generate a single workout session with at least one block and one exercise per block. Use realistic exercise names and prescriptions. Prefer the planning brief when present, otherwise use the request and context as the source of truth for focus, duration, equipment, and constraints. Prefer exercises from the candidate pool when one is provided. When a stage-one planner selectionIntent or candidateInstructions are present, use them to decide which candidate roles should be emphasized for this specific context; do not force every role if the planner or user context indicates a push-biased, pull-biased, accessory-biased, or constraint-limited session. ${CLASSIC_STRENGTH_GUIDANCE} ${GYM_STRENGTH_EQUIPMENT_GUIDANCE} Treat user-supplied injuries and avoid lists as hard constraints. Treat planner-generated avoidances as lower-confidence guidance that should not override the user's explicit constraints. If no focus is specified, choose the most appropriate one from the available planning data.`;
 
 export const STAGE_ONE_PLANNER_SYSTEM_PROMPT =
   'You are an internal workout planning assistant. Return only valid JSON matching the schema. Resolve ambiguity, preserve hard constraints, and give advisory guidance for a final workout-generation model. Do not assemble the full workout.';
 
 export const STAGE_ONE_PLANNER_INSTRUCTIONS =
-  'Interpret the request and context, resolve the most likely session intent, note stressors to protect or avoid, and produce concise rerank/prompt guidance for the final workout model. For strength-oriented sessions, steer the final model toward classic, broadly recognized strength exercises over novelty variants. For gym strength, avoid making bands the main training tool unless the user asks for that. Treat user-supplied injuries and avoid lists as hard constraints. Keep hard constraints server-owned and treat your output as advisory.';
+  'Interpret the request and context, resolve the most likely session intent, note stressors to protect or avoid, and produce concise rerank/prompt guidance for the final workout model. Choose selectionIntent contextually: use balanced_upper for general upper-body strength or hypertrophy when push and upper-back pull are both appropriate; push_biased for chest/shoulders/push-day intent or when pull is contextually undesirable; pull_biased for back/posture/pull-day intent; accessory_biased for arms/shoulders/pump emphasis; constraint_limited when equipment, injuries, avoid lists, or recent/upcoming stressors make normal role coverage inappropriate. For strength-oriented sessions, steer the final model toward classic, broadly recognized strength exercises over novelty variants. For gym strength, avoid making bands the main training tool unless the user asks for that. Treat user-supplied injuries and avoid lists as hard constraints. Keep hard constraints server-owned and treat your output as advisory.';
 
 const MAX_PROMPT_CANDIDATE_EXERCISES = 64;
+
+type CandidatePromptExercise = {
+  id: string;
+  name: string;
+  requiredEquipment?: string[];
+  focusTags?: string[];
+  movementTags?: string[];
+  loadLevel?: 'light' | 'moderate' | 'heavy';
+};
 
 export function buildCandidatePoolPromptData(
   candidatePool?: ExerciseCandidatePool
@@ -38,10 +47,15 @@ export function buildCandidatePoolPromptData(
       totalEligibleCount: number;
       searchText?: string;
       baselineExerciseIds: string[];
-      exercises: Array<{
-        id: string;
-        name: string;
-        requiredEquipment?: string[];
+      exercises: CandidatePromptExercise[];
+      buckets?: Array<{
+        key: string;
+        title: string;
+        quota: number;
+        availableCount: number;
+        selectedCount: number;
+        shortfall: number;
+        exercises: CandidatePromptExercise[];
       }>;
       instructions: string;
     }
@@ -50,13 +64,14 @@ export function buildCandidatePoolPromptData(
     return undefined;
   }
 
-  const exercises = candidatePool.candidateExercises
-    .slice(0, MAX_PROMPT_CANDIDATE_EXERCISES)
-    .map(({ id, name, requiredEquipment }) => ({
-      id,
-      name,
-      ...(requiredEquipment?.length ? { requiredEquipment } : {}),
-    }));
+  const buckets = candidatePool.candidateBuckets?.length
+    ? buildCandidateBucketPromptData(candidatePool)
+    : undefined;
+  const exercises = buckets
+    ? buckets.flatMap((bucket) => bucket.exercises)
+    : candidatePool.candidateExercises
+        .slice(0, MAX_PROMPT_CANDIDATE_EXERCISES)
+        .map(formatCandidatePromptExercise);
 
   return {
     libraryVersion: candidatePool.libraryVersion,
@@ -64,8 +79,55 @@ export function buildCandidatePoolPromptData(
     searchText: candidatePool.searchText,
     baselineExerciseIds: candidatePool.baselineExerciseIds,
     exercises,
+    buckets,
     instructions:
-      'Prefer exercises from this candidate pool unless there is a strong reason not to. Treat the list as a bounded high-confidence set chosen from the exercise library after applying hard constraints. The list is ranked; for strength work, prefer earlier classic compound and simple accessory exercises over obscure variations. For gym strength, avoid overusing resistance-band candidates when loaded gym alternatives are available. Do not mention the candidate pool in the final response.',
+      'Prefer exercises from this candidate pool unless there is a strong reason not to. Treat it as a bounded high-confidence set chosen from the exercise library after applying hard constraints. Candidate buckets are available roles, and exercises are ranked within each bucket. Use the planning brief and any stage-one selectionIntent to decide which roles fit this context; buckets are not unconditional requirements. Bucket shortfalls mean that role is thin for the selected equipment or constraints. For strength work, prefer classic compound and simple accessory exercises within the relevant bucket over obscure variations. For gym strength, avoid overusing resistance-band candidates when loaded gym alternatives are available. Do not mention the candidate pool in the final response.',
+  };
+}
+
+function buildCandidateBucketPromptData(candidatePool: ExerciseCandidatePool) {
+  const buckets: NonNullable<
+    ReturnType<typeof buildCandidatePoolPromptData>
+  >['buckets'] = [];
+  let remaining = MAX_PROMPT_CANDIDATE_EXERCISES;
+
+  for (const bucket of candidatePool.candidateBuckets ?? []) {
+    if (remaining <= 0) {
+      break;
+    }
+
+    const exercises = bucket.candidateExercises
+      .slice(0, remaining)
+      .map(formatCandidatePromptExercise);
+
+    buckets.push({
+      key: bucket.key,
+      title: bucket.title,
+      quota: bucket.quota,
+      availableCount: bucket.availableCount,
+      selectedCount: exercises.length,
+      shortfall: bucket.shortfall,
+      exercises,
+    });
+    remaining -= exercises.length;
+  }
+
+  return buckets.length ? buckets : undefined;
+}
+
+function formatCandidatePromptExercise(
+  candidate: ExerciseCandidatePool['candidateExercises'][number]
+): CandidatePromptExercise {
+  const { id, name, requiredEquipment, focusTags, movementTags, loadLevel } =
+    candidate;
+
+  return {
+    id,
+    name,
+    ...(requiredEquipment?.length ? { requiredEquipment } : {}),
+    ...(focusTags?.length ? { focusTags } : {}),
+    ...(movementTags?.length ? { movementTags } : {}),
+    ...(loadLevel ? { loadLevel } : {}),
   };
 }
 
@@ -131,6 +193,7 @@ export function buildStageOnePlannerArtifactPromptData(
       styleBiases: string[];
       loadBias?: StageOnePlannerArtifact['loadBias'];
       noveltyTarget?: StageOnePlannerArtifact['noveltyTarget'];
+      selectionIntent?: StageOnePlannerArtifact['selectionIntent'];
       rerankHints: string[];
       candidateInstructions: string[];
     }
@@ -148,6 +211,7 @@ export function buildStageOnePlannerArtifactPromptData(
     styleBiases: artifact.styleBiases,
     loadBias: artifact.loadBias,
     noveltyTarget: artifact.noveltyTarget,
+    selectionIntent: artifact.selectionIntent,
     rerankHints: artifact.rerankHints,
     candidateInstructions: artifact.candidateInstructions,
   };
@@ -324,6 +388,16 @@ export function buildRegenerationMessage(
     if (stageOneArtifact.noveltyTarget) {
       parts.push(`Novelty target: ${stageOneArtifact.noveltyTarget}.`);
     }
+    if (stageOneArtifact.selectionIntent) {
+      parts.push(`Selection intent: ${stageOneArtifact.selectionIntent}.`);
+    }
+    if (stageOneArtifact.candidateInstructions.length > 0) {
+      parts.push(
+        `Candidate selection guidance: ${stageOneArtifact.candidateInstructions.join(
+          '; '
+        )}.`
+      );
+    }
   }
 
   // Add feedback if provided
@@ -417,14 +491,19 @@ export function buildRegenerationMessage(
 
   const promptData = buildCandidatePoolPromptData(candidatePool);
   if (promptData) {
-    const formattedExercises = promptData.exercises
-      .map((exercise) => {
-        if (!exercise.requiredEquipment?.length) {
-          return exercise.name;
-        }
-        return `${exercise.name} (${exercise.requiredEquipment.join(', ')})`;
-      })
-      .join(', ');
+    const formattedExercises = promptData.buckets?.length
+      ? promptData.buckets
+          .map((bucket) => {
+            const shortfall =
+              bucket.shortfall > 0 ? `; shortfall ${bucket.shortfall}` : '';
+            return `${bucket.title} (${bucket.selectedCount}/${
+              bucket.quota
+            }${shortfall}): ${bucket.exercises
+              .map(formatCandidateForTextPrompt)
+              .join(', ')}`;
+          })
+          .join('; ')
+      : promptData.exercises.map(formatCandidateForTextPrompt).join(', ');
 
     parts.push(
       `Candidate pool from exercise library v${promptData.libraryVersion}: ${formattedExercises}. ${promptData.instructions}`
@@ -457,6 +536,27 @@ export function buildRegenerationMessage(
   parts.push('Please generate a new workout that addresses these preferences.');
 
   return parts.join(' ');
+}
+
+function formatCandidateForTextPrompt(
+  exercise: CandidatePromptExercise
+): string {
+  const details = [
+    exercise.requiredEquipment?.length
+      ? exercise.requiredEquipment.join(', ')
+      : undefined,
+    exercise.movementTags?.length
+      ? `movement: ${exercise.movementTags.join('/')}`
+      : undefined,
+    exercise.focusTags?.length
+      ? `focus: ${exercise.focusTags.join('/')}`
+      : undefined,
+    exercise.loadLevel ? `load: ${exercise.loadLevel}` : undefined,
+  ].filter(Boolean);
+
+  return details.length
+    ? `${exercise.name} (${details.join('; ')})`
+    : exercise.name;
 }
 
 function formatCatalogSeedPromptText(catalogSeed: CatalogSeed): string {

@@ -31,7 +31,11 @@ describe('buildRegenerationMessage', () => {
     searchText: 'upper body strength',
     baselineExerciseIds: ['fedb:pushups'],
     candidateExercises: [
-      { id: 'fedb:pushups', name: 'Pushups', requiredEquipment: ['bodyweight'] },
+      {
+        id: 'fedb:pushups',
+        name: 'Pushups',
+        requiredEquipment: ['bodyweight'],
+      },
       {
         id: 'fedb:chin-up',
         name: 'Chin-Up',
@@ -102,6 +106,7 @@ describe('buildRegenerationMessage', () => {
     styleBiases: ['athletic'],
     loadBias: 'low',
     noveltyTarget: 'high',
+    selectionIntent: 'balanced_upper',
     rerankHints: ['prefer upper-body compound lifts'],
     candidateInstructions: ['keep lower-body fatigue minimal'],
   };
@@ -240,33 +245,33 @@ describe('buildRegenerationMessage', () => {
         ['different-exercises'],
         candidatePool,
         planningBrief,
-        stageOneArtifact,
+        stageOneArtifact
       );
 
       expect(message).toContain('Resolved session intent: Upper Body & Core');
       expect(message).toContain(
-        'Hard user avoid list: overhead pressing. Treat these as hard constraints and do not include them.',
+        'Hard user avoid list: overhead pressing. Treat these as hard constraints and do not include them.'
       );
       expect(message).toContain(
-        'Hard user injury context: left shoulder irritation. Treat these as hard constraints and keep the workout safely away from aggravating patterns.',
+        'Hard user injury context: left shoulder irritation. Treat these as hard constraints and keep the workout safely away from aggravating patterns.'
       );
       expect(message).toContain(
-        "Planner-generated avoidances: lower_body_overload. Use these as lower-confidence guidance unless they conflict with the user's explicit constraints.",
+        "Planner-generated avoidances: lower_body_overload. Use these as lower-confidence guidance unless they conflict with the user's explicit constraints."
       );
       expect(message).toContain('Baseline exercises: Goblet Squat');
       expect(message).toContain('Planner intent: Protect lower-body freshness');
       expect(message).toContain('Novelty target: high');
       expect(message).toContain(
-        'When viable alternatives exist, make meaningful exercise changes that are proportional to the feedback.',
+        'When viable alternatives exist, make meaningful exercise changes that are proportional to the feedback.'
       );
       expect(message).toContain(
-        'If only one or two baseline exercises are the problem, it is acceptable to replace only those exercises and keep the rest of the workout aligned to the original intent.',
+        'If only one or two baseline exercises are the problem, it is acceptable to replace only those exercises and keep the rest of the workout aligned to the original intent.'
       );
       expect(message).toContain(
-        'Do not just reshuffle the exact same full exercise list into new blocks or lightly rewrite prescriptions/details when the user is asking for a real change.',
+        'Do not just reshuffle the exact same full exercise list into new blocks or lightly rewrite prescriptions/details when the user is asking for a real change.'
       );
       expect(message).toContain(
-        'Prefer unused exercises from the candidate pool before falling back to any baseline exercise.',
+        'Prefer unused exercises from the candidate pool before falling back to any baseline exercise.'
       );
       expect(message).toContain(CLASSIC_STRENGTH_GUIDANCE);
     });
@@ -315,19 +320,112 @@ describe('buildRegenerationMessage', () => {
               requiredEquipment: ['bodyweight', 'pull_up_bar'],
             },
           ],
-        }),
+        })
       );
-      expect(buildCandidatePoolPromptData(candidatePool)?.instructions).toContain(
-        'The list is ranked',
+      expect(
+        buildCandidatePoolPromptData(candidatePool)?.instructions
+      ).toContain('Candidate buckets are available roles');
+      expect(
+        buildCandidatePoolPromptData(candidatePool)?.instructions
+      ).toContain('buckets are not unconditional requirements');
+    });
+
+    it('formats grouped candidate buckets with compact tags', () => {
+      const groupedPool: ExerciseCandidatePool = {
+        ...candidatePool,
+        candidateExercises: [
+          {
+            id: 'fedb:pushups',
+            name: 'Pushups',
+            requiredEquipment: ['bodyweight'],
+            focusTags: ['upper_body'],
+            movementTags: ['push'],
+            loadLevel: 'moderate',
+          },
+          {
+            id: 'fedb:row',
+            name: 'Inverted Row',
+            requiredEquipment: ['squat_rack'],
+            focusTags: ['upper_body', 'middle_back'],
+            movementTags: ['pull', 'row'],
+            loadLevel: 'moderate',
+          },
+        ],
+        candidateBuckets: [
+          {
+            key: 'main:upper_push',
+            title: 'Main Block - Upper Push',
+            quota: 26,
+            availableCount: 40,
+            selectedCount: 1,
+            shortfall: 0,
+            candidateExercises: [
+              {
+                id: 'fedb:pushups',
+                name: 'Pushups',
+                requiredEquipment: ['bodyweight'],
+                focusTags: ['upper_body'],
+                movementTags: ['push'],
+                loadLevel: 'moderate',
+              },
+            ],
+          },
+          {
+            key: 'main:upper_back_pull',
+            title: 'Main Block - Upper Back Pull',
+            quota: 25,
+            availableCount: 1,
+            selectedCount: 1,
+            shortfall: 24,
+            candidateExercises: [
+              {
+                id: 'fedb:row',
+                name: 'Inverted Row',
+                requiredEquipment: ['squat_rack'],
+                focusTags: ['upper_body', 'middle_back'],
+                movementTags: ['pull', 'row'],
+                loadLevel: 'moderate',
+              },
+            ],
+          },
+        ],
+      };
+
+      expect(buildCandidatePoolPromptData(groupedPool)).toEqual(
+        expect.objectContaining({
+          buckets: [
+            expect.objectContaining({
+              key: 'main:upper_push',
+              exercises: [
+                expect.objectContaining({
+                  name: 'Pushups',
+                  movementTags: ['push'],
+                  focusTags: ['upper_body'],
+                }),
+              ],
+            }),
+            expect.objectContaining({
+              key: 'main:upper_back_pull',
+              shortfall: 24,
+              exercises: [
+                expect.objectContaining({
+                  name: 'Inverted Row',
+                  movementTags: ['pull', 'row'],
+                  focusTags: ['upper_body', 'middle_back'],
+                }),
+              ],
+            }),
+          ],
+        })
       );
     });
 
     it('includes classic strength guidance in initial instructions', () => {
       expect(INITIAL_GENERATION_INSTRUCTIONS).toContain(
-        CLASSIC_STRENGTH_GUIDANCE,
+        CLASSIC_STRENGTH_GUIDANCE
       );
       expect(INITIAL_GENERATION_INSTRUCTIONS).toContain(
-        GYM_STRENGTH_EQUIPMENT_GUIDANCE,
+        GYM_STRENGTH_EQUIPMENT_GUIDANCE
       );
     });
 
@@ -335,7 +433,7 @@ describe('buildRegenerationMessage', () => {
       const message = buildRegenerationMessage(
         baseRequest,
         undefined,
-        candidatePool,
+        candidatePool
       );
 
       expect(message).toContain('Candidate pool from exercise library');
@@ -364,7 +462,7 @@ describe('buildRegenerationMessage', () => {
           blockIntents: [
             expect.objectContaining({ focus: 'Upper Body & Core' }),
           ],
-        }),
+        })
       );
     });
 
@@ -373,8 +471,8 @@ describe('buildRegenerationMessage', () => {
         buildStageOnePlannerRequestPayload(
           baseRequest,
           planningBrief,
-          candidatePool,
-        ),
+          candidatePool
+        )
       ).toEqual(
         expect.objectContaining({
           planningBrief: expect.objectContaining({
@@ -383,7 +481,7 @@ describe('buildRegenerationMessage', () => {
           candidatePool: expect.objectContaining({
             libraryVersion: 'test-library',
           }),
-        }),
+        })
       );
     });
 
@@ -448,15 +546,15 @@ describe('buildRegenerationMessage', () => {
       expect(buildPlanningBriefPromptData(adaptiveBrief)).toEqual(
         expect.objectContaining({
           adaptivePlanIntent: expect.objectContaining({ planId: 'plan-ppl' }),
-        }),
+        })
       );
       expect(buildStageOnePlannerRequestPayload(request).request).toEqual(
         expect.objectContaining({
           adaptivePlanIntent: expect.objectContaining({ planId: 'plan-ppl' }),
-        }),
+        })
       );
       expect(buildRegenerationMessage(request)).toContain(
-        'Adaptive plan intent: primary Pull; add-ons Easy Cardio; rationale Cardio is below target.',
+        'Adaptive plan intent: primary Pull; add-ons Easy Cardio; rationale Cardio is below target.'
       );
     });
 
@@ -494,10 +592,15 @@ describe('buildRegenerationMessage', () => {
       };
 
       expect(buildPlanningBriefPromptData(adaptiveBrief)).toEqual(
-        expect.objectContaining({ adaptivePlanIntent: undefined }),
+        expect.objectContaining({ adaptivePlanIntent: undefined })
       );
       expect(
-        buildRegenerationMessage(baseRequest, undefined, undefined, adaptiveBrief),
+        buildRegenerationMessage(
+          baseRequest,
+          undefined,
+          undefined,
+          adaptiveBrief
+        )
       ).not.toContain('Adaptive plan intent: primary Legs');
     });
 
@@ -506,8 +609,9 @@ describe('buildRegenerationMessage', () => {
         expect.objectContaining({
           confidence: 'high',
           noveltyTarget: 'high',
+          selectionIntent: 'balanced_upper',
           resolvedFocus: 'Upper Body & Core',
-        }),
+        })
       );
     });
   });

@@ -19,6 +19,7 @@ export const planningStageOneReasonSchema = z.enum([
   'recent-event-conflict',
   'dense-notes',
   'regeneration-feedback',
+  'candidate-overflow',
 ]);
 export type PlanningStageOneReason = z.infer<
   typeof planningStageOneReasonSchema
@@ -35,6 +36,21 @@ export type PlanningStageOneConfidence = z.infer<
 
 export const planningNoveltyTargetSchema = z.enum(['low', 'medium', 'high']);
 export type PlanningNoveltyTarget = z.infer<typeof planningNoveltyTargetSchema>;
+
+export const planningCandidateSelectionIntentSchema = z.enum([
+  'balanced_upper',
+  'push_biased',
+  'pull_biased',
+  'accessory_biased',
+  'constraint_limited',
+  'balanced_full_body',
+  'lower_body_biased',
+  'conditioning_biased',
+  'unspecified',
+]);
+export type PlanningCandidateSelectionIntent = z.infer<
+  typeof planningCandidateSelectionIntentSchema
+>;
 
 export const planningStageOneActivationSchema = z
   .object({
@@ -58,6 +74,7 @@ export const stageOnePlannerArtifactSchema = z
     styleBiases: z.array(z.string()),
     loadBias: planningLoadCeilingSchema.optional(),
     noveltyTarget: planningNoveltyTargetSchema.optional(),
+    selectionIntent: planningCandidateSelectionIntentSchema.optional(),
     rerankHints: z.array(z.string()),
     candidateInstructions: z.array(z.string()),
   })
