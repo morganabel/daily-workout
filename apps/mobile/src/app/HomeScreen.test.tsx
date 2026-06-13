@@ -7,9 +7,12 @@ import { userRepository } from './db/repositories/UserRepository';
 import {
   createAdaptiveTrainingPlanFromTemplate,
   type AdaptivePlanRecommendation,
+  type CoachProjectedSession,
+  type GenerationRequest,
   type QuickActionPreset,
   type TodayPlan,
 } from '@workout-agent/shared';
+import type { HomeCoachPlanView } from './hooks/useHomeData';
 import { createTodayPlanFixture } from '@workout-agent/shared/testing';
 
 jest.mock('./hooks/useHomeData', () => ({
@@ -359,6 +362,101 @@ describe('HomeScreen', () => {
     expect(
       request.adaptivePlanIntent.exerciseSlotPolicy.currentAssignments
     ).toEqual([]);
+  });
+
+  it('renders the upcoming coach plan and wires session actions', async () => {
+    const { generateWorkout } = require('./services/api');
+    generateWorkout.mockResolvedValue(createTodayPlanFixture());
+    const { plan, recommendation } = createAdaptivePlanFixture();
+
+    const createProjectedSession = (
+      overrides: Partial<CoachProjectedSession>
+    ): CoachProjectedSession => ({
+      id: 'proj-1',
+      planId: 'plan-ppl',
+      programVersion: 1,
+      cycleIndex: 0,
+      strategy: 'weekly-target-balance',
+      sessionIdentityKey: 'wtb:pull:1',
+      localDate: '2026-04-29',
+      sourceBlockId: 'pull',
+      addOnBlockIds: [],
+      targetIds: ['cardio'],
+      status: 'projected',
+      blockLabel: 'Pull',
+      durationMinutes: 45,
+      rationale: [],
+      coachNotes: [],
+      conflictWarningIds: [],
+      availableActions: ['generate', 'skip', 'pin', 'move'],
+      ...overrides,
+    });
+
+    const coachPlan: HomeCoachPlanView = {
+      nextSession: createProjectedSession({ id: 'proj-today' }),
+      nextActionRationale: 'Cardio is due this week.',
+      upcomingSessions: [
+        createProjectedSession({ id: 'proj-2', localDate: '2026-04-30' }),
+        createProjectedSession({
+          id: 'proj-3',
+          localDate: '2026-05-02',
+          blockLabel: 'Long Run',
+          status: 'pinned',
+          sessionIdentityKey: 'pin:0:long-run',
+          availableActions: ['unpin', 'move'],
+        }),
+      ],
+      repairNotes: [],
+      conflictWarnings: [],
+    };
+
+    const skipCoachProjectionSession = jest.fn();
+    const generationRequest: GenerationRequest = {
+      timeMinutes: 45,
+      energy: 'moderate',
+      focus: 'Pull',
+    };
+    const buildCoachProjectionGenerationRequest = jest.fn(
+      () => generationRequest
+    );
+
+    mockUseHomeData.mockReturnValue({
+      ...baseHookState,
+      adaptivePlan: plan,
+      adaptiveRecommendation: recommendation,
+      coachPlan,
+      quickActions: createSetupQuickActions({ equipment: 'Gym' }),
+      skipCoachProjectionSession,
+      buildCoachProjectionGenerationRequest,
+    });
+
+    const { getByText, getAllByText, queryByText } = render(<HomeScreen />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    // Compact upcoming projection with distinct statuses, no strategy ids.
+    expect(getByText('UPCOMING')).toBeTruthy();
+    expect(getByText('Long Run')).toBeTruthy();
+    expect(getByText('Pinned')).toBeTruthy();
+    expect(queryByText(/weekly-target-balance/)).toBeNull();
+
+    await act(async () => {
+      fireEvent.press(getAllByText('Skip')[0]);
+    });
+    expect(skipCoachProjectionSession).toHaveBeenCalledWith('proj-2');
+
+    await act(async () => {
+      fireEvent.press(getAllByText('Generate')[0]);
+    });
+    expect(buildCoachProjectionGenerationRequest).toHaveBeenCalledWith(
+      'proj-2',
+      expect.objectContaining({ energy: expect.any(String) })
+    );
+    expect(generateWorkout).toHaveBeenCalledWith(
+      generationRequest,
+      expect.objectContaining({ scheduledDate: expect.any(Number) })
+    );
   });
 
   it('opens coach customization with Auto selected instead of the recommendation label', async () => {

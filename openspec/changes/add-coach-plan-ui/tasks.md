@@ -24,6 +24,6 @@
 
 ## 5. Validation
 
-- [ ] 5.1 Add mobile UI tests for next action, upcoming projection, skip, pin, pinned conflict, and plan settings flows
-- [ ] 5.2 Run targeted mobile tests through Nx
-- [ ] 5.3 Validate this OpenSpec change with `openspec validate add-coach-plan-ui --strict`
+- [x] 5.1 Add mobile UI tests for next action, upcoming projection, skip, pin, pinned conflict, and plan settings flows
+- [x] 5.2 Run targeted mobile tests through Nx
+- [x] 5.3 Validate this OpenSpec change with `openspec validate add-coach-plan-ui --strict`
