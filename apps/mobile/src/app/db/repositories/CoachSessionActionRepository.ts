@@ -110,6 +110,7 @@ export class CoachSessionActionRepository {
         Q.where('action_kind', 'skip'),
         Q.where('program_id', parsed.programId),
         Q.where('program_version', parsed.programVersion),
+        Q.where('strategy', parsed.strategy),
         Q.where('cycle_index', parsed.cycleIndex),
         Q.where('session_identity_key', parsed.sessionIdentityKey)
       )

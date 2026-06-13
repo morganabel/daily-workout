@@ -192,6 +192,43 @@ describe('coach projection resolver', () => {
     });
   });
 
+  it('keeps earlier skipped ordered work pending after the skipped date', () => {
+    const plan = createPplPlan();
+    const projection = deriveCoachProjection({
+      plan,
+      planningDateLocal: '2026-04-16',
+      recentSessions: [],
+      sessionActions: [createSkipAction(plan)],
+    });
+
+    expect(projection.sessions[0]).toMatchObject({
+      localDate: '2026-04-16',
+      sourceBlockId: 'push',
+      sessionIdentityKey: 'ordered:push:2',
+    });
+  });
+
+  it('ignores skip records from a previous schedule strategy', () => {
+    const plan = createPplPlan();
+    const projection = deriveCoachProjection({
+      plan,
+      planningDateLocal: '2026-04-15',
+      recentSessions: [],
+      sessionActions: [
+        createSkipAction(plan, {
+          strategy: 'weekly-target-balance',
+        }),
+      ],
+    });
+
+    expect(projection.sessions[0]).toMatchObject({
+      localDate: '2026-04-15',
+      status: 'projected',
+      sourceBlockId: 'push',
+      sessionIdentityKey: 'ordered:push:1',
+    });
+  });
+
   it('applies skip records after program version changes', () => {
     const plan = createPplPlan({ programVersion: 2 });
     const projection = deriveCoachProjection({

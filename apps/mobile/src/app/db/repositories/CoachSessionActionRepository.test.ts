@@ -40,7 +40,7 @@ describe('CoachSessionActionRepository', () => {
     ).resolves.toEqual([action]);
   });
 
-  it('upserts skips by program version, cycle, and session identity', async () => {
+  it('upserts skips by strategy, program version, cycle, and session identity', async () => {
     await coachSessionActionRepository.recordSkipAction({
       programId: 'plan-ppl',
       programVersion: 1,
@@ -78,5 +78,43 @@ describe('CoachSessionActionRepository', () => {
       projectedLocalDate: '2026-04-21',
       substitutionBlockId: 'pull',
     });
+  });
+
+  it('keeps skip actions separate across schedule strategies', async () => {
+    await coachSessionActionRepository.recordSkipAction({
+      programId: 'plan-ppl',
+      programVersion: 1,
+      strategy: 'ordered-rotation',
+      cycleIndex: 2,
+      sessionIdentityKey: 'shared-session-key',
+      projectionId: 'coachproj_ordered',
+      sourceBlockId: 'push',
+      projectedLocalDate: '2026-04-20',
+      actionLocalDate: '2026-04-20',
+      createdAt: '2026-04-20T12:00:00.000Z',
+    });
+
+    await coachSessionActionRepository.recordSkipAction({
+      programId: 'plan-ppl',
+      programVersion: 1,
+      strategy: 'weekly-target-balance',
+      cycleIndex: 2,
+      sessionIdentityKey: 'shared-session-key',
+      projectionId: 'coachproj_weekly',
+      sourceBlockId: 'push',
+      projectedLocalDate: '2026-04-20',
+      actionLocalDate: '2026-04-20',
+      createdAt: '2026-04-20T12:05:00.000Z',
+    });
+
+    const actions = await coachSessionActionRepository.listActionsForProgram(
+      'plan-ppl'
+    );
+
+    expect(actions).toHaveLength(2);
+    expect(actions.map((action) => action.projectionId).sort()).toEqual([
+      'coachproj_ordered',
+      'coachproj_weekly',
+    ]);
   });
 });

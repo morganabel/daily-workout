@@ -202,8 +202,7 @@ const makeOrdinalKey = (
 const initializeOrdinalCounts = (
   plan: AdaptiveTrainingPlan,
   strategy: CoachScheduleStrategy,
-  completedOccurrences: CompletedOccurrence[],
-  sessionActions: CoachSessionAction[]
+  completedOccurrences: CompletedOccurrence[]
 ): Map<string, number> => {
   const counts = new Map<string, number>();
 
@@ -236,21 +235,30 @@ const initializeOrdinalCounts = (
     });
   });
 
-  sessionActions.forEach((action) => {
-    if (action.programId !== plan.id || !action.sourceBlockId) {
-      return;
-    }
-    const block = getBlockById(plan, action.sourceBlockId);
-    increment(
-      action.cycleIndex,
-      action.sourceBlockId,
-      strategy === 'weekly-target-balance' && block
-        ? getPrimaryTargetId(plan, block)
-        : undefined
-    );
-  });
-
   return counts;
+};
+
+const previewOccurrenceOrdinal = (
+  context: ProjectionContext,
+  cycleIndex: number,
+  sourceBlockId: string,
+  targetId?: string
+): number =>
+  (context.projectedOrdinalCounts.get(
+    makeOrdinalKey(context.strategy, cycleIndex, sourceBlockId, targetId)
+  ) ?? 0) + 1;
+
+const commitOccurrenceOrdinal = (
+  context: ProjectionContext,
+  cycleIndex: number,
+  sourceBlockId: string,
+  ordinal: number,
+  targetId?: string
+): void => {
+  context.projectedOrdinalCounts.set(
+    makeOrdinalKey(context.strategy, cycleIndex, sourceBlockId, targetId),
+    ordinal
+  );
 };
 
 const nextOccurrenceOrdinal = (
@@ -259,14 +267,13 @@ const nextOccurrenceOrdinal = (
   sourceBlockId: string,
   targetId?: string
 ): number => {
-  const key = makeOrdinalKey(
-    context.strategy,
+  const next = previewOccurrenceOrdinal(
+    context,
     cycleIndex,
     sourceBlockId,
     targetId
   );
-  const next = (context.projectedOrdinalCounts.get(key) ?? 0) + 1;
-  context.projectedOrdinalCounts.set(key, next);
+  commitOccurrenceOrdinal(context, cycleIndex, sourceBlockId, next, targetId);
   return next;
 };
 
@@ -278,6 +285,7 @@ const getActionByIdentity = (
     map.set(
       [
         action.programId,
+        action.strategy,
         action.programVersion,
         action.cycleIndex,
         action.sessionIdentityKey,
@@ -285,9 +293,12 @@ const getActionByIdentity = (
       action
     );
     map.set(
-      [action.programId, action.cycleIndex, action.sessionIdentityKey].join(
-        '|'
-      ),
+      [
+        action.programId,
+        action.strategy,
+        action.cycleIndex,
+        action.sessionIdentityKey,
+      ].join('|'),
       action
     );
   });
@@ -298,6 +309,7 @@ const findActionForSessionIdentity = (
   actionByIdentity: Map<string, CoachSessionAction>,
   input: {
     programId: string;
+    strategy: CoachScheduleStrategy;
     programVersion: number;
     cycleIndex: number;
     sessionIdentityKey: string;
@@ -306,13 +318,31 @@ const findActionForSessionIdentity = (
   actionByIdentity.get(
     [
       input.programId,
+      input.strategy,
       input.programVersion,
       input.cycleIndex,
       input.sessionIdentityKey,
     ].join('|')
   ) ??
   actionByIdentity.get(
-    [input.programId, input.cycleIndex, input.sessionIdentityKey].join('|')
+    [
+      input.programId,
+      input.strategy,
+      input.cycleIndex,
+      input.sessionIdentityKey,
+    ].join('|')
+  );
+
+const getActiveSessionActions = (
+  plan: AdaptiveTrainingPlan,
+  strategy: CoachScheduleStrategy,
+  actions: CoachSessionAction[]
+): CoachSessionAction[] =>
+  actions.filter(
+    (action) =>
+      action.actionKind === 'skip' &&
+      action.programId === plan.id &&
+      action.strategy === strategy
   );
 
 const getPinnedPreferencesForDate = (
@@ -536,6 +566,7 @@ const createSkippedSessions = (
     .filter(
       (action) =>
         action.programId === context.input.plan.id &&
+        action.strategy === context.strategy &&
         compareLocalDates(
           action.projectedLocalDate,
           context.windowStartLocalDate
@@ -687,10 +718,6 @@ const deriveOrderedRotationSessions = (
   let rotationIndex = 0;
 
   for (const { sourceDate, withinWindow } of listCycleDates(context)) {
-    if (withinWindow && context.occupiedDates.has(sourceDate)) {
-      continue;
-    }
-
     const completedBlockId = completedRotationBlockByDate.get(sourceDate);
     if (completedBlockId) {
       rotationIndex =
@@ -722,14 +749,32 @@ const deriveOrderedRotationSessions = (
     }
 
     const cycleIndex = getCycleIndexForDate(context.input.plan, sourceDate);
-    const ordinal = nextOccurrenceOrdinal(context, cycleIndex, block.id);
+    const isOccupiedSourceDate =
+      withinWindow && context.occupiedDates.has(sourceDate);
+    const ordinal = isOccupiedSourceDate
+      ? previewOccurrenceOrdinal(context, cycleIndex, block.id)
+      : nextOccurrenceOrdinal(context, cycleIndex, block.id);
     const sessionIdentityKey = `ordered:${block.id}:${ordinal}`;
     const action = findActionForSessionIdentity(actionByIdentity, {
       programId: context.input.plan.id,
+      strategy: context.strategy,
       programVersion: context.programVersion,
       cycleIndex,
       sessionIdentityKey,
     });
+
+    if (isOccupiedSourceDate) {
+      if (
+        action?.projectedLocalDate === sourceDate &&
+        action.sourceBlockId === block.id
+      ) {
+        commitOccurrenceOrdinal(context, cycleIndex, block.id, ordinal);
+        if (action.substitutionBlockId || action.substitutionWorkoutId) {
+          rotationIndex = (rotationIndex + 1) % rotationBlockIds.length;
+        }
+      }
+      continue;
+    }
 
     if (action?.substitutionBlockId || action?.substitutionWorkoutId) {
       rotationIndex = (rotationIndex + 1) % rotationBlockIds.length;
@@ -818,16 +863,13 @@ const getBestWeeklyBalanceBlock = (
 
 const deriveWeeklyBalanceSessions = (
   context: ProjectionContext,
-  targetProgress: AdaptivePlanTargetProgress[]
+  targetProgress: AdaptivePlanTargetProgress[],
+  actionByIdentity: Map<string, CoachSessionAction>
 ): CoachProjectedSession[] => {
   const sessions: CoachProjectedSession[] = [];
   const targetCounts = countTargetProgress(targetProgress);
 
   for (const { sourceDate, withinWindow } of listCycleDates(context)) {
-    if (withinWindow && context.occupiedDates.has(sourceDate)) {
-      continue;
-    }
-
     const pinnedPreferences = getPinnedPreferencesForDate(
       context.input.plan,
       sourceDate
@@ -850,13 +892,40 @@ const deriveWeeklyBalanceSessions = (
 
     const cycleIndex = getCycleIndexForDate(context.input.plan, sourceDate);
     const targetId = getPrimaryTargetId(context.input.plan, block);
-    const ordinal = nextOccurrenceOrdinal(
-      context,
-      cycleIndex,
-      block.id,
-      targetId
-    );
+    const isOccupiedSourceDate =
+      withinWindow && context.occupiedDates.has(sourceDate);
+    const ordinal = isOccupiedSourceDate
+      ? previewOccurrenceOrdinal(context, cycleIndex, block.id, targetId)
+      : nextOccurrenceOrdinal(context, cycleIndex, block.id, targetId);
     const sessionIdentityKey = `target:${targetId}:${block.id}:${ordinal}`;
+    const action = findActionForSessionIdentity(actionByIdentity, {
+      programId: context.input.plan.id,
+      strategy: context.strategy,
+      programVersion: context.programVersion,
+      cycleIndex,
+      sessionIdentityKey,
+    });
+    const actionMatchesSourceDate =
+      action?.projectedLocalDate === sourceDate &&
+      action.sourceBlockId === block.id;
+
+    if (isOccupiedSourceDate) {
+      if (actionMatchesSourceDate) {
+        commitOccurrenceOrdinal(
+          context,
+          cycleIndex,
+          block.id,
+          ordinal,
+          targetId
+        );
+      }
+      continue;
+    }
+
+    if (actionMatchesSourceDate) {
+      continue;
+    }
+
     if (withinWindow) {
       emitProjectedSession(context, sessions, {
         block,
@@ -926,6 +995,11 @@ export const deriveCoachProjection = (
     input.plan,
     input.recentSessions
   );
+  const activeSessionActions = getActiveSessionActions(
+    input.plan,
+    strategy,
+    input.sessionActions ?? []
+  );
   const context: ProjectionContext = {
     input,
     strategy,
@@ -937,13 +1011,12 @@ export const deriveCoachProjection = (
     projectedOrdinalCounts: initializeOrdinalCounts(
       input.plan,
       strategy,
-      completedOccurrences,
-      input.sessionActions ?? []
+      completedOccurrences
     ),
     repairNotes: new Set<string>(),
     conflictWarnings: [],
   };
-  const actionByIdentity = getActionByIdentity(input.sessionActions ?? []);
+  const actionByIdentity = getActionByIdentity(activeSessionActions);
   const skippedSessions = createSkippedSessions(context, actionByIdentity);
   skippedSessions.forEach((session) => {
     context.occupiedDates.add(session.localDate);
@@ -956,7 +1029,7 @@ export const deriveCoachProjection = (
           actionByIdentity,
           completedOccurrences
         )
-      : deriveWeeklyBalanceSessions(context, targetProgress);
+      : deriveWeeklyBalanceSessions(context, targetProgress, actionByIdentity);
 
   const sessions = sortSessions([...skippedSessions, ...projectedSessions]);
   const todaySessionId = sessions.find(

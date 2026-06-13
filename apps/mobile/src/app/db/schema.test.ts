@@ -2,7 +2,7 @@ import { migrations } from './migrations';
 import { schema } from './schema';
 
 describe('database schema migrations', () => {
-  it('adds session-level coach attribution to workouts in version 9', () => {
+  it('keeps the current schema on version 11 and includes the version 9 attribution migration', () => {
     expect(schema.version).toBe(11);
     expect(schema.tables.workouts.columns).toEqual(
       expect.objectContaining({
