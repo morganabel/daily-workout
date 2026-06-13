@@ -49,6 +49,17 @@ export const coachProgramAttributionSchema = z
     addOnBlockIds: z.array(z.string().min(1)).optional(),
     templateId: z.string().min(1).optional(),
     projectionId: z.string().min(1).optional(),
+    slotAssignments: z
+      .array(
+        z
+          .object({
+            slotId: z.string().min(1),
+            exerciseId: z.string().min(1).optional(),
+            exerciseName: z.string().min(1).optional(),
+          })
+          .strict()
+      )
+      .optional(),
     scheduleStrategy: coachScheduleStrategySchema,
     sourceKind: coachAttributionSourceKindSchema,
     confidence: coachAttributionConfidenceSchema,
@@ -97,6 +108,114 @@ export type WorkoutCatalogProvenance = z.infer<
   typeof workoutCatalogProvenanceSchema
 >;
 
+export const exerciseSlotStabilityPolicySchema = z.enum([
+  'stable',
+  'coach-rotatable',
+  'user-locked',
+]);
+export type ExerciseSlotStabilityPolicy = z.infer<
+  typeof exerciseSlotStabilityPolicySchema
+>;
+
+export const exerciseSlotTemplateSchema = z
+  .object({
+    id: z.string().min(1),
+    label: z.string().min(1),
+    sourceBlockId: z.string().min(1).optional(),
+    role: z.string().min(1).optional(),
+    stabilityPolicy: exerciseSlotStabilityPolicySchema,
+    targetExerciseCount: z.number().int().positive().default(1),
+    movementTags: z.array(z.string().min(1)).default([]),
+    focusTags: z.array(z.string().min(1)).default([]),
+    preferredExerciseIds: z.array(z.string().min(1)).default([]),
+    eligibleExerciseIds: z.array(z.string().min(1)).default([]),
+    requiredEquipment: z.array(z.string().min(1)).default([]),
+  })
+  .strict();
+export type ExerciseSlotTemplate = z.infer<typeof exerciseSlotTemplateSchema>;
+
+export const exerciseSlotAssignmentSourceSchema = z.enum([
+  'generated',
+  'manual-log',
+  'coach',
+  'user-lock',
+]);
+export type ExerciseSlotAssignmentSource = z.infer<
+  typeof exerciseSlotAssignmentSourceSchema
+>;
+
+export const exerciseSlotAssignmentSchema = z
+  .object({
+    slotId: z.string().min(1),
+    exerciseId: z.string().min(1).optional(),
+    exerciseName: z.string().min(1).optional(),
+    assignedAt: z.string().datetime().optional(),
+    source: exerciseSlotAssignmentSourceSchema,
+    sourceWorkoutId: z.string().min(1).optional(),
+    sourceProjectionId: z.string().min(1).optional(),
+    locked: z.boolean().default(false),
+  })
+  .strict()
+  .superRefine((assignment, ctx) => {
+    if (!assignment.exerciseId && !assignment.exerciseName) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'slot assignment requires an exercise id or exercise name',
+        path: ['exerciseName'],
+      });
+    }
+  });
+export type ExerciseSlotAssignment = z.infer<
+  typeof exerciseSlotAssignmentSchema
+>;
+
+export const exerciseSlotOverrideReasonCodeSchema = z.enum([
+  'equipment-unavailable',
+  'injury-conflict',
+  'avoid-list',
+  'event-protection',
+  'explicit-user-request',
+  'no-eligible-exercise',
+]);
+export type ExerciseSlotOverrideReasonCode = z.infer<
+  typeof exerciseSlotOverrideReasonCodeSchema
+>;
+
+export const exerciseSlotOverrideReasonSchema = z
+  .object({
+    slotId: z.string().min(1),
+    code: exerciseSlotOverrideReasonCodeSchema,
+    message: z.string().min(1),
+    blockedExerciseId: z.string().min(1).optional(),
+    blockedExerciseName: z.string().min(1).optional(),
+  })
+  .strict();
+export type ExerciseSlotOverrideReason = z.infer<
+  typeof exerciseSlotOverrideReasonSchema
+>;
+
+export const exerciseSlotPolicySchema = z
+  .object({
+    slots: z.array(exerciseSlotTemplateSchema).default([]),
+    currentAssignments: z.array(exerciseSlotAssignmentSchema).default([]),
+    overrideReasons: z.array(exerciseSlotOverrideReasonSchema).default([]),
+  })
+  .strict();
+export type ExerciseSlotPolicy = z.infer<typeof exerciseSlotPolicySchema>;
+
+export const workoutExerciseSlotAssignmentSchema = z
+  .object({
+    slotId: z.string().min(1),
+    slotLabel: z.string().min(1).optional(),
+    stabilityPolicy: exerciseSlotStabilityPolicySchema.optional(),
+    assignmentSource: exerciseSlotAssignmentSourceSchema.optional(),
+    overrideReasonCode: exerciseSlotOverrideReasonCodeSchema.optional(),
+  })
+  .strict();
+export type WorkoutExerciseSlotAssignment = z.infer<
+  typeof workoutExerciseSlotAssignmentSchema
+>;
+
 const workoutExerciseBaseSchema = z.object({
   name: z.string(),
   prescription: z.string(),
@@ -105,6 +224,7 @@ const workoutExerciseBaseSchema = z.object({
 
 export const workoutExerciseSchema = workoutExerciseBaseSchema.extend({
   id: z.string(),
+  slotAssignment: workoutExerciseSlotAssignmentSchema.optional(),
 });
 export type WorkoutExercise = z.infer<typeof workoutExerciseSchema>;
 
@@ -228,6 +348,7 @@ export const workoutExerciseLogSchema = z.object({
   blockOrder: z.number().int().nonnegative().optional(),
   prescription: z.string().optional(),
   detail: z.string().nullable().optional(),
+  slotAssignment: workoutExerciseSlotAssignmentSchema.optional(),
   sets: z.array(workoutSetLogSchema),
 });
 export type WorkoutExerciseLog = z.infer<typeof workoutExerciseLogSchema>;
@@ -402,6 +523,7 @@ export const trainingBlueprintSchema = z
     durationAssumptions: durationAssumptionsSchema,
     equipmentLocationAssumptions: equipmentLocationAssumptionsSchema,
     slotSequence: z.array(starterWeekSlotSchema).min(1),
+    exerciseSlotTemplates: z.array(exerciseSlotTemplateSchema).default([]),
     setupStatus: trainingBlueprintSetupStatusSchema,
     editStatus: trainingBlueprintEditStatusSchema.optional(),
     horizonDays: z.number().int().positive().default(7),
@@ -671,6 +793,16 @@ export type CoachProjectionActionType = z.infer<
   typeof coachProjectionActionTypeSchema
 >;
 
+export const coachSessionDispositionSchema = z.enum([
+  'projected',
+  'pinned',
+  'repaired',
+  'substituted',
+]);
+export type CoachSessionDisposition = z.infer<
+  typeof coachSessionDispositionSchema
+>;
+
 export const coachProjectionConflictWarningSchema = z
   .object({
     id: z.string().min(1),
@@ -781,6 +913,8 @@ export const adaptiveTrainingPlanSchema = z
       .array(adaptivePlanSessionPreferenceSchema)
       .default([]),
     recommendationSettings: adaptiveRecommendationSettingsSchema,
+    exerciseSlotTemplates: z.array(exerciseSlotTemplateSchema).default([]),
+    slotAssignments: z.array(exerciseSlotAssignmentSchema).default([]),
     programVersion: z.number().int().positive().default(1),
     scheduleStrategy: coachScheduleStrategySchema.optional(),
     strategySelection: coachStrategySelectionSchema.optional(),
@@ -914,6 +1048,36 @@ export const adaptiveTrainingPlanSchema = z
       });
     });
 
+    const slotIds = new Set<string>();
+    plan.exerciseSlotTemplates.forEach((slot, slotIndex) => {
+      if (slotIds.has(slot.id)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'exercise slot ids must be unique',
+          path: ['exerciseSlotTemplates', slotIndex, 'id'],
+        });
+      }
+      slotIds.add(slot.id);
+
+      if (slot.sourceBlockId && !blockIds.has(slot.sourceBlockId)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'exercise slot references an unknown source block id',
+          path: ['exerciseSlotTemplates', slotIndex, 'sourceBlockId'],
+        });
+      }
+    });
+
+    plan.slotAssignments.forEach((assignment, assignmentIndex) => {
+      if (!slotIds.has(assignment.slotId)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'slot assignment references an unknown slot id',
+          path: ['slotAssignments', assignmentIndex, 'slotId'],
+        });
+      }
+    });
+
     plan.recommendationSettings.preferredRotationBlockIds.forEach(
       (blockId, blockIdIndex) => {
         if (!blockIds.has(blockId)) {
@@ -953,12 +1117,16 @@ export const adaptivePlanIntentSchema = z
     scheduleStrategy: coachScheduleStrategySchema.optional(),
     recommendationId: z.string().min(1).optional(),
     projectionId: z.string().min(1).optional(),
+    planningDateLocal: localDateSchema.optional(),
+    sessionDisposition: coachSessionDispositionSchema.optional(),
     sourceTemplateId: trainingTemplateIdSchema.optional(),
     primaryBlock: adaptivePlanBlockIntentSchema,
     addOnBlocks: z.array(adaptivePlanBlockIntentSchema).default([]),
     targetRangeContext: z.array(adaptivePlanTargetProgressSchema).default([]),
     rationale: z.array(adaptiveRecommendationRationaleSchema).default([]),
+    repairRationale: z.array(adaptiveRecommendationRationaleSchema).default([]),
     projectionStatus: adaptiveProjectionStatusSchema.optional(),
+    exerciseSlotPolicy: exerciseSlotPolicySchema.optional(),
   })
   .passthrough();
 export type AdaptivePlanIntent = z.infer<typeof adaptivePlanIntentSchema>;
@@ -980,12 +1148,31 @@ export const trainingTemplateDefinitionSchema = z
         typicalWeekPreferences: z
           .array(adaptiveTypicalWeekPreferenceSchema)
           .default([]),
+        exerciseSlotTemplates: z.array(exerciseSlotTemplateSchema).default([]),
         recommendationSettings: adaptiveRecommendationSettingsSchema,
       })
       .strict()
       .optional(),
   })
-  .strict();
+  .strict()
+  .superRefine((template, ctx) => {
+    template.adaptivePlanTemplate?.exerciseSlotTemplates.forEach(
+      (slot, slotIndex) => {
+        if (slot.stabilityPolicy === 'user-locked') {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: 'template-seeded exercise slots cannot be user-locked',
+            path: [
+              'adaptivePlanTemplate',
+              'exerciseSlotTemplates',
+              slotIndex,
+              'stabilityPolicy',
+            ],
+          });
+        }
+      }
+    );
+  });
 export type TrainingTemplateDefinition = z.infer<
   typeof trainingTemplateDefinitionSchema
 >;
@@ -1001,6 +1188,35 @@ const createSlot = (
   label,
   dayOffset,
   targetDurationMinutes,
+});
+
+const createExerciseSlotTemplate = (
+  id: string,
+  label: string,
+  sourceBlockId: string,
+  stabilityPolicy: Extract<
+    ExerciseSlotStabilityPolicy,
+    'stable' | 'coach-rotatable'
+  >,
+  options: {
+    role?: string;
+    targetExerciseCount?: number;
+    movementTags?: string[];
+    focusTags?: string[];
+    requiredEquipment?: string[];
+  } = {}
+): ExerciseSlotTemplate => ({
+  id,
+  label,
+  sourceBlockId,
+  ...(options.role ? { role: options.role } : {}),
+  stabilityPolicy,
+  targetExerciseCount: options.targetExerciseCount ?? 1,
+  movementTags: options.movementTags ?? [],
+  focusTags: options.focusTags ?? [],
+  preferredExerciseIds: [],
+  eligibleExerciseIds: [],
+  requiredEquipment: options.requiredEquipment ?? [],
 });
 
 export const ADAPTIVE_BALANCED_FOUNDATION_BLOCKS = [
@@ -2686,7 +2902,9 @@ const targetLabelById: Record<string, string> = {
 };
 
 const createAdaptivePlanTemplateFromSlots = (
-  template: Pick<TrainingTemplateDefinition, 'slotSequence'>
+  template: Pick<TrainingTemplateDefinition, 'slotSequence'> & {
+    exerciseSlotTemplates?: ExerciseSlotTemplate[];
+  }
 ): AdaptivePlanTemplateDefinition => {
   const rawBlocks = [
     ...new Map(
@@ -2756,6 +2974,7 @@ const createAdaptivePlanTemplateFromSlots = (
       preferredBlockIds: [roleToAdaptiveBlock(slot).id],
       flexibility: 'preferred',
     })),
+    exerciseSlotTemplates: template.exerciseSlotTemplates ?? [],
     recommendationSettings: {
       preferredRotationBlockIds: blocks
         .filter(
@@ -2767,6 +2986,215 @@ const createAdaptivePlanTemplateFromSlots = (
     },
   };
 };
+
+const STRENGTH_STARTER_EXERCISE_SLOT_TEMPLATES = [
+  createExerciseSlotTemplate(
+    'full-body-main-lift',
+    'Full-body main lift',
+    'full-body',
+    'stable',
+    {
+      role: 'main-lift',
+      movementTags: ['squat', 'hinge', 'press', 'row'],
+      focusTags: ['strength', 'full-body'],
+    }
+  ),
+  createExerciseSlotTemplate(
+    'full-body-accessory',
+    'Full-body accessory',
+    'full-body',
+    'coach-rotatable',
+    {
+      role: 'accessory',
+      targetExerciseCount: 2,
+      movementTags: ['single-leg', 'carry', 'core'],
+      focusTags: ['strength', 'accessory'],
+    }
+  ),
+] satisfies ExerciseSlotTemplate[];
+
+const STRENGTH_FOUNDATION_EXERCISE_SLOT_TEMPLATES = [
+  createExerciseSlotTemplate(
+    'strength-heavy-main-lift',
+    'Heavy main lift',
+    'strength-heavy',
+    'stable',
+    {
+      role: 'main-lift',
+      movementTags: ['squat', 'hinge'],
+      focusTags: ['strength', 'heavy'],
+    }
+  ),
+  createExerciseSlotTemplate(
+    'strength-volume-main-lift',
+    'Volume main lift',
+    'strength-volume',
+    'stable',
+    {
+      role: 'main-lift',
+      movementTags: ['press', 'row'],
+      focusTags: ['strength', 'volume'],
+    }
+  ),
+  createExerciseSlotTemplate(
+    'lower-strength-accessory',
+    'Lower accessory',
+    'lower-strength',
+    'coach-rotatable',
+    {
+      role: 'accessory',
+      targetExerciseCount: 2,
+      movementTags: ['lunge', 'single-leg', 'posterior-chain'],
+      focusTags: ['strength', 'accessory'],
+    }
+  ),
+] satisfies ExerciseSlotTemplate[];
+
+const STRENGTH_PERFORMANCE_EXERCISE_SLOT_TEMPLATES = [
+  createExerciseSlotTemplate(
+    'upper-main-lift',
+    'Upper main lift',
+    'upper',
+    'stable',
+    {
+      role: 'main-lift',
+      movementTags: ['press', 'row', 'pull'],
+      focusTags: ['strength', 'upper-body'],
+    }
+  ),
+  createExerciseSlotTemplate(
+    'lower-main-lift',
+    'Lower main lift',
+    'lower',
+    'stable',
+    {
+      role: 'main-lift',
+      movementTags: ['squat', 'hinge'],
+      focusTags: ['strength', 'lower-body'],
+    }
+  ),
+  createExerciseSlotTemplate(
+    'full-body-performance-accessory',
+    'Performance accessory',
+    'full-body',
+    'coach-rotatable',
+    {
+      role: 'accessory',
+      targetExerciseCount: 2,
+      movementTags: ['carry', 'core', 'single-leg'],
+      focusTags: ['strength', 'accessory'],
+    }
+  ),
+] satisfies ExerciseSlotTemplate[];
+
+const HYPERTROPHY_EXERCISE_SLOT_TEMPLATES = [
+  createExerciseSlotTemplate(
+    'upper-hypertrophy-main',
+    'Upper hypertrophy anchor',
+    'upper-hypertrophy',
+    'stable',
+    {
+      role: 'main-lift',
+      movementTags: ['press', 'row'],
+      focusTags: ['hypertrophy', 'upper-body'],
+    }
+  ),
+  createExerciseSlotTemplate(
+    'lower-hypertrophy-main',
+    'Lower hypertrophy anchor',
+    'lower-hypertrophy',
+    'stable',
+    {
+      role: 'main-lift',
+      movementTags: ['squat', 'hinge'],
+      focusTags: ['hypertrophy', 'lower-body'],
+    }
+  ),
+  createExerciseSlotTemplate(
+    'hypertrophy-accessory',
+    'Pump accessory',
+    'full-body-pump',
+    'coach-rotatable',
+    {
+      role: 'accessory',
+      targetExerciseCount: 3,
+      movementTags: ['isolation', 'arms', 'shoulders', 'core'],
+      focusTags: ['hypertrophy', 'accessory'],
+    }
+  ),
+] satisfies ExerciseSlotTemplate[];
+
+const PPL_EXERCISE_SLOT_TEMPLATES = [
+  createExerciseSlotTemplate(
+    'push-main-press',
+    'Push main press',
+    'push',
+    'stable',
+    {
+      role: 'main-lift',
+      movementTags: ['horizontal-press', 'vertical-press'],
+      focusTags: ['push', 'upper-body'],
+    }
+  ),
+  createExerciseSlotTemplate(
+    'push-accessory',
+    'Push accessory',
+    'push',
+    'coach-rotatable',
+    {
+      role: 'accessory',
+      targetExerciseCount: 2,
+      movementTags: ['triceps', 'shoulders', 'chest'],
+      focusTags: ['push', 'accessory'],
+    }
+  ),
+  createExerciseSlotTemplate(
+    'pull-main-pull',
+    'Pull main lift',
+    'pull',
+    'stable',
+    {
+      role: 'main-lift',
+      movementTags: ['row', 'vertical-pull'],
+      focusTags: ['pull', 'upper-body'],
+    }
+  ),
+  createExerciseSlotTemplate(
+    'pull-accessory',
+    'Pull accessory',
+    'pull',
+    'coach-rotatable',
+    {
+      role: 'accessory',
+      targetExerciseCount: 2,
+      movementTags: ['biceps', 'rear-delts', 'upper-back'],
+      focusTags: ['pull', 'accessory'],
+    }
+  ),
+  createExerciseSlotTemplate(
+    'legs-main-lift',
+    'Legs main lift',
+    'legs',
+    'stable',
+    {
+      role: 'main-lift',
+      movementTags: ['squat', 'hinge'],
+      focusTags: ['legs', 'lower-body'],
+    }
+  ),
+  createExerciseSlotTemplate(
+    'legs-accessory',
+    'Legs accessory',
+    'legs',
+    'coach-rotatable',
+    {
+      role: 'accessory',
+      targetExerciseCount: 2,
+      movementTags: ['single-leg', 'hamstrings', 'calves'],
+      focusTags: ['legs', 'accessory'],
+    }
+  ),
+] satisfies ExerciseSlotTemplate[];
 
 const getAdaptivePlanTemplate = (
   template: TrainingTemplateDefinition
@@ -2895,6 +3323,7 @@ export const TRAINING_TEMPLATE_DEFINITIONS: Record<
       blocks: ADAPTIVE_BALANCED_FOUNDATION_BLOCKS,
       targetRanges: ADAPTIVE_BALANCED_FOUNDATION_TARGET_RANGES,
       typicalWeekPreferences: ADAPTIVE_BALANCED_FOUNDATION_TYPICAL_WEEK,
+      exerciseSlotTemplates: [],
       recommendationSettings:
         ADAPTIVE_BALANCED_FOUNDATION_RECOMMENDATION_SETTINGS,
     },
@@ -2928,6 +3357,7 @@ export const TRAINING_TEMPLATE_DEFINITIONS: Record<
     slotSequence: STRENGTH_STARTER_SLOT_SEQUENCE,
     adaptivePlanTemplate: createAdaptivePlanTemplateFromSlots({
       slotSequence: STRENGTH_STARTER_SLOT_SEQUENCE,
+      exerciseSlotTemplates: STRENGTH_STARTER_EXERCISE_SLOT_TEMPLATES,
     }),
   },
   'strength-foundation': {
@@ -2953,6 +3383,7 @@ export const TRAINING_TEMPLATE_DEFINITIONS: Record<
       blocks: ADAPTIVE_STRENGTH_FOUNDATION_BLOCKS,
       targetRanges: ADAPTIVE_STRENGTH_FOUNDATION_TARGET_RANGES,
       typicalWeekPreferences: ADAPTIVE_STRENGTH_FOUNDATION_TYPICAL_WEEK,
+      exerciseSlotTemplates: STRENGTH_FOUNDATION_EXERCISE_SLOT_TEMPLATES,
       recommendationSettings:
         ADAPTIVE_STRENGTH_FOUNDATION_RECOMMENDATION_SETTINGS,
     },
@@ -2970,6 +3401,7 @@ export const TRAINING_TEMPLATE_DEFINITIONS: Record<
     slotSequence: STRENGTH_PERFORMANCE_SLOT_SEQUENCE,
     adaptivePlanTemplate: createAdaptivePlanTemplateFromSlots({
       slotSequence: STRENGTH_PERFORMANCE_SLOT_SEQUENCE,
+      exerciseSlotTemplates: STRENGTH_PERFORMANCE_EXERCISE_SLOT_TEMPLATES,
     }),
   },
   'hypertrophy-starter': {
@@ -2988,6 +3420,7 @@ export const TRAINING_TEMPLATE_DEFINITIONS: Record<
       blocks: ADAPTIVE_HYPERTROPHY_FOUNDATION_BLOCKS,
       targetRanges: ADAPTIVE_HYPERTROPHY_STARTER_TARGET_RANGES,
       typicalWeekPreferences: ADAPTIVE_HYPERTROPHY_STARTER_TYPICAL_WEEK,
+      exerciseSlotTemplates: HYPERTROPHY_EXERCISE_SLOT_TEMPLATES,
       recommendationSettings:
         ADAPTIVE_HYPERTROPHY_FOUNDATION_RECOMMENDATION_SETTINGS,
     },
@@ -3015,6 +3448,7 @@ export const TRAINING_TEMPLATE_DEFINITIONS: Record<
       blocks: ADAPTIVE_HYPERTROPHY_FOUNDATION_BLOCKS,
       targetRanges: ADAPTIVE_HYPERTROPHY_FOUNDATION_TARGET_RANGES,
       typicalWeekPreferences: ADAPTIVE_HYPERTROPHY_FOUNDATION_TYPICAL_WEEK,
+      exerciseSlotTemplates: HYPERTROPHY_EXERCISE_SLOT_TEMPLATES,
       recommendationSettings:
         ADAPTIVE_HYPERTROPHY_FOUNDATION_RECOMMENDATION_SETTINGS,
     },
@@ -3034,6 +3468,7 @@ export const TRAINING_TEMPLATE_DEFINITIONS: Record<
       blocks: ADAPTIVE_HYPERTROPHY_FOUNDATION_BLOCKS,
       targetRanges: ADAPTIVE_UPPER_LOWER_HYPERTROPHY_TARGET_RANGES,
       typicalWeekPreferences: ADAPTIVE_UPPER_LOWER_HYPERTROPHY_TYPICAL_WEEK,
+      exerciseSlotTemplates: HYPERTROPHY_EXERCISE_SLOT_TEMPLATES,
       recommendationSettings:
         ADAPTIVE_HYPERTROPHY_FOUNDATION_RECOMMENDATION_SETTINGS,
     },
@@ -3053,6 +3488,7 @@ export const TRAINING_TEMPLATE_DEFINITIONS: Record<
       blocks: ADAPTIVE_PPL_HYPERTROPHY_BLOCKS,
       targetRanges: ADAPTIVE_PPL_HYPERTROPHY_TARGET_RANGES,
       typicalWeekPreferences: ADAPTIVE_PPL_HYPERTROPHY_TYPICAL_WEEK,
+      exerciseSlotTemplates: PPL_EXERCISE_SLOT_TEMPLATES,
       recommendationSettings: ADAPTIVE_PPL_HYPERTROPHY_RECOMMENDATION_SETTINGS,
     },
   },
@@ -3070,6 +3506,7 @@ export const TRAINING_TEMPLATE_DEFINITIONS: Record<
       blocks: ADAPTIVE_PPL_CONDITIONING_BLOCKS,
       targetRanges: ADAPTIVE_PPL_CONDITIONING_TARGET_RANGES,
       typicalWeekPreferences: ADAPTIVE_PPL_CONDITIONING_TYPICAL_WEEK,
+      exerciseSlotTemplates: PPL_EXERCISE_SLOT_TEMPLATES,
       recommendationSettings: ADAPTIVE_PPL_CONDITIONING_RECOMMENDATION_SETTINGS,
     },
   },
@@ -3096,6 +3533,7 @@ export const TRAINING_TEMPLATE_DEFINITIONS: Record<
       blocks: ADAPTIVE_FAT_LOSS_CONDITIONING_BLOCKS,
       targetRanges: ADAPTIVE_FAT_LOSS_CONDITIONING_TARGET_RANGES,
       typicalWeekPreferences: ADAPTIVE_FAT_LOSS_CONDITIONING_TYPICAL_WEEK,
+      exerciseSlotTemplates: [],
       recommendationSettings:
         ADAPTIVE_FAT_LOSS_CONDITIONING_RECOMMENDATION_SETTINGS,
     },
@@ -3123,6 +3561,7 @@ export const TRAINING_TEMPLATE_DEFINITIONS: Record<
       blocks: ADAPTIVE_ENDURANCE_SUPPORT_BLOCKS,
       targetRanges: ADAPTIVE_ENDURANCE_SUPPORT_TARGET_RANGES,
       typicalWeekPreferences: ADAPTIVE_ENDURANCE_SUPPORT_TYPICAL_WEEK,
+      exerciseSlotTemplates: [],
       recommendationSettings:
         ADAPTIVE_ENDURANCE_SUPPORT_RECOMMENDATION_SETTINGS,
     },
@@ -3150,6 +3589,7 @@ export const TRAINING_TEMPLATE_DEFINITIONS: Record<
       blocks: ADAPTIVE_MOBILITY_FOUNDATION_BLOCKS,
       targetRanges: ADAPTIVE_MOBILITY_FOUNDATION_TARGET_RANGES,
       typicalWeekPreferences: ADAPTIVE_MOBILITY_FOUNDATION_TYPICAL_WEEK,
+      exerciseSlotTemplates: [],
       recommendationSettings:
         ADAPTIVE_MOBILITY_FOUNDATION_RECOMMENDATION_SETTINGS,
     },
@@ -3178,6 +3618,7 @@ export const TRAINING_TEMPLATE_DEFINITIONS: Record<
       blocks: ADAPTIVE_BUSY_TRAVEL_BLOCKS,
       targetRanges: ADAPTIVE_BUSY_TRAVEL_TARGET_RANGES,
       typicalWeekPreferences: ADAPTIVE_BUSY_TRAVEL_TYPICAL_WEEK,
+      exerciseSlotTemplates: [],
       recommendationSettings: ADAPTIVE_BUSY_TRAVEL_RECOMMENDATION_SETTINGS,
     },
   },
@@ -3282,6 +3723,8 @@ export const createTrainingBlueprintFromOnboarding = (
       equipment: answers.equipment,
     },
     slotSequence: template.slotSequence,
+    exerciseSlotTemplates:
+      getAdaptivePlanTemplate(template).exerciseSlotTemplates ?? [],
     setupStatus: 'completed',
     editStatus: options.editStatus ?? 'accepted',
     horizonDays: options.horizonDays ?? 7,
@@ -3324,6 +3767,8 @@ export const createAdaptiveTrainingPlanFromTemplate = (
     typicalWeekPreferences: template.typicalWeekPreferences,
     sessionPreferences: [],
     recommendationSettings: template.recommendationSettings,
+    exerciseSlotTemplates: template.exerciseSlotTemplates,
+    slotAssignments: [],
     programVersion: 1,
     scheduleStrategy: strategySelection.strategy,
     strategySelection,

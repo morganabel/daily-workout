@@ -131,7 +131,8 @@ const resolveFocusSelection = (quickActions: QuickActionPreset[]): string =>
 
 const buildAdaptivePlanIntent = (
   adaptivePlan: AdaptiveTrainingPlan | null,
-  recommendation: AdaptivePlanRecommendation | null
+  recommendation: AdaptivePlanRecommendation | null,
+  planningDateLocal?: string
 ): AdaptivePlanIntent | undefined => {
   if (!adaptivePlan || !recommendation) {
     return undefined;
@@ -152,12 +153,24 @@ const buildAdaptivePlanIntent = (
     role: block.role,
     stressTags: block.stressTags,
   });
+  const exerciseSlotPolicy =
+    adaptivePlan.exerciseSlotTemplates.length > 0 ||
+    adaptivePlan.slotAssignments.length > 0
+      ? {
+          slots: adaptivePlan.exerciseSlotTemplates,
+          currentAssignments: adaptivePlan.slotAssignments,
+          overrideReasons: [],
+        }
+      : undefined;
 
   return {
     planId: adaptivePlan.id,
     programVersion: adaptivePlan.programVersion,
     scheduleStrategy: adaptivePlan.scheduleStrategy,
     recommendationId: recommendation.id,
+    planningDateLocal,
+    sessionDisposition:
+      recommendation.projectionStatus === 'pinned' ? 'pinned' : 'projected',
     sourceTemplateId: adaptivePlan.sourceTemplateId,
     primaryBlock: toBlockIntent(primaryBlock),
     addOnBlocks: recommendation.addOnBlockIds
@@ -166,7 +179,9 @@ const buildAdaptivePlanIntent = (
       .map(toBlockIntent),
     targetRangeContext: recommendation.targetProgress,
     rationale: recommendation.rationale,
+    repairRationale: [],
     projectionStatus: recommendation.projectionStatus,
+    exerciseSlotPolicy,
   };
 };
 
@@ -982,7 +997,11 @@ export const HomeScreen = () => {
       const targetTimestamp = planningDateTimestamp;
       const adaptivePlanIntent =
         focus === 'Smart'
-          ? buildAdaptivePlanIntent(adaptivePlan, adaptiveRecommendation)
+          ? buildAdaptivePlanIntent(
+              adaptivePlan,
+              adaptiveRecommendation,
+              planningDateLocal
+            )
           : undefined;
       clearTransientPlanState();
       const request: GenerationRequest = {
@@ -1057,11 +1076,13 @@ export const HomeScreen = () => {
         setCustomizeTargetDate(null);
       }
     } else {
+      const targetDateLocal = customizeTargetDate?.local ?? planningDateLocal;
       const targetTimestamp =
         customizeTargetDate?.timestamp ?? planningDateTimestamp;
       const adaptivePlanIntent = buildAdaptivePlanIntent(
         adaptivePlan,
-        adaptiveRecommendation
+        adaptiveRecommendation,
+        targetDateLocal
       );
       const coachFocusLabel = getAdaptiveRecommendationLabel(
         adaptivePlan,

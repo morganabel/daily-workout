@@ -20,13 +20,13 @@ export const CLASSIC_STRENGTH_GUIDANCE =
 export const GYM_STRENGTH_EQUIPMENT_GUIDANCE =
   'When Gym is available for strength work, prioritize barbell, dumbbell, cable/machine, bench/rack, and bodyweight compound movements. Use resistance-band exercises sparingly, mainly for warm-up, assistance, or prehab, not as the backbone of the session.';
 
-export const INITIAL_GENERATION_INSTRUCTIONS = `Generate a single workout session with at least one block and one exercise per block. Use realistic exercise names and prescriptions. Prefer the planning brief when present, otherwise use the request and context as the source of truth for focus, duration, equipment, and constraints. Prefer exercises from the candidate pool when one is provided. When a stage-one planner selectionIntent or candidateInstructions are present, use them to decide which candidate roles should be emphasized for this specific context; do not force every role if the planner or user context indicates a push-biased, pull-biased, accessory-biased, or constraint-limited session. ${CLASSIC_STRENGTH_GUIDANCE} ${GYM_STRENGTH_EQUIPMENT_GUIDANCE} Treat user-supplied injuries and avoid lists as hard constraints. Treat planner-generated avoidances as lower-confidence guidance that should not override the user's explicit constraints. If no focus is specified, choose the most appropriate one from the available planning data.`;
+export const INITIAL_GENERATION_INSTRUCTIONS = `Generate a single workout session with at least one block and one exercise per block. Use realistic exercise names and prescriptions. Prefer the planning brief when present, otherwise use the request and context as the source of truth for focus, duration, equipment, and constraints. Prefer exercises from the candidate pool when one is provided. When exerciseSlotPolicy is present, preserve stable and user-locked current assignments when they remain compatible with hard constraints, allow coach-rotatable slots to vary within eligible movement criteria, and honor slot overrideReasons instead of forcing blocked assignments. When a stage-one planner selectionIntent or candidateInstructions are present, use them to decide which candidate roles should be emphasized for this specific context; do not force every role if the planner or user context indicates a push-biased, pull-biased, accessory-biased, or constraint-limited session. ${CLASSIC_STRENGTH_GUIDANCE} ${GYM_STRENGTH_EQUIPMENT_GUIDANCE} Treat user-supplied injuries and avoid lists as hard constraints. Treat planner-generated avoidances as lower-confidence guidance that should not override the user's explicit constraints. If no focus is specified, choose the most appropriate one from the available planning data.`;
 
 export const STAGE_ONE_PLANNER_SYSTEM_PROMPT =
   'You are an internal workout planning assistant. Return only valid JSON matching the schema. Resolve ambiguity, preserve hard constraints, and give advisory guidance for a final workout-generation model. Do not assemble the full workout.';
 
 export const STAGE_ONE_PLANNER_INSTRUCTIONS =
-  'Interpret the request and context, resolve the most likely session intent, note stressors to protect or avoid, and produce concise rerank/prompt guidance for the final workout model. Choose selectionIntent contextually: use balanced_upper for general upper-body strength or hypertrophy when push and upper-back pull are both appropriate; push_biased for chest/shoulders/push-day intent or when pull is contextually undesirable; pull_biased for back/posture/pull-day intent; accessory_biased for arms/shoulders/pump emphasis; constraint_limited when equipment, injuries, avoid lists, or recent/upcoming stressors make normal role coverage inappropriate. For strength-oriented sessions, steer the final model toward classic, broadly recognized strength exercises over novelty variants. For gym strength, avoid making bands the main training tool unless the user asks for that. Treat user-supplied injuries and avoid lists as hard constraints. Keep hard constraints server-owned and treat your output as advisory.';
+  'Interpret the request and context, resolve the most likely session intent, note stressors to protect or avoid, and produce concise rerank/prompt guidance for the final workout model. If exerciseSlotPolicy is present, preserve stable or user-locked assignments that have no overrideReasons, allow coach-rotatable slots to vary for novelty or recovery, and never broaden beyond deterministic hard constraints. Choose selectionIntent contextually: use balanced_upper for general upper-body strength or hypertrophy when push and upper-back pull are both appropriate; push_biased for chest/shoulders/push-day intent or when pull is contextually undesirable; pull_biased for back/posture/pull-day intent; accessory_biased for arms/shoulders/pump emphasis; constraint_limited when equipment, injuries, avoid lists, or recent/upcoming stressors make normal role coverage inappropriate. For strength-oriented sessions, steer the final model toward classic, broadly recognized strength exercises over novelty variants. For gym strength, avoid making bands the main training tool unless the user asks for that. Treat user-supplied injuries and avoid lists as hard constraints. Keep hard constraints server-owned and treat your output as advisory.';
 
 const MAX_PROMPT_CANDIDATE_EXERCISES = 64;
 
@@ -145,6 +145,7 @@ export function buildPlanningBriefPromptData(planningBrief?: PlanningBrief):
       recentStressorsToAvoid: string[];
       eventProtection?: PlanningBrief['eventProtection'];
       adaptivePlanIntent?: PlanningBrief['adaptivePlanIntent'];
+      exerciseSlotPolicy?: PlanningBrief['exerciseSlotPolicy'];
       blockIntents: PlanningBrief['blockIntents'];
       regeneration: PlanningBrief['regeneration'];
       variationMode: PlanningBrief['variationMode'];
@@ -173,6 +174,7 @@ export function buildPlanningBriefPromptData(planningBrief?: PlanningBrief):
     recentStressorsToAvoid: planningBrief.recentStressorsToAvoid,
     eventProtection: planningBrief.eventProtection,
     adaptivePlanIntent,
+    exerciseSlotPolicy: planningBrief.exerciseSlotPolicy,
     blockIntents: planningBrief.blockIntents,
     regeneration: planningBrief.regeneration,
     variationMode: planningBrief.variationMode,
@@ -369,6 +371,9 @@ export function buildRegenerationMessage(
     ) {
       parts.push(formatAdaptivePlanIntent(planningBrief.adaptivePlanIntent));
     }
+    if (planningBrief.exerciseSlotPolicy) {
+      parts.push(formatExerciseSlotPolicyPromptText(planningBrief));
+    }
   }
 
   if (stageOneArtifact) {
@@ -482,6 +487,13 @@ export function buildRegenerationMessage(
 
   if (!planningBrief && request.adaptivePlanIntent) {
     parts.push(formatAdaptivePlanIntent(request.adaptivePlanIntent));
+    if (request.adaptivePlanIntent.exerciseSlotPolicy) {
+      parts.push(
+        formatExerciseSlotPolicyPromptText({
+          exerciseSlotPolicy: request.adaptivePlanIntent.exerciseSlotPolicy,
+        })
+      );
+    }
   }
 
   const baselineSummary = buildBaselineWorkoutSummary(request);
@@ -597,6 +609,64 @@ function formatAdaptivePlanIntent(
   }
 
   return `Adaptive plan intent: ${pieces.join('; ')}.`;
+}
+
+function formatExerciseSlotPolicyPromptText(
+  source: Pick<PlanningBrief, 'exerciseSlotPolicy'>
+): string {
+  const policy = source.exerciseSlotPolicy;
+  if (!policy) {
+    return '';
+  }
+
+  const assignmentBySlotId = new Map(
+    policy.currentAssignments.map((assignment) => [
+      assignment.slotId,
+      assignment.exerciseName ?? assignment.exerciseId ?? 'current assignment',
+    ])
+  );
+  const overrideBySlotId = new Map(
+    policy.overrideReasons.map((reason) => [reason.slotId, reason])
+  );
+  const slotSummaries = policy.slots.slice(0, 8).map((slot) => {
+    const assignment = assignmentBySlotId.get(slot.id);
+    const override = overrideBySlotId.get(slot.id);
+    const action =
+      slot.stabilityPolicy === 'coach-rotatable'
+        ? 'may rotate'
+        : override
+        ? `replace because ${override.code}`
+        : 'preserve if viable';
+    return `${slot.label} (${slot.stabilityPolicy}${
+      assignment ? `, ${assignment}` : ''
+    }): ${action}`;
+  });
+
+  const orphanAssignments = policy.currentAssignments
+    .filter(
+      (assignment) =>
+        !policy.slots.some((slot) => slot.id === assignment.slotId)
+    )
+    .slice(0, 4)
+    .map(
+      (assignment) =>
+        `${assignment.slotId}: ${
+          assignment.exerciseName ??
+          assignment.exerciseId ??
+          'current assignment'
+        }`
+    );
+
+  const pieces = [
+    ...slotSummaries,
+    ...orphanAssignments.map((assignment) => `unmatched ${assignment}`),
+  ];
+
+  if (pieces.length === 0) {
+    return 'Exercise slot policy: no active slots.';
+  }
+
+  return `Exercise slot policy: ${pieces.join('; ')}.`;
 }
 
 function usesAdaptiveBlockIntents(planningBrief: PlanningBrief): boolean {

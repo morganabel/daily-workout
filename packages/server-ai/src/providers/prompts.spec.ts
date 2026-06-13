@@ -427,6 +427,12 @@ describe('buildRegenerationMessage', () => {
       expect(INITIAL_GENERATION_INSTRUCTIONS).toContain(
         GYM_STRENGTH_EQUIPMENT_GUIDANCE
       );
+      expect(INITIAL_GENERATION_INSTRUCTIONS).toContain(
+        'preserve stable and user-locked current assignments'
+      );
+      expect(INITIAL_GENERATION_INSTRUCTIONS).toContain(
+        'allow coach-rotatable slots to vary'
+      );
     });
 
     it('includes candidate pool guidance in regeneration messages', () => {
@@ -516,6 +522,39 @@ describe('buildRegenerationMessage', () => {
             },
           ],
           projectionStatus: 'projected',
+          exerciseSlotPolicy: {
+            slots: [
+              {
+                id: 'pull-main-pull',
+                label: 'Pull main lift',
+                sourceBlockId: 'pull',
+                stabilityPolicy: 'stable',
+                movementTags: ['row', 'vertical-pull'],
+                focusTags: ['pull', 'upper-body'],
+              },
+              {
+                id: 'pull-accessory',
+                label: 'Pull accessory',
+                sourceBlockId: 'pull',
+                stabilityPolicy: 'coach-rotatable',
+                movementTags: ['biceps', 'rear-delts'],
+                focusTags: ['pull', 'accessory'],
+              },
+            ],
+            currentAssignments: [
+              {
+                slotId: 'pull-main-pull',
+                exerciseName: 'Pull-Up',
+                source: 'generated',
+              },
+              {
+                slotId: 'pull-accessory',
+                exerciseName: 'Hammer Curl',
+                source: 'generated',
+              },
+            ],
+            overrideReasons: [],
+          },
         },
       };
       const adaptiveBrief: PlanningBrief = {
@@ -523,6 +562,7 @@ describe('buildRegenerationMessage', () => {
         focusMode: 'adaptive-plan',
         resolvedFocus: 'Pull + Easy Cardio',
         adaptivePlanIntent: request.adaptivePlanIntent,
+        exerciseSlotPolicy: request.adaptivePlanIntent.exerciseSlotPolicy,
         blockIntents: [
           {
             key: 'adaptive-primary',
@@ -546,6 +586,29 @@ describe('buildRegenerationMessage', () => {
       expect(buildPlanningBriefPromptData(adaptiveBrief)).toEqual(
         expect.objectContaining({
           adaptivePlanIntent: expect.objectContaining({ planId: 'plan-ppl' }),
+          exerciseSlotPolicy: expect.objectContaining({
+            slots: expect.arrayContaining([
+              expect.objectContaining({
+                id: 'pull-main-pull',
+                stabilityPolicy: 'stable',
+              }),
+              expect.objectContaining({
+                id: 'pull-accessory',
+                stabilityPolicy: 'coach-rotatable',
+              }),
+            ]),
+          }),
+        })
+      );
+      expect(
+        buildStageOnePlannerRequestPayload(request, adaptiveBrief).planningBrief
+      ).toEqual(
+        expect.objectContaining({
+          exerciseSlotPolicy: expect.objectContaining({
+            currentAssignments: expect.arrayContaining([
+              expect.objectContaining({ exerciseName: 'Pull-Up' }),
+            ]),
+          }),
         })
       );
       expect(buildStageOnePlannerRequestPayload(request).request).toEqual(
@@ -553,8 +616,15 @@ describe('buildRegenerationMessage', () => {
           adaptivePlanIntent: expect.objectContaining({ planId: 'plan-ppl' }),
         })
       );
-      expect(buildRegenerationMessage(request)).toContain(
+      expect(
+        buildRegenerationMessage(request, undefined, undefined, adaptiveBrief)
+      ).toContain(
         'Adaptive plan intent: primary Pull; add-ons Easy Cardio; rationale Cardio is below target.'
+      );
+      expect(
+        buildRegenerationMessage(request, undefined, undefined, adaptiveBrief)
+      ).toContain(
+        'Exercise slot policy: Pull main lift (stable, Pull-Up): preserve if viable; Pull accessory (coach-rotatable, Hammer Curl): may rotate.'
       );
     });
 

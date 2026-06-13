@@ -9,6 +9,7 @@ import {
   buildGenerationRequestFromQuickActions,
   createAdaptiveTrainingPlanFromTemplate,
   createTrainingBlueprintFromOnboarding,
+  exerciseSlotPolicySchema,
   migrateAdaptiveTrainingPlanToCoachProgramAware,
   normalizeQuickActionValue,
   plannedSlotMetadataSchema,
@@ -16,6 +17,7 @@ import {
   selectTrainingTemplateId,
   supportsAdaptiveTrainingPlan,
   TRAINING_TEMPLATE_DEFINITIONS,
+  trainingTemplateDefinitionSchema,
   workoutSetLogSchema,
   workoutExerciseLogSchema,
   workoutSessionDetailSchema,
@@ -476,6 +478,77 @@ describe('generation request upcoming events', () => {
 
     expect(result.success).toBe(true);
   });
+
+  it('accepts adaptive plan intent with structured exercise slot policy', () => {
+    const result = generationRequestSchema.safeParse({
+      planningDateLocal: '2026-04-15',
+      adaptivePlanIntent: {
+        planId: 'plan-ppl',
+        programVersion: 2,
+        scheduleStrategy: 'ordered-rotation',
+        projectionId: 'projection-pull-1',
+        planningDateLocal: '2026-04-15',
+        sessionDisposition: 'projected',
+        recommendationId: 'rec-1',
+        sourceTemplateId: 'ppl-conditioning',
+        primaryBlock: {
+          blockId: 'pull',
+          label: 'Pull',
+          category: 'strength',
+          role: 'pull',
+        },
+        addOnBlocks: [],
+        targetRangeContext: [],
+        rationale: [],
+        projectionStatus: 'projected',
+        exerciseSlotPolicy: {
+          slots: [
+            {
+              id: 'pull-main-pull',
+              label: 'Pull main lift',
+              sourceBlockId: 'pull',
+              role: 'main-lift',
+              stabilityPolicy: 'stable',
+              movementTags: ['row', 'vertical-pull'],
+              focusTags: ['pull', 'upper-body'],
+            },
+          ],
+          currentAssignments: [
+            {
+              slotId: 'pull-main-pull',
+              exerciseName: 'Pull-Up',
+              source: 'generated',
+            },
+          ],
+          overrideReasons: [],
+        },
+      },
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects slot assignments without an exercise id or name', () => {
+    const result = exerciseSlotPolicySchema.safeParse({
+      slots: [
+        {
+          id: 'push-main-press',
+          label: 'Push main press',
+          sourceBlockId: 'push',
+          stabilityPolicy: 'stable',
+        },
+      ],
+      currentAssignments: [
+        {
+          slotId: 'push-main-press',
+          source: 'generated',
+        },
+      ],
+      overrideReasons: [],
+    });
+
+    expect(result.success).toBe(false);
+  });
 });
 
 describe('training blueprint contracts', () => {
@@ -643,6 +716,74 @@ describe('training blueprint contracts', () => {
     expect(blueprint.coachStrategySelection).toEqual(
       selectCoachStrategyForTemplate('strength-starter')
     );
+    expect(blueprint.exerciseSlotTemplates).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: 'full-body-main-lift',
+          stabilityPolicy: 'stable',
+        }),
+        expect.objectContaining({
+          id: 'full-body-accessory',
+          stabilityPolicy: 'coach-rotatable',
+        }),
+      ])
+    );
+  });
+
+  it('seeds exercise slots only for templates that need exercise stability', () => {
+    const strengthPlan = createAdaptiveTrainingPlanFromTemplate(
+      'ppl-conditioning',
+      {
+        activeFrom: '2026-04-15',
+        updatedAt: '2026-04-15T12:00:00.000Z',
+      }
+    );
+    const flexiblePlan = createAdaptiveTrainingPlanFromTemplate(
+      'balanced-foundation',
+      {
+        activeFrom: '2026-04-15',
+        updatedAt: '2026-04-15T12:00:00.000Z',
+      }
+    );
+
+    expect(strengthPlan.exerciseSlotTemplates).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: 'push-main-press',
+          stabilityPolicy: 'stable',
+        }),
+        expect.objectContaining({
+          id: 'pull-accessory',
+          stabilityPolicy: 'coach-rotatable',
+        }),
+      ])
+    );
+    expect(
+      strengthPlan.exerciseSlotTemplates.some(
+        (slot) => slot.stabilityPolicy === 'user-locked'
+      )
+    ).toBe(false);
+    expect(flexiblePlan.exerciseSlotTemplates).toEqual([]);
+  });
+
+  it('rejects default template slots that are user-locked', () => {
+    const template = TRAINING_TEMPLATE_DEFINITIONS['ppl-conditioning'];
+    const result = trainingTemplateDefinitionSchema.safeParse({
+      ...template,
+      adaptivePlanTemplate: {
+        ...template.adaptivePlanTemplate,
+        exerciseSlotTemplates: [
+          {
+            id: 'push-main-press',
+            label: 'Push main press',
+            sourceBlockId: 'push',
+            stabilityPolicy: 'user-locked',
+          },
+        ],
+      },
+    });
+
+    expect(result.success).toBe(false);
   });
 
   it('validates session-level coach program attribution', () => {
@@ -653,6 +794,12 @@ describe('training blueprint contracts', () => {
       addOnBlockIds: ['easy-cardio'],
       templateId: 'ppl-conditioning',
       projectionId: 'projection-1',
+      slotAssignments: [
+        {
+          slotId: 'push-main-press',
+          exerciseName: 'Bench Press',
+        },
+      ],
       scheduleStrategy: 'ordered-rotation',
       sourceKind: 'generated',
       confidence: 'high',
@@ -1209,5 +1356,34 @@ describe('today plan provenance', () => {
     const result = todayPlanSchema.safeParse(createTodayPlanFixture());
 
     expect(result.success).toBe(true);
+  });
+
+  it('accepts internal slot assignment metadata on canonical exercises', () => {
+    const plan = createTodayPlanFixture({
+      blocks: [
+        {
+          id: 'block-1',
+          title: 'Push',
+          durationMinutes: 30,
+          focus: 'Push',
+          exercises: [
+            {
+              id: 'exercise-1',
+              name: 'Bench Press',
+              prescription: '3 x 5',
+              detail: null,
+              slotAssignment: {
+                slotId: 'push-main-press',
+                slotLabel: 'Push main press',
+                stabilityPolicy: 'stable',
+                assignmentSource: 'generated',
+              },
+            },
+          ],
+        },
+      ],
+    });
+
+    expect(todayPlanSchema.safeParse(plan).success).toBe(true);
   });
 });

@@ -237,39 +237,10 @@ const sanitizeGenerationRequestForTrace = (
   return { ...request };
 };
 
-const stripClientOnlyAdaptiveIntentFields = (
+const prepareGenerationRequestForServer = (
   request: GenerationRequestPayload
 ): GenerationRequestPayload => {
-  if (!request.adaptivePlanIntent) {
-    return request;
-  }
-
-  const {
-    planId,
-    recommendationId,
-    sourceTemplateId,
-    primaryBlock,
-    addOnBlocks,
-    targetRangeContext,
-    rationale,
-    projectionStatus,
-  } = request.adaptivePlanIntent;
-
-  const serverAdaptivePlanIntent = {
-    planId,
-    recommendationId,
-    sourceTemplateId,
-    primaryBlock,
-    addOnBlocks,
-    targetRangeContext,
-    rationale,
-    projectionStatus,
-  };
-
-  return {
-    ...request,
-    adaptivePlanIntent: serverAdaptivePlanIntent,
-  };
+  return request;
 };
 
 const getErrorCode = (error: unknown): string | undefined => {
@@ -327,7 +298,7 @@ export async function generateWorkout(
     ...requestWithCreationMode,
     context,
   };
-  const serverRequest = stripClientOnlyAdaptiveIntentFields(enrichedRequest);
+  const serverRequest = prepareGenerationRequestForServer(enrichedRequest);
 
   console.log(
     isRegeneration

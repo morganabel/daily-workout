@@ -1,6 +1,9 @@
 import {
   isAutoFocus,
   normalizeEquipmentSelection,
+  type ExerciseSlotOverrideReason,
+  type ExerciseSlotPolicy,
+  type ExerciseSlotTemplate,
   type GenerationContext,
 } from '@workout-agent/shared';
 import type { GenerationRequestWithContext } from './context';
@@ -117,6 +120,12 @@ export function derivePlanningBrief({
     DEFAULT_DURATION_MINUTES;
   const energy = request.energy ?? context.userProfile.energyToday ?? 'unknown';
   const loadCeiling = deriveLoadCeiling(energy, eventProtection);
+  const exerciseSlotPolicy = deriveExerciseSlotPolicy({
+    policy: adaptivePlanIntent?.exerciseSlotPolicy,
+    availableEquipment,
+    context,
+    eventProtection,
+  });
   const variationMode = request.feedback?.includes('different-exercises')
     ? 'different-exercises'
     : request.previousResponseId || baselineWorkout
@@ -129,6 +138,7 @@ export function derivePlanningBrief({
     requestedFocus,
     focusMode,
     adaptivePlanIntent,
+    exerciseSlotPolicy,
     resolvedFocus,
     durationMinutes,
     availableEquipment,
@@ -182,6 +192,188 @@ export function derivePlanningBrief({
       planningBrief: brief,
     }),
   };
+}
+
+function deriveExerciseSlotPolicy({
+  policy,
+  availableEquipment,
+  context,
+  eventProtection,
+}: {
+  policy?: ExerciseSlotPolicy;
+  availableEquipment: string[];
+  context: GenerationContext;
+  eventProtection?: PlanningEventProtection;
+}): ExerciseSlotPolicy | undefined {
+  if (!policy || (!policy.slots.length && !policy.currentAssignments.length)) {
+    return undefined;
+  }
+
+  const slotById = new Map(policy.slots.map((slot) => [slot.id, slot]));
+  const existingReasons = policy.overrideReasons ?? [];
+  const overrideReasons = new Map(
+    existingReasons.map((reason) => [reason.slotId, reason] as const)
+  );
+
+  policy.currentAssignments.forEach((assignment) => {
+    if (overrideReasons.has(assignment.slotId)) {
+      return;
+    }
+
+    const slot = slotById.get(assignment.slotId);
+    const reason = slot
+      ? getSlotOverrideReason({
+          slot,
+          exerciseName: assignment.exerciseName,
+          availableEquipment,
+          context,
+          eventProtection,
+        })
+      : undefined;
+    if (reason) {
+      overrideReasons.set(assignment.slotId, reason);
+    }
+  });
+
+  return {
+    slots: policy.slots,
+    currentAssignments: policy.currentAssignments,
+    overrideReasons: [...overrideReasons.values()],
+  };
+}
+
+function getSlotOverrideReason({
+  slot,
+  exerciseName,
+  availableEquipment,
+  context,
+  eventProtection,
+}: {
+  slot: ExerciseSlotTemplate;
+  exerciseName?: string;
+  availableEquipment: string[];
+  context: GenerationContext;
+  eventProtection?: PlanningEventProtection;
+}): ExerciseSlotOverrideReason | undefined {
+  const unavailableEquipment = (slot.requiredEquipment ?? []).find(
+    (item) => !includesNormalized(availableEquipment, item)
+  );
+  if (unavailableEquipment) {
+    return {
+      slotId: slot.id,
+      code: 'equipment-unavailable',
+      message: `${slot.label} needs ${unavailableEquipment}, which is not available for this request.`,
+      ...(exerciseName ? { blockedExerciseName: exerciseName } : {}),
+    };
+  }
+
+  const injuryMatch = findTextConstraintMatch(
+    exerciseName,
+    context.preferences.injuries ?? []
+  );
+  if (injuryMatch) {
+    return {
+      slotId: slot.id,
+      code: 'injury-conflict',
+      message: `${slot.label} conflicts with injury constraint: ${injuryMatch}.`,
+      ...(exerciseName ? { blockedExerciseName: exerciseName } : {}),
+    };
+  }
+
+  const avoidMatch = findTextConstraintMatch(
+    exerciseName,
+    context.preferences.avoid ?? []
+  );
+  if (avoidMatch) {
+    return {
+      slotId: slot.id,
+      code: 'avoid-list',
+      message: `${slot.label} conflicts with avoid-list item: ${avoidMatch}.`,
+      ...(exerciseName ? { blockedExerciseName: exerciseName } : {}),
+    };
+  }
+
+  if (
+    eventProtection &&
+    isSlotBlockedByEventProtection(slot, eventProtection)
+  ) {
+    return {
+      slotId: slot.id,
+      code: 'event-protection',
+      message: `${slot.label} conflicts with protected event ${eventProtection.title}.`,
+      ...(exerciseName ? { blockedExerciseName: exerciseName } : {}),
+    };
+  }
+
+  return undefined;
+}
+
+function includesNormalized(values: string[], expected: string): boolean {
+  const normalizedExpected = normalizeText(expected);
+  return values.some((value) => normalizeText(value) === normalizedExpected);
+}
+
+function findTextConstraintMatch(
+  exerciseName: string | undefined,
+  constraints: string[]
+): string | undefined {
+  if (!exerciseName) {
+    return undefined;
+  }
+  const normalizedExercise = normalizeText(exerciseName);
+  return constraints.find((constraint) => {
+    const normalizedConstraint = normalizeText(constraint);
+    return (
+      normalizedConstraint.length > 0 &&
+      normalizedExercise.includes(normalizedConstraint)
+    );
+  });
+}
+
+function isSlotBlockedByEventProtection(
+  slot: ExerciseSlotTemplate,
+  eventProtection: PlanningEventProtection
+): boolean {
+  const eventText = normalizeText(
+    [
+      eventProtection.kind,
+      eventProtection.title,
+      eventProtection.reason,
+      eventProtection.intensity,
+    ]
+      .filter(Boolean)
+      .join(' ')
+  );
+  if (
+    !eventText.includes('lower') &&
+    !eventText.includes('run') &&
+    !eventText.includes('hike') &&
+    !eventText.includes('high impact')
+  ) {
+    return false;
+  }
+
+  const slotText = normalizeText(
+    [
+      slot.label,
+      slot.role,
+      slot.sourceBlockId,
+      ...(slot.movementTags ?? []),
+      ...(slot.focusTags ?? []),
+    ]
+      .filter(Boolean)
+      .join(' ')
+  );
+
+  return [
+    'lower',
+    'legs',
+    'squat',
+    'hinge',
+    'lunge',
+    'sprint',
+    'high impact',
+  ].some((token) => slotText.includes(token));
 }
 
 export function determineStageOnePlanningActivation({
@@ -885,9 +1077,7 @@ function inferStressors(value: string): string[] {
   if (hasTokenPrefix(tokens, ['core']) || hasToken(tokens, ['ab', 'abs'])) {
     stressors.add('core');
   }
-  if (
-    hasTokenPrefix(tokens, ['conditioning', 'cardio', 'endurance'])
-  ) {
+  if (hasTokenPrefix(tokens, ['conditioning', 'cardio', 'endurance'])) {
     stressors.add('conditioning');
   }
   if (hasTokenPrefix(tokens, ['mobility', 'recovery'])) {
@@ -920,7 +1110,11 @@ function hasTokenSequence(tokens: string[], sequence: string[]): boolean {
 function inferSessionStressors(
   session: GenerationContext['recentSessions'][number]
 ): string[] {
-  const values = [session.focus, session.name, ...(session.exerciseNames ?? [])];
+  const values = [
+    session.focus,
+    session.name,
+    ...(session.exerciseNames ?? []),
+  ];
   const stressors = new Set<string>();
 
   for (const value of values) {
