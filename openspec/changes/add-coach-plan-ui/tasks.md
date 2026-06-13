@@ -6,15 +6,15 @@
 
 ## 2. Home UI
 
-- [ ] 2.1 Update the Home hero to prioritize the coach's next recommended action and concise rationale
-- [ ] 2.2 Add a compact upcoming projection view that distinguishes projected, pinned, skipped, repaired, and conflict states
-- [ ] 2.3 Keep internal strategy ids out of primary Home copy and controls
+- [x] 2.1 Update the Home hero to prioritize the coach's next recommended action and concise rationale
+- [x] 2.2 Add a compact upcoming projection view that distinguishes projected, pinned, skipped, repaired, and conflict states
+- [x] 2.3 Keep internal strategy ids out of primary Home copy and controls
 
 ## 3. Calendar And History Interactions
 
-- [ ] 3.1 Add skip, pin, unpin, move, and generate-from-projection affordances where projected sessions appear
-- [ ] 3.2 Add pinned conflict warnings with explicit keep, move, unpin, or regenerate-around-conflict actions
-- [ ] 3.3 Ensure planned events remain user-owned and are not overwritten by projection actions
+- [x] 3.1 Add skip, pin, unpin, move, and generate-from-projection affordances where projected sessions appear
+- [x] 3.2 Add pinned conflict warnings with explicit keep, move, unpin, or regenerate-around-conflict actions
+- [x] 3.3 Ensure planned events remain user-owned and are not overwritten by projection actions
 
 ## 4. Plan Settings
 

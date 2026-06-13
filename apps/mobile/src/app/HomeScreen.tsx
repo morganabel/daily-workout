@@ -17,6 +17,8 @@ import {
   type AdaptivePlanRecommendation,
   type AdaptiveTrainingPlan,
   type AdaptiveTrainingBlock,
+  type CoachProjectionActionType,
+  type CoachProjectionConflictWarning,
   type TodayPlan,
   type GenerationRequest,
   type QuickActionPreset,
@@ -32,6 +34,8 @@ import { palette, typography } from './theme';
 import { BottomNavigation } from './components/BottomNavigation';
 import { Button, Card } from './components/DesignSystem';
 import { CustomizeSheet } from './components/CustomizeSheet';
+import { CoachUpcomingPlan } from './components/CoachUpcomingPlan';
+import { formatLocalDate, parseLocalDate } from './utils/date';
 import { setDebugHomeUiState, setDebugSelectedPlan } from './debug/debugState';
 
 // --- Constants ---
@@ -903,6 +907,7 @@ export const HomeScreen = () => {
     activePlanVersions,
     adaptivePlan,
     adaptiveRecommendation,
+    coachPlan,
     pendingPlanSnapshot,
     planningDateLocal,
     planningDateTimestamp,
@@ -918,6 +923,11 @@ export const HomeScreen = () => {
     updateStagedValue,
     clearStagedValues,
     setGenerationStatus,
+    skipCoachProjectionSession,
+    pinCoachProjectionSession,
+    unpinCoachProjectionSession,
+    moveCoachProjectionSession,
+    buildCoachProjectionGenerationRequest,
   } = useHomeData();
   const { showUpgradeUi } = useBillingState();
 
@@ -1047,6 +1057,106 @@ export const HomeScreen = () => {
       setGenerating(false);
     }
   };
+
+  // Generates a concrete workout from a projected coach session, scheduling it
+  // for that session's date and carrying the session's coach intent.
+  const handleGenerateFromProjection = useCallback(
+    async (projectionId: string) => {
+      if (generating || isOffline) return;
+      if (refreshPlanningDate()) return;
+
+      const request = buildCoachProjectionGenerationRequest(projectionId, {
+        energy: intensity.toLowerCase() as WorkoutEnergy,
+      });
+      if (!request) return;
+
+      const session =
+        coachPlan?.nextSession?.id === projectionId
+          ? coachPlan.nextSession
+          : coachPlan?.upcomingSessions.find(
+              (item) => item.id === projectionId
+            );
+      const targetDateLocal = session?.localDate ?? planningDateLocal;
+      const targetTimestamp = session
+        ? parseLocalDate(session.localDate).getTime()
+        : planningDateTimestamp;
+
+      setGenerating(true);
+      setGenerationStatus({
+        state: 'pending',
+        submittedAt: new Date().toISOString(),
+      });
+      try {
+        clearTransientPlanState();
+        const newPlan = await generateWorkout(request, {
+          scheduledDate: targetTimestamp,
+        });
+        setOptimisticPlanForDate(newPlan, targetDateLocal);
+        await refetch();
+        setGenerationStatus({ state: 'idle', submittedAt: null });
+      } catch (err) {
+        const apiError = err as ApiError;
+        setGenerationStatus({
+          state: 'error',
+          submittedAt: new Date().toISOString(),
+          message: apiError.message,
+        });
+        routeGenerationError(apiError, 'Failed to generate workout');
+      } finally {
+        setGenerating(false);
+      }
+    },
+    [
+      buildCoachProjectionGenerationRequest,
+      clearTransientPlanState,
+      coachPlan,
+      generating,
+      intensity,
+      isOffline,
+      planningDateLocal,
+      planningDateTimestamp,
+      refetch,
+      refreshPlanningDate,
+      routeGenerationError,
+      setGenerationStatus,
+      setOptimisticPlanForDate,
+    ]
+  );
+
+  // Resolves a pinned-conflict warning by an explicit user choice. A pinned
+  // session is never moved silently — it stays pinned until the user picks an
+  // action here.
+  const handleResolveConflict = useCallback(
+    (
+      warning: CoachProjectionConflictWarning,
+      action: CoachProjectionActionType
+    ) => {
+      const projectionId = warning.projectionId;
+      const nextDay = parseLocalDate(warning.localDate);
+      nextDay.setDate(nextDay.getDate() + 1);
+      const nextDayLocal = formatLocalDate(nextDay);
+
+      switch (action) {
+        case 'move':
+          void moveCoachProjectionSession(projectionId, nextDayLocal);
+          break;
+        case 'unpin':
+          void unpinCoachProjectionSession(projectionId);
+          break;
+        case 'generate':
+          void handleGenerateFromProjection(projectionId);
+          break;
+        case 'keep-pinned':
+        default:
+          break;
+      }
+    },
+    [
+      handleGenerateFromProjection,
+      moveCoachProjectionSession,
+      unpinCoachProjectionSession,
+    ]
+  );
 
   const handleCustomizeSubmit = async (request: GenerationRequest) => {
     if (customizeForRegeneration && activePlan) {
@@ -1446,6 +1556,19 @@ export const HomeScreen = () => {
             )}
           </>
         )}
+
+        {coachPlan ? (
+          <CoachUpcomingPlan
+            coachPlan={coachPlan}
+            isBusy={isPending}
+            onSkip={skipCoachProjectionSession}
+            onPin={pinCoachProjectionSession}
+            onUnpin={unpinCoachProjectionSession}
+            onMove={moveCoachProjectionSession}
+            onGenerate={handleGenerateFromProjection}
+            onResolveConflict={handleResolveConflict}
+          />
+        ) : null}
 
         {/* Extra spacing for bottom nav */}
         <View style={{ height: 100 }} />
