@@ -126,5 +126,58 @@ export const migrations = schemaMigrations({
         }),
       ],
     },
+    {
+      toVersion: 10,
+      steps: [
+        createTable({
+          name: 'coach_session_actions',
+          columns: [
+            { name: 'action_kind', type: 'string' },
+            { name: 'program_id', type: 'string', isIndexed: true },
+            { name: 'program_version', type: 'number' },
+            { name: 'strategy', type: 'string' },
+            { name: 'cycle_index', type: 'number' },
+            { name: 'session_identity_key', type: 'string', isIndexed: true },
+            { name: 'projection_id', type: 'string' },
+            { name: 'source_block_id', type: 'string', isOptional: true },
+            {
+              name: 'projected_local_date',
+              type: 'string',
+              isIndexed: true,
+            },
+            { name: 'action_local_date', type: 'string' },
+            { name: 'workout_id', type: 'string', isOptional: true },
+            {
+              name: 'substitution_workout_id',
+              type: 'string',
+              isOptional: true,
+            },
+            {
+              name: 'substitution_block_id',
+              type: 'string',
+              isOptional: true,
+            },
+            { name: 'created_at', type: 'number' },
+            { name: 'updated_at', type: 'number' },
+          ],
+        }),
+      ],
+    },
+    {
+      toVersion: 11,
+      steps: [
+        addColumns({
+          table: 'workouts',
+          columns: [
+            {
+              name: 'coach_projection_id',
+              type: 'string',
+              isOptional: true,
+              isIndexed: true,
+            },
+          ],
+        }),
+      ],
+    },
   ],
 });

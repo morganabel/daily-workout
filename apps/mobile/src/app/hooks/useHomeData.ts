@@ -8,6 +8,9 @@ import { AppState } from 'react-native';
 import type {
   AdaptivePlanRecommendation,
   AdaptiveTrainingPlan,
+  CoachProjection,
+  CoachProjectedSession,
+  CoachSessionAction,
   GenerationStatus,
   OfflineHint,
   TodayPlan,
@@ -19,11 +22,13 @@ import type {
 } from '@workout-agent/shared';
 import NetInfo from '@react-native-community/netinfo';
 import { workoutRepository } from '../db/repositories/WorkoutRepository';
+import { coachSessionActionRepository } from '../db/repositories/CoachSessionActionRepository';
 import { plannedEventRepository } from '../db/repositories/PlannedEventRepository';
 import { userRepository } from '../db/repositories/UserRepository';
 import type Workout from '../db/models/Workout';
 import { formatLocalDate, parseLocalDate } from '../utils/date';
 import { resolveAdaptiveTrainingRecommendation } from '../services/adaptiveTrainingPlanResolver';
+import { deriveCoachProjection } from '../services/coachProjectionResolver';
 
 const buildQuickActionsFromPreferences = (
   prefs: UserPreferences
@@ -113,6 +118,14 @@ const getNextLocalMidnightDelay = (localDate: string): number => {
 const getLocalDateTimestamp = (localDate: string): number =>
   parseLocalDate(localDate).getTime();
 
+// Identity keys repeat across cycles (ordinals reset each cycle), and a
+// 14-day window spans cycle boundaries, so derived pin ids must include the
+// cycle index to keep pins in adjacent cycles from overwriting each other.
+const getCoachPinId = (session: CoachProjectedSession): string =>
+  session.sessionIdentityKey.startsWith('pin:')
+    ? session.sessionIdentityKey.slice('pin:'.length)
+    : `pin:${session.cycleIndex}:${session.sessionIdentityKey}`;
+
 const normalizeEquipmentForComparison = (equipment: string[]): string[] =>
   equipment
     .map((item) => item.trim().toLowerCase())
@@ -150,6 +163,7 @@ export type HomeDataState = {
   pendingPlanSnapshot: TodayPlan | null;
   adaptivePlan: AdaptiveTrainingPlan | null;
   adaptiveRecommendation: AdaptivePlanRecommendation | null;
+  coachProjection: CoachProjection | null;
   recentSessions: WorkoutSessionSummary[];
   quickActions: QuickActionPreset[];
   offlineHint: OfflineHint;
@@ -175,6 +189,13 @@ export function useHomeData(): HomeDataState & {
   ) => void;
   clearStagedValues: () => void;
   setGenerationStatus: (status: GenerationStatus) => void;
+  skipCoachProjectionSession: (projectionId: string) => Promise<void>;
+  pinCoachProjectionSession: (projectionId: string) => Promise<void>;
+  unpinCoachProjectionSession: (projectionId: string) => Promise<void>;
+  moveCoachProjectionSession: (
+    projectionId: string,
+    localDate: string
+  ) => Promise<void>;
 } {
   const initialStatus: GenerationStatus = {
     state: 'idle',
@@ -193,6 +214,7 @@ export function useHomeData(): HomeDataState & {
     pendingPlanSnapshot: null,
     adaptivePlan: null,
     adaptiveRecommendation: null,
+    coachProjection: null,
     recentSessions: [],
     quickActions: FALLBACK_QUICK_ACTIONS,
     offlineHint: {
@@ -218,6 +240,9 @@ export function useHomeData(): HomeDataState & {
   const [upcomingEvents, setUpcomingEvents] = useState<UpcomingEventContext[]>(
     []
   );
+  const [coachSessionActions, setCoachSessionActions] = useState<
+    CoachSessionAction[]
+  >([]);
 
   useEffect(() => {
     return () => {
@@ -407,6 +432,7 @@ export function useHomeData(): HomeDataState & {
     const subscription = plannedEventRepository
       .observeUpcomingEventContext({
         startLocalDate: state.planningDateLocal,
+        daysAhead: 14,
       })
       .subscribe((events) => {
         if (!isMountedRef.current) return;
@@ -415,6 +441,23 @@ export function useHomeData(): HomeDataState & {
 
     return () => subscription.unsubscribe();
   }, [state.adaptivePlan, state.planningDateLocal]);
+
+  useEffect(() => {
+    const adaptivePlan = state.adaptivePlan;
+    if (!adaptivePlan || adaptivePlan.status !== 'active') {
+      setCoachSessionActions([]);
+      return;
+    }
+
+    const subscription = coachSessionActionRepository
+      .observeActionsForProgram(adaptivePlan.id)
+      .subscribe((actions) => {
+        if (!isMountedRef.current) return;
+        setCoachSessionActions(actions);
+      });
+
+    return () => subscription.unsubscribe();
+  }, [state.adaptivePlan]);
 
   // Offline detection
   useEffect(() => {
@@ -479,14 +522,22 @@ export function useHomeData(): HomeDataState & {
     };
   }, []);
 
+  // Only the resolved time value feeds the resolvers, so depend on the
+  // derived number instead of the raw staging state — staging focus,
+  // equipment, or energy should not recompute the recommendation/projection.
+  const availableTimeMinutes = useMemo(
+    () => resolveAvailableTimeMinutes(state.quickActions, stagedValues),
+    [state.quickActions, stagedValues]
+  );
+
   useEffect(() => {
     const adaptivePlan = state.adaptivePlan;
 
     if (!adaptivePlan || adaptivePlan.status !== 'active') {
       setState((prev) =>
-        prev.adaptiveRecommendation === null
+        prev.adaptiveRecommendation === null && prev.coachProjection === null
           ? prev
-          : { ...prev, adaptiveRecommendation: null }
+          : { ...prev, adaptiveRecommendation: null, coachProjection: null }
       );
       return;
     }
@@ -497,25 +548,36 @@ export function useHomeData(): HomeDataState & {
         planningDateLocal: state.planningDateLocal,
         recentSessions: state.recentSessions,
         upcomingEvents,
-        availableTimeMinutes: resolveAvailableTimeMinutes(
-          state.quickActions,
-          stagedValues
-        ),
+        availableTimeMinutes,
+      });
+      const coachProjection = deriveCoachProjection({
+        plan: adaptivePlan,
+        planningDateLocal: state.planningDateLocal,
+        recentSessions: state.recentSessions,
+        sessionActions: coachSessionActions,
+        upcomingEvents,
+        availableTimeMinutes,
+        windowDays: 14,
       });
 
       setState((prev) => ({
         ...prev,
         adaptiveRecommendation: recommendation,
+        coachProjection,
       }));
     } catch (error) {
       console.error('Failed to resolve adaptive recommendation', error);
-      setState((prev) => ({ ...prev, adaptiveRecommendation: null }));
+      setState((prev) => ({
+        ...prev,
+        adaptiveRecommendation: null,
+        coachProjection: null,
+      }));
     }
   }, [
-    stagedValues,
+    availableTimeMinutes,
+    coachSessionActions,
     state.adaptivePlan,
     state.planningDateLocal,
-    state.quickActions,
     state.recentSessions,
     upcomingEvents,
   ]);
@@ -579,6 +641,119 @@ export function useHomeData(): HomeDataState & {
     }));
   }, []);
 
+  const getProjectionSession = useCallback(
+    (projectionId: string): CoachProjectedSession | undefined =>
+      state.coachProjection?.sessions.find(
+        (session) => session.id === projectionId
+      ),
+    [state.coachProjection]
+  );
+
+  const upsertPinnedSessionPreference = useCallback(
+    async (session: CoachProjectedSession, localDate: string) => {
+      const adaptivePlan = state.adaptivePlan;
+      if (!adaptivePlan || !session.sourceBlockId) {
+        return;
+      }
+
+      const pinId = getCoachPinId(session);
+      const nextSessionPreference = {
+        id: pinId,
+        localDate,
+        blockIds: [session.sourceBlockId, ...session.addOnBlockIds],
+        status: 'pinned' as const,
+        note: 'Pinned from coach projection.',
+      };
+
+      await userRepository.updateAdaptiveTrainingPlan({
+        sessionPreferences: [
+          ...adaptivePlan.sessionPreferences.filter(
+            (preference) => preference.id !== pinId
+          ),
+          nextSessionPreference,
+        ],
+      });
+    },
+    [state.adaptivePlan]
+  );
+
+  const skipCoachProjectionSession = useCallback(
+    async (projectionId: string) => {
+      const adaptivePlan = state.adaptivePlan;
+      const session = getProjectionSession(projectionId);
+      if (!adaptivePlan || !session) {
+        return;
+      }
+
+      const linkedWorkout = session.workoutId
+        ? null
+        : await workoutRepository.findPlannedWorkoutByCoachProjectionId(
+            session.id
+          );
+      const workoutId = session.workoutId ?? linkedWorkout?.id;
+      if (workoutId) {
+        await workoutRepository.skipWorkoutById(workoutId);
+      }
+
+      await coachSessionActionRepository.recordSkipAction({
+        programId: adaptivePlan.id,
+        programVersion: adaptivePlan.programVersion ?? 1,
+        strategy: adaptivePlan.scheduleStrategy ?? 'weekly-target-balance',
+        cycleIndex: session.cycleIndex,
+        sessionIdentityKey: session.sessionIdentityKey,
+        projectionId: session.id,
+        sourceBlockId: session.sourceBlockId,
+        projectedLocalDate: session.localDate,
+        actionLocalDate: state.planningDateLocal,
+        workoutId,
+      });
+    },
+    [getProjectionSession, state.adaptivePlan, state.planningDateLocal]
+  );
+
+  const pinCoachProjectionSession = useCallback(
+    async (projectionId: string) => {
+      const session = getProjectionSession(projectionId);
+      if (!session) {
+        return;
+      }
+
+      await upsertPinnedSessionPreference(session, session.localDate);
+    },
+    [getProjectionSession, upsertPinnedSessionPreference]
+  );
+
+  const unpinCoachProjectionSession = useCallback(
+    async (projectionId: string) => {
+      const adaptivePlan = state.adaptivePlan;
+      const session = getProjectionSession(projectionId);
+      if (!adaptivePlan || !session) {
+        return;
+      }
+
+      const pinId = getCoachPinId(session);
+
+      await userRepository.updateAdaptiveTrainingPlan({
+        sessionPreferences: adaptivePlan.sessionPreferences.filter(
+          (preference) => preference.id !== pinId
+        ),
+      });
+    },
+    [getProjectionSession, state.adaptivePlan]
+  );
+
+  const moveCoachProjectionSession = useCallback(
+    async (projectionId: string, localDate: string) => {
+      const session = getProjectionSession(projectionId);
+      if (!session) {
+        return;
+      }
+
+      await upsertPinnedSessionPreference(session, localDate);
+    },
+    [getProjectionSession, upsertPinnedSessionPreference]
+  );
+
   const updateStagedValue = useCallback(
     (actionKey: QuickActionKey, stagedValue: string | null) => {
       setStagedValues((prev) => {
@@ -629,5 +804,9 @@ export function useHomeData(): HomeDataState & {
     updateStagedValue,
     clearStagedValues,
     setGenerationStatus,
+    skipCoachProjectionSession,
+    pinCoachProjectionSession,
+    unpinCoachProjectionSession,
+    moveCoachProjectionSession,
   };
 }

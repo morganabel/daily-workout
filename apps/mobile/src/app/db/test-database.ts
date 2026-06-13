@@ -8,6 +8,7 @@ import { schema } from './schema';
 import User from './models/User';
 import Workout from './models/Workout';
 import PlannedEvent from './models/PlannedEvent';
+import CoachSessionAction from './models/CoachSessionAction';
 import Exercise from './models/Exercise';
 import Set from './models/Set';
 
@@ -23,7 +24,14 @@ export function createTestDatabase(): Database {
 
   return new Database({
     adapter,
-    modelClasses: [User, Workout, PlannedEvent, Exercise, Set],
+    modelClasses: [
+      User,
+      Workout,
+      PlannedEvent,
+      CoachSessionAction,
+      Exercise,
+      Set,
+    ],
   });
 }
 

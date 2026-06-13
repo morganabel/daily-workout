@@ -59,6 +59,16 @@ const parseCoachProgramAttribution = (
   }
 };
 
+// Single write point for attribution: keeps the indexed coach_projection_id
+// column in lockstep with the JSON payload it is derived from.
+const applyCoachProgramAttribution = (
+  workout: Workout,
+  attribution: CoachProgramAttribution | undefined
+): void => {
+  workout.coachProgramAttributionJson = stringifyJson(attribution);
+  workout.coachProjectionId = attribution?.projectionId ?? undefined;
+};
+
 const readCatalogProvenance = (
   planJson: string | undefined
 ): TodayPlan['catalogProvenance'] | undefined => {
@@ -362,6 +372,20 @@ export class WorkoutRepository {
     return this.getPlannedWorkoutForDate(getTimestampForLocalDate(localDate));
   }
 
+  async findPlannedWorkoutByCoachProjectionId(
+    projectionId: string
+  ): Promise<Workout | null> {
+    const workouts = await this.workouts
+      .query(
+        Q.where('status', 'planned'),
+        Q.where('coach_projection_id', projectionId),
+        Q.take(1)
+      )
+      .fetch();
+
+    return workouts[0] ?? null;
+  }
+
   async listPlannedWorkoutVersionsForLocalDate(
     localDate: string
   ): Promise<Workout[]> {
@@ -499,7 +523,7 @@ export class WorkoutRepository {
         w.changeLabel = changeLabel;
         // Store provider response ID for continuity-aware regeneration.
         w.responseId = payload.workout.responseId ?? undefined;
-        w.coachProgramAttributionJson = stringifyJson(coachProgramAttribution);
+        applyCoachProgramAttribution(w, coachProgramAttribution);
       });
 
       for (const exercisePayload of payload.exercises) {
@@ -983,9 +1007,12 @@ export class WorkoutRepository {
         w.completedAt = completedAt;
         w.durationSeconds = durationSeconds;
         w.archivedAt = undefined;
-        w.coachProgramAttributionJson = stringifyJson(
+        applyCoachProgramAttribution(
+          w,
           params.coachProgramAttribution
-            ? coachProgramAttributionSchema.parse(params.coachProgramAttribution)
+            ? coachProgramAttributionSchema.parse(
+                params.coachProgramAttribution
+              )
             : undefined
         );
       });

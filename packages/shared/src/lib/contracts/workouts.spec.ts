@@ -1,6 +1,8 @@
 import {
   ADAPTIVE_PPL_CONDITIONING_BLOCKS,
+  coachProjectionSchema,
   coachProgramAttributionSchema,
+  coachSessionActionSchema,
   createCoachProgramStrategyRevision,
   adaptivePlanIntentSchema,
   adaptiveTrainingPlanSchema,
@@ -659,6 +661,59 @@ describe('training blueprint contracts', () => {
     expect(result.success).toBe(true);
   });
 
+  it('validates derived coach projection output', () => {
+    const result = coachProjectionSchema.safeParse({
+      planId: 'plan-ppl',
+      programVersion: 1,
+      strategy: 'ordered-rotation',
+      strategyStatus: 'ready',
+      cycleIndex: 2,
+      windowStartLocalDate: '2026-04-20',
+      windowEndLocalDate: '2026-05-03',
+      todaySessionId: 'coachproj_abc',
+      sessions: [
+        {
+          id: 'coachproj_abc',
+          planId: 'plan-ppl',
+          programVersion: 1,
+          cycleIndex: 2,
+          strategy: 'ordered-rotation',
+          sessionIdentityKey: 'ordered:push:1',
+          localDate: '2026-04-20',
+          sourceBlockId: 'push',
+          targetIds: ['lift'],
+          status: 'projected',
+          projectionStatus: 'projected',
+          blockLabel: 'Push',
+          availableActions: ['skip', 'pin', 'move', 'generate'],
+        },
+      ],
+      repairNotes: [],
+      conflictWarnings: [],
+      targetProgress: [],
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it('validates durable coach session skip records', () => {
+    const result = coachSessionActionSchema.safeParse({
+      actionKind: 'skip',
+      programId: 'plan-ppl',
+      programVersion: 1,
+      strategy: 'ordered-rotation',
+      cycleIndex: 2,
+      sessionIdentityKey: 'ordered:push:1',
+      projectionId: 'coachproj_abc',
+      sourceBlockId: 'push',
+      projectedLocalDate: '2026-04-20',
+      actionLocalDate: '2026-04-20',
+      createdAt: '2026-04-20T12:00:00.000Z',
+    });
+
+    expect(result.success).toBe(true);
+  });
+
   it('allows forward-compatible metadata on adaptive plan intent', () => {
     const result = adaptivePlanIntentSchema.safeParse({
       planId: 'plan-ppl',
@@ -679,10 +734,12 @@ describe('training blueprint contracts', () => {
   });
 
   it('selects deterministic coach strategies from template defaults', () => {
-    expect(selectCoachStrategyForTemplate('balanced-foundation')).toMatchObject({
-      strategy: 'weekly-target-balance',
-      reason: expect.stringContaining('Balanced foundation'),
-    });
+    expect(selectCoachStrategyForTemplate('balanced-foundation')).toMatchObject(
+      {
+        strategy: 'weekly-target-balance',
+        reason: expect.stringContaining('Balanced foundation'),
+      }
+    );
     expect(selectCoachStrategyForTemplate('ppl-conditioning')).toMatchObject({
       strategy: 'ordered-rotation',
       reason: expect.stringContaining('Lift conditioning'),
@@ -887,9 +944,7 @@ describe('training blueprint contracts', () => {
   it('keeps hard lifting streaks conservative except advanced five-day lifting plans', () => {
     Object.values(TRAINING_TEMPLATE_DEFINITIONS).forEach((template) => {
       const hardLiftCount = countHardLiftSlots(template.slotSequence);
-      const maxConsecutive = maxConsecutiveHardLiftSlots(
-        template.slotSequence
-      );
+      const maxConsecutive = maxConsecutiveHardLiftSlots(template.slotSequence);
       const canUseThreeDayLiftWave =
         template.id === 'ppl-hypertrophy' && hardLiftCount >= 5;
 
