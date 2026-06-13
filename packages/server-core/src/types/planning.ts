@@ -1,6 +1,7 @@
 import type {
   AiProviderName,
   AdaptivePlanIntent,
+  ExerciseSlotPolicy,
   PlanningLoadCeiling,
   PlanningStageOneActivation,
 } from '@workout-agent/shared';
@@ -64,6 +65,7 @@ export interface PlanningBrief {
   requestedFocus?: string;
   focusMode: PlanningFocusMode;
   adaptivePlanIntent?: AdaptivePlanIntent;
+  exerciseSlotPolicy?: ExerciseSlotPolicy;
   resolvedFocus: string;
   durationMinutes: number;
   availableEquipment: string[];

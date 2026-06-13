@@ -80,6 +80,7 @@ const FALLBACK_QUICK_ACTIONS = buildQuickActionsFromPreferences({
   injuries: [],
   focusBias: [],
   avoid: [],
+  aiFeaturesEnabled: true,
 });
 
 type StagedQuickActionValues = Partial<Record<QuickActionKey, string | null>>;

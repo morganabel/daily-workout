@@ -118,6 +118,15 @@ const buildGeneratedCoachProgramAttribution = (
     addOnBlockIds: intent.addOnBlocks.map((block) => block.blockId),
     templateId,
     projectionId: intent.projectionId,
+    slotAssignments: intent.exerciseSlotPolicy?.currentAssignments.map(
+      (assignment) => ({
+        slotId: assignment.slotId,
+        ...(assignment.exerciseId ? { exerciseId: assignment.exerciseId } : {}),
+        ...(assignment.exerciseName
+          ? { exerciseName: assignment.exerciseName }
+          : {}),
+      })
+    ),
     scheduleStrategy,
     sourceKind: 'generated',
     confidence: 'high',

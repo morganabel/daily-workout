@@ -347,6 +347,202 @@ describe('derivePlanningBrief', () => {
     ]);
   });
 
+  it('preserves stable slot assignments when hard constraints allow them', () => {
+    const brief = derivePlanningBrief({
+      request: {
+        focus: 'Pull',
+        adaptivePlanIntent: {
+          ...adaptivePlanIntent,
+          exerciseSlotPolicy: {
+            slots: [
+              {
+                id: 'pull-main-pull',
+                label: 'Pull main lift',
+                sourceBlockId: 'pull',
+                stabilityPolicy: 'stable',
+                movementTags: ['row', 'vertical-pull'],
+                focusTags: ['pull', 'upper-body'],
+              },
+            ],
+            currentAssignments: [
+              {
+                slotId: 'pull-main-pull',
+                exerciseName: 'Pull-Up',
+                source: 'generated',
+              },
+            ],
+            overrideReasons: [],
+          },
+        },
+        planningDateLocal: '2026-04-15',
+      },
+      context: createContext(),
+      provider: 'openai',
+    });
+
+    expect(brief.exerciseSlotPolicy).toEqual(
+      expect.objectContaining({
+        slots: [
+          expect.objectContaining({
+            id: 'pull-main-pull',
+            stabilityPolicy: 'stable',
+          }),
+        ],
+        currentAssignments: [
+          expect.objectContaining({
+            slotId: 'pull-main-pull',
+            exerciseName: 'Pull-Up',
+          }),
+        ],
+        overrideReasons: [],
+      })
+    );
+  });
+
+  it('keeps coach-rotatable accessory slots available for variation', () => {
+    const brief = derivePlanningBrief({
+      request: {
+        focus: 'Pull',
+        adaptivePlanIntent: {
+          ...adaptivePlanIntent,
+          exerciseSlotPolicy: {
+            slots: [
+              {
+                id: 'pull-accessory',
+                label: 'Pull accessory',
+                sourceBlockId: 'pull',
+                stabilityPolicy: 'coach-rotatable',
+                movementTags: ['biceps', 'rear-delts'],
+                focusTags: ['pull', 'accessory'],
+              },
+            ],
+            currentAssignments: [
+              {
+                slotId: 'pull-accessory',
+                exerciseName: 'Hammer Curl',
+                source: 'generated',
+              },
+            ],
+            overrideReasons: [],
+          },
+        },
+        planningDateLocal: '2026-04-15',
+      },
+      context: createContext(),
+      provider: 'gemini',
+    });
+
+    expect(brief.exerciseSlotPolicy?.slots).toEqual([
+      expect.objectContaining({
+        id: 'pull-accessory',
+        stabilityPolicy: 'coach-rotatable',
+      }),
+    ]);
+    expect(brief.exerciseSlotPolicy?.overrideReasons).toEqual([]);
+  });
+
+  it.each([
+    {
+      label: 'equipment',
+      exerciseName: 'Barbell Back Squat',
+      requiredEquipment: ['Barbell'],
+      context: createContext({ environment: { equipment: ['Dumbbells'] } }),
+      request: {},
+      expectedCode: 'equipment-unavailable',
+    },
+    {
+      label: 'injury',
+      exerciseName: 'Barbell Back Squat',
+      requiredEquipment: [],
+      context: createContext({
+        preferences: { injuries: ['back squat'] },
+      }),
+      request: {},
+      expectedCode: 'injury-conflict',
+    },
+    {
+      label: 'avoid list',
+      exerciseName: 'Romanian Deadlift',
+      requiredEquipment: [],
+      context: createContext({
+        preferences: { avoid: ['deadlift'] },
+      }),
+      request: {},
+      expectedCode: 'avoid-list',
+    },
+    {
+      label: 'event protection',
+      exerciseName: 'Back Squat',
+      requiredEquipment: [],
+      context: createContext(),
+      request: {
+        upcomingEvents: [
+          {
+            kind: 'hike',
+            title: 'Saturday hike',
+            localDate: '2026-04-16',
+            intensity: 'high' as const,
+          },
+        ],
+      },
+      expectedCode: 'event-protection',
+    },
+  ])(
+    'records slot override reasons for $label constraints',
+    ({ exerciseName, requiredEquipment, context, request, expectedCode }) => {
+      const brief = derivePlanningBrief({
+        request: {
+          focus: 'Legs',
+          adaptivePlanIntent: {
+            ...adaptivePlanIntent,
+            primaryBlock: {
+              blockId: 'legs',
+              label: 'Legs',
+              category: 'strength',
+              role: 'legs',
+              targetDurationMinutes: 50,
+              stressTags: ['lower-body', 'heavy'],
+            },
+            addOnBlocks: [],
+            exerciseSlotPolicy: {
+              slots: [
+                {
+                  id: 'legs-main-lift',
+                  label: 'Legs main lift',
+                  sourceBlockId: 'legs',
+                  stabilityPolicy: 'stable',
+                  movementTags: ['squat', 'hinge'],
+                  focusTags: ['legs', 'lower-body'],
+                  requiredEquipment,
+                },
+              ],
+              currentAssignments: [
+                {
+                  slotId: 'legs-main-lift',
+                  exerciseName,
+                  source: 'generated',
+                },
+              ],
+              overrideReasons: [],
+            },
+          },
+          planningDateLocal: '2026-04-15',
+          ...request,
+        },
+        context,
+        provider: 'openai',
+      });
+
+      expect(brief.exerciseSlotPolicy?.overrideReasons).toEqual([
+        expect.objectContaining({
+          slotId: 'legs-main-lift',
+          code: expectedCode,
+          blockedExerciseName: exerciseName,
+        }),
+      ]);
+    }
+  );
+
   it('shifts smart focus away from repeated recent overload', () => {
     const brief = derivePlanningBrief({
       request: {
@@ -468,7 +664,11 @@ describe('derivePlanningBrief', () => {
             durationMinutes: 30,
             focus: 'Strength',
             perceivedEffort: 'intense',
-            exerciseNames: ['Pilates Roll-Up', 'Plate Circuit', 'Machine Setup'],
+            exerciseNames: [
+              'Pilates Roll-Up',
+              'Plate Circuit',
+              'Machine Setup',
+            ],
             completedSetCount: 6,
           },
         ],

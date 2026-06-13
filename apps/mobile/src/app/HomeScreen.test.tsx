@@ -73,6 +73,7 @@ const baseHookState = {
   pendingPlanSnapshot: null,
   adaptivePlan: null,
   adaptiveRecommendation: null,
+  coachProjection: null,
   planningDateLocal: '2026-04-27',
   planningDateTimestamp: new Date('2026-04-27T00:00:00').getTime(),
   recentSessions: [],
@@ -94,6 +95,10 @@ const baseHookState = {
   updateStagedValue: jest.fn(),
   clearStagedValues: jest.fn(),
   setGenerationStatus: jest.fn(),
+  skipCoachProjectionSession: jest.fn(),
+  pinCoachProjectionSession: jest.fn(),
+  unpinCoachProjectionSession: jest.fn(),
+  moveCoachProjectionSession: jest.fn(),
 };
 
 const createQuickActions = (
@@ -344,6 +349,14 @@ describe('HomeScreen', () => {
     expect(
       request.adaptivePlanIntent.addOnBlocks[0].targetDurationMinutes
     ).toBeUndefined();
+    expect(
+      request.adaptivePlanIntent.exerciseSlotPolicy.slots.map(
+        (slot: { id: string }) => slot.id
+      )
+    ).toEqual(['pull-main-pull', 'pull-accessory']);
+    expect(
+      request.adaptivePlanIntent.exerciseSlotPolicy.currentAssignments
+    ).toEqual([]);
   });
 
   it('opens coach customization with Auto selected instead of the recommendation label', async () => {

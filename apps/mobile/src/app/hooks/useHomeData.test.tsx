@@ -158,6 +158,7 @@ describe('useHomeData', () => {
       injuries: [],
       focusBias: [],
       avoid: [],
+      aiFeaturesEnabled: true,
     });
     mockUserRepository.observeUser.mockReturnValue(
       asMockObservable(userStream.observable)
@@ -236,6 +237,7 @@ describe('useHomeData', () => {
       injuries: [],
       focusBias: [],
       avoid: [],
+      aiFeaturesEnabled: true,
       adaptiveTrainingPlan: plan,
     });
 
@@ -279,6 +281,7 @@ describe('useHomeData', () => {
       injuries: [],
       focusBias: [],
       avoid: [],
+      aiFeaturesEnabled: true,
       adaptiveTrainingPlan: plan,
     });
 
@@ -317,6 +320,7 @@ describe('useHomeData', () => {
       injuries: [],
       focusBias: [],
       avoid: [],
+      aiFeaturesEnabled: true,
       adaptiveTrainingPlan: plan,
     });
 
@@ -364,6 +368,7 @@ describe('useHomeData', () => {
       injuries: [],
       focusBias: [],
       avoid: [],
+      aiFeaturesEnabled: true,
       adaptiveTrainingPlan: plan,
     });
     mockWorkoutRepository.findPlannedWorkoutByCoachProjectionId.mockResolvedValue(
@@ -419,6 +424,7 @@ describe('useHomeData', () => {
       injuries: [],
       focusBias: [],
       avoid: [],
+      aiFeaturesEnabled: true,
       adaptiveTrainingPlan: plan,
     });
 

@@ -152,9 +152,9 @@ describe('buildGenerationContext', () => {
       focus: 'Smart',
     });
 
-    expect(mockWorkoutRepository.toGenerationContextSession).toHaveBeenCalledWith(
-      { id: 'workout-rich' }
-    );
+    expect(
+      mockWorkoutRepository.toGenerationContextSession
+    ).toHaveBeenCalledWith({ id: 'workout-rich' });
     expect(context.recentSessions).toEqual([session]);
   });
 });
@@ -421,9 +421,33 @@ describe('generateWorkout', () => {
         ],
         targetRangeContext: [],
         rationale: [],
+        repairRationale: [],
         projectionStatus: 'projected',
         exerciseSlotPolicy: {
-          preserveMainLifts: true,
+          slots: [
+            {
+              id: 'pull-main-pull',
+              label: 'Pull main lift',
+              sourceBlockId: 'pull',
+              role: 'main-lift',
+              stabilityPolicy: 'stable',
+              targetExerciseCount: 1,
+              movementTags: ['row', 'vertical-pull'],
+              focusTags: ['pull', 'upper-body'],
+              preferredExerciseIds: [],
+              eligibleExerciseIds: [],
+              requiredEquipment: [],
+            },
+          ],
+          currentAssignments: [
+            {
+              slotId: 'pull-main-pull',
+              exerciseName: 'Pull-Up',
+              source: 'generated',
+              locked: false,
+            },
+          ],
+          overrideReasons: [],
         },
       },
     });
@@ -434,14 +458,16 @@ describe('generateWorkout', () => {
     expect(payload.adaptivePlanIntent).toEqual(
       expect.objectContaining({
         planId: 'plan-ppl',
+        programVersion: 4,
+        scheduleStrategy: 'ordered-rotation',
+        projectionId: 'projection-pull-cardio',
         primaryBlock: expect.objectContaining({ blockId: 'pull' }),
+        exerciseSlotPolicy: expect.objectContaining({
+          slots: expect.arrayContaining([
+            expect.objectContaining({ id: 'pull-main-pull' }),
+          ]),
+        }),
       })
-    );
-    expect(payload.adaptivePlanIntent).not.toHaveProperty('programVersion');
-    expect(payload.adaptivePlanIntent).not.toHaveProperty('scheduleStrategy');
-    expect(payload.adaptivePlanIntent).not.toHaveProperty('projectionId');
-    expect(payload.adaptivePlanIntent).not.toHaveProperty(
-      'exerciseSlotPolicy'
     );
     expect(mockWorkoutRepository.saveGeneratedPlan).toHaveBeenCalledWith(
       generatedPlan,
@@ -453,7 +479,12 @@ describe('generateWorkout', () => {
             scheduleStrategy: 'ordered-rotation',
             projectionId: 'projection-pull-cardio',
             exerciseSlotPolicy: expect.objectContaining({
-              preserveMainLifts: true,
+              currentAssignments: expect.arrayContaining([
+                expect.objectContaining({
+                  slotId: 'pull-main-pull',
+                  exerciseName: 'Pull-Up',
+                }),
+              ]),
             }),
           }),
         }),
