@@ -74,6 +74,7 @@ const baseHookState = {
   adaptivePlan: null,
   adaptiveRecommendation: null,
   coachProjection: null,
+  coachPlan: null,
   planningDateLocal: '2026-04-27',
   planningDateTimestamp: new Date('2026-04-27T00:00:00').getTime(),
   recentSessions: [],
@@ -99,6 +100,7 @@ const baseHookState = {
   pinCoachProjectionSession: jest.fn(),
   unpinCoachProjectionSession: jest.fn(),
   moveCoachProjectionSession: jest.fn(),
+  buildCoachProjectionGenerationRequest: jest.fn(() => null),
 };
 
 const createQuickActions = (

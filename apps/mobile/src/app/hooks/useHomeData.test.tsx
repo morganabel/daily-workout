@@ -680,4 +680,76 @@ describe('useHomeData', () => {
       jest.useRealTimers();
     }
   });
+
+  describe('coach plan (local-first)', () => {
+    const loadActivePlan = async () => {
+      const plan = createAdaptiveTrainingPlanFromTemplate('ppl-conditioning', {
+        id: 'plan-ppl',
+        activeFrom: '2026-04-15',
+        updatedAt: '2026-04-15T12:00:00.000Z',
+      });
+      if (!plan) {
+        throw new Error('Expected adaptive plan');
+      }
+      mockUserRepository.getPreferences.mockResolvedValue({
+        equipment: ['Gym'],
+        injuries: [],
+        focusBias: [],
+        avoid: [],
+        aiFeaturesEnabled: true,
+        adaptiveTrainingPlan: plan,
+      });
+
+      const view = renderHook(() => useHomeData());
+      await act(async () => {
+        userStream.emit({});
+      });
+      await waitFor(() => {
+        expect(view.result.current.coachProjection?.planId).toBe('plan-ppl');
+      });
+      return view;
+    };
+
+    it('derives a UI-ready coach plan from local data without a backend snapshot', async () => {
+      const originalFetch = global.fetch;
+      const fetchSpy = jest.fn();
+      global.fetch = fetchSpy as never;
+
+      try {
+        const { result } = await loadActivePlan();
+
+        expect(result.current.coachPlan).not.toBeNull();
+        expect(result.current.coachPlan?.nextSession).not.toBeNull();
+        expect(result.current.coachPlan?.upcomingSessions.length).toBeGreaterThan(
+          0
+        );
+        // Local repositories/selectors only — no authoritative backend snapshot.
+        expect(fetchSpy).not.toHaveBeenCalled();
+        expect(
+          mockCoachSessionActionRepository.observeActionsForProgram
+        ).toHaveBeenCalledWith('plan-ppl');
+      } finally {
+        global.fetch = originalFetch;
+      }
+    });
+
+    it('builds a generation request that carries the projected session coach intent', async () => {
+      const { result } = await loadActivePlan();
+
+      const session = result.current.coachProjection?.sessions.find(
+        (entry) => entry.sourceBlockId
+      );
+      if (!session) {
+        throw new Error('Expected a generatable projected session');
+      }
+
+      const request = result.current.buildCoachProjectionGenerationRequest(
+        session.id
+      );
+      expect(request?.adaptivePlanIntent?.projectionId).toBe(session.id);
+      expect(request?.adaptivePlanIntent?.primaryBlock.blockId).toBe(
+        session.sourceBlockId
+      );
+    });
+  });
 });

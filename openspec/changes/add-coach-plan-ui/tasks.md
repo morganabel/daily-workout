@@ -1,8 +1,8 @@
 ## 1. Home Data Surface
 
-- [ ] 1.1 Add UI-ready selectors for today's coach recommendation, upcoming projection, repair notes, conflict warnings, and available actions
-- [ ] 1.2 Add action handlers for skip, pin, unpin, move, and generate from projected coach sessions
-- [ ] 1.3 Add tests proving Home data remains local-first and does not call a backend Home snapshot
+- [x] 1.1 Add UI-ready selectors for today's coach recommendation, upcoming projection, repair notes, conflict warnings, and available actions
+- [x] 1.2 Add action handlers for skip, pin, unpin, move, and generate from projected coach sessions
+- [x] 1.3 Add tests proving Home data remains local-first and does not call a backend Home snapshot
 
 ## 2. Home UI
 
