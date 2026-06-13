@@ -421,6 +421,7 @@ describe('generateWorkout', () => {
         ],
         targetRangeContext: [],
         rationale: [],
+        repairRationale: [],
         projectionStatus: 'projected',
         exerciseSlotPolicy: {
           slots: [

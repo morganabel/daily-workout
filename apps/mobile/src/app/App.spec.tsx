@@ -188,6 +188,7 @@ const baseHookState = {
   pendingPlanSnapshot: null,
   adaptivePlan: null,
   adaptiveRecommendation: null,
+  coachProjection: null,
   recentSessions: [],
   quickActions: createBaseQuickActions(),
   offlineHint: { offline: false, requiresApiKey: false },
@@ -207,6 +208,10 @@ const baseHookState = {
   updateStagedValue: jest.fn(),
   clearStagedValues: jest.fn(),
   setGenerationStatus: jest.fn(),
+  skipCoachProjectionSession: jest.fn(),
+  pinCoachProjectionSession: jest.fn(),
+  unpinCoachProjectionSession: jest.fn(),
+  moveCoachProjectionSession: jest.fn(),
 };
 
 describe('App', () => {
