@@ -19,9 +19,7 @@ export const coachScheduleStrategySchema = z.enum([
   'minimum-effective-dose',
   'event-prep',
 ]);
-export type CoachScheduleStrategy = z.infer<
-  typeof coachScheduleStrategySchema
->;
+export type CoachScheduleStrategy = z.infer<typeof coachScheduleStrategySchema>;
 
 export const coachAttributionSourceKindSchema = z.enum([
   'generated',
@@ -649,6 +647,122 @@ export const adaptivePlanRecommendationSchema = z
 export type AdaptivePlanRecommendation = z.infer<
   typeof adaptivePlanRecommendationSchema
 >;
+
+export const coachProjectionSessionStatusSchema = z.enum([
+  'projected',
+  'pinned',
+  'skipped',
+  'repaired',
+  'conflict',
+]);
+export type CoachProjectionSessionStatus = z.infer<
+  typeof coachProjectionSessionStatusSchema
+>;
+
+export const coachProjectionActionTypeSchema = z.enum([
+  'skip',
+  'pin',
+  'unpin',
+  'move',
+  'generate',
+  'keep-pinned',
+]);
+export type CoachProjectionActionType = z.infer<
+  typeof coachProjectionActionTypeSchema
+>;
+
+export const coachProjectionConflictWarningSchema = z
+  .object({
+    id: z.string().min(1),
+    projectionId: z.string().min(1),
+    localDate: localDateSchema,
+    kind: z.enum(['planned-event-conflict', 'unsupported-strategy']),
+    message: z.string().min(1),
+    eventTitle: z.string().min(1).optional(),
+    eventLocalDate: localDateSchema.optional(),
+    actions: z.array(coachProjectionActionTypeSchema).default([]),
+  })
+  .strict();
+export type CoachProjectionConflictWarning = z.infer<
+  typeof coachProjectionConflictWarningSchema
+>;
+
+export const coachProjectedSessionSchema = z
+  .object({
+    id: z.string().min(1),
+    planId: z.string().min(1),
+    programVersion: z.number().int().positive(),
+    cycleIndex: z.number().int().nonnegative(),
+    strategy: coachScheduleStrategySchema,
+    sessionIdentityKey: z.string().min(1),
+    localDate: localDateSchema,
+    sourceBlockId: z.string().min(1).optional(),
+    addOnBlockIds: z.array(z.string().min(1)).default([]),
+    targetIds: z.array(z.string().min(1)).default([]),
+    status: coachProjectionSessionStatusSchema,
+    projectionStatus: adaptiveProjectionStatusSchema.optional(),
+    blockLabel: z.string().min(1).optional(),
+    durationMinutes: z.number().int().positive().optional(),
+    workoutId: z.string().min(1).optional(),
+    rationale: z.array(adaptiveRecommendationRationaleSchema).default([]),
+    coachNotes: z.array(z.string().min(1)).default([]),
+    conflictWarningIds: z.array(z.string().min(1)).default([]),
+    availableActions: z.array(coachProjectionActionTypeSchema).default([]),
+  })
+  .strict();
+export type CoachProjectedSession = z.infer<typeof coachProjectedSessionSchema>;
+
+export const coachProjectionStrategyStatusSchema = z.enum([
+  'ready',
+  'unsupported',
+]);
+export type CoachProjectionStrategyStatus = z.infer<
+  typeof coachProjectionStrategyStatusSchema
+>;
+
+export const coachProjectionSchema = z
+  .object({
+    planId: z.string().min(1),
+    programVersion: z.number().int().positive(),
+    strategy: coachScheduleStrategySchema,
+    strategyStatus: coachProjectionStrategyStatusSchema,
+    cycleIndex: z.number().int().nonnegative(),
+    windowStartLocalDate: localDateSchema,
+    windowEndLocalDate: localDateSchema,
+    todaySessionId: z.string().min(1).optional(),
+    sessions: z.array(coachProjectedSessionSchema).default([]),
+    repairNotes: z.array(z.string().min(1)).default([]),
+    conflictWarnings: z.array(coachProjectionConflictWarningSchema).default([]),
+    targetProgress: z.array(adaptivePlanTargetProgressSchema).default([]),
+  })
+  .strict();
+export type CoachProjection = z.infer<typeof coachProjectionSchema>;
+
+export const coachSessionActionKindSchema = z.enum(['skip']);
+export type CoachSessionActionKind = z.infer<
+  typeof coachSessionActionKindSchema
+>;
+
+export const coachSessionActionSchema = z
+  .object({
+    id: z.string().min(1).optional(),
+    actionKind: coachSessionActionKindSchema,
+    programId: z.string().min(1),
+    programVersion: z.number().int().positive(),
+    strategy: coachScheduleStrategySchema,
+    cycleIndex: z.number().int().nonnegative(),
+    sessionIdentityKey: z.string().min(1),
+    projectionId: z.string().min(1),
+    sourceBlockId: z.string().min(1).optional(),
+    projectedLocalDate: localDateSchema,
+    actionLocalDate: localDateSchema,
+    workoutId: z.string().min(1).optional(),
+    substitutionWorkoutId: z.string().min(1).optional(),
+    substitutionBlockId: z.string().min(1).optional(),
+    createdAt: z.string().datetime(),
+  })
+  .strict();
+export type CoachSessionAction = z.infer<typeof coachSessionActionSchema>;
 
 export const adaptiveTrainingPlanSchema = z
   .object({

@@ -5,5 +5,6 @@ export * from './lib/contracts/billing.js';
 export * from './lib/contracts/api-errors.js';
 export * from './lib/contracts/generation-evaluation.js';
 export * from './lib/contracts/mobile-debug-mcp.js';
+export * from './lib/calendar/local-date.js';
 export * from './lib/evaluation/workout-generation-scenarios.js';
 export * from './lib/evaluation/promptfoo-generation-bridge.js';

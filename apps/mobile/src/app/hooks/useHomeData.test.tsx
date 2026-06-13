@@ -11,6 +11,7 @@ import {
 } from '@workout-agent/shared/testing';
 import { useHomeData } from './useHomeData';
 import { workoutRepository } from '../db/repositories/WorkoutRepository';
+import { coachSessionActionRepository } from '../db/repositories/CoachSessionActionRepository';
 import { plannedEventRepository } from '../db/repositories/PlannedEventRepository';
 import { userRepository } from '../db/repositories/UserRepository';
 import type Workout from '../db/models/Workout';
@@ -27,6 +28,8 @@ jest.mock('../db/repositories/WorkoutRepository', () => {
   const mapWorkoutToPlan = jest.fn();
   const toSessionSummary = jest.fn();
   const selectWorkoutVersion = jest.fn();
+  const findPlannedWorkoutByCoachProjectionId = jest.fn();
+  const skipWorkoutById = jest.fn();
 
   return {
     workoutRepository: {
@@ -37,6 +40,8 @@ jest.mock('../db/repositories/WorkoutRepository', () => {
       mapWorkoutToPlan,
       toSessionSummary,
       selectWorkoutVersion,
+      findPlannedWorkoutByCoachProjectionId,
+      skipWorkoutById,
       archiveWorkoutById: jest.fn(),
       unarchiveWorkoutById: jest.fn(),
       deleteWorkoutById: jest.fn(),
@@ -44,11 +49,20 @@ jest.mock('../db/repositories/WorkoutRepository', () => {
   };
 });
 
+jest.mock('../db/repositories/CoachSessionActionRepository', () => ({
+  coachSessionActionRepository: {
+    observeActionsForProgram: jest.fn(),
+    listActionsForProgram: jest.fn(),
+    recordSkipAction: jest.fn(),
+  },
+}));
+
 jest.mock('../db/repositories/UserRepository', () => ({
   userRepository: {
     getOrCreateUser: jest.fn(),
     getPreferences: jest.fn(),
     observeUser: jest.fn(),
+    updateAdaptiveTrainingPlan: jest.fn(),
   },
 }));
 
@@ -65,6 +79,10 @@ jest.mock('../db/repositories/PlannedEventRepository', () => ({
 const mockWorkoutRepository = workoutRepository as jest.Mocked<
   typeof workoutRepository
 >;
+const mockCoachSessionActionRepository =
+  coachSessionActionRepository as jest.Mocked<
+    typeof coachSessionActionRepository
+  >;
 const mockUserRepository = userRepository as jest.Mocked<typeof userRepository>;
 const mockPlannedEventRepository = plannedEventRepository as jest.Mocked<
   typeof plannedEventRepository
@@ -90,10 +108,17 @@ const createObservableMock = <T,>() => {
   };
 };
 
+const asMockObservable = <T,>(
+  observable: ReturnType<typeof createObservableMock<T>>['observable']
+) => observable as never;
+
 describe('useHomeData', () => {
   let versionStream: ReturnType<typeof createObservableMock<Workout[]>>;
   let sessionStream: ReturnType<typeof createObservableMock<Workout[]>>;
   let upcomingEventStream: ReturnType<typeof createObservableMock<unknown[]>>;
+  let coachSessionActionStream: ReturnType<
+    typeof createObservableMock<unknown[]>
+  >;
   let mockPlan: ReturnType<typeof createTodayPlanFixture>;
   let userStream: ReturnType<typeof createObservableMock<unknown>>;
 
@@ -102,14 +127,15 @@ describe('useHomeData', () => {
     versionStream = createObservableMock<Workout[]>();
     sessionStream = createObservableMock<Workout[]>();
     upcomingEventStream = createObservableMock<unknown[]>();
+    coachSessionActionStream = createObservableMock<unknown[]>();
     userStream = createObservableMock<unknown>();
     mockPlan = createTodayPlanFixture({ id: 'server-plan' });
 
     mockWorkoutRepository.observePlannedWorkoutVersionsForDate.mockReturnValue(
-      versionStream.observable as any
+      asMockObservable(versionStream.observable)
     );
     mockWorkoutRepository.observeRecentSessions.mockReturnValue(
-      sessionStream.observable as any
+      asMockObservable(sessionStream.observable)
     );
     mockWorkoutRepository.listPlannedWorkoutVersionsForLocalDate.mockResolvedValue(
       []
@@ -122,6 +148,10 @@ describe('useHomeData', () => {
           name: workout.name || 'Workout',
         })
     );
+    mockWorkoutRepository.findPlannedWorkoutByCoachProjectionId.mockResolvedValue(
+      null
+    );
+    mockWorkoutRepository.skipWorkoutById.mockResolvedValue(undefined);
     mockUserRepository.getOrCreateUser.mockResolvedValue(undefined as never);
     mockUserRepository.getPreferences.mockResolvedValue({
       equipment: [],
@@ -130,10 +160,25 @@ describe('useHomeData', () => {
       avoid: [],
     });
     mockUserRepository.observeUser.mockReturnValue(
-      userStream.observable as any
+      asMockObservable(userStream.observable)
+    );
+    mockUserRepository.updateAdaptiveTrainingPlan.mockResolvedValue(
+      undefined as never
+    );
+    mockCoachSessionActionRepository.observeActionsForProgram.mockReturnValue(
+      asMockObservable(coachSessionActionStream.observable)
+    );
+    mockCoachSessionActionRepository.recordSkipAction.mockImplementation(
+      async (input) =>
+        ({
+          id: 'skip-record',
+          actionKind: 'skip',
+          createdAt: '2026-04-15T12:00:00.000Z',
+          ...input,
+        } as never)
     );
     mockPlannedEventRepository.observeUpcomingEventContext.mockReturnValue(
-      upcomingEventStream.observable as any
+      asMockObservable(upcomingEventStream.observable)
     );
     mockPlannedEventRepository.listUpcomingEventContext.mockResolvedValue([]);
     mockNetInfo.addEventListener = jest.fn().mockImplementation((callback) => {
@@ -205,10 +250,19 @@ describe('useHomeData', () => {
       expect(result.current.adaptiveRecommendation?.primaryBlockId).toBe(
         'push'
       );
+      expect(
+        result.current.coachProjection?.sessions[0]?.sourceBlockId
+      ).toEqual(expect.any(String));
     });
     expect(
       mockPlannedEventRepository.observeUpcomingEventContext
-    ).toHaveBeenCalledWith({ startLocalDate: expect.any(String) });
+    ).toHaveBeenCalledWith({
+      startLocalDate: expect.any(String),
+      daysAhead: 14,
+    });
+    expect(
+      mockCoachSessionActionRepository.observeActionsForProgram
+    ).toHaveBeenCalledWith('plan-ppl');
   });
 
   it('uses staged available time when resolving adaptive add-ons', async () => {
@@ -294,6 +348,117 @@ describe('useHomeData', () => {
         mockPlannedEventRepository.observeUpcomingEventContext
       ).toHaveBeenCalledTimes(1);
     });
+  });
+
+  it('records a durable skip and updates a generated workout when present', async () => {
+    const plan = createAdaptiveTrainingPlanFromTemplate('ppl-conditioning', {
+      id: 'plan-ppl',
+      activeFrom: '2026-04-15',
+      updatedAt: '2026-04-15T12:00:00.000Z',
+    });
+    if (!plan) {
+      throw new Error('Expected adaptive plan');
+    }
+    mockUserRepository.getPreferences.mockResolvedValue({
+      equipment: ['Gym'],
+      injuries: [],
+      focusBias: [],
+      avoid: [],
+      adaptiveTrainingPlan: plan,
+    });
+    mockWorkoutRepository.findPlannedWorkoutByCoachProjectionId.mockResolvedValue(
+      { id: 'generated-workout' } as Workout
+    );
+
+    const { result } = renderHook(() => useHomeData());
+
+    await act(async () => {
+      userStream.emit({});
+    });
+
+    await waitFor(() => {
+      expect(result.current.coachProjection?.sessions[0]?.id).toBeTruthy();
+    });
+
+    const projectedSession = result.current.coachProjection?.sessions[0];
+    if (!projectedSession) {
+      throw new Error('Expected projected session');
+    }
+    const projectionId = projectedSession.id;
+    await act(async () => {
+      await result.current.skipCoachProjectionSession(projectionId);
+    });
+
+    expect(mockWorkoutRepository.skipWorkoutById).toHaveBeenCalledWith(
+      'generated-workout'
+    );
+    expect(
+      mockCoachSessionActionRepository.recordSkipAction
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({
+        programId: 'plan-ppl',
+        sourceBlockId: projectedSession.sourceBlockId,
+        sessionIdentityKey: projectedSession.sessionIdentityKey,
+        projectionId,
+        workoutId: 'generated-workout',
+      })
+    );
+  });
+
+  it('records pin and move actions as adaptive plan session preferences', async () => {
+    const plan = createAdaptiveTrainingPlanFromTemplate('ppl-conditioning', {
+      id: 'plan-ppl',
+      activeFrom: '2026-04-15',
+      updatedAt: '2026-04-15T12:00:00.000Z',
+    });
+    if (!plan) {
+      throw new Error('Expected adaptive plan');
+    }
+    mockUserRepository.getPreferences.mockResolvedValue({
+      equipment: ['Gym'],
+      injuries: [],
+      focusBias: [],
+      avoid: [],
+      adaptiveTrainingPlan: plan,
+    });
+
+    const { result } = renderHook(() => useHomeData());
+
+    await act(async () => {
+      userStream.emit({});
+    });
+
+    await waitFor(() => {
+      expect(result.current.coachProjection?.sessions[0]?.id).toBeTruthy();
+    });
+
+    const projectedSession = result.current.coachProjection?.sessions[0];
+    if (!projectedSession) {
+      throw new Error('Expected projected session');
+    }
+    const projectionId = projectedSession.id;
+    await act(async () => {
+      await result.current.pinCoachProjectionSession(projectionId);
+      await result.current.moveCoachProjectionSession(
+        projectionId,
+        '2026-04-20'
+      );
+    });
+
+    expect(
+      mockUserRepository.updateAdaptiveTrainingPlan
+    ).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        sessionPreferences: [
+          expect.objectContaining({
+            id: `pin:${projectedSession.cycleIndex}:${projectedSession.sessionIdentityKey}`,
+            localDate: '2026-04-20',
+            blockIds: [projectedSession.sourceBlockId],
+            status: 'pinned',
+          }),
+        ],
+      })
+    );
   });
 
   it('hydrates planned workout versions from the selected group', async () => {

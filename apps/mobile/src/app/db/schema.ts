@@ -1,7 +1,7 @@
 import { appSchema, tableSchema } from '@nozbe/watermelondb';
 
 export const schema = appSchema({
-  version: 9,
+  version: 11,
   tables: [
     tableSchema({
       name: 'users',
@@ -48,6 +48,14 @@ export const schema = appSchema({
           type: 'string',
           isOptional: true,
         },
+        // Mirrors the projectionId inside coach_program_attribution_json so
+        // projection lookups can use an indexed query instead of JSON parsing.
+        {
+          name: 'coach_projection_id',
+          type: 'string',
+          isOptional: true,
+          isIndexed: true,
+        },
         { name: 'created_at', type: 'number' },
         { name: 'updated_at', type: 'number' },
       ],
@@ -71,6 +79,26 @@ export const schema = appSchema({
         { name: 'details_json', type: 'string', isOptional: true },
         { name: 'metadata_json', type: 'string', isOptional: true },
         { name: 'archived_at', type: 'number', isOptional: true },
+        { name: 'created_at', type: 'number' },
+        { name: 'updated_at', type: 'number' },
+      ],
+    }),
+    tableSchema({
+      name: 'coach_session_actions',
+      columns: [
+        { name: 'action_kind', type: 'string' },
+        { name: 'program_id', type: 'string', isIndexed: true },
+        { name: 'program_version', type: 'number' },
+        { name: 'strategy', type: 'string' },
+        { name: 'cycle_index', type: 'number' },
+        { name: 'session_identity_key', type: 'string', isIndexed: true },
+        { name: 'projection_id', type: 'string' },
+        { name: 'source_block_id', type: 'string', isOptional: true },
+        { name: 'projected_local_date', type: 'string', isIndexed: true },
+        { name: 'action_local_date', type: 'string' },
+        { name: 'workout_id', type: 'string', isOptional: true },
+        { name: 'substitution_workout_id', type: 'string', isOptional: true },
+        { name: 'substitution_block_id', type: 'string', isOptional: true },
         { name: 'created_at', type: 'number' },
         { name: 'updated_at', type: 'number' },
       ],

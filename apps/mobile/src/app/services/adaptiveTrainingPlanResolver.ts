@@ -9,7 +9,10 @@ import type {
   UpcomingEventContext,
   WorkoutSessionSummary,
 } from '@workout-agent/shared';
-import { adaptivePlanRecommendationSchema } from '@workout-agent/shared';
+import {
+  adaptivePlanRecommendationSchema,
+  daysBetweenLocalDates,
+} from '@workout-agent/shared';
 import { formatLocalDate, parseLocalDate } from '../utils/date';
 
 export type AdaptiveTrainingPlanResolverInput = {
@@ -20,12 +23,11 @@ export type AdaptiveTrainingPlanResolverInput = {
   availableTimeMinutes?: number;
 };
 
-const DAY_MS = 24 * 60 * 60 * 1000;
 const RECOVERY_STRESS_WINDOW_DAYS = 3;
 
 const normalize = (value: string): string => value.trim().toLowerCase();
 
-const normalizeTag = (value: string): string =>
+export const normalizeTag = (value: string): string =>
   normalize(value).replace(/_/g, '-');
 
 type RecentBlockContext = {
@@ -42,15 +44,6 @@ type ScoredBlock = {
   block: AdaptiveTrainingBlock;
   score: number;
   reasons: ScoreReason[];
-};
-
-const daysBetweenLocalDates = (
-  leftLocalDate: string,
-  rightLocalDate: string
-): number => {
-  const left = parseLocalDate(leftLocalDate).getTime();
-  const right = parseLocalDate(rightLocalDate).getTime();
-  return Math.floor((left - right) / DAY_MS);
 };
 
 const sessionMatchesBlock = (
@@ -77,7 +70,7 @@ type AttributedRecentSession = {
   attribution: SessionBlockAttribution;
 };
 
-const getBlockById = (
+export const getBlockById = (
   plan: AdaptiveTrainingPlan,
   blockId: string
 ): AdaptiveTrainingBlock | undefined =>
@@ -151,10 +144,7 @@ export const getSessionBlockAttribution = (
 };
 
 const getAttributedRecentSessions = (
-  input: Pick<
-    AdaptiveTrainingPlanResolverInput,
-    'plan' | 'recentSessions'
-  >
+  input: Pick<AdaptiveTrainingPlanResolverInput, 'plan' | 'recentSessions'>
 ): AttributedRecentSession[] =>
   input.recentSessions
     .filter((session) => !session.archivedAt)
@@ -173,19 +163,14 @@ const getAttributedRecentSessions = (
         attribution,
       };
     })
-    .filter(
-      (item): item is AttributedRecentSession => Boolean(item)
-    );
+    .filter((item): item is AttributedRecentSession => Boolean(item));
 
 const getRecentBlockIds = (
   attributedSessions: AttributedRecentSession[]
 ): string[] => attributedSessions.map((item) => item.attribution.block.id);
 
 const getRecentBlockContexts = (
-  input: Pick<
-    AdaptiveTrainingPlanResolverInput,
-    'planningDateLocal'
-  >,
+  input: Pick<AdaptiveTrainingPlanResolverInput, 'planningDateLocal'>,
   attributedSessions: AttributedRecentSession[]
 ): RecentBlockContext[] =>
   attributedSessions.flatMap((item) => {
@@ -200,7 +185,7 @@ const getRecentBlockContexts = (
     return item.attribution.blocks.map((block) => ({ block, ageDays }));
   });
 
-const blockContributesToTarget = (
+export const blockContributesToTarget = (
   block: AdaptiveTrainingBlock,
   target: AdaptiveTrainingPlan['targetRanges'][number]
 ): boolean => {
@@ -274,18 +259,15 @@ const getEventSearchText = (event: UpcomingEventContext): string =>
     .map(normalizeTag)
     .join(' ');
 
-const getProtectedEventStressTags = (
-  input: AdaptiveTrainingPlanResolverInput
+export const getProtectedEventStressTagsForDate = (
+  localDate: string,
+  events: UpcomingEventContext[],
+  protectDays: number
 ): string[] => {
-  const protectDays =
-    input.plan.recommendationSettings.protectUpcomingLowerBodyDays;
   const tags = new Set<string>();
 
-  (input.upcomingEvents ?? []).forEach((event) => {
-    const daysUntil = daysBetweenLocalDates(
-      event.localDate,
-      input.planningDateLocal
-    );
+  events.forEach((event) => {
+    const daysUntil = daysBetweenLocalDates(event.localDate, localDate);
     if (daysUntil < 0 || daysUntil > protectDays) {
       return;
     }
@@ -326,6 +308,15 @@ const getProtectedEventStressTags = (
 
   return [...tags];
 };
+
+const getProtectedEventStressTags = (
+  input: AdaptiveTrainingPlanResolverInput
+): string[] =>
+  getProtectedEventStressTagsForDate(
+    input.planningDateLocal,
+    input.upcomingEvents ?? [],
+    input.plan.recommendationSettings.protectUpcomingLowerBodyDays
+  );
 
 const hasProtectedLowerBodyEventSoon = (
   input: AdaptiveTrainingPlanResolverInput
