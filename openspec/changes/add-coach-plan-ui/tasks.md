@@ -18,9 +18,9 @@
 
 ## 4. Plan Settings
 
-- [ ] 4.1 Add outcome-level plan settings for goal, availability, constraints, equipment, pinned commitments, and major events
-- [ ] 4.2 Keep advanced strategy mechanics hidden, secondary, or debug-only
-- [ ] 4.3 Add copy/UI tests to prevent internal strategy labels from becoming required user choices
+- [x] 4.1 Add outcome-level plan settings for goal, availability, constraints, equipment, pinned commitments, and major events
+- [x] 4.2 Keep advanced strategy mechanics hidden, secondary, or debug-only
+- [x] 4.3 Add copy/UI tests to prevent internal strategy labels from becoming required user choices
 
 ## 5. Validation
 

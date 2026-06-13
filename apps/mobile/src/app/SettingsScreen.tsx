@@ -8,14 +8,17 @@ import {
   adaptiveTrainingPlanSchema,
   normalizeEquipmentSelection,
   type AdaptiveTargetRange,
+  type UpcomingEventContext,
   type UserPreferences,
 } from '@workout-agent/shared';
 import { BottomNavigation } from './components/BottomNavigation';
 import { Card } from './components/DesignSystem';
 import { userRepository } from './db/repositories/UserRepository';
+import { plannedEventRepository } from './db/repositories/PlannedEventRepository';
 import { useBillingState } from './hooks/useBillingState';
 import type { RootStackParamList } from './navigation';
 import {
+  CommitmentsEditor,
   ConstraintsEditor,
   EquipmentEditor,
   GenerationEditor,
@@ -54,6 +57,9 @@ export const SettingsScreen = () => {
   const [hasChanges, setHasChanges] = useState(false);
   const [injuryInput, setInjuryInput] = useState('');
   const [avoidInput, setAvoidInput] = useState('');
+  const [upcomingEvents, setUpcomingEvents] = useState<UpcomingEventContext[]>(
+    []
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -68,6 +74,24 @@ export const SettingsScreen = () => {
     };
 
     void loadPreferences();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadEvents = async () => {
+      const events = await plannedEventRepository.listUpcomingEventContext({
+        daysAhead: 60,
+      });
+      if (cancelled) return;
+      setUpcomingEvents(events);
+    };
+
+    void loadEvents();
 
     return () => {
       cancelled = true;
@@ -202,6 +226,18 @@ export const SettingsScreen = () => {
     [updateAdaptivePlan]
   );
 
+  const removePinnedCommitment = useCallback(
+    (preferenceId: string) => {
+      updateAdaptivePlan((plan) => ({
+        ...plan,
+        sessionPreferences: plan.sessionPreferences.filter(
+          (preference) => preference.id !== preferenceId
+        ),
+      }));
+    },
+    [updateAdaptivePlan]
+  );
+
   const handleSave = async () => {
     setIsSaving(true);
     try {
@@ -226,6 +262,13 @@ export const SettingsScreen = () => {
   const constraintItems = useMemo(
     () => getConstraintItems(preferences),
     [preferences]
+  );
+  const pinnedCommitmentCount = useMemo(
+    () =>
+      (preferences.adaptiveTrainingPlan?.sessionPreferences ?? []).filter(
+        (preference) => preference.status === 'pinned'
+      ).length,
+    [preferences.adaptiveTrainingPlan]
   );
 
   const renderEditorContent = () => {
@@ -269,12 +312,23 @@ export const SettingsScreen = () => {
             updateField={updateField}
           />
         );
+      case 'commitments':
+        return (
+          <CommitmentsEditor
+            plan={preferences.adaptiveTrainingPlan}
+            upcomingEvents={upcomingEvents}
+            removePinnedCommitment={removePinnedCommitment}
+            onManageCalendar={() => navigation.navigate('History')}
+          />
+        );
       default:
         return (
           <SettingsSummary
             preferences={preferences}
             trainingTargets={trainingTargets}
             constraintItems={constraintItems}
+            pinnedCommitmentCount={pinnedCommitmentCount}
+            upcomingEventCount={upcomingEvents.length}
             onOpenEditor={setActiveEditor}
           />
         );

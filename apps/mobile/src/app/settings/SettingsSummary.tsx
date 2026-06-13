@@ -96,6 +96,8 @@ export type SettingsSummaryProps = {
   preferences: UserPreferences;
   trainingTargets: AdaptiveTargetRange[];
   constraintItems: string[];
+  pinnedCommitmentCount: number;
+  upcomingEventCount: number;
   onOpenEditor: (editor: EditorKey) => void;
 };
 
@@ -103,6 +105,8 @@ export const SettingsSummary = ({
   preferences,
   trainingTargets,
   constraintItems,
+  pinnedCommitmentCount,
+  upcomingEventCount,
   onOpenEditor,
 }: SettingsSummaryProps) => {
   const hasSafetyNotes = constraintItems.length > 0;
@@ -212,6 +216,22 @@ export const SettingsSummary = ({
         <Text style={styles.summaryBody}>
           {summarizeEquipmentDetail(preferences.equipment)}
         </Text>
+      </SummaryCard>
+
+      <SummaryCard
+        title="Commitments & events"
+        eyebrow="Pinned sessions & major events"
+        icon="bookmark-outline"
+        actionLabel="Manage commitments"
+        onAction={() => onOpenEditor('commitments')}
+      >
+        <View style={styles.pillWrap}>
+          <SummaryPill
+            label={`${pinnedCommitmentCount} pinned`}
+            tone="primary"
+          />
+          <SummaryPill label={`${upcomingEventCount} upcoming events`} />
+        </View>
       </SummaryCard>
     </>
   );
