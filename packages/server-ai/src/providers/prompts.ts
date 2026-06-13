@@ -619,17 +619,22 @@ function formatExerciseSlotPolicyPromptText(
     return '';
   }
 
-  const assignmentBySlotId = new Map(
-    policy.currentAssignments.map((assignment) => [
-      assignment.slotId,
-      assignment.exerciseName ?? assignment.exerciseId ?? 'current assignment',
-    ])
-  );
+  const assignmentLabelsBySlotId = new Map<string, string[]>();
+  policy.currentAssignments.forEach((assignment) => {
+    const label =
+      assignment.exerciseName ?? assignment.exerciseId ?? 'current assignment';
+    assignmentLabelsBySlotId.set(assignment.slotId, [
+      ...(assignmentLabelsBySlotId.get(assignment.slotId) ?? []),
+      label,
+    ]);
+  });
+  const slotIds = new Set(policy.slots.map((slot) => slot.id));
   const overrideBySlotId = new Map(
     policy.overrideReasons.map((reason) => [reason.slotId, reason])
   );
   const slotSummaries = policy.slots.slice(0, 8).map((slot) => {
-    const assignment = assignmentBySlotId.get(slot.id);
+    const assignments = assignmentLabelsBySlotId.get(slot.id) ?? [];
+    const assignmentText = assignments.join(', ');
     const override = overrideBySlotId.get(slot.id);
     const action =
       slot.stabilityPolicy === 'coach-rotatable'
@@ -638,15 +643,12 @@ function formatExerciseSlotPolicyPromptText(
         ? `replace because ${override.code}`
         : 'preserve if viable';
     return `${slot.label} (${slot.stabilityPolicy}${
-      assignment ? `, ${assignment}` : ''
+      assignmentText ? `, ${assignmentText}` : ''
     }): ${action}`;
   });
 
   const orphanAssignments = policy.currentAssignments
-    .filter(
-      (assignment) =>
-        !policy.slots.some((slot) => slot.id === assignment.slotId)
-    )
+    .filter((assignment) => !slotIds.has(assignment.slotId))
     .slice(0, 4)
     .map(
       (assignment) =>

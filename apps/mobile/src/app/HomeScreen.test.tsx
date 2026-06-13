@@ -349,6 +349,14 @@ describe('HomeScreen', () => {
     expect(
       request.adaptivePlanIntent.addOnBlocks[0].targetDurationMinutes
     ).toBeUndefined();
+    expect(
+      request.adaptivePlanIntent.exerciseSlotPolicy.slots.map(
+        (slot: { id: string }) => slot.id
+      )
+    ).toEqual(['pull-main-pull', 'pull-accessory']);
+    expect(
+      request.adaptivePlanIntent.exerciseSlotPolicy.currentAssignments
+    ).toEqual([]);
   });
 
   it('opens coach customization with Auto selected instead of the recommendation label', async () => {

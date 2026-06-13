@@ -153,12 +153,22 @@ const buildAdaptivePlanIntent = (
     role: block.role,
     stressTags: block.stressTags,
   });
+  const recommendedBlockIds = new Set([
+    recommendation.primaryBlockId,
+    ...recommendation.addOnBlockIds,
+  ]);
+  const recommendedSlots = adaptivePlan.exerciseSlotTemplates.filter((slot) =>
+    slot.sourceBlockId ? recommendedBlockIds.has(slot.sourceBlockId) : false
+  );
+  const recommendedSlotIds = new Set(recommendedSlots.map((slot) => slot.id));
+  const recommendedSlotAssignments = adaptivePlan.slotAssignments.filter(
+    (assignment) => recommendedSlotIds.has(assignment.slotId)
+  );
   const exerciseSlotPolicy =
-    adaptivePlan.exerciseSlotTemplates.length > 0 ||
-    adaptivePlan.slotAssignments.length > 0
+    recommendedSlots.length > 0 || recommendedSlotAssignments.length > 0
       ? {
-          slots: adaptivePlan.exerciseSlotTemplates,
-          currentAssignments: adaptivePlan.slotAssignments,
+          slots: recommendedSlots,
+          currentAssignments: recommendedSlotAssignments,
           overrideReasons: [],
         }
       : undefined;

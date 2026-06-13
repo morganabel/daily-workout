@@ -548,6 +548,11 @@ describe('buildRegenerationMessage', () => {
                 source: 'generated',
               },
               {
+                slotId: 'pull-main-pull',
+                exerciseName: 'Chin-Up',
+                source: 'generated',
+              },
+              {
                 slotId: 'pull-accessory',
                 exerciseName: 'Hammer Curl',
                 source: 'generated',
@@ -624,7 +629,7 @@ describe('buildRegenerationMessage', () => {
       expect(
         buildRegenerationMessage(request, undefined, undefined, adaptiveBrief)
       ).toContain(
-        'Exercise slot policy: Pull main lift (stable, Pull-Up): preserve if viable; Pull accessory (coach-rotatable, Hammer Curl): may rotate.'
+        'Exercise slot policy: Pull main lift (stable, Pull-Up, Chin-Up): preserve if viable; Pull accessory (coach-rotatable, Hammer Curl): may rotate.'
       );
     });
 
