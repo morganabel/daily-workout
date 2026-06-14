@@ -37,16 +37,30 @@ const firstGeneratableSession = (
   return session;
 };
 
+const futureGeneratableSession = (
+  projection: ReturnType<typeof buildPlanAndProjection>['projection'],
+  planningDateLocal: string
+) => {
+  const session = projection.sessions.find(
+    (entry) => entry.sourceBlockId && entry.localDate !== planningDateLocal
+  );
+  if (!session) {
+    throw new Error('Expected a future session with a source block');
+  }
+  return session;
+};
+
 describe('buildCoachProjectionGenerationRequest', () => {
   it('builds a request that carries the projection coach intent', () => {
-    const { plan, projection } = buildPlanAndProjection('2026-04-15');
-    const session = firstGeneratableSession(projection);
+    const planningDateLocal = '2026-04-15';
+    const { plan, projection } = buildPlanAndProjection(planningDateLocal);
+    const session = futureGeneratableSession(projection, planningDateLocal);
 
     const request = buildCoachProjectionGenerationRequest({
       plan,
       projection,
       session,
-      planningDateLocal: '2026-04-15',
+      planningDateLocal: session.localDate,
     });
 
     expect(request).not.toBeNull();
@@ -55,7 +69,13 @@ describe('buildCoachProjectionGenerationRequest', () => {
     expect(request?.adaptivePlanIntent?.primaryBlock.blockId).toBe(
       session.sourceBlockId
     );
-    expect(request?.focus).toBe(request?.adaptivePlanIntent?.primaryBlock.label);
+    expect(request?.planningDateLocal).toBe(session.localDate);
+    expect(request?.adaptivePlanIntent?.planningDateLocal).toBe(
+      session.localDate
+    );
+    expect(request?.focus).toBe(
+      request?.adaptivePlanIntent?.primaryBlock.label
+    );
   });
 
   it('defaults energy to moderate and applies duration/equipment overrides', () => {

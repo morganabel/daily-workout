@@ -19,6 +19,7 @@ import {
   type AdaptiveTrainingBlock,
   type CoachProjectionActionType,
   type CoachProjectionConflictWarning,
+  type CoachProjectedSession,
   type TodayPlan,
   type GenerationRequest,
   type QuickActionPreset,
@@ -103,6 +104,38 @@ const formatEquipment = (equipment: string[]): string =>
 
 const formatEnergyLabel = (energy: WorkoutEnergy): string =>
   energy.charAt(0).toUpperCase() + energy.slice(1);
+
+const HEADER_WEEKDAYS = [
+  'Sunday',
+  'Monday',
+  'Tuesday',
+  'Wednesday',
+  'Thursday',
+  'Friday',
+  'Saturday',
+];
+
+const HEADER_MONTHS = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
+];
+
+const formatHeaderDate = (localDate: string): string => {
+  const date = parseLocalDate(localDate);
+  return `${HEADER_WEEKDAYS[date.getDay()]}, ${
+    HEADER_MONTHS[date.getMonth()]
+  } ${date.getDate()}`;
+};
 
 const parseDurationSelection = (value: string | undefined): number | null => {
   const parsed = Number.parseInt(value ?? '', 10);
@@ -228,6 +261,81 @@ const getAdaptiveRecommendationBlocks = (
       .map((blockId) => blocksById.get(blockId))
       .filter((block): block is AdaptiveTrainingBlock => Boolean(block)),
   };
+};
+
+const addDaysToLocalDate = (localDate: string, days: number): string => {
+  const date = parseLocalDate(localDate);
+  date.setDate(date.getDate() + days);
+  return formatLocalDate(date);
+};
+
+const getCoachSessionActionLabel = (
+  action: CoachProjectionActionType
+): string => {
+  switch (action) {
+    case 'skip':
+      return 'Skip';
+    case 'pin':
+      return 'Pin';
+    case 'unpin':
+      return 'Unpin';
+    case 'move':
+      return 'Move';
+    case 'keep-pinned':
+      return 'Keep pinned';
+    case 'generate':
+      return 'Generate';
+    default:
+      return action;
+  }
+};
+
+const isMechanicalCoachRationale = (rationale: string): boolean => {
+  const normalized = rationale.toLowerCase();
+  return (
+    normalized.includes('is pinned for this date') ||
+    normalized.includes('was skipped') ||
+    normalized.includes('session was skipped')
+  );
+};
+
+const getCoachSessionDisplayNote = (
+  session: CoachProjectedSession,
+  rationale: string | null
+): string | null => {
+  if (session.status === 'conflict') {
+    return 'Your coach found a schedule conflict. Open options when you are ready to adjust it.';
+  }
+  if (session.status === 'repaired') {
+    return 'Adjusted around your schedule so the plan keeps moving.';
+  }
+  if (rationale && !isMechanicalCoachRationale(rationale)) {
+    return rationale;
+  }
+  return null;
+};
+
+const getCoachSessionSubtitle = (session: CoachProjectedSession): string => {
+  if (session.status === 'repaired') {
+    return 'Today • Adjusted';
+  }
+  if (session.status === 'conflict') {
+    return 'Today • Needs review';
+  }
+  return 'Today';
+};
+
+const getCoachSessionIconName = (
+  session: CoachProjectedSession
+): keyof typeof Ionicons.glyphMap => {
+  const label = (session.blockLabel ?? '').toLowerCase();
+  if (label.includes('run') || label.includes('cardio')) {
+    return 'walk-outline';
+  }
+  if (label.includes('rest') || !session.sourceBlockId) {
+    return 'bed-outline';
+  }
+  return 'barbell-outline';
 };
 
 const getAdaptiveRecommendationDuration = (
@@ -494,6 +602,169 @@ const AdaptiveRecommendationCard = ({
   );
 };
 
+const CoachSessionRecommendationCard = ({
+  session,
+  rationale,
+  duration,
+  equipment,
+  intensity,
+  isGeneratable,
+  isPending,
+  onGenerate,
+  onCustomize,
+  onSkip,
+  onPin,
+  onUnpin,
+  onMove,
+}: {
+  session: CoachProjectedSession;
+  rationale: string | null;
+  duration: number;
+  equipment: string[];
+  intensity: string;
+  isGeneratable: boolean;
+  isPending: boolean;
+  onGenerate: (projectionId: string) => void;
+  onCustomize: () => void;
+  onSkip: (projectionId: string) => void;
+  onPin: (projectionId: string) => void;
+  onUnpin: (projectionId: string) => void;
+  onMove: (projectionId: string, localDate: string) => void;
+}) => {
+  const title = session.blockLabel ?? 'Rest';
+  const secondaryActions = session.availableActions.filter(
+    (action) => action !== 'generate' && action !== 'keep-pinned'
+  );
+  const note = getCoachSessionDisplayNote(session, rationale);
+  const subtitle = getCoachSessionSubtitle(session);
+  const iconName = getCoachSessionIconName(session);
+
+  const handleSecondaryAction = (action: CoachProjectionActionType) => {
+    switch (action) {
+      case 'skip':
+        onSkip(session.id);
+        break;
+      case 'pin':
+        onPin(session.id);
+        break;
+      case 'unpin':
+        onUnpin(session.id);
+        break;
+      case 'move':
+        onMove(session.id, addDaysToLocalDate(session.localDate, 1));
+        break;
+      default:
+        break;
+    }
+  };
+
+  const showActions = () => {
+    if (isPending) {
+      return;
+    }
+
+    Alert.alert(
+      'Session options',
+      title,
+      [
+        {
+          text: 'Adjust details',
+          onPress: onCustomize,
+        },
+        ...secondaryActions.map((action) => ({
+          text: getCoachSessionActionLabel(action),
+          onPress: () => handleSecondaryAction(action),
+        })),
+        { text: 'Cancel', style: 'cancel' as const },
+      ],
+      { cancelable: true }
+    );
+  };
+
+  return (
+    <Card style={styles.coachSessionCard}>
+      <View style={styles.coachSessionHeader}>
+        <View style={styles.coachSessionIcon}>
+          <Ionicons name={iconName} size={22} color={palette.primary} />
+        </View>
+        <View style={styles.coachSessionTitleGroup}>
+          <Text style={styles.coachSessionTitle}>{title}</Text>
+          <Text style={styles.coachSessionSubtitle}>{subtitle}</Text>
+        </View>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Session options"
+          accessibilityState={{ disabled: isPending }}
+          disabled={isPending}
+          onPress={showActions}
+          style={({ pressed }) => [
+            styles.coachSessionOptionsButton,
+            pressed && styles.coachSessionOptionsButtonPressed,
+            isPending && styles.coachSessionOptionsButtonDisabled,
+          ]}
+        >
+          <Ionicons
+            name="ellipsis-horizontal"
+            size={20}
+            color={palette.textMuted}
+          />
+        </Pressable>
+      </View>
+
+      <View style={styles.coachSessionPillRow}>
+        <View style={styles.coachSessionPill}>
+          <Ionicons name="time-outline" size={14} color={palette.primary} />
+          <Text style={styles.coachSessionPillText}>{duration} min</Text>
+        </View>
+        <View style={styles.coachSessionPill}>
+          <Ionicons name="barbell-outline" size={14} color={palette.primary} />
+          <Text style={styles.coachSessionPillText}>
+            {formatEquipment(equipment)}
+          </Text>
+        </View>
+        <View style={styles.coachSessionPill}>
+          <Ionicons
+            name="speedometer-outline"
+            size={14}
+            color={palette.primary}
+          />
+          <Text style={styles.coachSessionPillText}>{intensity}</Text>
+        </View>
+      </View>
+
+      {note ? (
+        <View style={styles.coachSuggestionBox}>
+          <View style={styles.coachSuggestionHeader}>
+            <Ionicons name="sparkles" size={14} color={palette.primary} />
+            <Text style={styles.coachSuggestionLabel}>Coach note</Text>
+          </View>
+          <Text style={styles.coachSuggestionText}>{note}</Text>
+        </View>
+      ) : null}
+
+      <Button
+        label={
+          isGeneratable
+            ? isPending
+              ? 'Building...'
+              : 'Build workout'
+            : 'Choose a workout instead'
+        }
+        onPress={() => (isGeneratable ? onGenerate(session.id) : onCustomize())}
+        loading={isGeneratable && isPending}
+        disabled={isPending}
+        icon={
+          isGeneratable && !isPending ? (
+            <Ionicons name="flash" size={20} color={palette.textInverse} />
+          ) : undefined
+        }
+        variant={isGeneratable ? 'primary' : 'outline'}
+        style={styles.coachSessionGenerateButton}
+      />
+    </Card>
+  );
+};
+
 const GenerationInputs = ({
   duration,
   focusLabel,
@@ -557,7 +828,7 @@ const GenerationInputs = ({
         />
         {!isRestRecommendation ? (
           <Button
-            label={isPending ? 'Generating...' : "Generate today's workout"}
+            label={isPending ? 'Building...' : "Build today's workout"}
             onPress={onGenerate}
             loading={isPending}
             icon={
@@ -1065,8 +1336,15 @@ export const HomeScreen = () => {
       if (generating || isOffline) return;
       if (refreshPlanningDate()) return;
 
+      const equipment = resolveEquipmentSelection(
+        equipmentOverride,
+        quickActions
+      );
+      const shouldSendEquipment =
+        Boolean(equipmentOverride) || hasChangedStagedEquipment(quickActions);
       const request = buildCoachProjectionGenerationRequest(projectionId, {
         energy: intensity.toLowerCase() as WorkoutEnergy,
+        equipment: shouldSendEquipment ? equipment : undefined,
       });
       if (!request) return;
 
@@ -1110,11 +1388,13 @@ export const HomeScreen = () => {
       buildCoachProjectionGenerationRequest,
       clearTransientPlanState,
       coachPlan,
+      equipmentOverride,
       generating,
       intensity,
       isOffline,
       planningDateLocal,
       planningDateTimestamp,
+      quickActions,
       refetch,
       refreshPlanningDate,
       routeGenerationError,
@@ -1376,8 +1656,16 @@ export const HomeScreen = () => {
   const hasAdaptiveRecommendation = Boolean(
     adaptivePlan && adaptiveRecommendation
   );
+  const shouldShowCoachPlanNextAction = Boolean(coachPlan?.nextSession);
+  const coachNextSession = coachPlan?.nextSession ?? null;
+  const isCoachNextSessionGeneratable = Boolean(
+    coachNextSession?.sourceBlockId &&
+      coachNextSession.availableActions.includes('generate')
+  );
   const shouldShowCoachRecommendation =
-    hasAdaptiveRecommendation && focus === 'Smart';
+    !shouldShowCoachPlanNextAction &&
+    hasAdaptiveRecommendation &&
+    focus === 'Smart';
   const coachFocusLabel = shouldShowCoachRecommendation
     ? getAdaptiveRecommendationLabel(adaptivePlan, adaptiveRecommendation)
     : null;
@@ -1466,18 +1754,12 @@ export const HomeScreen = () => {
           <Text style={styles.headerTitle}>
             {hasActivePlan
               ? "Today's Workout"
-              : shouldShowCoachRecommendation
+              : shouldShowCoachPlanNextAction || shouldShowCoachRecommendation
               ? "Today's Plan"
               : "Today's Setup"}
           </Text>
           <Text style={styles.headerSubtitle}>
-            {hasActivePlan
-              ? 'Review the plan, then start.'
-              : hasRestRecommendation
-              ? 'Recovery is the plan today.'
-              : shouldShowCoachRecommendation
-              ? 'Your next session is ready.'
-              : 'Personalize your session.'}
+            {formatHeaderDate(planningDateLocal)}
           </Text>
         </View>
       </View>
@@ -1503,69 +1785,79 @@ export const HomeScreen = () => {
             planVersions={displayPlanVersions}
             onSelectVersion={handleSelectVersion}
           />
-        ) : (
+        ) : coachNextSession ? (
           <>
-            {shouldShowCoachRecommendation &&
-            adaptivePlan &&
-            adaptiveRecommendation ? (
-              <>
-                <AdaptiveRecommendationCard
-                  adaptivePlan={adaptivePlan}
-                  recommendation={adaptiveRecommendation}
-                  duration={displayDuration}
-                  focusLabel={displayFocusLabel}
-                  equipment={displayEquipment}
-                  intensity={intensity}
-                  isPending={isPending}
-                  onCustomize={handleOpenSetupCustomize}
-                />
-                {!hasRestRecommendation ? (
-                  <View style={styles.actionContainer}>
-                    <Button
-                      label={
-                        isPending ? 'Generating...' : "Generate today's workout"
-                      }
-                      onPress={handleGenerate}
-                      loading={isPending}
-                      icon={
-                        !isPending && (
-                          <Ionicons
-                            name="flash"
-                            size={20}
-                            color={palette.textInverse}
-                          />
-                        )
-                      }
-                      style={styles.generateButton}
-                    />
-                  </View>
-                ) : null}
-              </>
-            ) : (
-              <GenerationInputs
-                duration={displayDuration}
-                focusLabel={displayFocusLabel}
-                equipment={displayEquipment}
-                intensity={intensity}
-                hasStagedValues={hasStagedValues}
-                isPending={isPending}
-                isRestRecommendation={hasRestRecommendation}
-                onCustomize={handleOpenSetupCustomize}
-                onGenerate={handleGenerate}
-              />
-            )}
+            <Text style={styles.upNextSectionLabel}>UP NEXT</Text>
+            <CoachSessionRecommendationCard
+              session={coachNextSession}
+              rationale={coachPlan?.nextActionRationale ?? null}
+              duration={coachNextSession.durationMinutes ?? displayDuration}
+              equipment={displayEquipment}
+              intensity={intensity}
+              isGeneratable={isCoachNextSessionGeneratable}
+              isPending={isPending}
+              onGenerate={handleGenerateFromProjection}
+              onCustomize={handleOpenSetupCustomize}
+              onSkip={skipCoachProjectionSession}
+              onPin={pinCoachProjectionSession}
+              onUnpin={unpinCoachProjectionSession}
+              onMove={moveCoachProjectionSession}
+            />
           </>
+        ) : shouldShowCoachRecommendation &&
+          adaptivePlan &&
+          adaptiveRecommendation ? (
+          <>
+            <AdaptiveRecommendationCard
+              adaptivePlan={adaptivePlan}
+              recommendation={adaptiveRecommendation}
+              duration={displayDuration}
+              focusLabel={displayFocusLabel}
+              equipment={displayEquipment}
+              intensity={intensity}
+              isPending={isPending}
+              onCustomize={handleOpenSetupCustomize}
+            />
+            {!hasRestRecommendation ? (
+              <View style={styles.actionContainer}>
+                <Button
+                  label={
+                    isPending ? 'Building...' : "Build today's workout"
+                  }
+                  onPress={handleGenerate}
+                  loading={isPending}
+                  icon={
+                    !isPending && (
+                      <Ionicons
+                        name="flash"
+                        size={20}
+                        color={palette.textInverse}
+                      />
+                    )
+                  }
+                  style={styles.generateButton}
+                />
+              </View>
+            ) : null}
+          </>
+        ) : (
+          <GenerationInputs
+            duration={displayDuration}
+            focusLabel={displayFocusLabel}
+            equipment={displayEquipment}
+            intensity={intensity}
+            hasStagedValues={hasStagedValues}
+            isPending={isPending}
+            isRestRecommendation={hasRestRecommendation}
+            onCustomize={handleOpenSetupCustomize}
+            onGenerate={handleGenerate}
+          />
         )}
 
         {coachPlan ? (
           <CoachUpcomingPlan
             coachPlan={coachPlan}
             isBusy={isPending}
-            onSkip={skipCoachProjectionSession}
-            onPin={pinCoachProjectionSession}
-            onUnpin={unpinCoachProjectionSession}
-            onMove={moveCoachProjectionSession}
-            onGenerate={handleGenerateFromProjection}
             onResolveConflict={handleResolveConflict}
           />
         ) : null}
@@ -1702,6 +1994,117 @@ const styles = StyleSheet.create({
   summaryChevron: {
     marginLeft: 8,
   },
+  upNextSectionLabel: {
+    fontFamily: typography.fontFamilyBold,
+    fontSize: 12,
+    color: palette.textSecondary,
+    letterSpacing: 1,
+    marginBottom: 10,
+    textTransform: 'uppercase',
+  },
+  coachSessionCard: {
+    padding: 18,
+    marginBottom: 22,
+    gap: 14,
+    borderRadius: 22,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.06,
+    shadowRadius: 18,
+    elevation: 3,
+  },
+  coachSessionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  coachSessionIcon: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#E0F2FE',
+  },
+  coachSessionTitleGroup: {
+    flex: 1,
+    gap: 2,
+  },
+  coachSessionTitle: {
+    fontFamily: typography.fontFamilyExtraBold,
+    fontSize: 22,
+    color: palette.textPrimary,
+  },
+  coachSessionSubtitle: {
+    fontFamily: typography.fontFamily,
+    fontSize: 14,
+    color: palette.textSecondary,
+  },
+  coachSessionOptionsButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: palette.cardSecondary,
+    borderWidth: 1,
+    borderColor: palette.border,
+  },
+  coachSessionOptionsButtonPressed: {
+    opacity: 0.75,
+  },
+  coachSessionOptionsButtonDisabled: {
+    opacity: 0.5,
+  },
+  coachSessionPillRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  coachSessionPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingVertical: 7,
+    paddingHorizontal: 10,
+    borderRadius: 10,
+    backgroundColor: palette.cardSecondary,
+    borderWidth: 1,
+    borderColor: palette.border,
+  },
+  coachSessionPillText: {
+    fontFamily: typography.fontFamilyBold,
+    fontSize: 12,
+    color: palette.textPrimary,
+  },
+  coachSuggestionBox: {
+    backgroundColor: '#EFF6FF',
+    borderWidth: 1,
+    borderColor: '#BAE6FD',
+    borderRadius: 16,
+    padding: 14,
+    gap: 8,
+  },
+  coachSuggestionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  coachSuggestionLabel: {
+    fontFamily: typography.fontFamilyBold,
+    fontSize: 13,
+    color: palette.primaryDark,
+  },
+  coachSuggestionText: {
+    fontFamily: typography.fontFamily,
+    fontSize: 14,
+    color: palette.textSecondary,
+    lineHeight: 21,
+  },
+  coachSessionGenerateButton: {
+    minHeight: 54,
+    borderRadius: 16,
+  },
   recommendationCard: {
     padding: 18,
     marginBottom: 24,
@@ -1764,6 +2167,22 @@ const styles = StyleSheet.create({
   },
   recommendationCustomizeButton: {
     marginTop: 2,
+  },
+  recommendationOptionsButton: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: palette.cardSecondary,
+    borderWidth: 1,
+    borderColor: palette.border,
+  },
+  recommendationOptionsButtonPressed: {
+    opacity: 0.75,
+  },
+  recommendationOptionsButtonDisabled: {
+    opacity: 0.5,
   },
 
   // Generation Inputs

@@ -208,6 +208,45 @@ describe('coach projection resolver', () => {
     });
   });
 
+  it('does not reuse a skipped ordered identity when the skipped date is pinned', () => {
+    const skippedAction = createSkipAction(createPplPlan());
+    const plan = createPplPlan({
+      sessionPreferences: [
+        {
+          id: `pin:${skippedAction.cycleIndex}:${skippedAction.sessionIdentityKey}`,
+          localDate: skippedAction.projectedLocalDate,
+          blockIds: ['push'],
+          status: 'pinned',
+        },
+      ],
+    });
+    const projection = deriveCoachProjection({
+      plan,
+      planningDateLocal: '2026-04-15',
+      recentSessions: [],
+      sessionActions: [skippedAction],
+    });
+
+    expect(new Set(projection.sessions.map((session) => session.id)).size).toBe(
+      projection.sessions.length
+    );
+    expect(
+      projection.sessions.filter(
+        (session) =>
+          session.cycleIndex === skippedAction.cycleIndex &&
+          session.sessionIdentityKey === skippedAction.sessionIdentityKey
+      )
+    ).toHaveLength(1);
+    expect(
+      projection.sessions.find(
+        (session) =>
+          session.cycleIndex === skippedAction.cycleIndex &&
+          session.sessionIdentityKey === skippedAction.sessionIdentityKey &&
+          session.status === 'projected'
+      )
+    ).toBeUndefined();
+  });
+
   it('ignores skip records from a previous schedule strategy', () => {
     const plan = createPplPlan();
     const projection = deriveCoachProjection({
@@ -291,6 +330,64 @@ describe('coach projection resolver', () => {
     expect(
       new Set(projection.sessions.map((session) => session.sourceBlockId)).size
     ).toBeGreaterThan(1);
+  });
+
+  it('does not reuse a skipped weekly target identity when the skipped date is pinned', () => {
+    const basePlan = createBalancedPlan();
+    const baseProjection = deriveCoachProjection({
+      plan: basePlan,
+      planningDateLocal: '2026-04-15',
+      recentSessions: [],
+    });
+    const skippedSession = baseProjection.sessions.find(
+      (session) => session.sourceBlockId
+    );
+    if (!skippedSession?.sourceBlockId) {
+      throw new Error('Expected generatable weekly target session');
+    }
+
+    const skipAction: CoachSessionAction = {
+      id: 'skip-weekly-1',
+      actionKind: 'skip',
+      programId: basePlan.id,
+      programVersion: basePlan.programVersion ?? 1,
+      strategy: basePlan.scheduleStrategy ?? 'weekly-target-balance',
+      cycleIndex: skippedSession.cycleIndex,
+      sessionIdentityKey: skippedSession.sessionIdentityKey,
+      projectionId: skippedSession.id,
+      sourceBlockId: skippedSession.sourceBlockId,
+      projectedLocalDate: skippedSession.localDate,
+      actionLocalDate: skippedSession.localDate,
+      createdAt: '2026-04-15T12:00:00.000Z',
+    };
+    const plan = createBalancedPlan({
+      sessionPreferences: [
+        {
+          id: `pin:${skippedSession.cycleIndex}:${skippedSession.sessionIdentityKey}`,
+          localDate: skippedSession.localDate,
+          blockIds: [skippedSession.sourceBlockId],
+          status: 'pinned',
+        },
+      ],
+    });
+
+    const projection = deriveCoachProjection({
+      plan,
+      planningDateLocal: '2026-04-15',
+      recentSessions: [],
+      sessionActions: [skipAction],
+    });
+
+    expect(new Set(projection.sessions.map((session) => session.id)).size).toBe(
+      projection.sessions.length
+    );
+    expect(
+      projection.sessions.filter(
+        (session) =>
+          session.cycleIndex === skippedSession.cycleIndex &&
+          session.sessionIdentityKey === skippedSession.sessionIdentityKey
+      )
+    ).toHaveLength(1);
   });
 
   it('returns explicit unsupported state for future strategy hooks', () => {

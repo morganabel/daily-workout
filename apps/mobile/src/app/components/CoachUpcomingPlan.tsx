@@ -1,12 +1,10 @@
 /**
- * Compact, coach-managed upcoming plan rendered inline on Home.
+ * Compact, coach-managed future preview rendered inline on Home.
  *
- * Surfaces the forward coach projection as a scannable list: each session shows
- * its date, block, and status (projected / pinned / skipped / repaired /
- * conflict) with low-friction actions (skip, pin, unpin, move, generate).
- * Pinned conflicts surface explicit repair actions and never silently move a
- * pinned session. Internal strategy ids and slot mechanics are intentionally
- * kept out of the copy — only outcome-level labels are shown.
+ * Home should show what is coming next without turning into a planner editor.
+ * Rows are intentionally read-only; session actions live behind the main card
+ * options or in Activity/detail surfaces. Pinned conflicts remain actionable
+ * because they need an explicit user decision.
  */
 
 import React from 'react';
@@ -20,8 +18,9 @@ import type {
 } from '@workout-agent/shared';
 import type { HomeCoachPlanView } from '../hooks/useHomeData';
 import { palette, typography } from '../theme';
-import { Card } from './DesignSystem';
-import { formatLocalDate, parseLocalDate } from '../utils/date';
+import { parseLocalDate } from '../utils/date';
+
+const PREVIEW_SESSION_LIMIT = 3;
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MONTHS = [
@@ -41,28 +40,24 @@ const MONTHS = [
 
 const formatSessionDate = (localDate: string): string => {
   const date = parseLocalDate(localDate);
-  return `${WEEKDAYS[date.getDay()]}, ${MONTHS[date.getMonth()]} ${date.getDate()}`;
-};
-
-const addDaysToLocalDate = (localDate: string, days: number): string => {
-  const date = parseLocalDate(localDate);
-  date.setDate(date.getDate() + days);
-  return formatLocalDate(date);
+  return `${WEEKDAYS[date.getDay()]}, ${
+    MONTHS[date.getMonth()]
+  } ${date.getDate()}`;
 };
 
 const STATUS_META: Record<
   CoachProjectionSessionStatus,
-  { label: string; color: string; background: string }
+  { label: string | null; color: string; background: string }
 > = {
   projected: {
-    label: 'Projected',
+    label: null,
     color: palette.primaryDark,
     background: palette.cardSecondary,
   },
   pinned: {
-    label: 'Pinned',
-    color: palette.accentIndigo,
-    background: '#EEF2FF',
+    label: null,
+    color: palette.primaryDark,
+    background: palette.cardSecondary,
   },
   skipped: {
     label: 'Skipped',
@@ -75,21 +70,10 @@ const STATUS_META: Record<
     background: palette.warningBg,
   },
   conflict: {
-    label: 'Conflict',
+    label: 'Review',
     color: palette.destructive,
     background: palette.destructiveBg,
   },
-};
-
-const ACTION_META: Record<
-  Exclude<CoachProjectionActionType, 'keep-pinned'>,
-  { label: string; icon: keyof typeof Ionicons.glyphMap }
-> = {
-  generate: { label: 'Generate', icon: 'flash-outline' },
-  pin: { label: 'Pin', icon: 'bookmark-outline' },
-  unpin: { label: 'Unpin', icon: 'bookmark' },
-  move: { label: 'Move to next day', icon: 'arrow-forward-outline' },
-  skip: { label: 'Skip', icon: 'play-skip-forward-outline' },
 };
 
 const CONFLICT_ACTION_LABEL: Record<CoachProjectionActionType, string> = {
@@ -101,14 +85,22 @@ const CONFLICT_ACTION_LABEL: Record<CoachProjectionActionType, string> = {
   skip: 'Skip',
 };
 
+const getSessionIconName = (
+  session: CoachProjectedSession
+): keyof typeof Ionicons.glyphMap => {
+  const label = (session.blockLabel ?? '').toLowerCase();
+  if (label.includes('run') || label.includes('cardio')) {
+    return 'walk-outline';
+  }
+  if (label.includes('rest') || !session.sourceBlockId) {
+    return 'bed-outline';
+  }
+  return 'barbell-outline';
+};
+
 export type CoachUpcomingPlanProps = {
   coachPlan: HomeCoachPlanView;
   isBusy?: boolean;
-  onSkip: (projectionId: string) => void;
-  onPin: (projectionId: string) => void;
-  onUnpin: (projectionId: string) => void;
-  onMove: (projectionId: string, localDate: string) => void;
-  onGenerate: (projectionId: string) => void;
   onResolveConflict: (
     warning: CoachProjectionConflictWarning,
     action: CoachProjectionActionType
@@ -143,91 +135,44 @@ const ActionPill = ({
   </Pressable>
 );
 
-const SessionRow = ({
-  session,
-  isBusy,
-  onSkip,
-  onPin,
-  onUnpin,
-  onMove,
-  onGenerate,
-}: {
-  session: CoachProjectedSession;
-} & Omit<CoachUpcomingPlanProps, 'coachPlan' | 'onResolveConflict'>) => {
+const SessionRow = ({ session }: { session: CoachProjectedSession }) => {
   const status = STATUS_META[session.status];
   const blockLabel = session.blockLabel ?? 'Rest';
-  const rationale =
-    session.rationale.find((entry) => entry.message)?.message ??
-    session.coachNotes.find((note) => note) ??
-    null;
-
-  const handleAction = (action: CoachProjectionActionType) => {
-    switch (action) {
-      case 'skip':
-        onSkip(session.id);
-        break;
-      case 'pin':
-        onPin(session.id);
-        break;
-      case 'unpin':
-        onUnpin(session.id);
-        break;
-      case 'move':
-        onMove(session.id, addDaysToLocalDate(session.localDate, 1));
-        break;
-      case 'generate':
-        onGenerate(session.id);
-        break;
-      default:
-        break;
-    }
-  };
-
-  const rowActions = session.availableActions.filter(
-    (action): action is Exclude<CoachProjectionActionType, 'keep-pinned'> =>
-      action !== 'keep-pinned'
-  );
+  const iconName = getSessionIconName(session);
+  const isRest = iconName === 'bed-outline';
+  const accessibilityStatus = status.label ?? 'Planned';
 
   return (
     <View
-      style={styles.sessionRow}
-      accessibilityLabel={`${formatSessionDate(session.localDate)}, ${blockLabel}, ${status.label}`}
+      style={[styles.sessionRow, isRest && styles.restSessionRow]}
+      accessibilityLabel={`${formatSessionDate(
+        session.localDate
+      )}, ${blockLabel}, ${accessibilityStatus}`}
     >
-      <View style={styles.sessionHeader}>
-        <View style={styles.sessionHeaderText}>
+      {!isRest ? <View style={styles.sessionAccent} /> : null}
+      <View style={[styles.sessionIcon, isRest && styles.restSessionIcon]}>
+        <Ionicons
+          name={iconName}
+          size={20}
+          color={isRest ? palette.textMuted : palette.primary}
+        />
+      </View>
+      <View style={styles.sessionTextGroup}>
+        <Text style={styles.sessionLabel}>{blockLabel}</Text>
+        <View style={styles.sessionMetaRow}>
           <Text style={styles.sessionDate}>
             {formatSessionDate(session.localDate)}
           </Text>
-          <Text style={styles.sessionLabel}>{blockLabel}</Text>
-        </View>
-        <View
-          style={[styles.statusBadge, { backgroundColor: status.background }]}
-        >
-          <Text style={[styles.statusBadgeText, { color: status.color }]}>
-            {status.label}
-          </Text>
+          {status.label ? (
+            <>
+              <Text style={styles.sessionDot}>•</Text>
+              <Text style={[styles.sessionStatusText, { color: status.color }]}>
+                {status.label}
+              </Text>
+            </>
+          ) : null}
         </View>
       </View>
-
-      {rationale ? (
-        <Text style={styles.sessionRationale} numberOfLines={2}>
-          {rationale}
-        </Text>
-      ) : null}
-
-      {rowActions.length > 0 ? (
-        <View style={styles.actionRow}>
-          {rowActions.map((action) => (
-            <ActionPill
-              key={action}
-              label={ACTION_META[action].label}
-              icon={ACTION_META[action].icon}
-              disabled={isBusy}
-              onPress={() => handleAction(action)}
-            />
-          ))}
-        </View>
-      ) : null}
     </View>
   );
 };
@@ -268,17 +213,15 @@ const ConflictWarning = ({
 export const CoachUpcomingPlan = ({
   coachPlan,
   isBusy,
-  onSkip,
-  onPin,
-  onUnpin,
-  onMove,
-  onGenerate,
   onResolveConflict,
 }: CoachUpcomingPlanProps) => {
   const { upcomingSessions, conflictWarnings, repairNotes } = coachPlan;
+  const previewSessions = upcomingSessions
+    .filter((session) => session.status !== 'skipped')
+    .slice(0, PREVIEW_SESSION_LIMIT);
 
   if (
-    upcomingSessions.length === 0 &&
+    previewSessions.length === 0 &&
     conflictWarnings.length === 0 &&
     repairNotes.length === 0
   ) {
@@ -286,8 +229,8 @@ export const CoachUpcomingPlan = ({
   }
 
   return (
-    <Card style={styles.card} variant="flat">
-      <Text style={styles.sectionLabel}>UPCOMING</Text>
+    <View style={styles.container}>
+      <Text style={styles.sectionLabel}>COMING UP</Text>
 
       {conflictWarnings.map((warning) => (
         <ConflictWarning
@@ -303,25 +246,16 @@ export const CoachUpcomingPlan = ({
       ) : null}
 
       <View style={styles.sessionList}>
-        {upcomingSessions.map((session) => (
-          <SessionRow
-            key={session.id}
-            session={session}
-            isBusy={isBusy}
-            onSkip={onSkip}
-            onPin={onPin}
-            onUnpin={onUnpin}
-            onMove={onMove}
-            onGenerate={onGenerate}
-          />
+        {previewSessions.map((session) => (
+          <SessionRow key={session.id} session={session} />
         ))}
       </View>
-    </Card>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  card: {
+  container: {
     marginTop: 16,
     gap: 12,
   } as ViewStyle,
@@ -336,47 +270,76 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   sessionRow: {
+    position: 'relative',
+    overflow: 'hidden',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
     backgroundColor: palette.card,
-    borderRadius: 12,
+    borderRadius: 20,
     borderWidth: 1,
     borderColor: palette.border,
-    padding: 12,
-    gap: 8,
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.04,
+    shadowRadius: 12,
+    elevation: 2,
   },
-  sessionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  restSessionRow: {
+    backgroundColor: '#F0F9FF',
+    borderColor: '#BAE6FD',
+    borderStyle: 'dashed',
+  },
+  sessionAccent: {
+    position: 'absolute',
+    left: 0,
+    top: 14,
+    bottom: 14,
+    width: 4,
+    borderTopRightRadius: 4,
+    borderBottomRightRadius: 4,
+    backgroundColor: palette.primary,
+  },
+  sessionIcon: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
     alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#E0F2FE',
   },
-  sessionHeaderText: {
+  restSessionIcon: {
+    backgroundColor: palette.card,
+  },
+  sessionTextGroup: {
     flex: 1,
-    gap: 2,
+    gap: 4,
   },
   sessionDate: {
     fontFamily: typography.fontFamily,
-    fontSize: 12,
+    fontSize: 13,
     color: palette.textSecondary,
   },
   sessionLabel: {
     fontFamily: typography.fontFamilyBold,
-    fontSize: 15,
+    fontSize: 16,
     color: palette.textPrimary,
   },
-  statusBadge: {
-    paddingVertical: 4,
-    paddingHorizontal: 10,
-    borderRadius: 999,
+  sessionMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
-  statusBadgeText: {
-    fontFamily: typography.fontFamilyBold,
-    fontSize: 11,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  sessionRationale: {
+  sessionDot: {
     fontFamily: typography.fontFamily,
     fontSize: 13,
-    color: palette.textSecondary,
+    color: palette.textMuted,
+  },
+  sessionStatusText: {
+    fontFamily: typography.fontFamilyBold,
+    fontSize: 13,
   },
   actionRow: {
     flexDirection: 'row',

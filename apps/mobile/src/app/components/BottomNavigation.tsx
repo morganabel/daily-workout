@@ -27,7 +27,7 @@ const TABS: TabItem[] = [
   },
   {
     name: 'History',
-    label: 'History',
+    label: 'Activity',
     icon: 'time-outline',
     activeIcon: 'time',
   },

@@ -246,7 +246,7 @@ describe('HomeScreen', () => {
     expect(getByText('Auto')).toBeTruthy();
     expect(getByText(/\d+ min/)).toBeTruthy();
     expect(getByText('Bodyweight')).toBeTruthy();
-    expect(getByText("Generate today's workout")).toBeTruthy();
+    expect(getByText("Build today's workout")).toBeTruthy();
   });
 
   it('does not show onboarding prompt for returning users who completed or skipped setup', async () => {
@@ -289,7 +289,7 @@ describe('HomeScreen', () => {
     });
 
     await act(async () => {
-      fireEvent.press(getByText("Generate today's workout"));
+      fireEvent.press(getByText("Build today's workout"));
     });
 
     expect(generateWorkout).toHaveBeenCalledWith(
@@ -318,7 +318,7 @@ describe('HomeScreen', () => {
 
     expect(getByText('COACH RECOMMENDS')).toBeTruthy();
     expect(getByText("Today's Plan")).toBeTruthy();
-    expect(getByText('Your next session is ready.')).toBeTruthy();
+    expect(getByText('Monday, Apr 27')).toBeTruthy();
     expect(getByText('Pull + Easy Cardio')).toBeTruthy();
     expect(getByText('75 min')).toBeTruthy();
     expect(getByText('Gym')).toBeTruthy();
@@ -329,7 +329,7 @@ describe('HomeScreen', () => {
     expect(getByText('Cardio is due this week.')).toBeTruthy();
 
     await act(async () => {
-      fireEvent.press(getByText("Generate today's workout"));
+      fireEvent.press(getByText("Build today's workout"));
     });
 
     expect(generateWorkout).toHaveBeenCalledWith(
@@ -394,8 +394,14 @@ describe('HomeScreen', () => {
 
     const coachPlan: HomeCoachPlanView = {
       nextSession: createProjectedSession({ id: 'proj-today' }),
-      nextActionRationale: 'Cardio is due this week.',
+      nextActionRationale: 'Legs is pinned for this date.',
       upcomingSessions: [
+        createProjectedSession({
+          id: 'proj-skipped',
+          localDate: '2026-04-29',
+          blockLabel: 'Skipped Legs',
+          status: 'skipped',
+        }),
         createProjectedSession({ id: 'proj-2', localDate: '2026-04-30' }),
         createProjectedSession({
           id: 'proj-3',
@@ -410,7 +416,7 @@ describe('HomeScreen', () => {
       conflictWarnings: [],
     };
 
-    const skipCoachProjectionSession = jest.fn();
+    const pinCoachProjectionSession = jest.fn();
     const generationRequest: GenerationRequest = {
       timeMinutes: 45,
       energy: 'moderate',
@@ -424,39 +430,62 @@ describe('HomeScreen', () => {
       ...baseHookState,
       adaptivePlan: plan,
       adaptiveRecommendation: recommendation,
-      coachPlan,
+      coachPlan: {
+        ...coachPlan,
+        nextSession: createProjectedSession({
+          id: 'proj-today',
+          availableActions: ['generate', 'pin'],
+        }),
+      },
       quickActions: createSetupQuickActions({ equipment: 'Gym' }),
-      skipCoachProjectionSession,
+      pinCoachProjectionSession,
       buildCoachProjectionGenerationRequest,
     });
 
-    const { getByText, getAllByText, queryByText } = render(<HomeScreen />);
+    const alertSpy = jest
+      .spyOn(Alert, 'alert')
+      .mockImplementation(() => undefined);
+
+    const { getByText, getByLabelText, queryByText } = render(<HomeScreen />);
     await act(async () => {
       await Promise.resolve();
     });
 
     // Compact upcoming projection with distinct statuses, no strategy ids.
-    expect(getByText('UPCOMING')).toBeTruthy();
+    expect(getByText('UP NEXT')).toBeTruthy();
+    expect(getByText('COMING UP')).toBeTruthy();
     expect(getByText('Long Run')).toBeTruthy();
-    expect(getByText('Pinned')).toBeTruthy();
+    expect(queryByText('Skipped Legs')).toBeNull();
+    expect(queryByText('Pinned')).toBeNull();
+    expect(queryByText('Planned')).toBeNull();
+    expect(queryByText('Legs is pinned for this date.')).toBeNull();
+    expect(queryByText('Coach note')).toBeNull();
     expect(queryByText(/weekly-target-balance/)).toBeNull();
+    expect(queryByText('Generate this session')).toBeNull();
+    expect(queryByText('Skip')).toBeNull();
+    expect(queryByText('Move to next day')).toBeNull();
 
     await act(async () => {
-      fireEvent.press(getAllByText('Skip')[0]);
-    });
-    expect(skipCoachProjectionSession).toHaveBeenCalledWith('proj-2');
-
-    await act(async () => {
-      fireEvent.press(getAllByText('Generate')[0]);
+      fireEvent.press(getByText('Build workout'));
     });
     expect(buildCoachProjectionGenerationRequest).toHaveBeenCalledWith(
-      'proj-2',
+      'proj-today',
       expect.objectContaining({ energy: expect.any(String) })
     );
+
+    fireEvent.press(getByLabelText('Session options'));
+    const optionButtons = alertSpy.mock.calls[0]?.[2] as
+      | Array<{ text: string; onPress?: () => void }>
+      | undefined;
+    optionButtons?.find((button) => button.text === 'Pin')?.onPress?.();
+    expect(pinCoachProjectionSession).toHaveBeenCalledWith('proj-today');
+
     expect(generateWorkout).toHaveBeenCalledWith(
       generationRequest,
       expect.objectContaining({ scheduledDate: expect.any(Number) })
     );
+
+    alertSpy.mockRestore();
   });
 
   it('opens coach customization with Auto selected instead of the recommendation label', async () => {
@@ -567,7 +596,7 @@ describe('HomeScreen', () => {
 
     expect(getByText('COACH RECOMMENDS')).toBeTruthy();
     expect(getByText("Today's Plan")).toBeTruthy();
-    expect(getByText('Recovery is the plan today.')).toBeTruthy();
+    expect(getByText('Monday, Apr 27')).toBeTruthy();
     expect(getByText('Take a rest day')).toBeTruthy();
     expect(
       getByText(
@@ -575,7 +604,7 @@ describe('HomeScreen', () => {
       )
     ).toBeTruthy();
     expect(getByText('Choose a workout instead')).toBeTruthy();
-    expect(queryByText("Generate today's workout")).toBeNull();
+    expect(queryByText("Build today's workout")).toBeNull();
     expect(getByText('Gym')).toBeTruthy();
     expect(getByText('Intense')).toBeTruthy();
   });
@@ -656,7 +685,7 @@ describe('HomeScreen', () => {
     });
 
     await act(async () => {
-      fireEvent.press(getByText("Generate today's workout"));
+      fireEvent.press(getByText("Build today's workout"));
     });
 
     expect(generateWorkout).toHaveBeenCalledWith(
@@ -884,12 +913,12 @@ describe('HomeScreen', () => {
       await Promise.resolve();
     });
 
-    const generateBtn = getByText("Generate today's workout");
+    const generateBtn = getByText("Build today's workout");
     // Don't await the press fully, just trigger it
     fireEvent.press(generateBtn);
 
     // Should be loading now
-    expect(getByText('Generating...')).toBeTruthy();
+    expect(getByText('Building...')).toBeTruthy();
 
     // Fast-forward time to complete the action
     await act(async () => {
@@ -916,7 +945,7 @@ describe('HomeScreen', () => {
     });
 
     await act(async () => {
-      fireEvent.press(getByText("Generate today's workout"));
+      fireEvent.press(getByText("Build today's workout"));
       await Promise.resolve();
     });
 
@@ -939,7 +968,7 @@ describe('HomeScreen', () => {
     });
 
     await act(async () => {
-      fireEvent.press(getByText("Generate today's workout"));
+      fireEvent.press(getByText("Build today's workout"));
       await Promise.resolve();
     });
 
@@ -972,7 +1001,7 @@ describe('HomeScreen', () => {
     });
 
     await act(async () => {
-      fireEvent.press(getByText("Generate today's workout"));
+      fireEvent.press(getByText("Build today's workout"));
       await Promise.resolve();
     });
 
@@ -1024,7 +1053,7 @@ describe('HomeScreen', () => {
     });
 
     expect(getByText("TODAY'S WORKOUT")).toBeTruthy();
-    expect(queryByText("Generate today's workout")).toBeNull();
+    expect(queryByText("Build today's workout")).toBeNull();
   });
 
   it('navigates to ActiveWorkout when Start Workout is pressed', async () => {
@@ -1131,7 +1160,7 @@ describe('HomeScreen', () => {
     rerender(<HomeScreen />);
 
     expect(getByText("TODAY'S WORKOUT")).toBeTruthy();
-    expect(queryByText("Generate today's workout")).toBeNull();
+    expect(queryByText("Build today's workout")).toBeNull();
 
     await act(async () => {
       jest.advanceTimersByTime(300);
@@ -1472,7 +1501,7 @@ describe('HomeScreen', () => {
     });
 
     expect(queryByText('Original focus')).toBeNull();
-    expect(getByText("Generate today's workout")).toBeTruthy();
+    expect(getByText("Build today's workout")).toBeTruthy();
   });
 
   it('calls setGenerationStatus with error when regeneration fails', async () => {

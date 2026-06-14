@@ -27,7 +27,9 @@ import type {
 
 const DEFAULT_DURATION_MINUTES = 30;
 
-const toBlockIntent = (block: AdaptiveTrainingBlock): AdaptivePlanBlockIntent => ({
+const toBlockIntent = (
+  block: AdaptiveTrainingBlock
+): AdaptivePlanBlockIntent => ({
   blockId: block.id,
   label: block.label,
   category: block.category,
@@ -139,10 +141,7 @@ export const buildCoachProjectionGenerationRequest = (input: {
   const blocksById = new Map(
     plan.blocks.map((block) => [block.id, block] as const)
   );
-  const intentBlocks = [
-    session.sourceBlockId,
-    ...session.addOnBlockIds,
-  ]
+  const intentBlocks = [session.sourceBlockId, ...session.addOnBlockIds]
     .map((blockId) => (blockId ? blocksById.get(blockId) : undefined))
     .filter((block): block is AdaptiveTrainingBlock => Boolean(block));
 
@@ -157,6 +156,7 @@ export const buildCoachProjectionGenerationRequest = (input: {
     timeMinutes: resolvedDuration,
     energy: energy ?? 'moderate',
     focus: adaptivePlanIntent.primaryBlock.label,
+    planningDateLocal: input.planningDateLocal,
     adaptivePlanIntent,
   };
 

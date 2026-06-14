@@ -809,7 +809,7 @@ export function useHomeData(): HomeDataState & {
         plan: adaptivePlan,
         projection,
         session,
-        planningDateLocal: state.planningDateLocal,
+        planningDateLocal: session.localDate,
         durationMinutes: overrides?.durationMinutes ?? availableTimeMinutes,
         energy: overrides?.energy,
         equipment: overrides?.equipment,
@@ -820,7 +820,6 @@ export function useHomeData(): HomeDataState & {
       getProjectionSession,
       state.adaptivePlan,
       state.coachProjection,
-      state.planningDateLocal,
     ]
   );
 
@@ -837,22 +836,25 @@ export function useHomeData(): HomeDataState & {
       left.localDate.localeCompare(right.localDate)
     );
 
+    const isVisibleCoachSession = (session: (typeof orderedSessions)[number]) =>
+      session.status !== 'skipped' &&
+      session.localDate >= state.planningDateLocal;
+
     const todaySession = projection.todaySessionId
       ? orderedSessions.find(
-          (session) => session.id === projection.todaySessionId
+          (session) =>
+            session.id === projection.todaySessionId &&
+            isVisibleCoachSession(session)
         ) ?? null
       : null;
     const nextFutureSession =
-      orderedSessions.find(
-        (session) =>
-          session.localDate >= state.planningDateLocal &&
-          session.status !== 'skipped'
-      ) ?? null;
+      orderedSessions.find((session) => isVisibleCoachSession(session)) ?? null;
     const nextSession = todaySession ?? nextFutureSession;
 
-    const upcomingSessions = nextSession
-      ? orderedSessions.filter((session) => session.id !== nextSession.id)
-      : orderedSessions;
+    const upcomingSessions = orderedSessions.filter(
+      (session) =>
+        isVisibleCoachSession(session) && session.id !== nextSession?.id
+    );
 
     const nextActionRationale =
       nextSession?.rationale.find((entry) => entry.message)?.message ??

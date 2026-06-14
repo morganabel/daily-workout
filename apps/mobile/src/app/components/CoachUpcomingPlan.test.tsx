@@ -55,52 +55,79 @@ const createPlan = (
 });
 
 const noopHandlers = {
-  onSkip: jest.fn(),
-  onPin: jest.fn(),
-  onUnpin: jest.fn(),
-  onMove: jest.fn(),
-  onGenerate: jest.fn(),
   onResolveConflict: jest.fn(),
 };
 
 describe('CoachUpcomingPlan', () => {
   beforeEach(() => jest.clearAllMocks());
 
-  it('renders upcoming sessions with distinct status labels', () => {
+  it('renders upcoming sessions without normal planned status copy', () => {
     const screen = render(
       <CoachUpcomingPlan coachPlan={createPlan()} {...noopHandlers} />
     );
 
-    expect(screen.getByText('UPCOMING')).toBeTruthy();
+    expect(screen.getByText('COMING UP')).toBeTruthy();
     expect(screen.getByText('Long Run')).toBeTruthy();
-    expect(screen.getByText('Pinned')).toBeTruthy();
+    expect(screen.queryByText('Planned')).toBeNull();
+    expect(screen.queryByText('Pinned')).toBeNull();
   });
 
-  it('invokes unpin and move with the projection id and next day', () => {
+  it('does not render row-level planning actions', () => {
     const screen = render(
       <CoachUpcomingPlan coachPlan={createPlan()} {...noopHandlers} />
     );
 
-    fireEvent.press(screen.getByText('Unpin'));
-    expect(noopHandlers.onUnpin).toHaveBeenCalledWith('proj-2');
-
-    fireEvent.press(screen.getByText('Move to next day'));
-    expect(noopHandlers.onMove).toHaveBeenCalledWith('proj-2', '2026-05-02');
+    expect(screen.queryByText('Unpin')).toBeNull();
+    expect(screen.queryByText('Move to next day')).toBeNull();
+    expect(screen.queryByText('Generate')).toBeNull();
+    expect(screen.queryByText('Skip')).toBeNull();
   });
 
-  it('invokes generate and skip from a projected session', () => {
+  it('caps the visible future preview', () => {
     const coachPlan = createPlan({
-      upcomingSessions: [createSession()],
+      upcomingSessions: [
+        createSession({ id: 'proj-1', blockLabel: 'First' }),
+        createSession({ id: 'proj-2', blockLabel: 'Second' }),
+        createSession({ id: 'proj-3', blockLabel: 'Third' }),
+        createSession({ id: 'proj-4', blockLabel: 'Fourth' }),
+      ],
     });
     const screen = render(
       <CoachUpcomingPlan coachPlan={coachPlan} {...noopHandlers} />
     );
 
-    fireEvent.press(screen.getByText('Generate'));
-    expect(noopHandlers.onGenerate).toHaveBeenCalledWith('proj-1');
+    expect(screen.getByText('First')).toBeTruthy();
+    expect(screen.getByText('Second')).toBeTruthy();
+    expect(screen.getByText('Third')).toBeTruthy();
+    expect(screen.queryByText('Fourth')).toBeNull();
+  });
 
-    fireEvent.press(screen.getByText('Skip'));
-    expect(noopHandlers.onSkip).toHaveBeenCalledWith('proj-1');
+  it('does not render skipped sessions as coming up', () => {
+    const coachPlan = createPlan({
+      upcomingSessions: [
+        createSession({
+          id: 'proj-skipped',
+          blockLabel: 'Skipped Legs',
+          status: 'skipped',
+          rationale: [
+            { code: 'skipped-session', message: 'Legs was skipped.' },
+          ],
+        }),
+        createSession({
+          id: 'proj-next',
+          blockLabel: 'Next Push',
+          status: 'projected',
+        }),
+      ],
+    });
+    const screen = render(
+      <CoachUpcomingPlan coachPlan={coachPlan} {...noopHandlers} />
+    );
+
+    expect(screen.getByText('Next Push')).toBeTruthy();
+    expect(screen.queryByText('Skipped Legs')).toBeNull();
+    expect(screen.queryByText('Skipped')).toBeNull();
+    expect(screen.queryByText('Legs was skipped.')).toBeNull();
   });
 
   it('renders a pinned conflict warning with explicit repair actions', () => {
@@ -117,7 +144,9 @@ describe('CoachUpcomingPlan', () => {
     const coachPlan = createPlan({
       conflictWarnings: [warning],
       // Keep the only "Unpin" affordance on the conflict warning itself.
-      upcomingSessions: [createSession({ availableActions: ['generate', 'skip'] })],
+      upcomingSessions: [
+        createSession({ availableActions: ['generate', 'skip'] }),
+      ],
     });
     const screen = render(
       <CoachUpcomingPlan coachPlan={coachPlan} {...noopHandlers} />

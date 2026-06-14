@@ -2,6 +2,7 @@ import { renderHook, act, waitFor } from '@testing-library/react-native';
 import NetInfo from '@react-native-community/netinfo';
 import {
   createAdaptiveTrainingPlanFromTemplate,
+  type CoachSessionAction,
   type QuickActionPreset,
   type TodayPlan,
 } from '@workout-agent/shared';
@@ -720,9 +721,9 @@ describe('useHomeData', () => {
 
         expect(result.current.coachPlan).not.toBeNull();
         expect(result.current.coachPlan?.nextSession).not.toBeNull();
-        expect(result.current.coachPlan?.upcomingSessions.length).toBeGreaterThan(
-          0
-        );
+        expect(
+          result.current.coachPlan?.upcomingSessions.length
+        ).toBeGreaterThan(0);
         // Local repositories/selectors only — no authoritative backend snapshot.
         expect(fetchSpy).not.toHaveBeenCalled();
         expect(
@@ -733,14 +734,59 @@ describe('useHomeData', () => {
       }
     });
 
+    it('keeps skipped sessions out of the Home coach preview', async () => {
+      const { result } = await loadActivePlan();
+      const sessionToSkip = result.current.coachProjection?.sessions.find(
+        (session) => session.sourceBlockId
+      );
+      if (!sessionToSkip) {
+        throw new Error('Expected a skippable projected session');
+      }
+
+      const skipAction: CoachSessionAction = {
+        id: 'skip-action',
+        actionKind: 'skip',
+        programId: 'plan-ppl',
+        programVersion: sessionToSkip.programVersion,
+        strategy: sessionToSkip.strategy,
+        cycleIndex: sessionToSkip.cycleIndex,
+        sessionIdentityKey: sessionToSkip.sessionIdentityKey,
+        projectionId: sessionToSkip.id,
+        sourceBlockId: sessionToSkip.sourceBlockId,
+        projectedLocalDate: sessionToSkip.localDate,
+        actionLocalDate: result.current.planningDateLocal,
+        createdAt: '2026-04-15T12:00:00.000Z',
+      };
+
+      await act(async () => {
+        coachSessionActionStream.emit([skipAction]);
+      });
+
+      await waitFor(() => {
+        expect(
+          result.current.coachProjection?.sessions.some(
+            (session) => session.status === 'skipped'
+          )
+        ).toBe(true);
+      });
+      expect(result.current.coachPlan?.nextSession?.status).not.toBe('skipped');
+      expect(
+        result.current.coachPlan?.upcomingSessions.every(
+          (session) => session.status !== 'skipped'
+        )
+      ).toBe(true);
+    });
+
     it('builds a generation request that carries the projected session coach intent', async () => {
       const { result } = await loadActivePlan();
 
       const session = result.current.coachProjection?.sessions.find(
-        (entry) => entry.sourceBlockId
+        (entry) =>
+          entry.sourceBlockId &&
+          entry.localDate !== result.current.planningDateLocal
       );
       if (!session) {
-        throw new Error('Expected a generatable projected session');
+        throw new Error('Expected a future generatable projected session');
       }
 
       const request = result.current.buildCoachProjectionGenerationRequest(
@@ -749,6 +795,10 @@ describe('useHomeData', () => {
       expect(request?.adaptivePlanIntent?.projectionId).toBe(session.id);
       expect(request?.adaptivePlanIntent?.primaryBlock.blockId).toBe(
         session.sourceBlockId
+      );
+      expect(request?.planningDateLocal).toBe(session.localDate);
+      expect(request?.adaptivePlanIntent?.planningDateLocal).toBe(
+        session.localDate
       );
     });
   });
