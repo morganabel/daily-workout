@@ -65,7 +65,7 @@ describe('HistoryAgendaItem planned slots', () => {
     expect(screen.getByText('Not generated')).toBeTruthy();
     expect(screen.queryByText('pull • not generated')).toBeNull();
 
-    fireEvent.press(screen.getByText('Generate'));
+    fireEvent.press(screen.getByText('Build'));
     expect(onGenerateWorkout).toHaveBeenCalledWith(plannedSlotEvent);
   });
 

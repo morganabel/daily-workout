@@ -533,7 +533,7 @@ describe('HomeScreen', () => {
     fireEvent.press(getByText('Upper Body'));
     fireEvent.press(getByText('Auto'));
     await act(async () => {
-      fireEvent.press(getByText('Apply & Generate'));
+      fireEvent.press(getByText('Apply & build'));
     });
 
     expect(generateWorkout).toHaveBeenCalledWith(
@@ -570,14 +570,14 @@ describe('HomeScreen', () => {
     fireEvent.press(getByText(/60 min/));
     fireEvent.press(getByText('45'));
     await act(async () => {
-      fireEvent.press(getByText('Apply & Generate'));
+      fireEvent.press(getByText('Apply & build'));
     });
 
     expect(generateWorkout).not.toHaveBeenCalled();
     expect(setGenerationStatus).not.toHaveBeenCalledWith(
       expect.objectContaining({ state: 'pending' })
     );
-    expect(getByText('Apply & Generate')).toBeTruthy();
+    expect(getByText('Apply & build')).toBeTruthy();
   });
 
   it('shows rest recommendations as recovery with an escape to choose a workout', async () => {
@@ -625,7 +625,7 @@ describe('HomeScreen', () => {
     fireEvent.press(getByText(/60 min/));
     fireEvent.press(getByText('45'));
     await act(async () => {
-      fireEvent.press(getByText('Apply & Generate'));
+      fireEvent.press(getByText('Apply & build'));
     });
 
     expect(generateWorkout).toHaveBeenCalledWith(
@@ -654,7 +654,7 @@ describe('HomeScreen', () => {
     fireEvent.press(getByText('Auto'));
     fireEvent.press(getByText('Upper Body'));
     await act(async () => {
-      fireEvent.press(getByText('Apply & Generate'));
+      fireEvent.press(getByText('Apply & build'));
     });
 
     expect(generateWorkout).toHaveBeenCalledWith(
@@ -719,7 +719,7 @@ describe('HomeScreen', () => {
 
     fireEvent.press(getByText('Dumbbells, Bench'));
     await act(async () => {
-      fireEvent.press(getByText('Apply & Generate'));
+      fireEvent.press(getByText('Apply & build'));
     });
 
     expect(generateWorkout).toHaveBeenCalledWith(
@@ -750,7 +750,7 @@ describe('HomeScreen', () => {
     fireEvent.press(getByText('Dumbbells, Bench'));
     fireEvent.press(getByText('45'));
     await act(async () => {
-      fireEvent.press(getByText('Apply & Generate'));
+      fireEvent.press(getByText('Apply & build'));
     });
 
     expect(generateWorkout).toHaveBeenCalledWith(
@@ -780,7 +780,7 @@ describe('HomeScreen', () => {
     fireEvent.press(getByText('Bodyweight'));
     fireEvent.press(getByText('Cable Machine'));
     await act(async () => {
-      fireEvent.press(getByText('Apply & Generate'));
+      fireEvent.press(getByText('Apply & build'));
     });
 
     expect(generateWorkout).toHaveBeenCalledWith(
@@ -806,7 +806,7 @@ describe('HomeScreen', () => {
     fireEvent.press(getByText('Bodyweight'));
     fireEvent.press(getByText('Gym'));
     await act(async () => {
-      fireEvent.press(getByText('Apply & Generate'));
+      fireEvent.press(getByText('Apply & build'));
     });
 
     expect(generateWorkout).toHaveBeenCalledWith(
@@ -831,7 +831,7 @@ describe('HomeScreen', () => {
     fireEvent.press(getByText('Gym'));
     fireEvent.press(getByText('Cable Machine'));
     await act(async () => {
-      fireEvent.press(getByText('Apply & Generate'));
+      fireEvent.press(getByText('Apply & build'));
     });
 
     expect(generateWorkout).toHaveBeenCalledWith(
@@ -872,7 +872,7 @@ describe('HomeScreen', () => {
 
     fireEvent.press(getByText('Customize'));
     await act(async () => {
-      fireEvent.press(getByText('Regenerate workout'));
+      fireEvent.press(getByText('Rebuild workout'));
     });
 
     expect(generateWorkout).toHaveBeenCalledWith(
@@ -1106,7 +1106,7 @@ describe('HomeScreen', () => {
     });
 
     fireEvent.press(getByText('Customize'));
-    fireEvent.press(getByText('Regenerate workout'));
+    fireEvent.press(getByText('Rebuild workout'));
 
     expect(getByText('Updating your workout…')).toBeTruthy();
     expect(getByLabelText('Updating workout')).toBeTruthy();
@@ -1153,7 +1153,7 @@ describe('HomeScreen', () => {
     });
 
     fireEvent.press(getByText('Customize'));
-    fireEvent.press(getByText('Regenerate workout'));
+    fireEvent.press(getByText('Rebuild workout'));
 
     // Simulate DB observer transiently emitting no planned workout.
     currentPlan = null;
@@ -1194,7 +1194,7 @@ describe('HomeScreen', () => {
     });
 
     fireEvent.press(getByText('Customize'));
-    fireEvent.press(getByText('Regenerate workout'));
+    fireEvent.press(getByText('Rebuild workout'));
 
     const start = getByLabelText('Start Workout');
     const customize = getByLabelText('Updating…');
@@ -1233,7 +1233,7 @@ describe('HomeScreen', () => {
     });
 
     fireEvent.press(getByText('Customize'));
-    fireEvent.press(getByText('Regenerate workout'));
+    fireEvent.press(getByText('Rebuild workout'));
     expect(queryByText('Updating your workout…')).toBeTruthy();
 
     await act(async () => {
@@ -1287,7 +1287,7 @@ describe('HomeScreen', () => {
 
     fireEvent.press(getByText('Customize'));
     await act(async () => {
-      fireEvent.press(getByText('Regenerate workout'));
+      fireEvent.press(getByText('Rebuild workout'));
     });
     await act(async () => {
       await Promise.resolve();
@@ -1346,7 +1346,7 @@ describe('HomeScreen', () => {
 
     fireEvent.press(getByText('Customize'));
     await act(async () => {
-      fireEvent.press(getByText('Regenerate workout'));
+      fireEvent.press(getByText('Rebuild workout'));
     });
     await act(async () => {
       await Promise.resolve();
@@ -1354,7 +1354,7 @@ describe('HomeScreen', () => {
 
     fireEvent.press(getByText('Customize'));
     await act(async () => {
-      fireEvent.press(getByText('Regenerate workout'));
+      fireEvent.press(getByText('Rebuild workout'));
     });
 
     expect(generateWorkout).toHaveBeenLastCalledWith(
@@ -1535,7 +1535,7 @@ describe('HomeScreen', () => {
 
     fireEvent.press(getByText('Customize'));
     await act(async () => {
-      fireEvent.press(getByText('Regenerate workout'));
+      fireEvent.press(getByText('Rebuild workout'));
     });
     await act(async () => {
       await Promise.resolve();

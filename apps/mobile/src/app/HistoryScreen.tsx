@@ -461,14 +461,14 @@ export const HistoryScreen = () => {
     };
 
     Alert.alert(
-      'Generate workout?',
+      'Build workout?',
       existingPlan
-        ? 'A workout is already planned for that day. Generating will replace it.'
-        : 'Generate a workout for this planned session?',
+        ? 'A workout is already planned for that day. Building a new one will replace it.'
+        : 'Build a workout for this planned session?',
       [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: existingPlan ? 'Replace' : 'Generate',
+          text: existingPlan ? 'Replace' : 'Build',
           onPress: () => {
             const run = async () => {
               try {

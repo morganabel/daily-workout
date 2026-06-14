@@ -141,10 +141,10 @@ export const CustomizeSheet = ({
   const isRegeneration = Boolean(currentResponseId);
   const showFeedback = Boolean(currentResponseId);
   const primaryLabel = isRegeneration
-    ? 'Regenerate workout'
+    ? 'Rebuild workout'
     : onUpdateStagedValue
-    ? 'Apply & Generate'
-    : 'Generate workout';
+    ? 'Apply & build'
+    : 'Build workout';
   const canStageValues = Boolean(onUpdateStagedValue);
 
   const [feedback, setFeedback] = useState<RegenerationFeedback[]>([]);

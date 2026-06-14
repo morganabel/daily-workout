@@ -100,7 +100,7 @@ export const HistoryAgendaItem = ({
               disabled={isGenerating}
             >
               <Text style={styles.agendaActionText}>
-                {isGenerating ? 'Generating…' : 'Generate'}
+                {isGenerating ? 'Building…' : 'Build'}
               </Text>
             </Pressable>
           )}
