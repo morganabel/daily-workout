@@ -94,7 +94,7 @@ describe('SettingsScreen profile summary', () => {
     );
   });
 
-  it('exposes pinned commitments and major events without requiring a strategy choice', async () => {
+  it('keeps commitments and events out of profile settings', async () => {
     const plan = createAdaptiveTrainingPlanFromTemplate('ppl-conditioning', {
       id: 'plan-ppl',
       activeFrom: '2026-04-15',
@@ -127,43 +127,19 @@ describe('SettingsScreen profile summary', () => {
     const screen = render(<SettingsScreen />);
 
     await waitFor(() => {
-      expect(screen.getByText('Commitments & events')).toBeTruthy();
-      expect(screen.getByText('1 pinned')).toBeTruthy();
+      expect(screen.getByText('Equipment')).toBeTruthy();
     });
 
-    await act(async () => {
-      fireEvent.press(screen.getByText('Manage commitments'));
-    });
-
-    await waitFor(() => {
-      expect(
-        screen.getByText(/coach schedules everything else automatically/i)
-      ).toBeTruthy();
-      expect(screen.getByText('Pinned sessions')).toBeTruthy();
-      expect(screen.getByText('Major events')).toBeTruthy();
-    });
-
+    expect(screen.queryByText('Commitments & events')).toBeNull();
+    expect(screen.queryByText('Manage commitments')).toBeNull();
+    expect(screen.queryByText('Pinned sessions')).toBeNull();
+    expect(screen.queryByText('Major events')).toBeNull();
     // Internal strategy mechanics must never become required user choices.
     expect(screen.queryByText(/ordered rotation/i)).toBeNull();
     expect(screen.queryByText(/weekly target balance/i)).toBeNull();
     expect(screen.queryByText(/minimum effective dose/i)).toBeNull();
     expect(screen.queryByText(/event[- ]prep/i)).toBeNull();
     expect(screen.queryByText(/schedule strategy/i)).toBeNull();
-
-    await act(async () => {
-      fireEvent.press(screen.getByLabelText(/Unpin/));
-    });
-    await act(async () => {
-      fireEvent.press(screen.getByText('Save'));
-    });
-
-    expect(mockUserRepository.updatePreferences).toHaveBeenCalledWith(
-      expect.objectContaining({
-        adaptiveTrainingPlan: expect.objectContaining({
-          sessionPreferences: [],
-        }),
-      })
-    );
   });
 
   it('saves catalog-only workout creation mode', async () => {

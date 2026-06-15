@@ -5,8 +5,7 @@ export type EditorKey =
   | 'rhythm'
   | 'constraints'
   | 'equipment'
-  | 'generation'
-  | 'commitments';
+  | 'generation';
 
 export type PreferenceUpdater = <K extends keyof UserPreferences>(
   key: K,
@@ -41,7 +40,6 @@ export const EDITOR_TITLES: Record<EditorKey, string> = {
   constraints: 'Safety & constraints',
   equipment: 'Equipment',
   generation: 'Workout creation',
-  commitments: 'Commitments & events',
 };
 
 export const EXPERIENCE_LABELS: Record<ExperienceLevel, string> = {
