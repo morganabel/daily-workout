@@ -472,14 +472,91 @@ const getPinnedPreferencesForDate = (
       preference.status === 'pinned' && preference.localDate === localDate
   );
 
+const HARD_CONSTRAINT_EVENT_KINDS = new Set([
+  'travel',
+  'flight',
+  'medical',
+  'appointment',
+  'sport',
+  'race',
+  'competition',
+  'tournament',
+]);
+
+const HARD_CONSTRAINT_TERMS = [
+  'airport',
+  "can't train",
+  'cannot train',
+  'cant train',
+  'competition',
+  'conference',
+  'doctor',
+  'flight',
+  'fresh for',
+  'game',
+  'keep fresh',
+  'long drive',
+  'medical',
+  'moving',
+  'must be fresh',
+  'no gym',
+  'no training',
+  'no workout',
+  'offsite',
+  'protect',
+  'race',
+  'tournament',
+  'travel',
+  'wedding',
+];
+
+const normalizeConstraintText = (value: string): string =>
+  normalizeTag(value).replace(/\s+/g, ' ').trim();
+
+const getEventConstraintText = (event: UpcomingEventContext): string =>
+  [
+    event.kind,
+    event.title,
+    event.intensity,
+    event.notes,
+    ...(event.tags ?? []),
+  ]
+    .filter((value): value is string => Boolean(value))
+    .map(normalizeConstraintText)
+    .join(' ');
+
+const isHardConstraintEvent = (event: UpcomingEventContext): boolean => {
+  const kind = normalizeConstraintText(event.kind);
+  if (kind === 'rest') {
+    return false;
+  }
+
+  if (event.allDay) {
+    return true;
+  }
+
+  if (HARD_CONSTRAINT_EVENT_KINDS.has(kind)) {
+    return true;
+  }
+
+  if (event.intensity === 'high') {
+    return true;
+  }
+
+  if ((event.durationMinutes ?? 0) >= 240) {
+    return true;
+  }
+
+  const constraintText = getEventConstraintText(event);
+  return HARD_CONSTRAINT_TERMS.some((term) => constraintText.includes(term));
+};
+
 const getConflictingEvents = (
   localDate: string,
   events: UpcomingEventContext[]
 ): UpcomingEventContext[] =>
   events.filter(
-    (event) =>
-      event.localDate === localDate &&
-      event.kind.trim().toLowerCase() !== 'rest'
+    (event) => event.localDate === localDate && isHardConstraintEvent(event)
   );
 
 const createPinnedConflictWarning = (

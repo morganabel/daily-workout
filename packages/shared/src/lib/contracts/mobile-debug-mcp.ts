@@ -345,7 +345,6 @@ const secretKeyTerms = [
   'apikey',
   'api_key',
   'api-key',
-  'key',
 ] as const;
 
 const isSecretKey = (key: string): boolean => {

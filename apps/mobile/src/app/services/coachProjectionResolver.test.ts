@@ -523,4 +523,79 @@ describe('coach projection resolver', () => {
       actions: ['keep-pinned', 'move', 'unpin'],
     });
   });
+
+  it('does not warn for soft same-day personal events on pinned sessions', () => {
+    const plan = createPplPlan({
+      sessionPreferences: [
+        {
+          id: 'pin-cardio',
+          localDate: '2026-04-15',
+          blockIds: ['easy-cardio'],
+          status: 'pinned',
+        },
+      ],
+    });
+    const projection = deriveCoachProjection({
+      plan,
+      planningDateLocal: '2026-04-15',
+      recentSessions: [],
+      upcomingEvents: [
+        {
+          kind: 'personal',
+          title: 'Dinner plans',
+          localDate: '2026-04-15',
+          startsAt: '2026-04-15T23:00:00.000Z',
+          durationMinutes: 120,
+          tags: ['busy'],
+          notes: 'Keep the workout short today.',
+        },
+      ],
+    });
+
+    expect(projection.sessions[0]).toMatchObject({
+      status: 'pinned',
+      projectionStatus: 'pinned',
+      localDate: '2026-04-15',
+    });
+    expect(projection.conflictWarnings).toEqual([]);
+    expect(projection.repairNotes).toEqual([]);
+  });
+
+  it('warns for hard same-day blockers on pinned sessions', () => {
+    const plan = createPplPlan({
+      sessionPreferences: [
+        {
+          id: 'pin-push',
+          localDate: '2026-04-15',
+          blockIds: ['push'],
+          status: 'pinned',
+        },
+      ],
+    });
+    const projection = deriveCoachProjection({
+      plan,
+      planningDateLocal: '2026-04-15',
+      recentSessions: [],
+      upcomingEvents: [
+        {
+          kind: 'travel',
+          title: 'Flight to NYC',
+          localDate: '2026-04-15',
+          startsAt: '2026-04-15T12:00:00.000Z',
+          durationMinutes: 180,
+        },
+      ],
+    });
+
+    expect(projection.sessions[0]).toMatchObject({
+      status: 'conflict',
+      projectionStatus: 'pinned',
+      localDate: '2026-04-15',
+    });
+    expect(projection.conflictWarnings[0]).toMatchObject({
+      kind: 'planned-event-conflict',
+      eventTitle: 'Flight to NYC',
+      actions: ['keep-pinned', 'move', 'unpin'],
+    });
+  });
 });

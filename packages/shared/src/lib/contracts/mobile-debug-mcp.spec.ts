@@ -220,4 +220,26 @@ describe('mobile debug MCP redaction', () => {
       },
     });
   });
+
+  it('preserves non-secret coach identity keys', () => {
+    const result = redactDebugValue({
+      sessionIdentityKey: 'ordered:push:1',
+      blockKey: 'push-main-press',
+      coachProgramAttribution: {
+        sourceBlockId: 'push',
+        addOnBlockIds: ['easy-cardio'],
+        templateId: 'ppl-conditioning',
+      },
+    });
+
+    expect(result).toEqual({
+      sessionIdentityKey: 'ordered:push:1',
+      blockKey: 'push-main-press',
+      coachProgramAttribution: {
+        sourceBlockId: 'push',
+        addOnBlockIds: ['easy-cardio'],
+        templateId: 'ppl-conditioning',
+      },
+    });
+  });
 });
