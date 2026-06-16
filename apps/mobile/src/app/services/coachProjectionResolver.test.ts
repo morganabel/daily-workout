@@ -208,6 +208,45 @@ describe('coach projection resolver', () => {
     });
   });
 
+  it('does not reuse a skipped ordered identity when the skipped date is pinned', () => {
+    const skippedAction = createSkipAction(createPplPlan());
+    const plan = createPplPlan({
+      sessionPreferences: [
+        {
+          id: `pin:${skippedAction.cycleIndex}:${skippedAction.sessionIdentityKey}`,
+          localDate: skippedAction.projectedLocalDate,
+          blockIds: ['push'],
+          status: 'pinned',
+        },
+      ],
+    });
+    const projection = deriveCoachProjection({
+      plan,
+      planningDateLocal: '2026-04-15',
+      recentSessions: [],
+      sessionActions: [skippedAction],
+    });
+
+    expect(new Set(projection.sessions.map((session) => session.id)).size).toBe(
+      projection.sessions.length
+    );
+    expect(
+      projection.sessions.filter(
+        (session) =>
+          session.cycleIndex === skippedAction.cycleIndex &&
+          session.sessionIdentityKey === skippedAction.sessionIdentityKey
+      )
+    ).toHaveLength(1);
+    expect(
+      projection.sessions.find(
+        (session) =>
+          session.cycleIndex === skippedAction.cycleIndex &&
+          session.sessionIdentityKey === skippedAction.sessionIdentityKey &&
+          session.status === 'projected'
+      )
+    ).toBeUndefined();
+  });
+
   it('ignores skip records from a previous schedule strategy', () => {
     const plan = createPplPlan();
     const projection = deriveCoachProjection({
@@ -291,6 +330,64 @@ describe('coach projection resolver', () => {
     expect(
       new Set(projection.sessions.map((session) => session.sourceBlockId)).size
     ).toBeGreaterThan(1);
+  });
+
+  it('does not reuse a skipped weekly target identity when the skipped date is pinned', () => {
+    const basePlan = createBalancedPlan();
+    const baseProjection = deriveCoachProjection({
+      plan: basePlan,
+      planningDateLocal: '2026-04-15',
+      recentSessions: [],
+    });
+    const skippedSession = baseProjection.sessions.find(
+      (session) => session.sourceBlockId
+    );
+    if (!skippedSession?.sourceBlockId) {
+      throw new Error('Expected generatable weekly target session');
+    }
+
+    const skipAction: CoachSessionAction = {
+      id: 'skip-weekly-1',
+      actionKind: 'skip',
+      programId: basePlan.id,
+      programVersion: basePlan.programVersion ?? 1,
+      strategy: basePlan.scheduleStrategy ?? 'weekly-target-balance',
+      cycleIndex: skippedSession.cycleIndex,
+      sessionIdentityKey: skippedSession.sessionIdentityKey,
+      projectionId: skippedSession.id,
+      sourceBlockId: skippedSession.sourceBlockId,
+      projectedLocalDate: skippedSession.localDate,
+      actionLocalDate: skippedSession.localDate,
+      createdAt: '2026-04-15T12:00:00.000Z',
+    };
+    const plan = createBalancedPlan({
+      sessionPreferences: [
+        {
+          id: `pin:${skippedSession.cycleIndex}:${skippedSession.sessionIdentityKey}`,
+          localDate: skippedSession.localDate,
+          blockIds: [skippedSession.sourceBlockId],
+          status: 'pinned',
+        },
+      ],
+    });
+
+    const projection = deriveCoachProjection({
+      plan,
+      planningDateLocal: '2026-04-15',
+      recentSessions: [],
+      sessionActions: [skipAction],
+    });
+
+    expect(new Set(projection.sessions.map((session) => session.id)).size).toBe(
+      projection.sessions.length
+    );
+    expect(
+      projection.sessions.filter(
+        (session) =>
+          session.cycleIndex === skippedSession.cycleIndex &&
+          session.sessionIdentityKey === skippedSession.sessionIdentityKey
+      )
+    ).toHaveLength(1);
   });
 
   it('returns explicit unsupported state for future strategy hooks', () => {
@@ -422,7 +519,120 @@ describe('coach projection resolver', () => {
     });
     expect(projection.conflictWarnings[0]).toMatchObject({
       kind: 'planned-event-conflict',
+      message: 'Legs on Wed, Apr 15 overlaps Race day.',
       eventTitle: 'Race day',
+      actions: ['keep-pinned', 'move', 'unpin'],
+    });
+  });
+
+  it('does not warn when a pinned rest day overlaps an unavailable event', () => {
+    const plan = createPplPlan({
+      sessionPreferences: [
+        {
+          id: 'pin-rest',
+          localDate: '2026-04-15',
+          blockIds: ['rest'],
+          status: 'pinned',
+        },
+      ],
+    });
+    const projection = deriveCoachProjection({
+      plan,
+      planningDateLocal: '2026-04-15',
+      recentSessions: [],
+      upcomingEvents: [
+        {
+          kind: 'travel',
+          title: 'Unavailable to train',
+          localDate: '2026-04-15',
+          allDay: true,
+          tags: ['no-workout'],
+        },
+      ],
+    });
+
+    expect(projection.sessions[0]).toMatchObject({
+      status: 'pinned',
+      projectionStatus: 'pinned',
+      sourceBlockId: 'rest',
+      availableActions: ['unpin', 'move'],
+    });
+    expect(projection.conflictWarnings).toEqual([]);
+    expect(projection.repairNotes).toEqual([]);
+  });
+
+  it('does not warn for soft same-day personal events on pinned sessions', () => {
+    const plan = createPplPlan({
+      sessionPreferences: [
+        {
+          id: 'pin-cardio',
+          localDate: '2026-04-15',
+          blockIds: ['easy-cardio'],
+          status: 'pinned',
+        },
+      ],
+    });
+    const projection = deriveCoachProjection({
+      plan,
+      planningDateLocal: '2026-04-15',
+      recentSessions: [],
+      upcomingEvents: [
+        {
+          kind: 'personal',
+          title: 'Dinner plans',
+          localDate: '2026-04-15',
+          startsAt: '2026-04-15T23:00:00.000Z',
+          durationMinutes: 120,
+          tags: ['busy'],
+          notes: 'Keep the workout short today.',
+        },
+      ],
+    });
+
+    expect(projection.sessions[0]).toMatchObject({
+      status: 'pinned',
+      projectionStatus: 'pinned',
+      localDate: '2026-04-15',
+    });
+    expect(projection.conflictWarnings).toEqual([]);
+    expect(projection.repairNotes).toEqual([]);
+  });
+
+  it('warns for hard same-day blockers on pinned sessions', () => {
+    const plan = createPplPlan({
+      sessionPreferences: [
+        {
+          id: 'pin-push',
+          localDate: '2026-04-15',
+          blockIds: ['push'],
+          status: 'pinned',
+        },
+      ],
+    });
+    const projection = deriveCoachProjection({
+      plan,
+      planningDateLocal: '2026-04-15',
+      recentSessions: [],
+      upcomingEvents: [
+        {
+          kind: 'travel',
+          title: 'Flight to NYC',
+          localDate: '2026-04-15',
+          startsAt: '2026-04-15T12:00:00.000Z',
+          durationMinutes: 180,
+        },
+      ],
+    });
+
+    expect(projection.sessions[0]).toMatchObject({
+      status: 'conflict',
+      projectionStatus: 'pinned',
+      localDate: '2026-04-15',
+    });
+    expect(projection.conflictWarnings[0]).toMatchObject({
+      kind: 'planned-event-conflict',
+      message: 'Push on Wed, Apr 15 overlaps Flight to NYC.',
+      eventTitle: 'Flight to NYC',
       actions: ['keep-pinned', 'move', 'unpin'],
     });
   });

@@ -16,13 +16,13 @@ import {
 describe('mobile debug MCP contracts', () => {
   it('keeps stable tool names parseable', () => {
     expect(mobileDebugToolNameSchema.parse('get_app_state')).toBe(
-      'get_app_state',
+      'get_app_state'
     );
     expect(mobileDebugToolNameSchema.parse('generate_workout')).toBe(
-      'generate_workout',
+      'generate_workout'
     );
     expect(mobileDebugToolNameSchema.safeParse('run_javascript').success).toBe(
-      false,
+      false
     );
   });
 
@@ -102,7 +102,7 @@ describe('mobile debug MCP contracts', () => {
     });
 
     expect(parsed.preferences.trainingBlueprint?.templateId).toBe(
-      'ppl-conditioning',
+      'ppl-conditioning'
     );
   });
 
@@ -165,10 +165,10 @@ describe('mobile debug MCP contracts', () => {
     expect(
       mobileDebugResetInputSchema.safeParse({
         confirm: MOBILE_DEBUG_MCP_RESET_CONFIRMATION,
-      }).success,
+      }).success
     ).toBe(true);
     expect(
-      mobileDebugResetInputSchema.safeParse({ confirm: 'yes' }).success,
+      mobileDebugResetInputSchema.safeParse({ confirm: 'yes' }).success
     ).toBe(false);
   });
 });
@@ -185,7 +185,7 @@ describe('mobile debug MCP redaction', () => {
 
   it('redacts bearer tokens and cookie values inside strings', () => {
     const result = redactSensitiveString(
-      'Authorization: Bearer abc.def.ghi Cookie: better-auth.session=secret; other=value',
+      'Authorization: Bearer abc.def.ghi Cookie: better-auth.session=secret; other=value'
     );
 
     expect(result).toContain(`Bearer ${REDACTED_SECRET}`);
@@ -217,6 +217,52 @@ describe('mobile debug MCP redaction', () => {
           authorization: REDACTED_SECRET,
           safe: 'visible',
         },
+      },
+    });
+  });
+
+  it('redacts explicit BYOK header names without redacting coach identity keys', () => {
+    const result = redactDebugValue({
+      headers: {
+        'x-openai-key': 'sk-openai-secret',
+        'x-gemini-key': 'gemini-secret',
+        'x-ai-key': 'generic-secret',
+        'x-ai-provider': 'openai',
+      },
+      sessionIdentityKey: 'ordered:push:1',
+      blockKey: 'push-main-press',
+    });
+
+    expect(result).toEqual({
+      headers: {
+        'x-openai-key': REDACTED_SECRET,
+        'x-gemini-key': REDACTED_SECRET,
+        'x-ai-key': REDACTED_SECRET,
+        'x-ai-provider': 'openai',
+      },
+      sessionIdentityKey: 'ordered:push:1',
+      blockKey: 'push-main-press',
+    });
+  });
+
+  it('preserves non-secret coach identity keys', () => {
+    const result = redactDebugValue({
+      sessionIdentityKey: 'ordered:push:1',
+      blockKey: 'push-main-press',
+      coachProgramAttribution: {
+        sourceBlockId: 'push',
+        addOnBlockIds: ['easy-cardio'],
+        templateId: 'ppl-conditioning',
+      },
+    });
+
+    expect(result).toEqual({
+      sessionIdentityKey: 'ordered:push:1',
+      blockKey: 'push-main-press',
+      coachProgramAttribution: {
+        sourceBlockId: 'push',
+        addOnBlockIds: ['easy-cardio'],
+        templateId: 'ppl-conditioning',
       },
     });
   });

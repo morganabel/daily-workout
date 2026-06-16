@@ -94,6 +94,54 @@ describe('SettingsScreen profile summary', () => {
     );
   });
 
+  it('keeps commitments and events out of profile settings', async () => {
+    const plan = createAdaptiveTrainingPlanFromTemplate('ppl-conditioning', {
+      id: 'plan-ppl',
+      activeFrom: '2026-04-15',
+      updatedAt: '2026-04-15T12:00:00.000Z',
+    });
+    if (!plan) {
+      throw new Error('Expected adaptive plan');
+    }
+
+    mockUserRepository.getPreferences.mockResolvedValue({
+      equipment: ['Gym'],
+      injuries: [],
+      focusBias: [],
+      avoid: [],
+      aiFeaturesEnabled: true,
+      adaptiveTrainingPlan: {
+        ...plan,
+        sessionPreferences: [
+          {
+            id: 'pin:0:push',
+            localDate: '2026-05-01',
+            blockIds: ['push'],
+            status: 'pinned',
+            note: 'Locked in',
+          },
+        ],
+      },
+    });
+
+    const screen = render(<SettingsScreen />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Equipment')).toBeTruthy();
+    });
+
+    expect(screen.queryByText('Commitments & events')).toBeNull();
+    expect(screen.queryByText('Manage commitments')).toBeNull();
+    expect(screen.queryByText('Pinned sessions')).toBeNull();
+    expect(screen.queryByText('Major events')).toBeNull();
+    // Internal strategy mechanics must never become required user choices.
+    expect(screen.queryByText(/ordered rotation/i)).toBeNull();
+    expect(screen.queryByText(/weekly target balance/i)).toBeNull();
+    expect(screen.queryByText(/minimum effective dose/i)).toBeNull();
+    expect(screen.queryByText(/event[- ]prep/i)).toBeNull();
+    expect(screen.queryByText(/schedule strategy/i)).toBeNull();
+  });
+
   it('saves catalog-only workout creation mode', async () => {
     mockUserRepository.getPreferences.mockResolvedValue({
       equipment: ['Bodyweight'],

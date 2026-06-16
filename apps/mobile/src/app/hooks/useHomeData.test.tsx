@@ -2,6 +2,7 @@ import { renderHook, act, waitFor } from '@testing-library/react-native';
 import NetInfo from '@react-native-community/netinfo';
 import {
   createAdaptiveTrainingPlanFromTemplate,
+  type CoachSessionAction,
   type QuickActionPreset,
   type TodayPlan,
 } from '@workout-agent/shared';
@@ -303,6 +304,51 @@ describe('useHomeData', () => {
       expect(result.current.adaptiveRecommendation?.addOnBlockIds).toContain(
         'easy-cardio'
       );
+    });
+  });
+
+  it('builds projected-session requests from the projected duration, not available time', async () => {
+    const plan = createAdaptiveTrainingPlanFromTemplate('ppl-conditioning', {
+      id: 'plan-ppl',
+      activeFrom: '2026-04-15',
+      updatedAt: '2026-04-15T12:00:00.000Z',
+    });
+    if (!plan) {
+      throw new Error('Expected adaptive plan');
+    }
+    mockUserRepository.getPreferences.mockResolvedValue({
+      equipment: ['Gym'],
+      injuries: [],
+      focusBias: [],
+      avoid: [],
+      aiFeaturesEnabled: true,
+      adaptiveTrainingPlan: plan,
+    });
+
+    const { result } = renderHook(() => useHomeData());
+
+    await act(async () => {
+      userStream.emit({});
+    });
+
+    await waitFor(() => {
+      expect(result.current.coachPlan?.nextSession?.id).toEqual(
+        expect.any(String)
+      );
+    });
+
+    await act(async () => {
+      result.current.updateStagedValue('time', '75');
+    });
+
+    await waitFor(() => {
+      const session = result.current.coachPlan?.nextSession;
+      const request = session
+        ? result.current.buildCoachProjectionGenerationRequest(session.id)
+        : null;
+
+      expect(session?.durationMinutes).toBe(50);
+      expect(request?.timeMinutes).toBe(50);
     });
   });
 
@@ -679,5 +725,126 @@ describe('useHomeData', () => {
     } finally {
       jest.useRealTimers();
     }
+  });
+
+  describe('coach plan (local-first)', () => {
+    const loadActivePlan = async () => {
+      const plan = createAdaptiveTrainingPlanFromTemplate('ppl-conditioning', {
+        id: 'plan-ppl',
+        activeFrom: '2026-04-15',
+        updatedAt: '2026-04-15T12:00:00.000Z',
+      });
+      if (!plan) {
+        throw new Error('Expected adaptive plan');
+      }
+      mockUserRepository.getPreferences.mockResolvedValue({
+        equipment: ['Gym'],
+        injuries: [],
+        focusBias: [],
+        avoid: [],
+        aiFeaturesEnabled: true,
+        adaptiveTrainingPlan: plan,
+      });
+
+      const view = renderHook(() => useHomeData());
+      await act(async () => {
+        userStream.emit({});
+      });
+      await waitFor(() => {
+        expect(view.result.current.coachProjection?.planId).toBe('plan-ppl');
+      });
+      return view;
+    };
+
+    it('derives a UI-ready coach plan from local data without a backend snapshot', async () => {
+      const originalFetch = global.fetch;
+      const fetchSpy = jest.fn();
+      global.fetch = fetchSpy as never;
+
+      try {
+        const { result } = await loadActivePlan();
+
+        expect(result.current.coachPlan).not.toBeNull();
+        expect(result.current.coachPlan?.nextSession).not.toBeNull();
+        expect(
+          result.current.coachPlan?.upcomingSessions.length
+        ).toBeGreaterThan(0);
+        // Local repositories/selectors only — no authoritative backend snapshot.
+        expect(fetchSpy).not.toHaveBeenCalled();
+        expect(
+          mockCoachSessionActionRepository.observeActionsForProgram
+        ).toHaveBeenCalledWith('plan-ppl');
+      } finally {
+        global.fetch = originalFetch;
+      }
+    });
+
+    it('keeps skipped sessions out of the Home coach preview', async () => {
+      const { result } = await loadActivePlan();
+      const sessionToSkip = result.current.coachProjection?.sessions.find(
+        (session) => session.sourceBlockId
+      );
+      if (!sessionToSkip) {
+        throw new Error('Expected a skippable projected session');
+      }
+
+      const skipAction: CoachSessionAction = {
+        id: 'skip-action',
+        actionKind: 'skip',
+        programId: 'plan-ppl',
+        programVersion: sessionToSkip.programVersion,
+        strategy: sessionToSkip.strategy,
+        cycleIndex: sessionToSkip.cycleIndex,
+        sessionIdentityKey: sessionToSkip.sessionIdentityKey,
+        projectionId: sessionToSkip.id,
+        sourceBlockId: sessionToSkip.sourceBlockId,
+        projectedLocalDate: sessionToSkip.localDate,
+        actionLocalDate: result.current.planningDateLocal,
+        createdAt: '2026-04-15T12:00:00.000Z',
+      };
+
+      await act(async () => {
+        coachSessionActionStream.emit([skipAction]);
+      });
+
+      await waitFor(() => {
+        expect(
+          result.current.coachProjection?.sessions.some(
+            (session) => session.status === 'skipped'
+          )
+        ).toBe(true);
+      });
+      expect(result.current.coachPlan?.nextSession?.status).not.toBe('skipped');
+      expect(
+        result.current.coachPlan?.upcomingSessions.every(
+          (session) => session.status !== 'skipped'
+        )
+      ).toBe(true);
+    });
+
+    it('builds a generation request that carries the projected session coach intent', async () => {
+      const { result } = await loadActivePlan();
+
+      const session = result.current.coachProjection?.sessions.find(
+        (entry) =>
+          entry.sourceBlockId &&
+          entry.localDate !== result.current.planningDateLocal
+      );
+      if (!session) {
+        throw new Error('Expected a future generatable projected session');
+      }
+
+      const request = result.current.buildCoachProjectionGenerationRequest(
+        session.id
+      );
+      expect(request?.adaptivePlanIntent?.projectionId).toBe(session.id);
+      expect(request?.adaptivePlanIntent?.primaryBlock.blockId).toBe(
+        session.sourceBlockId
+      );
+      expect(request?.planningDateLocal).toBe(session.localDate);
+      expect(request?.adaptivePlanIntent?.planningDateLocal).toBe(
+        session.localDate
+      );
+    });
   });
 });

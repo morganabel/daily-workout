@@ -333,6 +333,124 @@ const findActionForSessionIdentity = (
     ].join('|')
   );
 
+const getUniqueSessionActions = (
+  actions: Iterable<CoachSessionAction>
+): CoachSessionAction[] => {
+  const uniqueActions = new Map<string, CoachSessionAction>();
+  [...actions].forEach((action) => {
+    uniqueActions.set(
+      action.id ??
+        [
+          action.programId,
+          action.programVersion,
+          action.cycleIndex,
+          action.sessionIdentityKey,
+        ].join('|'),
+      action
+    );
+  });
+  return [...uniqueActions.values()];
+};
+
+const getActionsByProjectedDate = (
+  actions: CoachSessionAction[]
+): Map<string, CoachSessionAction[]> => {
+  const map = new Map<string, CoachSessionAction[]>();
+  actions.forEach((action) => {
+    const items = map.get(action.projectedLocalDate) ?? [];
+    items.push(action);
+    map.set(action.projectedLocalDate, items);
+  });
+  return map;
+};
+
+const parsePositiveOrdinal = (value: string): number | undefined => {
+  const ordinal = Number.parseInt(value, 10);
+  return Number.isInteger(ordinal) && ordinal > 0 ? ordinal : undefined;
+};
+
+const getActionOrdinalKey = (
+  strategy: CoachScheduleStrategy,
+  action: CoachSessionAction
+):
+  | { sourceBlockId: string; ordinal: number; targetId?: string }
+  | undefined => {
+  const { sourceBlockId, sessionIdentityKey } = action;
+  if (!sourceBlockId) {
+    return undefined;
+  }
+
+  if (strategy === 'ordered-rotation') {
+    const prefix = `ordered:${sourceBlockId}:`;
+    if (!sessionIdentityKey.startsWith(prefix)) {
+      return undefined;
+    }
+    const ordinal = parsePositiveOrdinal(
+      sessionIdentityKey.slice(prefix.length)
+    );
+    return ordinal ? { sourceBlockId, ordinal } : undefined;
+  }
+
+  if (strategy === 'weekly-target-balance') {
+    const prefix = 'target:';
+    if (!sessionIdentityKey.startsWith(prefix)) {
+      return undefined;
+    }
+
+    const remainder = sessionIdentityKey.slice(prefix.length);
+    const ordinalSeparator = remainder.lastIndexOf(':');
+    if (ordinalSeparator < 0) {
+      return undefined;
+    }
+
+    const ordinal = parsePositiveOrdinal(remainder.slice(ordinalSeparator + 1));
+    const targetAndBlock = remainder.slice(0, ordinalSeparator);
+    const blockSuffix = `:${sourceBlockId}`;
+    if (!ordinal || !targetAndBlock.endsWith(blockSuffix)) {
+      return undefined;
+    }
+
+    return {
+      sourceBlockId,
+      ordinal,
+      targetId: targetAndBlock.slice(0, -blockSuffix.length),
+    };
+  }
+
+  return undefined;
+};
+
+const commitActionOrdinal = (
+  context: ProjectionContext,
+  action: CoachSessionAction
+): void => {
+  const key = getActionOrdinalKey(context.strategy, action);
+  if (!key) {
+    return;
+  }
+
+  const countKey = makeOrdinalKey(
+    context.strategy,
+    action.cycleIndex,
+    key.sourceBlockId,
+    key.targetId
+  );
+  context.projectedOrdinalCounts.set(
+    countKey,
+    Math.max(context.projectedOrdinalCounts.get(countKey) ?? 0, key.ordinal)
+  );
+};
+
+const consumeActionsProjectedForDate = (
+  context: ProjectionContext,
+  actionsByProjectedDate: Map<string, CoachSessionAction[]>,
+  localDate: string
+): void => {
+  actionsByProjectedDate
+    .get(localDate)
+    ?.forEach((action) => commitActionOrdinal(context, action));
+};
+
 const getActiveSessionActions = (
   plan: AdaptiveTrainingPlan,
   strategy: CoachScheduleStrategy,
@@ -354,19 +472,97 @@ const getPinnedPreferencesForDate = (
       preference.status === 'pinned' && preference.localDate === localDate
   );
 
+const HARD_CONSTRAINT_EVENT_KINDS = new Set([
+  'travel',
+  'flight',
+  'medical',
+  'appointment',
+  'sport',
+  'race',
+  'competition',
+  'tournament',
+]);
+
+const HARD_CONSTRAINT_TERMS = [
+  'airport',
+  "can't train",
+  'cannot train',
+  'cant train',
+  'competition',
+  'conference',
+  'doctor',
+  'flight',
+  'fresh for',
+  'game',
+  'keep fresh',
+  'long drive',
+  'medical',
+  'moving',
+  'must be fresh',
+  'no gym',
+  'no training',
+  'no workout',
+  'offsite',
+  'protect',
+  'race',
+  'tournament',
+  'travel',
+  'wedding',
+];
+
+const normalizeConstraintText = (value: string): string =>
+  normalizeTag(value).replace(/\s+/g, ' ').trim();
+
+const getEventConstraintText = (event: UpcomingEventContext): string =>
+  [
+    event.kind,
+    event.title,
+    event.intensity,
+    event.notes,
+    ...(event.tags ?? []),
+  ]
+    .filter((value): value is string => Boolean(value))
+    .map(normalizeConstraintText)
+    .join(' ');
+
+const isHardConstraintEvent = (event: UpcomingEventContext): boolean => {
+  const kind = normalizeConstraintText(event.kind);
+  if (kind === 'rest') {
+    return false;
+  }
+
+  if (event.allDay) {
+    return true;
+  }
+
+  if (HARD_CONSTRAINT_EVENT_KINDS.has(kind)) {
+    return true;
+  }
+
+  if (event.intensity === 'high') {
+    return true;
+  }
+
+  if ((event.durationMinutes ?? 0) >= 240) {
+    return true;
+  }
+
+  const constraintText = getEventConstraintText(event);
+  return HARD_CONSTRAINT_TERMS.some((term) => constraintText.includes(term));
+};
+
 const getConflictingEvents = (
   localDate: string,
   events: UpcomingEventContext[]
 ): UpcomingEventContext[] =>
   events.filter(
-    (event) =>
-      event.localDate === localDate &&
-      event.kind.trim().toLowerCase() !== 'rest'
+    (event) => event.localDate === localDate && isHardConstraintEvent(event)
   );
 
 const createPinnedConflictWarning = (
   projectionId: string,
   localDate: string,
+  blockLabel: string,
   event: UpcomingEventContext
 ): CoachProjectionConflictWarning => ({
   id: `${projectionId}:conflict:${hashString(
@@ -375,11 +571,25 @@ const createPinnedConflictWarning = (
   projectionId,
   localDate,
   kind: 'planned-event-conflict',
-  message: `Pinned session conflicts with ${event.title}.`,
+  message: `${blockLabel} on ${formatProjectionDate(
+    localDate
+  )} overlaps ${event.title}.`,
   eventTitle: event.title,
   eventLocalDate: event.localDate,
   actions: ['keep-pinned', 'move', 'unpin'],
 });
+
+const formatProjectionDate = (localDate: string): string => {
+  const [year, month, day] = localDate.split('-').map(Number);
+  if (!year || !month || !day) {
+    return localDate;
+  }
+  return new Date(year, month - 1, day).toLocaleDateString([], {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+  });
+};
 
 const finalizeDraft = (draft: ProjectionDraft): CoachProjectedSession => ({
   ...draft,
@@ -431,23 +641,24 @@ const createPinnedSessions = (
       ],
       coachNotes: ['Pinned sessions are preserved until you change them.'],
       conflictWarningIds: [],
-      availableActions: ['unpin', 'move', 'generate'],
+      availableActions: isRestLikeBlock(primaryBlock)
+        ? ['unpin', 'move']
+        : ['unpin', 'move', 'generate'],
     });
 
-    const conflicts = getConflictingEvents(
-      localDate,
-      context.input.upcomingEvents ?? []
-    );
+    const conflicts = isRestLikeBlock(primaryBlock)
+      ? []
+      : getConflictingEvents(localDate, context.input.upcomingEvents ?? []);
     if (!conflicts.length) {
       return [draft];
     }
 
     const warnings = conflicts.map((event) =>
-      createPinnedConflictWarning(draft.id, localDate, event)
+      createPinnedConflictWarning(draft.id, localDate, primaryBlock.label, event)
     );
     context.conflictWarnings.push(...warnings);
     context.repairNotes.add(
-      'Pinned sessions with calendar conflicts need your decision.'
+      'Some pinned workouts overlap hard calendar constraints.'
     );
 
     return [
@@ -548,21 +759,7 @@ const createSkippedSessions = (
   context: ProjectionContext,
   actionByIdentity: Map<string, CoachSessionAction>
 ): CoachProjectedSession[] => {
-  const uniqueActions = new Map<string, CoachSessionAction>();
-  actionByIdentity.forEach((action) => {
-    uniqueActions.set(
-      action.id ??
-        [
-          action.programId,
-          action.programVersion,
-          action.cycleIndex,
-          action.sessionIdentityKey,
-        ].join('|'),
-      action
-    );
-  });
-
-  return [...uniqueActions.values()]
+  return getUniqueSessionActions(actionByIdentity.values())
     .filter(
       (action) =>
         action.programId === context.input.plan.id &&
@@ -698,6 +895,7 @@ const getRotationBlockIds = (plan: AdaptiveTrainingPlan): string[] => {
 const deriveOrderedRotationSessions = (
   context: ProjectionContext,
   actionByIdentity: Map<string, CoachSessionAction>,
+  actionsByProjectedDate: Map<string, CoachSessionAction[]>,
   completedOccurrences: CompletedOccurrence[]
 ): CoachProjectedSession[] => {
   const sessions: CoachProjectedSession[] = [];
@@ -731,6 +929,11 @@ const deriveOrderedRotationSessions = (
       sourceDate
     );
     if (pinnedPreferences.length) {
+      consumeActionsProjectedForDate(
+        context,
+        actionsByProjectedDate,
+        sourceDate
+      );
       emitPinnedSessionsForDate(context, sessions, sourceDate, withinWindow);
       const pinnedBlockId = pinnedPreferences[0]?.blockIds[0];
       if (pinnedBlockId && rotationBlockIds.includes(pinnedBlockId)) {
@@ -864,7 +1067,8 @@ const getBestWeeklyBalanceBlock = (
 const deriveWeeklyBalanceSessions = (
   context: ProjectionContext,
   targetProgress: AdaptivePlanTargetProgress[],
-  actionByIdentity: Map<string, CoachSessionAction>
+  actionByIdentity: Map<string, CoachSessionAction>,
+  actionsByProjectedDate: Map<string, CoachSessionAction[]>
 ): CoachProjectedSession[] => {
   const sessions: CoachProjectedSession[] = [];
   const targetCounts = countTargetProgress(targetProgress);
@@ -875,6 +1079,11 @@ const deriveWeeklyBalanceSessions = (
       sourceDate
     );
     if (pinnedPreferences.length) {
+      consumeActionsProjectedForDate(
+        context,
+        actionsByProjectedDate,
+        sourceDate
+      );
       emitPinnedSessionsForDate(context, sessions, sourceDate, withinWindow);
       const pinnedBlock = pinnedPreferences[0]?.blockIds[0]
         ? getBlockById(context.input.plan, pinnedPreferences[0].blockIds[0])
@@ -1017,6 +1226,9 @@ export const deriveCoachProjection = (
     conflictWarnings: [],
   };
   const actionByIdentity = getActionByIdentity(activeSessionActions);
+  const actionsByProjectedDate = getActionsByProjectedDate(
+    getUniqueSessionActions(activeSessionActions)
+  );
   const skippedSessions = createSkippedSessions(context, actionByIdentity);
   skippedSessions.forEach((session) => {
     context.occupiedDates.add(session.localDate);
@@ -1027,9 +1239,15 @@ export const deriveCoachProjection = (
       ? deriveOrderedRotationSessions(
           context,
           actionByIdentity,
+          actionsByProjectedDate,
           completedOccurrences
         )
-      : deriveWeeklyBalanceSessions(context, targetProgress, actionByIdentity);
+      : deriveWeeklyBalanceSessions(
+          context,
+          targetProgress,
+          actionByIdentity,
+          actionsByProjectedDate
+        );
 
   const sessions = sortSessions([...skippedSessions, ...projectedSessions]);
   const todaySessionId = sessions.find(

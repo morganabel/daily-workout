@@ -10,7 +10,9 @@ import type {
   AdaptiveTrainingPlan,
   CoachProjection,
   CoachProjectedSession,
+  CoachProjectionConflictWarning,
   CoachSessionAction,
+  GenerationRequest,
   GenerationStatus,
   OfflineHint,
   TodayPlan,
@@ -18,6 +20,7 @@ import type {
   QuickActionPreset,
   UpcomingEventContext,
   UserPreferences,
+  WorkoutEnergy,
   WorkoutSessionSummary,
 } from '@workout-agent/shared';
 import NetInfo from '@react-native-community/netinfo';
@@ -29,6 +32,7 @@ import type Workout from '../db/models/Workout';
 import { formatLocalDate, parseLocalDate } from '../utils/date';
 import { resolveAdaptiveTrainingRecommendation } from '../services/adaptiveTrainingPlanResolver';
 import { deriveCoachProjection } from '../services/coachProjectionResolver';
+import { buildCoachProjectionGenerationRequest as buildCoachProjectionGenerationRequestFromSession } from '../services/coachProjectionGenerationRequest';
 
 const buildQuickActionsFromPreferences = (
   prefs: UserPreferences
@@ -153,6 +157,24 @@ const plansMatchDisplayedContent = (
     left.summary === right.summary &&
     equipmentSelectionsEqual(left.equipment, right.equipment));
 
+/**
+ * UI-ready view of the coach projection for the Home surface. Derived locally
+ * from {@link CoachProjection}; surfaces the single next action plus a compact
+ * upcoming list so screens do not have to re-derive ordering or status.
+ */
+export type HomeCoachPlanView = {
+  /** Today's session if present, otherwise the next actionable future session. */
+  nextSession: CoachProjectedSession | null;
+  /** Concise rationale message for the next session, if any. */
+  nextActionRationale: string | null;
+  /** Remaining projected sessions in date order, excluding the next session. */
+  upcomingSessions: CoachProjectedSession[];
+  /** Plan-level repair notes surfaced when projection output changed. */
+  repairNotes: string[];
+  /** Outstanding conflict warnings (e.g. a planned event over a pinned session). */
+  conflictWarnings: CoachProjectionConflictWarning[];
+};
+
 export type HomeDataState = {
   status: 'loading' | 'ready' | 'error';
   planningDateLocal: string;
@@ -190,6 +212,7 @@ export function useHomeData(): HomeDataState & {
   ) => void;
   clearStagedValues: () => void;
   setGenerationStatus: (status: GenerationStatus) => void;
+  coachPlan: HomeCoachPlanView | null;
   skipCoachProjectionSession: (projectionId: string) => Promise<void>;
   pinCoachProjectionSession: (projectionId: string) => Promise<void>;
   unpinCoachProjectionSession: (projectionId: string) => Promise<void>;
@@ -197,6 +220,14 @@ export function useHomeData(): HomeDataState & {
     projectionId: string,
     localDate: string
   ) => Promise<void>;
+  buildCoachProjectionGenerationRequest: (
+    projectionId: string,
+    overrides?: {
+      durationMinutes?: number;
+      energy?: WorkoutEnergy;
+      equipment?: string[];
+    }
+  ) => GenerationRequest | null;
 } {
   const initialStatus: GenerationStatus = {
     state: 'idle',
@@ -755,6 +786,89 @@ export function useHomeData(): HomeDataState & {
     [getProjectionSession, upsertPinnedSessionPreference]
   );
 
+  // Builds the generation request for a projected session locally so the UI can
+  // generate a concrete workout that carries the session's coach intent. Returns
+  // null when the session has no generatable source block (e.g. a rest day).
+  const buildCoachProjectionGenerationRequest = useCallback(
+    (
+      projectionId: string,
+      overrides?: {
+        durationMinutes?: number;
+        energy?: WorkoutEnergy;
+        equipment?: string[];
+      }
+    ): GenerationRequest | null => {
+      const adaptivePlan = state.adaptivePlan;
+      const projection = state.coachProjection;
+      const session = getProjectionSession(projectionId);
+      if (!adaptivePlan || !projection || !session) {
+        return null;
+      }
+
+      return buildCoachProjectionGenerationRequestFromSession({
+        plan: adaptivePlan,
+        projection,
+        session,
+        planningDateLocal: session.localDate,
+        durationMinutes: overrides?.durationMinutes,
+        energy: overrides?.energy,
+        equipment: overrides?.equipment,
+      });
+    },
+    [
+      getProjectionSession,
+      state.adaptivePlan,
+      state.coachProjection,
+    ]
+  );
+
+  // UI-ready coach plan: the single next action plus a compact upcoming list,
+  // repair notes, and conflict warnings. Derived locally from the projection so
+  // screens render coach state without re-deriving ordering or status.
+  const coachPlan = useMemo<HomeCoachPlanView | null>(() => {
+    const projection = state.coachProjection;
+    if (!projection) {
+      return null;
+    }
+
+    const orderedSessions = [...projection.sessions].sort((left, right) =>
+      left.localDate.localeCompare(right.localDate)
+    );
+
+    const isVisibleCoachSession = (session: (typeof orderedSessions)[number]) =>
+      session.status !== 'skipped' &&
+      session.localDate >= state.planningDateLocal;
+
+    const todaySession = projection.todaySessionId
+      ? orderedSessions.find(
+          (session) =>
+            session.id === projection.todaySessionId &&
+            isVisibleCoachSession(session)
+        ) ?? null
+      : null;
+    const nextFutureSession =
+      orderedSessions.find((session) => isVisibleCoachSession(session)) ?? null;
+    const nextSession = todaySession ?? nextFutureSession;
+
+    const upcomingSessions = orderedSessions.filter(
+      (session) =>
+        isVisibleCoachSession(session) && session.id !== nextSession?.id
+    );
+
+    const nextActionRationale =
+      nextSession?.rationale.find((entry) => entry.message)?.message ??
+      nextSession?.coachNotes.find((note) => note) ??
+      null;
+
+    return {
+      nextSession,
+      nextActionRationale,
+      upcomingSessions,
+      repairNotes: projection.repairNotes,
+      conflictWarnings: projection.conflictWarnings,
+    };
+  }, [state.coachProjection, state.planningDateLocal]);
+
   const updateStagedValue = useCallback(
     (actionKey: QuickActionKey, stagedValue: string | null) => {
       setStagedValues((prev) => {
@@ -805,9 +919,11 @@ export function useHomeData(): HomeDataState & {
     updateStagedValue,
     clearStagedValues,
     setGenerationStatus,
+    coachPlan,
     skipCoachProjectionSession,
     pinCoachProjectionSession,
     unpinCoachProjectionSession,
     moveCoachProjectionSession,
+    buildCoachProjectionGenerationRequest,
   };
 }

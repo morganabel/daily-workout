@@ -262,6 +262,27 @@ const setProfilePreferences = async (input: unknown) => {
   };
 };
 
+const assertDebugWorkoutsPersisted = async (
+  createdIds: string[]
+): Promise<void> => {
+  if (!createdIds.length) {
+    return;
+  }
+
+  const recentWorkouts = await workoutRepository.listRecentSessions(
+    Math.max(createdIds.length, 50),
+    { includeArchived: true }
+  );
+  const persistedIds = new Set(recentWorkouts.map((workout) => workout.id));
+  const missingIds = createdIds.filter((id) => !persistedIds.has(id));
+
+  if (missingIds.length) {
+    throw new Error(
+      `Debug history mutation did not persist workouts: ${missingIds.join(', ')}`
+    );
+  }
+};
+
 const seedHistory = async (input: unknown) => {
   const parsed = mobileDebugSeedHistoryInputSchema.parse(input);
   const sessions = [];
@@ -271,7 +292,12 @@ const seedHistory = async (input: unknown) => {
     sessions.push(workoutRepository.toSessionSummary(workout));
   }
 
-  return { sessions };
+  await assertDebugWorkoutsPersisted(sessions.map((session) => session.id));
+
+  return {
+    sessions,
+    database: await getDatabaseCounts(),
+  };
 };
 
 const seedPlannedEvents = async (input: unknown) => {
@@ -288,8 +314,12 @@ const seedPlannedEvents = async (input: unknown) => {
 const quickLogWorkoutTool = async (input: unknown) => {
   const parsed = mobileDebugQuickLogInputSchema.parse(input);
   const session = await quickLogWorkout(parsed);
+  await assertDebugWorkoutsPersisted([session.id]);
 
-  return { session };
+  return {
+    session,
+    database: await getDatabaseCounts(),
+  };
 };
 
 const completeWorkout = async (input: unknown) => {

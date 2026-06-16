@@ -21,6 +21,8 @@ const API_BASE_URL =
 // `/api/meta` is stable; keep it fresh-ish but don't spam the server.
 // We use stale-while-revalidate: serve cached value immediately and refresh in background.
 const SERVER_CAPABILITIES_TTL_MS = 10 * 60_000; // 10 minutes
+const LOG_SERVER_CAPABILITIES_FAILURES =
+  process.env.EXPO_PUBLIC_LOG_SERVER_CAPABILITIES_FAILURES === 'true';
 
 let cachedServerCapabilities: {
   data: MetaResponse | null;
@@ -37,7 +39,11 @@ async function refreshServerCapabilities(): Promise<MetaResponse | null> {
     try {
       const response = await fetch(`${API_BASE_URL}/api/meta`);
       if (!response.ok) {
-        console.warn('[auth-client] Failed to fetch server capabilities');
+        if (LOG_SERVER_CAPABILITIES_FAILURES) {
+          console.warn(
+            `[auth-client] Failed to fetch server capabilities: ${response.status}`
+          );
+        }
         // Keep the last known value, but bump timestamp so we don't thrash retries.
         const data = cachedServerCapabilities?.data ?? null;
         cachedServerCapabilities = { data, fetchedAt: Date.now() };
@@ -48,7 +54,9 @@ async function refreshServerCapabilities(): Promise<MetaResponse | null> {
       cachedServerCapabilities = { data, fetchedAt: Date.now() };
       return data;
     } catch (error) {
-      console.warn('[auth-client] Error fetching server capabilities:', error);
+      if (LOG_SERVER_CAPABILITIES_FAILURES) {
+        console.warn('[auth-client] Error fetching server capabilities:', error);
+      }
       // Keep the last known value, but bump timestamp so we don't thrash retries.
       const data = cachedServerCapabilities?.data ?? null;
       cachedServerCapabilities = { data, fetchedAt: Date.now() };

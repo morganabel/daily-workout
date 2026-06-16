@@ -7,9 +7,12 @@ import { userRepository } from './db/repositories/UserRepository';
 import {
   createAdaptiveTrainingPlanFromTemplate,
   type AdaptivePlanRecommendation,
+  type CoachProjectedSession,
+  type GenerationRequest,
   type QuickActionPreset,
   type TodayPlan,
 } from '@workout-agent/shared';
+import type { HomeCoachPlanView } from './hooks/useHomeData';
 import { createTodayPlanFixture } from '@workout-agent/shared/testing';
 
 jest.mock('./hooks/useHomeData', () => ({
@@ -74,6 +77,7 @@ const baseHookState = {
   adaptivePlan: null,
   adaptiveRecommendation: null,
   coachProjection: null,
+  coachPlan: null,
   planningDateLocal: '2026-04-27',
   planningDateTimestamp: new Date('2026-04-27T00:00:00').getTime(),
   recentSessions: [],
@@ -99,6 +103,7 @@ const baseHookState = {
   pinCoachProjectionSession: jest.fn(),
   unpinCoachProjectionSession: jest.fn(),
   moveCoachProjectionSession: jest.fn(),
+  buildCoachProjectionGenerationRequest: jest.fn(() => null),
 };
 
 const createQuickActions = (
@@ -213,6 +218,30 @@ const createRestRecommendationFixture = () => {
   return { plan, recommendation };
 };
 
+const createProjectedSessionFixture = (
+  overrides: Partial<CoachProjectedSession> = {}
+): CoachProjectedSession => ({
+  id: 'proj-1',
+  planId: 'plan-ppl',
+  programVersion: 1,
+  cycleIndex: 0,
+  strategy: 'weekly-target-balance',
+  sessionIdentityKey: 'wtb:pull:1',
+  localDate: '2026-04-29',
+  sourceBlockId: 'pull',
+  addOnBlockIds: [],
+  targetIds: ['cardio'],
+  status: 'projected',
+  projectionStatus: 'projected',
+  blockLabel: 'Pull',
+  durationMinutes: 45,
+  rationale: [],
+  coachNotes: [],
+  conflictWarningIds: [],
+  availableActions: ['generate', 'skip', 'pin', 'move'],
+  ...overrides,
+});
+
 describe('HomeScreen', () => {
   beforeEach(() => {
     jest.useFakeTimers();
@@ -241,7 +270,7 @@ describe('HomeScreen', () => {
     expect(getByText('Auto')).toBeTruthy();
     expect(getByText(/\d+ min/)).toBeTruthy();
     expect(getByText('Bodyweight')).toBeTruthy();
-    expect(getByText("Generate today's workout")).toBeTruthy();
+    expect(getByText("Build today's workout")).toBeTruthy();
   });
 
   it('does not show onboarding prompt for returning users who completed or skipped setup', async () => {
@@ -284,7 +313,7 @@ describe('HomeScreen', () => {
     });
 
     await act(async () => {
-      fireEvent.press(getByText("Generate today's workout"));
+      fireEvent.press(getByText("Build today's workout"));
     });
 
     expect(generateWorkout).toHaveBeenCalledWith(
@@ -313,7 +342,7 @@ describe('HomeScreen', () => {
 
     expect(getByText('COACH RECOMMENDS')).toBeTruthy();
     expect(getByText("Today's Plan")).toBeTruthy();
-    expect(getByText('Your next session is ready.')).toBeTruthy();
+    expect(getByText('Monday, Apr 27')).toBeTruthy();
     expect(getByText('Pull + Easy Cardio')).toBeTruthy();
     expect(getByText('75 min')).toBeTruthy();
     expect(getByText('Gym')).toBeTruthy();
@@ -324,7 +353,7 @@ describe('HomeScreen', () => {
     expect(getByText('Cardio is due this week.')).toBeTruthy();
 
     await act(async () => {
-      fireEvent.press(getByText("Generate today's workout"));
+      fireEvent.press(getByText("Build today's workout"));
     });
 
     expect(generateWorkout).toHaveBeenCalledWith(
@@ -357,6 +386,234 @@ describe('HomeScreen', () => {
     expect(
       request.adaptivePlanIntent.exerciseSlotPolicy.currentAssignments
     ).toEqual([]);
+  });
+
+  it('renders the upcoming coach plan and wires session actions', async () => {
+    const { generateWorkout } = require('./services/api');
+    generateWorkout.mockResolvedValue(createTodayPlanFixture());
+    const { plan, recommendation } = createAdaptivePlanFixture();
+
+    const createProjectedSession = (
+      overrides: Partial<CoachProjectedSession>
+    ): CoachProjectedSession => ({
+      id: 'proj-1',
+      planId: 'plan-ppl',
+      programVersion: 1,
+      cycleIndex: 0,
+      strategy: 'weekly-target-balance',
+      sessionIdentityKey: 'wtb:pull:1',
+      localDate: '2026-04-29',
+      sourceBlockId: 'pull',
+      addOnBlockIds: [],
+      targetIds: ['cardio'],
+      status: 'projected',
+      blockLabel: 'Pull',
+      durationMinutes: 45,
+      rationale: [],
+      coachNotes: [],
+      conflictWarningIds: [],
+      availableActions: ['generate', 'skip', 'pin', 'move'],
+      ...overrides,
+    });
+
+    const coachPlan: HomeCoachPlanView = {
+      nextSession: createProjectedSession({ id: 'proj-today' }),
+      nextActionRationale: 'Legs is pinned for this date.',
+      upcomingSessions: [
+        createProjectedSession({
+          id: 'proj-skipped',
+          localDate: '2026-04-29',
+          blockLabel: 'Skipped Legs',
+          status: 'skipped',
+        }),
+        createProjectedSession({ id: 'proj-2', localDate: '2026-04-30' }),
+        createProjectedSession({
+          id: 'proj-3',
+          localDate: '2026-05-02',
+          blockLabel: 'Long Run',
+          status: 'pinned',
+          sessionIdentityKey: 'pin:0:long-run',
+          availableActions: ['unpin', 'move'],
+        }),
+      ],
+      repairNotes: [],
+      conflictWarnings: [],
+    };
+
+    const pinCoachProjectionSession = jest.fn();
+    const generationRequest: GenerationRequest = {
+      timeMinutes: 45,
+      energy: 'moderate',
+      focus: 'Pull',
+    };
+    const buildCoachProjectionGenerationRequest = jest.fn(
+      () => generationRequest
+    );
+
+    mockUseHomeData.mockReturnValue({
+      ...baseHookState,
+      adaptivePlan: plan,
+      adaptiveRecommendation: recommendation,
+      coachPlan: {
+        ...coachPlan,
+        nextSession: createProjectedSession({
+          id: 'proj-today',
+          availableActions: ['generate', 'pin'],
+        }),
+      },
+      quickActions: createSetupQuickActions({ equipment: 'Gym' }),
+      pinCoachProjectionSession,
+      buildCoachProjectionGenerationRequest,
+    });
+
+    const alertSpy = jest
+      .spyOn(Alert, 'alert')
+      .mockImplementation(() => undefined);
+
+    const { getByText, getByLabelText, queryByText } = render(<HomeScreen />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    // Compact upcoming projection with distinct statuses, no strategy ids.
+    expect(getByText('UP NEXT')).toBeTruthy();
+    expect(getByText('COMING UP')).toBeTruthy();
+    expect(getByText('Long Run')).toBeTruthy();
+    expect(queryByText('Skipped Legs')).toBeNull();
+    expect(queryByText('Pinned')).toBeNull();
+    expect(queryByText('Planned')).toBeNull();
+    expect(queryByText('Legs is pinned for this date.')).toBeNull();
+    expect(queryByText('Coach note')).toBeNull();
+    expect(queryByText(/weekly-target-balance/)).toBeNull();
+    expect(queryByText('Generate this session')).toBeNull();
+    expect(queryByText('Skip')).toBeNull();
+    expect(queryByText('Move to next day')).toBeNull();
+
+    await act(async () => {
+      fireEvent.press(getByText('Build workout'));
+    });
+    expect(buildCoachProjectionGenerationRequest).toHaveBeenCalledWith(
+      'proj-today',
+      expect.objectContaining({ energy: expect.any(String) })
+    );
+
+    fireEvent.press(getByLabelText('Session options'));
+    const optionButtons = alertSpy.mock.calls[0]?.[2] as
+      | Array<{ text: string; onPress?: () => void }>
+      | undefined;
+    optionButtons?.find((button) => button.text === 'Pin')?.onPress?.();
+    expect(pinCoachProjectionSession).toHaveBeenCalledWith('proj-today');
+
+    expect(generateWorkout).toHaveBeenCalledWith(
+      generationRequest,
+      expect.objectContaining({ scheduledDate: expect.any(Number) })
+    );
+
+    alertSpy.mockRestore();
+  });
+
+  it('customizes a projected coach session using that session date and duration', async () => {
+    const { generateWorkout } = require('./services/api');
+    generateWorkout.mockResolvedValue(createTodayPlanFixture());
+    const futureSession = createProjectedSessionFixture({
+      id: 'proj-future',
+      localDate: '2026-04-30',
+      blockLabel: 'Pull',
+      durationMinutes: 50,
+      availableActions: ['generate'],
+    });
+    const projectionRequest: GenerationRequest = {
+      timeMinutes: 50,
+      energy: 'moderate',
+      focus: 'Pull',
+      planningDateLocal: '2026-04-30',
+      adaptivePlanIntent: {
+        planId: 'plan-ppl',
+        programVersion: 1,
+        scheduleStrategy: 'weekly-target-balance',
+        projectionId: 'proj-future',
+        planningDateLocal: '2026-04-30',
+        sessionDisposition: 'projected',
+        primaryBlock: {
+          blockId: 'pull',
+          label: 'Pull',
+          category: 'strength',
+          stressTags: [],
+        },
+        addOnBlocks: [],
+        targetRangeContext: [],
+        rationale: [],
+        repairRationale: [],
+        projectionStatus: 'projected',
+      },
+    };
+    const buildCoachProjectionGenerationRequest = jest.fn(
+      () => projectionRequest
+    );
+    mockUseHomeData.mockReturnValue({
+      ...baseHookState,
+      coachPlan: {
+        nextSession: futureSession,
+        nextActionRationale: null,
+        upcomingSessions: [],
+        repairNotes: [],
+        conflictWarnings: [],
+      },
+      quickActions: createSetupQuickActions({
+        equipment: 'Gym',
+        energy: 'Moderate',
+      }),
+      buildCoachProjectionGenerationRequest,
+    });
+    const alertSpy = jest
+      .spyOn(Alert, 'alert')
+      .mockImplementation(() => undefined);
+
+    const { getByLabelText, getAllByText, getByText } = render(<HomeScreen />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    fireEvent.press(getByLabelText('Session options'));
+    const optionButtons = alertSpy.mock.calls[0]?.[2] as
+      | Array<{ text: string; onPress?: () => void }>
+      | undefined;
+    await act(async () => {
+      optionButtons
+        ?.find((button) => button.text === 'Adjust details')
+        ?.onPress?.();
+      await Promise.resolve();
+    });
+
+    expect(getByText('50')).toBeTruthy();
+    await act(async () => {
+      const buildButtons = getAllByText('Build workout');
+      fireEvent.press(buildButtons[buildButtons.length - 1]);
+    });
+
+    expect(buildCoachProjectionGenerationRequest).toHaveBeenCalledWith(
+      'proj-future',
+      expect.objectContaining({
+        durationMinutes: 50,
+        energy: 'moderate',
+        equipment: ['Gym'],
+      })
+    );
+    expect(generateWorkout).toHaveBeenCalledWith(
+      expect.objectContaining({
+        timeMinutes: 50,
+        focus: 'Pull',
+        planningDateLocal: '2026-04-30',
+        adaptivePlanIntent: expect.objectContaining({
+          projectionId: 'proj-future',
+        }),
+      }),
+      {
+        scheduledDate: new Date('2026-04-30T00:00:00').getTime(),
+      }
+    );
+
+    alertSpy.mockRestore();
   });
 
   it('opens coach customization with Auto selected instead of the recommendation label', async () => {
@@ -404,7 +661,7 @@ describe('HomeScreen', () => {
     fireEvent.press(getByText('Upper Body'));
     fireEvent.press(getByText('Auto'));
     await act(async () => {
-      fireEvent.press(getByText('Apply & Generate'));
+      fireEvent.press(getByText('Apply & build'));
     });
 
     expect(generateWorkout).toHaveBeenCalledWith(
@@ -441,14 +698,14 @@ describe('HomeScreen', () => {
     fireEvent.press(getByText(/60 min/));
     fireEvent.press(getByText('45'));
     await act(async () => {
-      fireEvent.press(getByText('Apply & Generate'));
+      fireEvent.press(getByText('Apply & build'));
     });
 
     expect(generateWorkout).not.toHaveBeenCalled();
     expect(setGenerationStatus).not.toHaveBeenCalledWith(
       expect.objectContaining({ state: 'pending' })
     );
-    expect(getByText('Apply & Generate')).toBeTruthy();
+    expect(getByText('Apply & build')).toBeTruthy();
   });
 
   it('shows rest recommendations as recovery with an escape to choose a workout', async () => {
@@ -467,7 +724,7 @@ describe('HomeScreen', () => {
 
     expect(getByText('COACH RECOMMENDS')).toBeTruthy();
     expect(getByText("Today's Plan")).toBeTruthy();
-    expect(getByText('Recovery is the plan today.')).toBeTruthy();
+    expect(getByText('Monday, Apr 27')).toBeTruthy();
     expect(getByText('Take a rest day')).toBeTruthy();
     expect(
       getByText(
@@ -475,7 +732,7 @@ describe('HomeScreen', () => {
       )
     ).toBeTruthy();
     expect(getByText('Choose a workout instead')).toBeTruthy();
-    expect(queryByText("Generate today's workout")).toBeNull();
+    expect(queryByText("Build today's workout")).toBeNull();
     expect(getByText('Gym')).toBeTruthy();
     expect(getByText('Intense')).toBeTruthy();
   });
@@ -496,7 +753,7 @@ describe('HomeScreen', () => {
     fireEvent.press(getByText(/60 min/));
     fireEvent.press(getByText('45'));
     await act(async () => {
-      fireEvent.press(getByText('Apply & Generate'));
+      fireEvent.press(getByText('Apply & build'));
     });
 
     expect(generateWorkout).toHaveBeenCalledWith(
@@ -525,7 +782,7 @@ describe('HomeScreen', () => {
     fireEvent.press(getByText('Auto'));
     fireEvent.press(getByText('Upper Body'));
     await act(async () => {
-      fireEvent.press(getByText('Apply & Generate'));
+      fireEvent.press(getByText('Apply & build'));
     });
 
     expect(generateWorkout).toHaveBeenCalledWith(
@@ -556,7 +813,7 @@ describe('HomeScreen', () => {
     });
 
     await act(async () => {
-      fireEvent.press(getByText("Generate today's workout"));
+      fireEvent.press(getByText("Build today's workout"));
     });
 
     expect(generateWorkout).toHaveBeenCalledWith(
@@ -590,7 +847,7 @@ describe('HomeScreen', () => {
 
     fireEvent.press(getByText('Dumbbells, Bench'));
     await act(async () => {
-      fireEvent.press(getByText('Apply & Generate'));
+      fireEvent.press(getByText('Apply & build'));
     });
 
     expect(generateWorkout).toHaveBeenCalledWith(
@@ -621,7 +878,7 @@ describe('HomeScreen', () => {
     fireEvent.press(getByText('Dumbbells, Bench'));
     fireEvent.press(getByText('45'));
     await act(async () => {
-      fireEvent.press(getByText('Apply & Generate'));
+      fireEvent.press(getByText('Apply & build'));
     });
 
     expect(generateWorkout).toHaveBeenCalledWith(
@@ -651,7 +908,7 @@ describe('HomeScreen', () => {
     fireEvent.press(getByText('Bodyweight'));
     fireEvent.press(getByText('Cable Machine'));
     await act(async () => {
-      fireEvent.press(getByText('Apply & Generate'));
+      fireEvent.press(getByText('Apply & build'));
     });
 
     expect(generateWorkout).toHaveBeenCalledWith(
@@ -677,7 +934,7 @@ describe('HomeScreen', () => {
     fireEvent.press(getByText('Bodyweight'));
     fireEvent.press(getByText('Gym'));
     await act(async () => {
-      fireEvent.press(getByText('Apply & Generate'));
+      fireEvent.press(getByText('Apply & build'));
     });
 
     expect(generateWorkout).toHaveBeenCalledWith(
@@ -702,7 +959,7 @@ describe('HomeScreen', () => {
     fireEvent.press(getByText('Gym'));
     fireEvent.press(getByText('Cable Machine'));
     await act(async () => {
-      fireEvent.press(getByText('Apply & Generate'));
+      fireEvent.press(getByText('Apply & build'));
     });
 
     expect(generateWorkout).toHaveBeenCalledWith(
@@ -743,7 +1000,7 @@ describe('HomeScreen', () => {
 
     fireEvent.press(getByText('Customize'));
     await act(async () => {
-      fireEvent.press(getByText('Regenerate workout'));
+      fireEvent.press(getByText('Rebuild workout'));
     });
 
     expect(generateWorkout).toHaveBeenCalledWith(
@@ -784,12 +1041,12 @@ describe('HomeScreen', () => {
       await Promise.resolve();
     });
 
-    const generateBtn = getByText("Generate today's workout");
+    const generateBtn = getByText("Build today's workout");
     // Don't await the press fully, just trigger it
     fireEvent.press(generateBtn);
 
     // Should be loading now
-    expect(getByText('Generating...')).toBeTruthy();
+    expect(getByText('Building...')).toBeTruthy();
 
     // Fast-forward time to complete the action
     await act(async () => {
@@ -816,7 +1073,7 @@ describe('HomeScreen', () => {
     });
 
     await act(async () => {
-      fireEvent.press(getByText("Generate today's workout"));
+      fireEvent.press(getByText("Build today's workout"));
       await Promise.resolve();
     });
 
@@ -839,7 +1096,7 @@ describe('HomeScreen', () => {
     });
 
     await act(async () => {
-      fireEvent.press(getByText("Generate today's workout"));
+      fireEvent.press(getByText("Build today's workout"));
       await Promise.resolve();
     });
 
@@ -872,7 +1129,7 @@ describe('HomeScreen', () => {
     });
 
     await act(async () => {
-      fireEvent.press(getByText("Generate today's workout"));
+      fireEvent.press(getByText("Build today's workout"));
       await Promise.resolve();
     });
 
@@ -924,7 +1181,7 @@ describe('HomeScreen', () => {
     });
 
     expect(getByText("TODAY'S WORKOUT")).toBeTruthy();
-    expect(queryByText("Generate today's workout")).toBeNull();
+    expect(queryByText("Build today's workout")).toBeNull();
   });
 
   it('navigates to ActiveWorkout when Start Workout is pressed', async () => {
@@ -977,7 +1234,7 @@ describe('HomeScreen', () => {
     });
 
     fireEvent.press(getByText('Customize'));
-    fireEvent.press(getByText('Regenerate workout'));
+    fireEvent.press(getByText('Rebuild workout'));
 
     expect(getByText('Updating your workout…')).toBeTruthy();
     expect(getByLabelText('Updating workout')).toBeTruthy();
@@ -1024,14 +1281,14 @@ describe('HomeScreen', () => {
     });
 
     fireEvent.press(getByText('Customize'));
-    fireEvent.press(getByText('Regenerate workout'));
+    fireEvent.press(getByText('Rebuild workout'));
 
     // Simulate DB observer transiently emitting no planned workout.
     currentPlan = null;
     rerender(<HomeScreen />);
 
     expect(getByText("TODAY'S WORKOUT")).toBeTruthy();
-    expect(queryByText("Generate today's workout")).toBeNull();
+    expect(queryByText("Build today's workout")).toBeNull();
 
     await act(async () => {
       jest.advanceTimersByTime(300);
@@ -1065,7 +1322,7 @@ describe('HomeScreen', () => {
     });
 
     fireEvent.press(getByText('Customize'));
-    fireEvent.press(getByText('Regenerate workout'));
+    fireEvent.press(getByText('Rebuild workout'));
 
     const start = getByLabelText('Start Workout');
     const customize = getByLabelText('Updating…');
@@ -1104,7 +1361,7 @@ describe('HomeScreen', () => {
     });
 
     fireEvent.press(getByText('Customize'));
-    fireEvent.press(getByText('Regenerate workout'));
+    fireEvent.press(getByText('Rebuild workout'));
     expect(queryByText('Updating your workout…')).toBeTruthy();
 
     await act(async () => {
@@ -1158,7 +1415,7 @@ describe('HomeScreen', () => {
 
     fireEvent.press(getByText('Customize'));
     await act(async () => {
-      fireEvent.press(getByText('Regenerate workout'));
+      fireEvent.press(getByText('Rebuild workout'));
     });
     await act(async () => {
       await Promise.resolve();
@@ -1217,7 +1474,7 @@ describe('HomeScreen', () => {
 
     fireEvent.press(getByText('Customize'));
     await act(async () => {
-      fireEvent.press(getByText('Regenerate workout'));
+      fireEvent.press(getByText('Rebuild workout'));
     });
     await act(async () => {
       await Promise.resolve();
@@ -1225,7 +1482,7 @@ describe('HomeScreen', () => {
 
     fireEvent.press(getByText('Customize'));
     await act(async () => {
-      fireEvent.press(getByText('Regenerate workout'));
+      fireEvent.press(getByText('Rebuild workout'));
     });
 
     expect(generateWorkout).toHaveBeenLastCalledWith(
@@ -1372,7 +1629,7 @@ describe('HomeScreen', () => {
     });
 
     expect(queryByText('Original focus')).toBeNull();
-    expect(getByText("Generate today's workout")).toBeTruthy();
+    expect(getByText("Build today's workout")).toBeTruthy();
   });
 
   it('calls setGenerationStatus with error when regeneration fails', async () => {
@@ -1406,7 +1663,7 @@ describe('HomeScreen', () => {
 
     fireEvent.press(getByText('Customize'));
     await act(async () => {
-      fireEvent.press(getByText('Regenerate workout'));
+      fireEvent.press(getByText('Rebuild workout'));
     });
     await act(async () => {
       await Promise.resolve();
