@@ -185,8 +185,9 @@ export const CustomizeSheet = ({
     const nextEquipment = normalizeEquipmentSelection(
       currentPlan?.equipment ??
         initialEquipment ??
-        (equipmentValue ? parseEquipmentSelection(equipmentValue) : null) ?? [],
-      ['Bodyweight'],
+        (equipmentValue ? parseEquipmentSelection(equipmentValue) : null) ??
+        [],
+      ['Bodyweight']
     );
     const nextEnergy =
       currentPlan?.energy ??
@@ -229,7 +230,7 @@ export const CustomizeSheet = ({
       }
       return normalizeEquipmentSelection(
         [...prev.filter((e) => e !== GYM_EQUIPMENT), value],
-        ['Bodyweight'],
+        ['Bodyweight']
       );
     });
   };
@@ -300,8 +301,12 @@ export const CustomizeSheet = ({
     onSubmit(request);
   };
 
-  const closestDuration = DURATION_OPTIONS.reduce((prev, curr) =>
-    Math.abs(curr - duration) < Math.abs(prev - duration) ? curr : prev
+  const durationOptions = useMemo(
+    () =>
+      Array.from(new Set([...DURATION_OPTIONS, duration])).sort(
+        (left, right) => left - right
+      ),
+    [duration]
   );
 
   return (
@@ -367,11 +372,11 @@ export const CustomizeSheet = ({
                 <View style={styles.section}>
                   <Text style={styles.sectionTitle}>Duration</Text>
                   <View style={styles.segmentedRow}>
-                    {DURATION_OPTIONS.map((mins) => (
+                    {durationOptions.map((mins) => (
                       <SegmentedButton
                         key={mins}
                         label={`${mins}`}
-                        selected={closestDuration === mins}
+                        selected={duration === mins}
                         onPress={() => setDuration(mins)}
                       />
                     ))}

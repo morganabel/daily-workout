@@ -218,6 +218,30 @@ const createRestRecommendationFixture = () => {
   return { plan, recommendation };
 };
 
+const createProjectedSessionFixture = (
+  overrides: Partial<CoachProjectedSession> = {}
+): CoachProjectedSession => ({
+  id: 'proj-1',
+  planId: 'plan-ppl',
+  programVersion: 1,
+  cycleIndex: 0,
+  strategy: 'weekly-target-balance',
+  sessionIdentityKey: 'wtb:pull:1',
+  localDate: '2026-04-29',
+  sourceBlockId: 'pull',
+  addOnBlockIds: [],
+  targetIds: ['cardio'],
+  status: 'projected',
+  projectionStatus: 'projected',
+  blockLabel: 'Pull',
+  durationMinutes: 45,
+  rationale: [],
+  coachNotes: [],
+  conflictWarningIds: [],
+  availableActions: ['generate', 'skip', 'pin', 'move'],
+  ...overrides,
+});
+
 describe('HomeScreen', () => {
   beforeEach(() => {
     jest.useFakeTimers();
@@ -483,6 +507,110 @@ describe('HomeScreen', () => {
     expect(generateWorkout).toHaveBeenCalledWith(
       generationRequest,
       expect.objectContaining({ scheduledDate: expect.any(Number) })
+    );
+
+    alertSpy.mockRestore();
+  });
+
+  it('customizes a projected coach session using that session date and duration', async () => {
+    const { generateWorkout } = require('./services/api');
+    generateWorkout.mockResolvedValue(createTodayPlanFixture());
+    const futureSession = createProjectedSessionFixture({
+      id: 'proj-future',
+      localDate: '2026-04-30',
+      blockLabel: 'Pull',
+      durationMinutes: 50,
+      availableActions: ['generate'],
+    });
+    const projectionRequest: GenerationRequest = {
+      timeMinutes: 50,
+      energy: 'moderate',
+      focus: 'Pull',
+      planningDateLocal: '2026-04-30',
+      adaptivePlanIntent: {
+        planId: 'plan-ppl',
+        programVersion: 1,
+        scheduleStrategy: 'weekly-target-balance',
+        projectionId: 'proj-future',
+        planningDateLocal: '2026-04-30',
+        sessionDisposition: 'projected',
+        primaryBlock: {
+          blockId: 'pull',
+          label: 'Pull',
+          category: 'strength',
+          stressTags: [],
+        },
+        addOnBlocks: [],
+        targetRangeContext: [],
+        rationale: [],
+        repairRationale: [],
+        projectionStatus: 'projected',
+      },
+    };
+    const buildCoachProjectionGenerationRequest = jest.fn(
+      () => projectionRequest
+    );
+    mockUseHomeData.mockReturnValue({
+      ...baseHookState,
+      coachPlan: {
+        nextSession: futureSession,
+        nextActionRationale: null,
+        upcomingSessions: [],
+        repairNotes: [],
+        conflictWarnings: [],
+      },
+      quickActions: createSetupQuickActions({
+        equipment: 'Gym',
+        energy: 'Moderate',
+      }),
+      buildCoachProjectionGenerationRequest,
+    });
+    const alertSpy = jest
+      .spyOn(Alert, 'alert')
+      .mockImplementation(() => undefined);
+
+    const { getByLabelText, getAllByText, getByText } = render(<HomeScreen />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    fireEvent.press(getByLabelText('Session options'));
+    const optionButtons = alertSpy.mock.calls[0]?.[2] as
+      | Array<{ text: string; onPress?: () => void }>
+      | undefined;
+    await act(async () => {
+      optionButtons
+        ?.find((button) => button.text === 'Adjust details')
+        ?.onPress?.();
+      await Promise.resolve();
+    });
+
+    expect(getByText('50')).toBeTruthy();
+    await act(async () => {
+      const buildButtons = getAllByText('Build workout');
+      fireEvent.press(buildButtons[buildButtons.length - 1]);
+    });
+
+    expect(buildCoachProjectionGenerationRequest).toHaveBeenCalledWith(
+      'proj-future',
+      expect.objectContaining({
+        durationMinutes: 50,
+        energy: 'moderate',
+        equipment: ['Gym'],
+      })
+    );
+    expect(generateWorkout).toHaveBeenCalledWith(
+      expect.objectContaining({
+        timeMinutes: 50,
+        focus: 'Pull',
+        planningDateLocal: '2026-04-30',
+        adaptivePlanIntent: expect.objectContaining({
+          projectionId: 'proj-future',
+        }),
+      }),
+      {
+        scheduledDate: new Date('2026-04-30T00:00:00').getTime(),
+      }
     );
 
     alertSpy.mockRestore();

@@ -193,7 +193,7 @@ export const mobileDebugSeedHistoryInputSchema = z
           note: z.string().optional(),
           coachProgramAttribution: coachProgramAttributionSchema.optional(),
         })
-        .strict(),
+        .strict()
     ),
   })
   .strict();
@@ -346,13 +346,19 @@ const secretKeyTerms = [
   'api_key',
   'api-key',
 ] as const;
+const secretExactKeys = new Set(['x-openai-key', 'x-gemini-key', 'x-ai-key']);
 
 const isSecretKey = (key: string): boolean => {
   const normalized = key.toLowerCase();
-  return secretKeyTerms.some((term) => normalized.includes(term));
+  return (
+    secretExactKeys.has(normalized) ||
+    secretKeyTerms.some((term) => normalized.includes(term))
+  );
 };
 
-export function redactSecret(value: string | null | undefined): MobileDebugRedactedSecret {
+export function redactSecret(
+  value: string | null | undefined
+): MobileDebugRedactedSecret {
   if (!value) {
     return { present: false };
   }
@@ -393,6 +399,6 @@ export function redactDebugValue(value: unknown): unknown {
     Object.entries(value).map(([key, item]) => [
       key,
       isSecretKey(key) ? REDACTED_SECRET : redactDebugValue(item),
-    ]),
+    ])
   );
 }

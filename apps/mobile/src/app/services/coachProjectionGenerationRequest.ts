@@ -40,6 +40,10 @@ const toBlockIntent = (
 const resolveSessionDisposition = (
   session: CoachProjectedSession
 ): CoachSessionDisposition => {
+  if (session.projectionStatus === 'pinned') {
+    return 'pinned';
+  }
+
   switch (session.status) {
     case 'pinned':
       return 'pinned';

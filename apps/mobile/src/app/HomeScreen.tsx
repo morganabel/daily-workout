@@ -625,7 +625,7 @@ const CoachSessionRecommendationCard = ({
   isGeneratable: boolean;
   isPending: boolean;
   onGenerate: (projectionId: string) => void;
-  onCustomize: () => void;
+  onCustomize: (session: CoachProjectedSession) => void;
   onSkip: (projectionId: string) => void;
   onPin: (projectionId: string) => void;
   onUnpin: (projectionId: string) => void;
@@ -669,7 +669,7 @@ const CoachSessionRecommendationCard = ({
       [
         {
           text: 'Adjust details',
-          onPress: onCustomize,
+          onPress: () => onCustomize(session),
         },
         ...secondaryActions.map((action) => ({
           text: getCoachSessionActionLabel(action),
@@ -750,7 +750,9 @@ const CoachSessionRecommendationCard = ({
               : 'Build workout'
             : 'Choose a workout instead'
         }
-        onPress={() => (isGeneratable ? onGenerate(session.id) : onCustomize())}
+        onPress={() =>
+          isGeneratable ? onGenerate(session.id) : onCustomize(session)
+        }
         loading={isGeneratable && isPending}
         disabled={isPending}
         icon={
@@ -1221,6 +1223,8 @@ export const HomeScreen = () => {
     local: string;
     timestamp: number;
   } | null>(null);
+  const [customizeProjectionSession, setCustomizeProjectionSession] =
+    useState<CoachProjectedSession | null>(null);
   const [showProfileSetup, setShowProfileSetup] = useState(false);
 
   // Load user profile on mount
@@ -1474,37 +1478,64 @@ export const HomeScreen = () => {
         setPendingPlanSnapshot(null);
         setCustomizeForRegeneration(false);
         setCustomizeTargetDate(null);
+        setCustomizeProjectionSession(null);
       }
     } else {
       const targetDateLocal = customizeTargetDate?.local ?? planningDateLocal;
       const targetTimestamp =
         customizeTargetDate?.timestamp ?? planningDateTimestamp;
-      const adaptivePlanIntent = buildAdaptivePlanIntent(
-        adaptivePlan,
-        adaptiveRecommendation,
-        targetDateLocal
-      );
-      const coachFocusLabel = getAdaptiveRecommendationLabel(
-        adaptivePlan,
-        adaptiveRecommendation
-      );
       const submittedFocus = request.focus ?? focus;
+      const projectedRequest = customizeProjectionSession
+        ? buildCoachProjectionGenerationRequest(customizeProjectionSession.id, {
+            durationMinutes: request.timeMinutes,
+            energy: request.energy,
+            equipment: request.equipment,
+          })
+        : null;
+      const shouldUseProjectionIntent =
+        Boolean(projectedRequest) &&
+        (!request.focus ||
+          request.focus === 'Smart' ||
+          request.focus === projectedRequest?.focus ||
+          request.focus === customizeProjectionSession?.blockLabel);
+      const adaptivePlanIntent = !customizeProjectionSession
+        ? buildAdaptivePlanIntent(
+            adaptivePlan,
+            adaptiveRecommendation,
+            targetDateLocal
+          )
+        : null;
+      const coachFocusLabel = !customizeProjectionSession
+        ? getAdaptiveRecommendationLabel(adaptivePlan, adaptiveRecommendation)
+        : null;
       const shouldUseCoachIntent =
+        !customizeProjectionSession &&
         submittedFocus === 'Smart' &&
         Boolean(adaptivePlanIntent) &&
         (!request.focus ||
           request.focus === 'Smart' ||
           request.focus === adaptivePlanIntent?.primaryBlock.label ||
           request.focus === coachFocusLabel);
-      const generationRequest: GenerationRequest = {
-        ...request,
-        ...(shouldUseCoachIntent && adaptivePlanIntent
+      const generationRequest: GenerationRequest =
+        projectedRequest && shouldUseProjectionIntent
           ? {
-              adaptivePlanIntent,
-              focus: adaptivePlanIntent.primaryBlock.label,
+              ...projectedRequest,
+              ...request,
+              timeMinutes: request.timeMinutes ?? projectedRequest.timeMinutes,
+              energy: request.energy ?? projectedRequest.energy,
+              focus: projectedRequest.focus,
+              planningDateLocal: projectedRequest.planningDateLocal,
+              adaptivePlanIntent: projectedRequest.adaptivePlanIntent,
             }
-          : {}),
-      };
+          : {
+              ...request,
+              ...(shouldUseCoachIntent && adaptivePlanIntent
+                ? {
+                    adaptivePlanIntent,
+                    focus: adaptivePlanIntent.primaryBlock.label,
+                  }
+                : {}),
+            };
 
       if (
         generationRequest.equipment &&
@@ -1567,6 +1598,7 @@ export const HomeScreen = () => {
         setGenerating(false);
         setCustomizeForRegeneration(false);
         setCustomizeTargetDate(null);
+        setCustomizeProjectionSession(null);
       }
     }
   };
@@ -1628,14 +1660,27 @@ export const HomeScreen = () => {
       timestamp: planningDateTimestamp,
     });
     setCustomizeForRegeneration(true);
+    setCustomizeProjectionSession(null);
     setShowCustomizeSheet(true);
   };
 
   const handleOpenSetupCustomize = () => {
     if (refreshPlanningDate()) return;
+    setCustomizeProjectionSession(null);
     setCustomizeTargetDate({
       local: planningDateLocal,
       timestamp: planningDateTimestamp,
+    });
+    setShowCustomizeSheet(true);
+  };
+
+  const handleOpenCoachSessionCustomize = (session: CoachProjectedSession) => {
+    if (refreshPlanningDate()) return;
+    setCustomizeForRegeneration(false);
+    setCustomizeProjectionSession(session);
+    setCustomizeTargetDate({
+      local: session.localDate,
+      timestamp: parseLocalDate(session.localDate).getTime(),
     });
     setShowCustomizeSheet(true);
   };
@@ -1797,7 +1842,7 @@ export const HomeScreen = () => {
               isGeneratable={isCoachNextSessionGeneratable}
               isPending={isPending}
               onGenerate={handleGenerateFromProjection}
-              onCustomize={handleOpenSetupCustomize}
+              onCustomize={handleOpenCoachSessionCustomize}
               onSkip={skipCoachProjectionSession}
               onPin={pinCoachProjectionSession}
               onUnpin={unpinCoachProjectionSession}
@@ -1821,9 +1866,7 @@ export const HomeScreen = () => {
             {!hasRestRecommendation ? (
               <View style={styles.actionContainer}>
                 <Button
-                  label={
-                    isPending ? 'Building...' : "Build today's workout"
-                  }
+                  label={isPending ? 'Building...' : "Build today's workout"}
                   onPress={handleGenerate}
                   loading={isPending}
                   icon={
@@ -1872,21 +1915,26 @@ export const HomeScreen = () => {
         visible={showCustomizeSheet}
         currentPlan={customizeForRegeneration ? activePlan : null}
         loading={generating}
-        initialDuration={displayDuration}
+        initialDuration={
+          customizeProjectionSession?.durationMinutes ?? displayDuration
+        }
         initialEquipment={displayEquipment}
         initialEnergy={
           intensity.toLowerCase() as 'easy' | 'moderate' | 'intense'
         }
-        initialFocus={focus}
+        initialFocus={customizeProjectionSession?.blockLabel ?? focus}
         quickActions={customizeForRegeneration ? undefined : quickActions}
         onUpdateStagedValue={
-          customizeForRegeneration ? undefined : handleUpdateSetupStagedValue
+          customizeForRegeneration || customizeProjectionSession
+            ? undefined
+            : handleUpdateSetupStagedValue
         }
         onSubmit={handleCustomizeSubmit}
         onClose={() => {
           setShowCustomizeSheet(false);
           setCustomizeForRegeneration(false);
           setCustomizeTargetDate(null);
+          setCustomizeProjectionSession(null);
         }}
       />
     </View>
@@ -2167,22 +2215,6 @@ const styles = StyleSheet.create({
   },
   recommendationCustomizeButton: {
     marginTop: 2,
-  },
-  recommendationOptionsButton: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: palette.cardSecondary,
-    borderWidth: 1,
-    borderColor: palette.border,
-  },
-  recommendationOptionsButtonPressed: {
-    opacity: 0.75,
-  },
-  recommendationOptionsButtonDisabled: {
-    opacity: 0.5,
   },
 
   // Generation Inputs

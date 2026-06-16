@@ -104,6 +104,25 @@ describe('buildCoachProjectionGenerationRequest', () => {
     expect(overridden?.equipment).toEqual(['Dumbbells']);
   });
 
+  it('keeps pinned disposition when a pinned session is shown as a conflict', () => {
+    const { plan, projection } = buildPlanAndProjection('2026-04-15');
+    const session = {
+      ...firstGeneratableSession(projection),
+      status: 'conflict' as const,
+      projectionStatus: 'pinned' as const,
+    };
+
+    const intent = buildCoachProjectionAdaptiveIntent({
+      plan,
+      projection,
+      session,
+      planningDateLocal: session.localDate,
+    });
+
+    expect(intent?.sessionDisposition).toBe('pinned');
+    expect(intent?.projectionStatus).toBe('pinned');
+  });
+
   it('returns null when the session has no source block (rest projection)', () => {
     const { plan, projection } = buildPlanAndProjection('2026-04-15');
     const session = firstGeneratableSession(projection);
