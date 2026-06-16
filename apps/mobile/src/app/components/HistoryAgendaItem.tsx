@@ -18,12 +18,31 @@ type HistoryAgendaItemProps = {
   onEditEvent: (event: PlannedEvent) => void;
   onGenerateWorkout: (event: PlannedEvent) => void;
   onOpenLinkedWorkout: (event: PlannedEvent) => void;
+  onOpenPlannedWorkout: (workoutId: string) => void;
   onOpenSession: (session: WorkoutSessionSummary) => void;
 };
 
 const formatSlotDetailState = (value: string): string => {
   const label = value.replace('-', ' ');
   return label.charAt(0).toUpperCase() + label.slice(1);
+};
+
+const formatPlannedWorkoutTime = (scheduledAt?: string): string => {
+  if (!scheduledAt) {
+    return 'Planned';
+  }
+
+  const date = new Date(scheduledAt);
+  if (
+    date.getHours() === 0 &&
+    date.getMinutes() === 0 &&
+    date.getSeconds() === 0 &&
+    date.getMilliseconds() === 0
+  ) {
+    return 'Planned';
+  }
+
+  return formatTime(date);
 };
 
 export const HistoryAgendaItem = ({
@@ -34,6 +53,7 @@ export const HistoryAgendaItem = ({
   onEditEvent,
   onGenerateWorkout,
   onOpenLinkedWorkout,
+  onOpenPlannedWorkout,
   onOpenSession,
 }: HistoryAgendaItemProps) => {
   if (item.type === 'planned-event') {
@@ -112,6 +132,36 @@ export const HistoryAgendaItem = ({
               <Text style={styles.agendaActionText}>Open</Text>
             </Pressable>
           )}
+        </View>
+      </Pressable>
+    );
+  }
+
+  if (item.type === 'planned-workout') {
+    const meta = getKindMeta('workout');
+    const scheduledAt = formatPlannedWorkoutTime(item.scheduledAt);
+
+    return (
+      <Pressable onPress={() => onOpenPlannedWorkout(item.workoutId)}>
+        <View style={styles.agendaCard}>
+          <View
+            style={[styles.agendaIcon, { backgroundColor: meta.background }]}
+          >
+            <Ionicons name={meta.icon} size={20} color={meta.color} />
+          </View>
+          <View style={styles.agendaInfo}>
+            <Text style={styles.agendaTitle}>{item.title}</Text>
+            <Text style={styles.agendaMeta}>
+              {scheduledAt}
+              {item.durationMinutes ? ` • ${item.durationMinutes} min` : ''}
+            </Text>
+          </View>
+          <Pressable
+            style={styles.agendaAction}
+            onPress={() => onOpenPlannedWorkout(item.workoutId)}
+          >
+            <Text style={styles.agendaActionText}>Open</Text>
+          </Pressable>
         </View>
       </Pressable>
     );

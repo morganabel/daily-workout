@@ -3870,6 +3870,14 @@ export const calendarItemSchema = z.discriminatedUnion('type', [
     durationMinutes: z.number().int().positive().optional(),
   }),
   z.object({
+    type: z.literal('planned-workout'),
+    localDate: localDateSchema,
+    workoutId: z.string(),
+    title: z.string(),
+    scheduledAt: z.string().datetime().optional(),
+    durationMinutes: z.number().int().positive().optional(),
+  }),
+  z.object({
     type: z.literal('planned-event'),
     localDate: localDateSchema,
     eventId: z.string(),

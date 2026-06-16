@@ -149,6 +149,12 @@ export const sortAgendaItems = (items: CalendarItem[]) => {
           hasTime && item.startsAt ? new Date(item.startsAt).getTime() : 0,
       };
     }
+    if (item.type === 'planned-workout') {
+      return {
+        allDay: false,
+        timestamp: item.scheduledAt ? new Date(item.scheduledAt).getTime() : 0,
+      };
+    }
     return {
       allDay: false,
       timestamp: item.completedAt ? new Date(item.completedAt).getTime() : 0,

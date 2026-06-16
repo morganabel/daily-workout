@@ -562,6 +562,7 @@ const getConflictingEvents = (
 const createPinnedConflictWarning = (
   projectionId: string,
   localDate: string,
+  blockLabel: string,
   event: UpcomingEventContext
 ): CoachProjectionConflictWarning => ({
   id: `${projectionId}:conflict:${hashString(
@@ -570,11 +571,25 @@ const createPinnedConflictWarning = (
   projectionId,
   localDate,
   kind: 'planned-event-conflict',
-  message: `Pinned session conflicts with ${event.title}.`,
+  message: `${blockLabel} on ${formatProjectionDate(
+    localDate
+  )} overlaps ${event.title}.`,
   eventTitle: event.title,
   eventLocalDate: event.localDate,
   actions: ['keep-pinned', 'move', 'unpin'],
 });
+
+const formatProjectionDate = (localDate: string): string => {
+  const [year, month, day] = localDate.split('-').map(Number);
+  if (!year || !month || !day) {
+    return localDate;
+  }
+  return new Date(year, month - 1, day).toLocaleDateString([], {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+  });
+};
 
 const finalizeDraft = (draft: ProjectionDraft): CoachProjectedSession => ({
   ...draft,
@@ -626,23 +641,24 @@ const createPinnedSessions = (
       ],
       coachNotes: ['Pinned sessions are preserved until you change them.'],
       conflictWarningIds: [],
-      availableActions: ['unpin', 'move', 'generate'],
+      availableActions: isRestLikeBlock(primaryBlock)
+        ? ['unpin', 'move']
+        : ['unpin', 'move', 'generate'],
     });
 
-    const conflicts = getConflictingEvents(
-      localDate,
-      context.input.upcomingEvents ?? []
-    );
+    const conflicts = isRestLikeBlock(primaryBlock)
+      ? []
+      : getConflictingEvents(localDate, context.input.upcomingEvents ?? []);
     if (!conflicts.length) {
       return [draft];
     }
 
     const warnings = conflicts.map((event) =>
-      createPinnedConflictWarning(draft.id, localDate, event)
+      createPinnedConflictWarning(draft.id, localDate, primaryBlock.label, event)
     );
     context.conflictWarnings.push(...warnings);
     context.repairNotes.add(
-      'Pinned sessions with calendar conflicts need your decision.'
+      'Some pinned workouts overlap hard calendar constraints.'
     );
 
     return [

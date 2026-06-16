@@ -57,6 +57,7 @@ describe('HistoryAgendaItem planned slots', () => {
         onEditEvent={jest.fn()}
         onGenerateWorkout={onGenerateWorkout}
         onOpenLinkedWorkout={jest.fn()}
+        onOpenPlannedWorkout={jest.fn()}
         onOpenSession={jest.fn()}
       />
     );
@@ -87,11 +88,41 @@ describe('HistoryAgendaItem planned slots', () => {
         onEditEvent={jest.fn()}
         onGenerateWorkout={jest.fn()}
         onOpenLinkedWorkout={onOpenLinkedWorkout}
+        onOpenPlannedWorkout={jest.fn()}
         onOpenSession={jest.fn()}
       />
     );
 
     fireEvent.press(screen.getByText('Open'));
     expect(onOpenLinkedWorkout).toHaveBeenCalledWith(linkedEvent);
+  });
+
+  it('opens built planned workouts from the agenda', () => {
+    const onOpenPlannedWorkout = jest.fn();
+    const plannedWorkout: CalendarItem = {
+      type: 'planned-workout',
+      localDate: '2026-04-15',
+      workoutId: 'workout-1',
+      title: 'Pull',
+      scheduledAt: new Date(2026, 3, 15).toISOString(),
+      durationMinutes: 50,
+    };
+    const screen = render(
+      <HistoryAgendaItem
+        item={plannedWorkout}
+        onEditEvent={jest.fn()}
+        onGenerateWorkout={jest.fn()}
+        onOpenLinkedWorkout={jest.fn()}
+        onOpenPlannedWorkout={onOpenPlannedWorkout}
+        onOpenSession={jest.fn()}
+      />
+    );
+
+    expect(screen.getByText('Pull')).toBeTruthy();
+    expect(screen.getByText(/Planned/)).toBeTruthy();
+    expect(screen.getByText(/50 min/)).toBeTruthy();
+
+    fireEvent.press(screen.getByText('Open'));
+    expect(onOpenPlannedWorkout).toHaveBeenCalledWith('workout-1');
   });
 });

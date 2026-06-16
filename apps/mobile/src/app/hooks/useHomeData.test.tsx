@@ -307,6 +307,51 @@ describe('useHomeData', () => {
     });
   });
 
+  it('builds projected-session requests from the projected duration, not available time', async () => {
+    const plan = createAdaptiveTrainingPlanFromTemplate('ppl-conditioning', {
+      id: 'plan-ppl',
+      activeFrom: '2026-04-15',
+      updatedAt: '2026-04-15T12:00:00.000Z',
+    });
+    if (!plan) {
+      throw new Error('Expected adaptive plan');
+    }
+    mockUserRepository.getPreferences.mockResolvedValue({
+      equipment: ['Gym'],
+      injuries: [],
+      focusBias: [],
+      avoid: [],
+      aiFeaturesEnabled: true,
+      adaptiveTrainingPlan: plan,
+    });
+
+    const { result } = renderHook(() => useHomeData());
+
+    await act(async () => {
+      userStream.emit({});
+    });
+
+    await waitFor(() => {
+      expect(result.current.coachPlan?.nextSession?.id).toEqual(
+        expect.any(String)
+      );
+    });
+
+    await act(async () => {
+      result.current.updateStagedValue('time', '75');
+    });
+
+    await waitFor(() => {
+      const session = result.current.coachPlan?.nextSession;
+      const request = session
+        ? result.current.buildCoachProjectionGenerationRequest(session.id)
+        : null;
+
+      expect(session?.durationMinutes).toBe(50);
+      expect(request?.timeMinutes).toBe(50);
+    });
+  });
+
   it('refreshes adaptive recommendations when upcoming events change', async () => {
     const plan = createAdaptiveTrainingPlanFromTemplate('ppl-conditioning', {
       id: 'plan-ppl',

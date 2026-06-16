@@ -519,9 +519,46 @@ describe('coach projection resolver', () => {
     });
     expect(projection.conflictWarnings[0]).toMatchObject({
       kind: 'planned-event-conflict',
+      message: 'Legs on Wed, Apr 15 overlaps Race day.',
       eventTitle: 'Race day',
       actions: ['keep-pinned', 'move', 'unpin'],
     });
+  });
+
+  it('does not warn when a pinned rest day overlaps an unavailable event', () => {
+    const plan = createPplPlan({
+      sessionPreferences: [
+        {
+          id: 'pin-rest',
+          localDate: '2026-04-15',
+          blockIds: ['rest'],
+          status: 'pinned',
+        },
+      ],
+    });
+    const projection = deriveCoachProjection({
+      plan,
+      planningDateLocal: '2026-04-15',
+      recentSessions: [],
+      upcomingEvents: [
+        {
+          kind: 'travel',
+          title: 'Unavailable to train',
+          localDate: '2026-04-15',
+          allDay: true,
+          tags: ['no-workout'],
+        },
+      ],
+    });
+
+    expect(projection.sessions[0]).toMatchObject({
+      status: 'pinned',
+      projectionStatus: 'pinned',
+      sourceBlockId: 'rest',
+      availableActions: ['unpin', 'move'],
+    });
+    expect(projection.conflictWarnings).toEqual([]);
+    expect(projection.repairNotes).toEqual([]);
   });
 
   it('does not warn for soft same-day personal events on pinned sessions', () => {
@@ -594,6 +631,7 @@ describe('coach projection resolver', () => {
     });
     expect(projection.conflictWarnings[0]).toMatchObject({
       kind: 'planned-event-conflict',
+      message: 'Push on Wed, Apr 15 overlaps Flight to NYC.',
       eventTitle: 'Flight to NYC',
       actions: ['keep-pinned', 'move', 'unpin'],
     });

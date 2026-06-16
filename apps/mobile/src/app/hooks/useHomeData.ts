@@ -810,13 +810,12 @@ export function useHomeData(): HomeDataState & {
         projection,
         session,
         planningDateLocal: session.localDate,
-        durationMinutes: overrides?.durationMinutes ?? availableTimeMinutes,
+        durationMinutes: overrides?.durationMinutes,
         energy: overrides?.energy,
         equipment: overrides?.equipment,
       });
     },
     [
-      availableTimeMinutes,
       getProjectionSession,
       state.adaptivePlan,
       state.coachProjection,

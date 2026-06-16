@@ -136,7 +136,7 @@ describe('CoachUpcomingPlan', () => {
       projectionId: 'proj-2',
       localDate: '2026-05-01',
       kind: 'planned-event-conflict',
-      message: 'Pinned session conflicts with Marathon.',
+      message: 'Long Run on Fri, May 1 overlaps Marathon.',
       eventTitle: 'Marathon',
       eventLocalDate: '2026-05-01',
       actions: ['keep-pinned', 'move', 'unpin'],
@@ -153,7 +153,7 @@ describe('CoachUpcomingPlan', () => {
     );
 
     expect(
-      screen.getByText('Pinned session conflicts with Marathon.')
+      screen.getByText('Long Run on Fri, May 1 overlaps Marathon.')
     ).toBeTruthy();
     expect(screen.getByText('Keep pinned')).toBeTruthy();
 

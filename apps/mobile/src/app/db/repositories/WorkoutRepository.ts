@@ -333,6 +333,29 @@ export class WorkoutRepository {
     return this.workouts.query(...conditions).observe();
   }
 
+  observePlannedWorkoutsByDateRange(
+    start: number,
+    end: number,
+    options?: { includeArchived?: boolean }
+  ) {
+    const conditions: Array<
+      | ReturnType<typeof Q.where>
+      | ReturnType<typeof Q.or>
+      | ReturnType<typeof Q.sortBy>
+    > = [
+      Q.where('status', 'planned'),
+      Q.where('scheduled_date', Q.between(start, end)),
+      Q.or(Q.where('is_selected', true), Q.where('is_selected', null)),
+      Q.sortBy('scheduled_date', Q.asc),
+    ];
+
+    if (!options?.includeArchived) {
+      conditions.unshift(Q.where('archived_at', null));
+    }
+
+    return this.workouts.query(...conditions).observe();
+  }
+
   async listRecentSessions(limit = 5, options?: { includeArchived?: boolean }) {
     const query = this.buildCompletedQuery(
       limit,

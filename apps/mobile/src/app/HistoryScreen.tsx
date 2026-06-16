@@ -21,6 +21,8 @@ import type {
 import { plannedSlotMetadataSchema } from '@workout-agent/shared';
 import { workoutRepository } from './db/repositories/WorkoutRepository';
 import { plannedEventRepository } from './db/repositories/PlannedEventRepository';
+import type Workout from './db/models/Workout';
+import { deriveDurationMinutes } from './db/mappers/workoutMapper';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from './navigation';
@@ -66,6 +68,7 @@ export const HistoryScreen = () => {
   const [monthSessions, setMonthSessions] = useState<WorkoutSessionSummary[]>(
     []
   );
+  const [plannedWorkouts, setPlannedWorkouts] = useState<Workout[]>([]);
   const [plannedEvents, setPlannedEvents] = useState<PlannedEvent[]>([]);
   const [recentSessions, setRecentSessions] = useState<WorkoutSessionSummary[]>(
     []
@@ -107,6 +110,20 @@ export const HistoryScreen = () => {
           workoutRepository.toSessionSummary(workout)
         );
         setMonthSessions(summaries);
+      });
+
+    return () => subscription.unsubscribe();
+  }, [visibleRange.endTimestamp, visibleRange.startTimestamp]);
+
+  useEffect(() => {
+    const subscription = workoutRepository
+      .observePlannedWorkoutsByDateRange(
+        visibleRange.startTimestamp,
+        visibleRange.endTimestamp,
+        { includeArchived: false }
+      )
+      .subscribe((workouts) => {
+        setPlannedWorkouts(workouts);
       });
 
     return () => subscription.unsubscribe();
@@ -211,8 +228,34 @@ export const HistoryScreen = () => {
       allDay: event.allDay,
     }));
 
-    return [...sessionItems, ...eventItems];
-  }, [monthSessions, plannedEventsForRange]);
+    const linkedWorkoutIds = new Set(
+      plannedEventsForRange.flatMap((event) => {
+        const metadata = plannedSlotMetadataSchema.safeParse(event.metadata);
+        return [
+          event.linkedWorkoutId,
+          metadata.success ? metadata.data.linkedWorkoutId : undefined,
+        ].filter((id): id is string => Boolean(id));
+      })
+    );
+
+    const plannedWorkoutItems = plannedWorkouts
+      .filter(
+        (workout): workout is Workout & { scheduledDate: number } =>
+          Boolean(workout.scheduledDate) && !linkedWorkoutIds.has(workout.id)
+      )
+      .map((workout) => ({
+        type: 'planned-workout' as const,
+        localDate: formatLocalDate(new Date(workout.scheduledDate)),
+        workoutId: workout.id,
+        title: workout.name,
+        scheduledAt: workout.scheduledDate
+          ? new Date(workout.scheduledDate).toISOString()
+          : undefined,
+        durationMinutes: deriveDurationMinutes(workout),
+      }));
+
+    return [...sessionItems, ...plannedWorkoutItems, ...eventItems];
+  }, [monthSessions, plannedEventsForRange, plannedWorkouts]);
 
   const itemsByDate = useMemo(() => {
     const map = new Map<string, CalendarItem[]>();
@@ -387,6 +430,17 @@ export const HistoryScreen = () => {
     const workout = await workoutRepository.getWorkoutByPlanId(linkedWorkoutId);
     if (!workout) {
       Alert.alert('Workout not found', 'The linked workout is no longer available.');
+      return;
+    }
+
+    const plan = await workoutRepository.mapWorkoutToPlan(workout);
+    navigation.navigate('WorkoutPreview', { plan });
+  };
+
+  const handleOpenPlannedWorkout = async (workoutId: string) => {
+    const workout = await workoutRepository.getWorkoutByPlanId(workoutId);
+    if (!workout) {
+      Alert.alert('Workout not found', 'This workout is no longer available.');
       return;
     }
 
@@ -635,6 +689,8 @@ export const HistoryScreen = () => {
                       key={
                         item.type === 'planned-event'
                           ? item.eventId
+                          : item.type === 'planned-workout'
+                          ? item.workoutId
                           : item.sessionId
                       }
                       item={item}
@@ -655,6 +711,7 @@ export const HistoryScreen = () => {
                       onEditEvent={handleEditEvent}
                       onGenerateWorkout={handleGenerateForEvent}
                       onOpenLinkedWorkout={handleOpenLinkedWorkout}
+                      onOpenPlannedWorkout={handleOpenPlannedWorkout}
                       onOpenSession={handleOpenSession}
                     />
                   ))
