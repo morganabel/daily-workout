@@ -51,10 +51,8 @@ export {
 // Export handler factories
 export {
   createGenerateHandler,
-  createLogWorkoutHandler,
   type GenerateHandlerDeps,
   type GenerateHandlerConfig,
-  type LogWorkoutHandlerDeps,
 } from './handlers';
 
 // Export utilities

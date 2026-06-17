@@ -10,7 +10,6 @@ import type {
   GenerationRequest,
   GenerationRequestPayload,
   WorkoutSessionSummary,
-  WorkoutLogPayload,
   GenerationContext,
   UserPreferences,
 } from '@workout-agent/shared';
@@ -384,19 +383,6 @@ export async function generateWorkout(
     });
     throw error;
   }
-}
-
-/**
- * Log a workout completion
- */
-export async function logWorkout(
-  planId: string,
-  payload?: WorkoutLogPayload
-): Promise<WorkoutSessionSummary> {
-  return apiRequest<WorkoutSessionSummary>(`/api/workouts/${planId}/log`, {
-    method: 'POST',
-    body: payload ? JSON.stringify(payload) : undefined,
-  });
 }
 
 /**

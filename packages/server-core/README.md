@@ -20,7 +20,6 @@ import {
   NoOpUsagePolicy,
   NoOpMeteringSink,
   createGenerateHandler,
-  createLogWorkoutHandler,
 } from '@workout-agent-ce/server-core';
 import { DefaultModelRouter } from '@workout-agent-ce/server-ai';
 
@@ -46,7 +45,6 @@ const generateHandler = createGenerateHandler({
     },
   },
 });
-const logWorkoutHandler = createLogWorkoutHandler({ auth, store });
 
 // Use in Next.js routes
 export async function POST(request: Request) {
@@ -61,7 +59,6 @@ Replace the CE defaults with production implementations:
 ```typescript
 import {
   createGenerateHandler,
-  createLogWorkoutHandler,
 } from '@workout-agent-ce/server-core';
 import { DefaultModelRouter } from '@workout-agent-ce/server-ai';
 

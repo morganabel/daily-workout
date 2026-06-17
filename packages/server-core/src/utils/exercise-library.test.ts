@@ -72,7 +72,7 @@ const createPlanningBrief = (
     baselineExerciseCount: 0,
   },
   stagedPlanning: {
-    mode: 'disabled',
+    mode: 'single-pass',
     shouldRun: false,
     reasons: [],
   },

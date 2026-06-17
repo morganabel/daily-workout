@@ -7,8 +7,8 @@
  * - Missing/invalid tokens return null
  */
 
-import { BetterAuthProvider } from './provider';
-import type { Auth } from './auth';
+import { BetterAuthProvider } from './provider.js';
+import type { Auth } from './auth.js';
 
 describe('BetterAuthProvider', () => {
   // Mock Auth instance

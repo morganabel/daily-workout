@@ -18,7 +18,7 @@
 
 ## Quick Orientation
 
-- Read `VISION.md` for product principles before making UX changes.
+- Read `VISION.MD` for product principles before making UX changes.
 - Workspace manager: Nx monorepo with `apps/` and `packages/` workspaces.
 - Primary apps: `apps/server` (Next.js API) and `apps/mobile` (Expo/React Native).
 - Shared contracts: `packages/shared` with Zod schemas and helpers.
@@ -106,7 +106,7 @@
 
 - Create `.env` or `.env.local` with `AI_PROVIDER`, `OPENAI_API_KEY`, `GEMINI_API_KEY`.
 - Set `EXPO_PUBLIC_BACKEND_URL` to reach the local API (default `http://localhost:3000`).
-- Use `EDITION=HOSTED` to enforce BYOK-only mode; `EDITION=CE` uses mock data when keys are missing.
+- Use `EDITION=HOSTED` to require BYOK or server-managed keys; `EDITION=CE` returns `AI_PROVIDER_NOT_CONFIGURED` for live AI generation when no usable provider key is configured.
 - DB-backed auth relies on `DATABASE_URL`, `BETTER_AUTH_SECRET`, and `BETTER_AUTH_URL`.
 - BYOK headers: `x-ai-provider`, `x-openai-key`, `x-gemini-key`, or `x-ai-key`.
 

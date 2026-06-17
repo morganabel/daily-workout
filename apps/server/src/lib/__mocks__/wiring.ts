@@ -4,4 +4,3 @@
  */
 
 export const generateHandler = jest.fn();
-export const logWorkoutHandler = jest.fn();

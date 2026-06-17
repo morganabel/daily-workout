@@ -1,8 +1,11 @@
 import { test, expect } from '@playwright/test';
 
-test('has title', async ({ page }) => {
+test('renders the Workout Agent CE server status page', async ({ page }) => {
   await page.goto('/');
 
-  // Expect h1 to contain a substring.
-  expect(await page.locator('h1').innerText()).toContain('Welcome');
+  await expect(
+    page.getByRole('heading', { name: 'Workout Agent CE' })
+  ).toBeVisible();
+  await expect(page.getByText('GET /api/meta')).toBeVisible();
+  await expect(page.getByText('POST /api/workouts/generate')).toBeVisible();
 });
