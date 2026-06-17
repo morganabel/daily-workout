@@ -9,8 +9,3 @@ export {
   type GenerateHandlerDeps,
   type GenerateHandlerConfig,
 } from './generate';
-
-export {
-  createLogWorkoutHandler,
-  type LogWorkoutHandlerDeps,
-} from './log-workout';

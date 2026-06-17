@@ -521,6 +521,7 @@ describe('buildRegenerationMessage', () => {
               message: 'Cardio is below target.',
             },
           ],
+          repairRationale: [],
           projectionStatus: 'projected',
           exerciseSlotPolicy: {
             slots: [
@@ -529,16 +530,24 @@ describe('buildRegenerationMessage', () => {
                 label: 'Pull main lift',
                 sourceBlockId: 'pull',
                 stabilityPolicy: 'stable',
+                targetExerciseCount: 1,
                 movementTags: ['row', 'vertical-pull'],
                 focusTags: ['pull', 'upper-body'],
+                preferredExerciseIds: [],
+                eligibleExerciseIds: [],
+                requiredEquipment: [],
               },
               {
                 id: 'pull-accessory',
                 label: 'Pull accessory',
                 sourceBlockId: 'pull',
                 stabilityPolicy: 'coach-rotatable',
+                targetExerciseCount: 1,
                 movementTags: ['biceps', 'rear-delts'],
                 focusTags: ['pull', 'accessory'],
+                preferredExerciseIds: [],
+                eligibleExerciseIds: [],
+                requiredEquipment: [],
               },
             ],
             currentAssignments: [
@@ -546,16 +555,19 @@ describe('buildRegenerationMessage', () => {
                 slotId: 'pull-main-pull',
                 exerciseName: 'Pull-Up',
                 source: 'generated',
+                locked: false,
               },
               {
                 slotId: 'pull-main-pull',
                 exerciseName: 'Chin-Up',
                 source: 'generated',
+                locked: false,
               },
               {
                 slotId: 'pull-accessory',
                 exerciseName: 'Hammer Curl',
                 source: 'generated',
+                locked: false,
               },
             ],
             overrideReasons: [],
@@ -567,7 +579,7 @@ describe('buildRegenerationMessage', () => {
         focusMode: 'adaptive-plan',
         resolvedFocus: 'Pull + Easy Cardio',
         adaptivePlanIntent: request.adaptivePlanIntent,
-        exerciseSlotPolicy: request.adaptivePlanIntent.exerciseSlotPolicy,
+        exerciseSlotPolicy: request.adaptivePlanIntent?.exerciseSlotPolicy,
         blockIntents: [
           {
             key: 'adaptive-primary',
@@ -652,6 +664,7 @@ describe('buildRegenerationMessage', () => {
           addOnBlocks: [],
           targetRangeContext: [],
           rationale: [],
+          repairRationale: [],
           projectionStatus: 'projected',
         },
         blockIntents: [

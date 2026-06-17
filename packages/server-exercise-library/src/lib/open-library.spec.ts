@@ -343,10 +343,16 @@ describe('openExerciseLibrary', () => {
     const result = library.matchWorkoutCatalog({
       timeMinutes: 85,
       focus: 'Pull',
+      focusTags: [
+        'upper_body',
+        'middle_back',
+        'lower_body',
+        'hamstrings',
+        'glutes',
+      ],
       availableEquipment: ['Barbell', 'Pull-up Bar'],
       experienceLevel: 'advanced',
       energy: 'intense',
-      styleBias: ['powerlifting'],
     });
 
     expect(result.decision).toBe('direct');

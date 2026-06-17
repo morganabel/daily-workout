@@ -14,7 +14,6 @@ import {
   NoOpUsagePolicy,
   NoOpMeteringSink,
   createGenerateHandler,
-  createLogWorkoutHandler,
   type GenerateHandlerConfig,
   type MeteringSink,
   type UsagePolicy,
@@ -130,4 +129,3 @@ export const generateHandler = createGenerateHandler({
   metering: meteringSink,
   config,
 });
-export const logWorkoutHandler = createLogWorkoutHandler({ auth, store });

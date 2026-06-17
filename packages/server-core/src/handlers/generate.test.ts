@@ -343,9 +343,17 @@ function createExerciseLibrary(): ExerciseLibrary {
   };
 }
 
+type CatalogMatchOverrides = Omit<
+  Partial<WorkoutCatalogMatch>,
+  'diagnostics' | 'plan'
+> & {
+  diagnostics?: Partial<WorkoutCatalogMatch['diagnostics']>;
+  plan?: WorkoutCatalogMatch['plan'];
+};
+
 function createCatalogMatch(
   decision: WorkoutCatalogMatch['decision'] = 'direct',
-  overrides: Partial<WorkoutCatalogMatch> = {}
+  overrides: CatalogMatchOverrides = {}
 ): WorkoutCatalogMatch {
   const plan = createTodayPlanFixture({
     id: 'library:bodyweight-foundation-30',
@@ -353,6 +361,8 @@ function createCatalogMatch(
     focus: 'Full Body Strength',
     equipment: ['bodyweight'],
     generationProvenance: undefined,
+    responseId: undefined,
+    catalogProvenance: undefined,
   });
 
   return {
@@ -381,7 +391,7 @@ function createCatalogMatch(
       blocks: [],
       ...overrides.recipe,
     },
-    plan: overrides.plan ?? plan,
+    plan: overrides.plan ?? { ...plan, source: 'library' },
     score: overrides.score ?? (decision === 'direct' ? 94 : 72),
     diagnostics: {
       blockerCodes: [],

@@ -3905,16 +3905,6 @@ export type UpcomingEventContext = z.infer<typeof upcomingEventContextSchema>;
 
 export const MAX_UPCOMING_EVENTS = 10;
 
-export const workoutLogPayloadSchema = z
-  .object({
-    completedAt: z.string().optional(),
-    durationSeconds: z.number().int().nonnegative().optional(),
-    exercises: z.array(workoutExerciseLogSchema).optional(),
-    coachProgramAttribution: coachProgramAttributionSchema.optional(),
-  })
-  .strict();
-export type WorkoutLogPayload = z.infer<typeof workoutLogPayloadSchema>;
-
 export const offlineHintSchema = z.object({
   offline: z.boolean().default(false),
   requiresApiKey: z.boolean().default(false),

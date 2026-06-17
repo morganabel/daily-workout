@@ -21,7 +21,6 @@ import {
   workoutSetLogSchema,
   workoutExerciseLogSchema,
   workoutSessionDetailSchema,
-  workoutLogPayloadSchema,
   generationRequestSchema,
   generationRequestPayloadSchema,
   generationContextSchema,
@@ -230,19 +229,6 @@ describe('workout logging contracts', () => {
     });
     const parsed = workoutSetLogSchema.parse(setLog);
     expect(parsed.weightUnit).toBeUndefined();
-  });
-
-  it('accepts a log payload with exercises', () => {
-    const payload = workoutLogPayloadSchema.parse({
-      durationSeconds: 1200,
-      exercises: [createWorkoutExerciseLogFixture()],
-    });
-    expect(payload.exercises).toHaveLength(1);
-  });
-
-  it('accepts a completion-only log payload', () => {
-    const payload = workoutLogPayloadSchema.parse({});
-    expect(payload.exercises).toBeUndefined();
   });
 
   it('parses exercise logs with set arrays', () => {

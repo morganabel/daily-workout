@@ -15,16 +15,16 @@ Promptfoo is invoked with `npx promptfoo@latest` instead of being pinned as a re
 
 ## Curated Promptfoo Runs
 
-Run a mock-safe smoke slice:
+Run a fixture-safe smoke slice:
 
 ```sh
-npm run promptfoo:generation -- --provider mock --limit 3
+npm run promptfoo:generation -- --provider fixture --limit 3
 ```
 
 Write config without running Promptfoo:
 
 ```sh
-npm run promptfoo:generation -- --provider mock --limit 3 --config-only
+npm run promptfoo:generation -- --provider fixture --limit 3 --config-only
 ```
 
 Compare providers or variants:
@@ -36,13 +36,13 @@ npm run promptfoo:generation -- --provider openai --provider gemini --tag beginn
 Disable or force the stage-one planner for comparison:
 
 ```sh
-npm run promptfoo:generation -- --provider mock --scenario beginner-bodyweight-easy-15 --planner disabled --variant-label no-stage-one
+npm run promptfoo:generation -- --provider fixture --scenario beginner-bodyweight-easy-15 --planner disabled --variant-label no-stage-one
 ```
 
 Generate CI-oriented outputs and fail on Promptfoo-reported failures/errors:
 
 ```sh
-npm run promptfoo:generation -- --provider mock --limit 3 --ci
+npm run promptfoo:generation -- --provider fixture --limit 3 --ci
 ```
 
 Promptfoo generation artifacts are written under `reports/promptfoo-generation/<timestamp>/`:
@@ -128,7 +128,7 @@ Useful validation commands:
 ```sh
 nx test @workout-agent/shared --testPathPatterns=src/lib/evaluation/promptfoo-generation-bridge.spec.ts
 nx test @workout-agent-ce/server --testPathPatterns=src/lib/evaluation/promptfoo-generation-provider.spec.ts
-npm run promptfoo:generation -- --provider mock --limit 1 --config-only
+npm run promptfoo:generation -- --provider fixture --limit 1 --config-only
 npm run promptfoo:generation:redteam -- --config-only
 openspec validate add-promptfoo-generation-evaluation-harness --strict
 ```

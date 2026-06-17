@@ -38,7 +38,7 @@ Workout Agent CE is the open-source community edition of a daily workout planner
 - `npm run db:migrate` – Apply Drizzle migrations (Better Auth tables) to the local Postgres
 - `npm run db:down` – Stop Postgres
 - `npm run validate:generation-scenarios` – Validate the curated workout-generation scenario corpus
-- `npm run evaluate:generation -- --provider mock --limit 10` – Run the evaluation workflow and write review reports
+- `npm run evaluate:generation -- --provider fixture --limit 10` – Run the evaluation workflow and write review reports
 
 ## Environment configuration
 
@@ -120,7 +120,7 @@ Use Nx targets to keep the workspace healthy:
 
 Use the scenario-driven evaluator to review many backend inputs quickly:
 
-- Mock/plumbing run: `npm run evaluate:generation -- --provider mock --limit 12`
+- Fixture/plumbing run: `npm run evaluate:generation -- --provider fixture --limit 12`
 - Live OpenAI run: `npm run evaluate:generation -- --provider openai --runs 2 --tag regeneration`
 - Multi-provider comparison: `npm run evaluate:generation -- --provider all --scenario regen-too-hard-bodyweight`
 
@@ -158,13 +158,12 @@ When keys are available, use the HTML and JSON reports to compare hard-check del
 ## API surface
 
 - `GET /api/meta` → server capabilities (auth methods, protocol version). Does not require auth.
-- `POST /api/workouts/generate` → generates a `TodayPlan` using the selected provider; respects BYOK headers and falls back to mock data in CE mode.
-- `POST /api/workouts/{id}/log` → records a workout session summary (currently stubbed pending persistence).
+- `POST /api/workouts/generate` → generates a `TodayPlan` using the selected provider; respects BYOK headers. In CE mode, requests without a configured provider key return `AI_PROVIDER_NOT_CONFIGURED` unless a local catalog workout can satisfy the request.
 
 ## Current limitations before going public
 
 - DB-backed auth is still early: local dev uses Postgres via Docker and Better Auth sessions; persistence beyond auth tables is still limited.
-- Server-side workout logging/persistence is not implemented; the mobile app uses local persistence for Home state, workout versions, and recent activity.
+- Server-side workout logging/persistence is not implemented; the mobile app uses local persistence for Home state, workout versions, quick logs, and recent activity.
 - Several API handlers contain TODOs for ownership checks and persistence—review before relying on them in production.
 
 ## License & Ownership
