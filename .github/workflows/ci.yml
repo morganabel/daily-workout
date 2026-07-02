@@ -1,0 +1,55 @@
+name: CI
+
+# Validates the product on pull requests and pushes to main.
+# Does NOT publish production images (that is the private deployment repo's job).
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  NX_DAEMON: 'false'
+
+jobs:
+  validate:
+    name: Lint / test / build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Full history so nx can compute the affected set against the base ref.
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Derive base/head SHAs for affected
+        uses: nrwl/nx-set-shas@v4
+
+      - name: Check TypeScript project references are in sync
+        run: npx nx sync:check
+
+      - name: Lint, test, and build affected projects
+        run: npx nx affected --targets=lint,test,build
+
+  docker:
+    name: Docker image builds
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build server image
+        run: docker build -f docker/Dockerfile.server -t workout-agent-server:ci .
+
+      - name: Build migrate image
+        run: docker build -f docker/Dockerfile.migrate -t workout-agent-migrate:ci .
