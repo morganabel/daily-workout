@@ -1,0 +1,61 @@
+# Multi-stage build for the workout-agent server.
+# Build context is the daily-workout repo root (this repo builds standalone).
+FROM node:24-alpine AS base
+
+# Install dependencies only when needed
+FROM base AS deps
+WORKDIR /app
+
+# Native toolchain for workspace packages that build from source (e.g. better-sqlite3)
+RUN apk add --no-cache python3 make g++
+
+# Copy workspace manifests (for the npm-workspaces install)
+COPY package.json package-lock.json* .npmrc ./
+COPY nx.json tsconfig.base.json tsconfig.json eslint.config.mjs ./
+COPY apps ./apps
+COPY packages ./packages
+
+RUN npm ci
+
+# Build the server app (and its workspace dependencies)
+FROM base AS builder
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/package.json ./package.json
+COPY --from=deps /app/package-lock.json ./package-lock.json
+COPY --from=deps /app/.npmrc ./.npmrc
+COPY --from=deps /app/nx.json ./nx.json
+COPY --from=deps /app/tsconfig.base.json ./tsconfig.base.json
+COPY --from=deps /app/tsconfig.json ./tsconfig.json
+COPY --from=deps /app/eslint.config.mjs ./eslint.config.mjs
+COPY --from=deps /app/apps ./apps
+COPY --from=deps /app/packages ./packages
+
+ENV NODE_ENV=production
+# The Nx daemon does not work well inside containers
+ENV NX_DAEMON=false
+
+# Keep TypeScript project references in sync (Nx fails non-interactive builds otherwise)
+RUN npx nx sync
+RUN npx nx build server
+
+# Production image: run the Next.js standalone server
+FROM base AS runner
+WORKDIR /app
+
+ENV NODE_ENV=production
+ENV PORT=8080
+ENV HOSTNAME=0.0.0.0
+
+RUN addgroup --system --gid 1001 nodejs \
+  && adduser --system --uid 1001 nextjs
+
+# Next standalone bundle (server + pruned node_modules), static assets, and public files
+COPY --from=builder --chown=nextjs:nodejs /app/apps/server/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/apps/server/.next/static ./apps/server/.next/static
+COPY --from=builder --chown=nextjs:nodejs /app/apps/server/public ./apps/server/public
+
+USER nextjs
+EXPOSE 8080
+
+CMD ["node", "apps/server/server.js"]

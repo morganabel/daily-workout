@@ -1,0 +1,22 @@
+# Database migration image.
+# Applies the single Drizzle migration lineage owned by server-db.
+# Build context is the daily-workout repo root.
+FROM node:24-alpine
+WORKDIR /app
+
+# Native toolchain for workspace packages that build from source (e.g. better-sqlite3)
+RUN apk add --no-cache python3 make g++
+
+COPY package.json package-lock.json* .npmrc ./
+COPY nx.json tsconfig.base.json tsconfig.json eslint.config.mjs ./
+COPY apps ./apps
+COPY packages ./packages
+
+ENV NODE_ENV=production
+ENV NX_DAEMON=false
+
+# drizzle-kit is a dev dependency; keep it for `db:migrate`
+RUN npm ci --include=dev
+
+# Applies packages/server-db migrations against DATABASE_URL
+CMD ["npm", "run", "db:migrate"]
