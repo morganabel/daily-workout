@@ -1,5 +1,8 @@
 module.exports = {
   displayName: '@workout-agent-ce/mobile',
+  // Full-screen render tests (App/Home/Onboarding) exceed jest's default 5s
+  // per-test timeout on slower CI runners; give them headroom.
+  testTimeout: 30000,
   resolver: require.resolve('./jest.resolver.js'),
   preset: 'jest-expo',
   moduleFileExtensions: ['ts', 'js', 'html', 'tsx', 'jsx'],
