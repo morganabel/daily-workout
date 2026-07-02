@@ -25,7 +25,7 @@ import { createAuthHandler } from '@workout-agent-ce/server-auth';
  */
 async function handler(request: Request): Promise<Response> {
   const { requestId, startedAt, log } = createRequestContext(request, 'api.auth');
-  const ctx = getAuthContext();
+  const ctx = await getAuthContext();
 
   if (ctx.mode !== 'better-auth' || !ctx.auth) {
     // In stub mode, auth endpoints are not available

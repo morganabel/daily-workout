@@ -24,14 +24,9 @@ import {
 } from '@workout-agent-ce/server-ai';
 import type { ExerciseLibrary } from '@workout-agent-ce/server-exercise-library';
 import { getAuthContext } from './auth-context';
-import {
-  hostedBillingRuntime,
-  HostedUsagePolicy,
-  isHostedBillingEnabled,
-} from './hosted-billing';
+import { hostedBillingRuntime, HostedUsagePolicy } from './hosted-billing';
+import { isBillingEnabled, resolveEdition } from './deployment';
 
-// Get auth provider from auth context (supports both stub and Better Auth)
-const { provider: auth } = getAuthContext();
 const store = new InMemoryGenerationStore();
 const router = new DefaultModelRouter();
 const planner = new DefaultStageOnePlanner();
@@ -59,17 +54,9 @@ const loadExerciseLibrary = async (): Promise<ExerciseLibrary | undefined> => {
   return cachedExerciseLibrary ?? undefined;
 };
 
-const allowedEditions = new Set(['CE', 'HOSTED'] as const);
 const allowedProviders = new Set(['openai', 'gemini'] as const);
 
 const buildConfig = (): GenerateHandlerConfig => {
-  const rawEdition = process.env.EDITION?.toUpperCase();
-  if (rawEdition && !allowedEditions.has(rawEdition as 'CE' | 'HOSTED')) {
-    throw new Error(`Invalid EDITION value: ${rawEdition}`);
-  }
-
-  const edition = (rawEdition as 'CE' | 'HOSTED') ?? 'CE';
-
   const rawProvider = process.env.AI_PROVIDER?.toLowerCase();
   if (
     rawProvider &&
@@ -88,7 +75,7 @@ const buildConfig = (): GenerateHandlerConfig => {
   }
 
   return {
-    edition,
+    edition: resolveEdition(),
     useVertexAi,
     googleCloudProject,
     googleCloudLocation,
@@ -103,7 +90,7 @@ const buildConfig = (): GenerateHandlerConfig => {
 
 // Build server configuration from environment
 const config = buildConfig();
-const hostedBilling = config.edition === 'HOSTED' && isHostedBillingEnabled();
+const hostedBilling = isBillingEnabled();
 
 if (hostedBilling && process.env.NODE_ENV !== 'test') {
   console.warn(
@@ -118,14 +105,43 @@ export const usagePolicy: UsagePolicy = hostedBilling
 // Usage is reserved at policy-check time; metering sink is a no-op for both editions.
 export const meteringSink: MeteringSink = new NoOpMeteringSink();
 
-// Create handlers using the factories
-export const generateHandler = createGenerateHandler({
-  auth,
-  store,
-  router,
-  planner,
-  loadExerciseLibrary,
-  policy: usagePolicy,
-  metering: meteringSink,
-  config,
-});
+// The generate handler needs the auth provider, which is resolved
+// asynchronously (Better Auth may open the DB connection via the Cloud SQL
+// Connector). Build it lazily on the first request and cache it.
+type GenerateHandler = ReturnType<typeof createGenerateHandler>;
+let cachedGenerateHandler: GenerateHandler | null = null;
+let generateHandlerPromise: Promise<GenerateHandler> | null = null;
+
+const getGenerateHandler = (): Promise<GenerateHandler> => {
+  if (cachedGenerateHandler) {
+    return Promise.resolve(cachedGenerateHandler);
+  }
+  if (!generateHandlerPromise) {
+    generateHandlerPromise = (async () => {
+      const { provider: auth } = await getAuthContext();
+      cachedGenerateHandler = createGenerateHandler({
+        auth,
+        store,
+        router,
+        planner,
+        loadExerciseLibrary,
+        policy: usagePolicy,
+        metering: meteringSink,
+        config,
+      });
+      return cachedGenerateHandler;
+    })().catch((error) => {
+      // Allow a retry on the next request after a transient failure.
+      generateHandlerPromise = null;
+      throw error;
+    });
+  }
+  return generateHandlerPromise;
+};
+
+export const generateHandler = async (
+  request: Request
+): Promise<Response> => {
+  const handler = await getGenerateHandler();
+  return handler(request);
+};
