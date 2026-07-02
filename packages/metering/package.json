@@ -1,5 +1,5 @@
 {
-  "name": "@workout-agent-ce/server-db",
+  "name": "@workout-agent-ce/metering",
   "version": "0.0.1",
   "private": true,
   "type": "module",
@@ -16,12 +16,9 @@
     }
   },
   "nx": {
-    "name": "server-db"
+    "name": "metering"
   },
   "dependencies": {
-    "@google-cloud/cloud-sql-connector": "^1.4.2",
-    "drizzle-orm": "*",
-    "pg": "^8.13.1",
     "tslib": "^2.3.0"
   }
 }

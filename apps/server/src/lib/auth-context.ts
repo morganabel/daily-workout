@@ -15,6 +15,7 @@ import {
   BetterAuthProvider,
   type Auth,
 } from '@workout-agent-ce/server-auth';
+import { isHostedMode } from './deployment';
 
 export type AuthMode = 'better-auth' | 'stub';
 
@@ -62,22 +63,17 @@ export function resolveAuthMode(): AuthMode {
 }
 
 /**
- * Validates auth configuration for the current edition.
+ * Validates auth configuration for the current deployment mode.
  *
  * Fails fast if:
- * - EDITION=HOSTED but Better Auth is not configured (no DATABASE_URL)
+ * - Hosted mode but Better Auth is not configured (no DATABASE_URL)
  *
  * @throws Error if configuration is invalid
  */
 export function validateAuthConfig(mode: AuthMode): void {
-  const edition = process.env.EDITION?.toUpperCase();
-
-  // Accept OSS as alias for CE during transition
-  const normalizedEdition = edition === 'OSS' ? 'CE' : edition;
-
-  if (normalizedEdition === 'HOSTED' && mode !== 'better-auth') {
+  if (isHostedMode() && mode !== 'better-auth') {
     throw new Error(
-      'EDITION=HOSTED requires Better Auth (DATABASE_URL must be set). ' +
+      'Hosted mode requires Better Auth (DATABASE_URL must be set). ' +
         'Hosted mode cannot fall back to stub authentication.'
     );
   }
@@ -89,7 +85,7 @@ export function validateAuthConfig(mode: AuthMode): void {
  * This is the main entry point for auth in route handlers.
  * It returns a cached context to avoid redundant initialization.
  *
- * @throws Error if EDITION=HOSTED but auth is misconfigured
+ * @throws Error if hosted mode but auth is misconfigured
  */
 export function getAuthContext(): AuthContext {
   if (cachedContext) {

@@ -6,7 +6,17 @@
  */
 
 // Export client factory
-export { createDb, createDbFromEnv, type Database, type CreateDbOptions } from './lib/client.js';
+export {
+  createDb,
+  createLocalDb,
+  createCloudSqlDb,
+  createDbFromEnv,
+  closeConnector,
+  type Database,
+  type CreateDbOptions,
+  type LocalDbOptions,
+  type CloudSqlOptions,
+} from './lib/client.js';
 
 // Export schema and types
 export * as schema from './lib/schema.js';

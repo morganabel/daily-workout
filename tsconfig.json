@@ -32,6 +32,12 @@
     },
     {
       "path": "./packages/server-exercise-library"
+    },
+    {
+      "path": "./packages/metering"
+    },
+    {
+      "path": "./packages/quotas"
     }
   ]
 }

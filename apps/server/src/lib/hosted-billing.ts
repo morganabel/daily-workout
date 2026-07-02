@@ -258,7 +258,3 @@ export class HostedUsagePolicy implements UsagePolicy {
 }
 
 export const hostedBillingRuntime = new HostedBillingRuntime();
-
-export const isHostedBillingEnabled = (): boolean =>
-  process.env.EDITION?.toUpperCase() === 'HOSTED' &&
-  process.env.HOSTED_BILLING_ENABLED === 'true';

@@ -9,10 +9,9 @@ import {
 import { getAuthContext } from '@/lib/auth-context';
 import { createErrorResponse } from '@/lib/errors';
 import { usagePolicy } from '@/lib/wiring';
+import { isBillingEnabled } from '@/lib/deployment';
 
-const billingRouteDisabled = (): boolean =>
-  process.env.EDITION?.toUpperCase() !== 'HOSTED' ||
-  process.env.HOSTED_BILLING_ENABLED !== 'true';
+const billingRouteDisabled = (): boolean => !isBillingEnabled();
 
 export async function GET(request: Request): Promise<Response> {
   const { requestId, startedAt, log } = createRequestContext(

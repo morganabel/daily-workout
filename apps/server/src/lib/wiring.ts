@@ -24,11 +24,8 @@ import {
 } from '@workout-agent-ce/server-ai';
 import type { ExerciseLibrary } from '@workout-agent-ce/server-exercise-library';
 import { getAuthContext } from './auth-context';
-import {
-  hostedBillingRuntime,
-  HostedUsagePolicy,
-  isHostedBillingEnabled,
-} from './hosted-billing';
+import { hostedBillingRuntime, HostedUsagePolicy } from './hosted-billing';
+import { isBillingEnabled, resolveEdition } from './deployment';
 
 // Get auth provider from auth context (supports both stub and Better Auth)
 const { provider: auth } = getAuthContext();
@@ -59,17 +56,9 @@ const loadExerciseLibrary = async (): Promise<ExerciseLibrary | undefined> => {
   return cachedExerciseLibrary ?? undefined;
 };
 
-const allowedEditions = new Set(['CE', 'HOSTED'] as const);
 const allowedProviders = new Set(['openai', 'gemini'] as const);
 
 const buildConfig = (): GenerateHandlerConfig => {
-  const rawEdition = process.env.EDITION?.toUpperCase();
-  if (rawEdition && !allowedEditions.has(rawEdition as 'CE' | 'HOSTED')) {
-    throw new Error(`Invalid EDITION value: ${rawEdition}`);
-  }
-
-  const edition = (rawEdition as 'CE' | 'HOSTED') ?? 'CE';
-
   const rawProvider = process.env.AI_PROVIDER?.toLowerCase();
   if (
     rawProvider &&
@@ -88,7 +77,7 @@ const buildConfig = (): GenerateHandlerConfig => {
   }
 
   return {
-    edition,
+    edition: resolveEdition(),
     useVertexAi,
     googleCloudProject,
     googleCloudLocation,
@@ -103,7 +92,7 @@ const buildConfig = (): GenerateHandlerConfig => {
 
 // Build server configuration from environment
 const config = buildConfig();
-const hostedBilling = config.edition === 'HOSTED' && isHostedBillingEnabled();
+const hostedBilling = isBillingEnabled();
 
 if (hostedBilling && process.env.NODE_ENV !== 'test') {
   console.warn(

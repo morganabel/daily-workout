@@ -24,6 +24,7 @@ import {
   metaResponseSchema,
 } from '@workout-agent/shared';
 import { getAuthContext } from '@/lib/auth-context';
+import { isBillingEnabled, resolveEdition } from '@/lib/deployment';
 
 export async function GET(request: Request): Promise<Response> {
   const { requestId, startedAt, log } = createRequestContext(
@@ -32,11 +33,8 @@ export async function GET(request: Request): Promise<Response> {
   );
   const ctx = getAuthContext();
 
-  // Determine edition from environment
-  const rawEdition = process.env.EDITION?.toUpperCase();
-  const edition: 'CE' | 'HOSTED' = rawEdition === 'HOSTED' ? 'HOSTED' : 'CE';
-  const billingEnabled =
-    edition === 'HOSTED' && process.env.HOSTED_BILLING_ENABLED === 'true';
+  const edition = resolveEdition();
+  const billingEnabled = isBillingEnabled();
   const billing = createBillingCapabilities(
     billingEnabled
       ? {

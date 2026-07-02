@@ -35,6 +35,8 @@ describe('auth-context', () => {
     delete process.env.AUTH_MODE;
     delete process.env.DATABASE_URL;
     delete process.env.EDITION;
+    delete process.env.DEPLOYMENT_MODE;
+    delete process.env.BILLING_PROVIDER;
     delete process.env.BETTER_AUTH_SECRET;
   });
 
@@ -73,45 +75,54 @@ describe('auth-context', () => {
   });
 
   describe('validateAuthConfig', () => {
-    it('should pass for CE mode with stub auth', () => {
-      process.env.EDITION = 'CE';
+    it('should pass for self-hosted mode with stub auth', () => {
+      process.env.DEPLOYMENT_MODE = 'self-hosted';
       expect(() => validateAuthConfig('stub')).not.toThrow();
     });
 
-    it('should pass for CE mode with better-auth', () => {
-      process.env.EDITION = 'CE';
+    it('should pass for self-hosted mode with better-auth', () => {
+      process.env.DEPLOYMENT_MODE = 'self-hosted';
       expect(() => validateAuthConfig('better-auth')).not.toThrow();
     });
 
-    it('should pass for HOSTED mode with better-auth', () => {
-      process.env.EDITION = 'HOSTED';
+    it('should pass for hosted mode with better-auth', () => {
+      process.env.DEPLOYMENT_MODE = 'hosted';
       expect(() => validateAuthConfig('better-auth')).not.toThrow();
     });
 
-    it('should throw for HOSTED mode with stub auth (fail-closed)', () => {
-      process.env.EDITION = 'HOSTED';
+    it('should throw for hosted mode with stub auth (fail-closed)', () => {
+      process.env.DEPLOYMENT_MODE = 'hosted';
       expect(() => validateAuthConfig('stub')).toThrow(
-        'EDITION=HOSTED requires Better Auth'
+        'Hosted mode requires Better Auth'
       );
     });
 
-    it('should treat OSS as alias for CE', () => {
+    it('should honor EDITION=HOSTED as a backward-compatible alias', () => {
+      process.env.EDITION = 'HOSTED';
+      expect(() => validateAuthConfig('stub')).toThrow(
+        'Hosted mode requires Better Auth'
+      );
+    });
+
+    it('should treat OSS/CE editions as self-hosted', () => {
       process.env.EDITION = 'OSS';
+      expect(() => validateAuthConfig('stub')).not.toThrow();
+      process.env.EDITION = 'CE';
       expect(() => validateAuthConfig('stub')).not.toThrow();
     });
 
-    it('should pass when EDITION is not set (defaults to CE behavior)', () => {
+    it('should pass when no mode is set (defaults to self-hosted)', () => {
       expect(() => validateAuthConfig('stub')).not.toThrow();
     });
   });
 
   describe('fail-closed hosted auth', () => {
-    it('should fail fast at startup when HOSTED but no DATABASE_URL', () => {
-      process.env.EDITION = 'HOSTED';
+    it('should fail fast at startup when hosted but no DATABASE_URL', () => {
+      process.env.DEPLOYMENT_MODE = 'hosted';
       // DATABASE_URL is not set, so resolveAuthMode returns 'stub'
       const mode = resolveAuthMode();
       expect(() => validateAuthConfig(mode)).toThrow(
-        'EDITION=HOSTED requires Better Auth'
+        'Hosted mode requires Better Auth'
       );
     });
   });
