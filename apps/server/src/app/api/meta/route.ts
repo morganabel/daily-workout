@@ -31,7 +31,7 @@ export async function GET(request: Request): Promise<Response> {
     request,
     'api.meta'
   );
-  const ctx = getAuthContext();
+  const ctx = await getAuthContext();
 
   const edition = resolveEdition();
   const billingEnabled = isBillingEnabled();

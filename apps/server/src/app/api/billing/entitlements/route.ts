@@ -29,7 +29,8 @@ export async function GET(request: Request): Promise<Response> {
     return response;
   }
 
-  const auth = await getAuthContext().provider.authenticate(request);
+  const ctx = await getAuthContext();
+  const auth = await ctx.provider.authenticate(request);
   if (!auth) {
     const response = createErrorResponse(
       'UNAUTHORIZED',

@@ -27,8 +27,6 @@ import { getAuthContext } from './auth-context';
 import { hostedBillingRuntime, HostedUsagePolicy } from './hosted-billing';
 import { isBillingEnabled, resolveEdition } from './deployment';
 
-// Get auth provider from auth context (supports both stub and Better Auth)
-const { provider: auth } = getAuthContext();
 const store = new InMemoryGenerationStore();
 const router = new DefaultModelRouter();
 const planner = new DefaultStageOnePlanner();
@@ -107,14 +105,43 @@ export const usagePolicy: UsagePolicy = hostedBilling
 // Usage is reserved at policy-check time; metering sink is a no-op for both editions.
 export const meteringSink: MeteringSink = new NoOpMeteringSink();
 
-// Create handlers using the factories
-export const generateHandler = createGenerateHandler({
-  auth,
-  store,
-  router,
-  planner,
-  loadExerciseLibrary,
-  policy: usagePolicy,
-  metering: meteringSink,
-  config,
-});
+// The generate handler needs the auth provider, which is resolved
+// asynchronously (Better Auth may open the DB connection via the Cloud SQL
+// Connector). Build it lazily on the first request and cache it.
+type GenerateHandler = ReturnType<typeof createGenerateHandler>;
+let cachedGenerateHandler: GenerateHandler | null = null;
+let generateHandlerPromise: Promise<GenerateHandler> | null = null;
+
+const getGenerateHandler = (): Promise<GenerateHandler> => {
+  if (cachedGenerateHandler) {
+    return Promise.resolve(cachedGenerateHandler);
+  }
+  if (!generateHandlerPromise) {
+    generateHandlerPromise = (async () => {
+      const { provider: auth } = await getAuthContext();
+      cachedGenerateHandler = createGenerateHandler({
+        auth,
+        store,
+        router,
+        planner,
+        loadExerciseLibrary,
+        policy: usagePolicy,
+        metering: meteringSink,
+        config,
+      });
+      return cachedGenerateHandler;
+    })().catch((error) => {
+      // Allow a retry on the next request after a transient failure.
+      generateHandlerPromise = null;
+      throw error;
+    });
+  }
+  return generateHandlerPromise;
+};
+
+export const generateHandler = async (
+  request: Request
+): Promise<Response> => {
+  const handler = await getGenerateHandler();
+  return handler(request);
+};

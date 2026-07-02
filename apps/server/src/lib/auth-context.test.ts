@@ -9,7 +9,7 @@
 
 // Mock external dependencies to avoid ESM import issues in Jest
 jest.mock('@workout-agent-ce/server-db', () => ({
-  createDb: jest.fn(),
+  createDbFromEnv: jest.fn(),
 }));
 
 jest.mock('@workout-agent-ce/server-auth', () => ({
@@ -34,6 +34,7 @@ describe('auth-context', () => {
     // Clear auth-related env vars
     delete process.env.AUTH_MODE;
     delete process.env.DATABASE_URL;
+    delete process.env.INSTANCE_CONNECTION_NAME;
     delete process.env.EDITION;
     delete process.env.DEPLOYMENT_MODE;
     delete process.env.BILLING_PROVIDER;
@@ -51,6 +52,11 @@ describe('auth-context', () => {
 
     it('should return better-auth when DATABASE_URL is set', () => {
       process.env.DATABASE_URL = 'postgres://localhost/test';
+      expect(resolveAuthMode()).toBe('better-auth');
+    });
+
+    it('should return better-auth when INSTANCE_CONNECTION_NAME is set (Cloud SQL)', () => {
+      process.env.INSTANCE_CONNECTION_NAME = 'project:region:instance';
       expect(resolveAuthMode()).toBe('better-auth');
     });
 
