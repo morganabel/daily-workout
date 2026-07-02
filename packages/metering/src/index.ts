@@ -28,10 +28,9 @@ export class MeteringService {
    * Record a usage event
    */
   async recordEvent(event: UsageEvent): Promise<void> {
-    this.events.push({
-      ...event,
-      timestamp: new Date(),
-    });
+    // Preserve the caller-provided timestamp so backfilled or delayed events are
+    // attributed to when they occurred, not when they were recorded.
+    this.events.push({ ...event });
     // In production, this would persist to a database
   }
 
