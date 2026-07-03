@@ -12,6 +12,7 @@ export {
   createCloudSqlDb,
   createDbFromEnv,
   closeConnector,
+  ping,
   type Database,
   type CreateDbOptions,
   type LocalDbOptions,

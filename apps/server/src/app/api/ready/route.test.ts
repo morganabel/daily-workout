@@ -1,0 +1,75 @@
+jest.mock('@/lib/auth-context', () => ({
+  getAuthContext: jest.fn(),
+}));
+
+jest.mock('@workout-agent-ce/server-db', () => ({
+  ping: jest.fn(),
+}));
+
+import { GET } from './route';
+
+const { getAuthContext } = jest.requireMock('@/lib/auth-context') as {
+  getAuthContext: jest.Mock;
+};
+const { ping } = jest.requireMock('@workout-agent-ce/server-db') as {
+  ping: jest.Mock;
+};
+
+describe('GET /api/ready', () => {
+  const originalEnv = process.env;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    process.env = { ...originalEnv };
+    delete process.env.DEPLOYMENT_MODE;
+    delete process.env.EDITION;
+  });
+
+  afterAll(() => {
+    process.env = originalEnv;
+  });
+
+  it('returns ready and pings the database when one is configured', async () => {
+    getAuthContext.mockResolvedValue({ mode: 'better-auth', db: { name: 'db' } });
+    ping.mockResolvedValue(undefined);
+
+    const response = await GET();
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data.status).toBe('ready');
+    expect(data.database).toBe('connected');
+    expect(ping).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns ready without pinging when there is no database (stub mode)', async () => {
+    getAuthContext.mockResolvedValue({ mode: 'stub', db: null });
+
+    const response = await GET();
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data.database).toBe('not-configured');
+    expect(ping).not.toHaveBeenCalled();
+  });
+
+  it('returns 503 when the database is unreachable', async () => {
+    getAuthContext.mockResolvedValue({ mode: 'better-auth', db: { name: 'db' } });
+    ping.mockRejectedValue(new Error('connection refused'));
+
+    const response = await GET();
+    const data = await response.json();
+
+    expect(response.status).toBe(503);
+    expect(data.status).toBe('not-ready');
+    expect(data.error).toContain('connection refused');
+  });
+
+  it('returns 503 when the auth context fails to initialize', async () => {
+    getAuthContext.mockRejectedValue(new Error('DATABASE_URL is required'));
+
+    const response = await GET();
+
+    expect(response.status).toBe(503);
+  });
+});

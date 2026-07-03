@@ -3,14 +3,14 @@
  *
  * Exports factory functions to create a database client. No side effects at
  * import time. Supports both a standard connection string (local / self-hosted)
- * and the Google Cloud SQL Connector (Cloud Run), with autodetection via
- * createDbFromEnv().
+ * and the Google Cloud SQL Connector, with autodetection via createDbFromEnv().
  *
  * The Cloud SQL Connector is imported lazily so deployments that only use
  * DATABASE_URL never pull the GCP library into their module graph.
  */
 
 import { drizzle } from 'drizzle-orm/node-postgres';
+import { sql } from 'drizzle-orm';
 import { Pool, type PoolConfig } from 'pg';
 import type { Connector as CloudSqlConnector } from '@google-cloud/cloud-sql-connector';
 import * as schema from './schema.js';
@@ -36,7 +36,7 @@ export interface CreateDbOptions {
 export type LocalDbOptions = CreateDbOptions;
 
 /**
- * Options for Cloud SQL connections (used on Cloud Run).
+ * Options for Google Cloud SQL Connector connections.
  */
 export interface CloudSqlOptions {
   /**
@@ -103,7 +103,7 @@ async function getConnector(): Promise<CloudSqlConnector> {
 
 /**
  * Creates a Drizzle ORM database client connected to Cloud SQL via the Google
- * Cloud SQL Connector. Use this when deploying to Cloud Run.
+ * Cloud SQL Connector.
  *
  * @example
  * ```ts
@@ -153,7 +153,7 @@ export async function createDbFromEnv(): Promise<Database> {
   const instanceConnectionName = process.env.INSTANCE_CONNECTION_NAME;
 
   if (instanceConnectionName) {
-    // Cloud Run mode - use Cloud SQL Connector
+    // Cloud SQL Connector mode
     const database = process.env.DB_NAME;
     const user = process.env.DB_USER;
     const password = process.env.DB_PASSWORD;
@@ -192,4 +192,13 @@ export function closeConnector(): void {
     connectorInstance.close();
     connectorInstance = null;
   }
+}
+
+/**
+ * Verifies the database is reachable by running a trivial query.
+ *
+ * @throws if the connection cannot be established.
+ */
+export async function ping(db: Database): Promise<void> {
+  await db.execute(sql`SELECT 1`);
 }
