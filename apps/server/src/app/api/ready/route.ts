@@ -12,6 +12,13 @@ import { ping } from '@workout-agent-ce/server-db';
 import { getAuthContext } from '@/lib/auth-context';
 import { getDeploymentMode, resolveEdition } from '@/lib/deployment';
 
+function readinessErrorMessage(error: unknown): string {
+  if (process.env.NODE_ENV === 'production') {
+    return 'Readiness check failed';
+  }
+  return error instanceof Error ? error.message : 'Unknown error';
+}
+
 export async function GET(): Promise<Response> {
   const mode = getDeploymentMode();
   const edition = resolveEdition();
@@ -35,7 +42,7 @@ export async function GET(): Promise<Response> {
         status: 'not-ready',
         mode,
         edition,
-        error: error instanceof Error ? error.message : 'Unknown error',
+        error: readinessErrorMessage(error),
         timestamp: new Date().toISOString(),
       },
       { status: 503 }

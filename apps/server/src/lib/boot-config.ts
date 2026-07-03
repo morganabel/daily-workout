@@ -12,38 +12,69 @@
 import { getBillingProvider, getDeploymentMode } from './deployment';
 import { resolveAuthMode, validateAuthConfig } from './auth-context';
 
+const hasEnvValue = (key: string): boolean => Boolean(process.env[key]?.trim());
+
 export function validateBootConfig(): void {
-  // These throw on an invalid DEPLOYMENT_MODE / BILLING_PROVIDER value.
+  // DEPLOYMENT_MODE is always parsed; BILLING_PROVIDER is parsed below when
+  // hosted mode makes billing configuration relevant.
   const mode = getDeploymentMode();
-  const billingProvider = getBillingProvider();
+  const hasCloudSqlConfig = Boolean(process.env.INSTANCE_CONNECTION_NAME);
 
   // Self-hosted stays permissive; the strict checks apply to hosted deployments.
   if (mode !== 'hosted') {
     return;
   }
 
+  const billingProvider = getBillingProvider();
+
   // Hosted requires a configured database (Better Auth cannot fall back to stub).
-  if (!process.env.DATABASE_URL && !process.env.INSTANCE_CONNECTION_NAME) {
+  if (!hasEnvValue('DATABASE_URL') && !hasCloudSqlConfig) {
     throw new Error(
       'Hosted mode requires a database: set DATABASE_URL or INSTANCE_CONNECTION_NAME.'
     );
   }
 
+  if (hasCloudSqlConfig) {
+    const missingCloudSqlVars = [
+      'INSTANCE_CONNECTION_NAME',
+      'DB_NAME',
+      'DB_USER',
+      'DB_PASSWORD',
+    ].filter((key) => !hasEnvValue(key));
+    if (missingCloudSqlVars.length > 0) {
+      throw new Error(
+        'Hosted mode with INSTANCE_CONNECTION_NAME requires ' +
+          `${missingCloudSqlVars.join(', ')}.`
+      );
+    }
+  }
+
   // Catch an explicit AUTH_MODE=stub set in hosted mode.
   validateAuthConfig(resolveAuthMode());
 
-  if (!process.env.BETTER_AUTH_SECRET) {
+  if (!hasEnvValue('BETTER_AUTH_SECRET')) {
     throw new Error('Hosted mode requires BETTER_AUTH_SECRET.');
   }
 
   if (
     billingProvider === 'revenuecat' &&
-    !process.env.REVENUECAT_WEBHOOK_SECRET &&
+    !hasEnvValue('REVENUECAT_WEBHOOK_SECRET') &&
     process.env.REVENUECAT_ALLOW_UNSIGNED_WEBHOOKS !== 'true'
   ) {
     throw new Error(
       'Hosted billing (BILLING_PROVIDER=revenuecat) requires REVENUECAT_WEBHOOK_SECRET ' +
         '(or set REVENUECAT_ALLOW_UNSIGNED_WEBHOOKS=true to accept unsigned webhooks).'
+    );
+  }
+
+  if (
+    billingProvider === 'revenuecat' &&
+    process.env.REVENUECAT_ALLOW_UNSIGNED_WEBHOOKS === 'true' &&
+    process.env.NODE_ENV === 'production'
+  ) {
+    throw new Error(
+      'Hosted production billing cannot use REVENUECAT_ALLOW_UNSIGNED_WEBHOOKS=true; ' +
+        'set REVENUECAT_WEBHOOK_SECRET.'
     );
   }
 }

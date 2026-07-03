@@ -17,12 +17,20 @@ const { ping } = jest.requireMock('@workout-agent-ce/server-db') as {
 
 describe('GET /api/ready', () => {
   const originalEnv = process.env;
+  let consoleErrorSpy: jest.SpiedFunction<typeof console.error>;
 
   beforeEach(() => {
     jest.clearAllMocks();
+    consoleErrorSpy = jest
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
     process.env = { ...originalEnv };
     delete process.env.DEPLOYMENT_MODE;
     delete process.env.EDITION;
+  });
+
+  afterEach(() => {
+    consoleErrorSpy.mockRestore();
   });
 
   afterAll(() => {
@@ -63,6 +71,19 @@ describe('GET /api/ready', () => {
     expect(response.status).toBe(503);
     expect(data.status).toBe('not-ready');
     expect(data.error).toContain('connection refused');
+  });
+
+  it('redacts readiness errors in production responses', async () => {
+    process.env.NODE_ENV = 'production';
+    getAuthContext.mockResolvedValue({ mode: 'better-auth', db: { name: 'db' } });
+    ping.mockRejectedValue(new Error('connection refused'));
+
+    const response = await GET();
+    const data = await response.json();
+
+    expect(response.status).toBe(503);
+    expect(data.status).toBe('not-ready');
+    expect(data.error).toBe('Readiness check failed');
   });
 
   it('returns 503 when the auth context fails to initialize', async () => {
