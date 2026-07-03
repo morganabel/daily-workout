@@ -1,10 +1,9 @@
 /**
- * Health / liveness endpoint for Cloud Run and Docker.
+ * Health / liveness endpoint.
  *
  * Reports that the server process is up and which deployment mode it is
  * running in. Kept dependency-free (no DB round-trip) so it can serve as a
- * fast liveness probe; readiness checks that touch the database can be added
- * separately if needed.
+ * fast liveness probe; database-touching readiness lives at /api/ready.
  */
 
 import { NextResponse } from 'next/server';
