@@ -1,0 +1,1 @@
+fix CI bootstrap: setup-node cache invoked npm 11 before npm 12 activation
