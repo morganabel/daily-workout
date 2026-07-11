@@ -1,0 +1,23 @@
+{
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "name": "@workout-agent-ce/server",
+  "targets": {
+    "typecheck": {
+      "executor": "nx:run-commands",
+      "cache": true,
+      "dependsOn": ["^typecheck"],
+      "inputs": [
+        "production",
+        "^production",
+        "{workspaceRoot}/tsconfig.base.json",
+        { "externalDependencies": ["typescript"] }
+      ],
+      "outputs": ["{projectRoot}/dist/tsconfig.tsbuildinfo"],
+      "syncGenerators": ["@nx/js:typescript-sync"],
+      "options": {
+        "cwd": "apps/server",
+        "command": "tsc --noEmit -p tsconfig.json"
+      }
+    }
+  }
+}

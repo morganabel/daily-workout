@@ -10,14 +10,16 @@ on:
   workflow_dispatch:
 
 permissions:
+  actions: read
   contents: read
 
 env:
   NX_DAEMON: 'false'
+  OPENSPEC_TELEMETRY: '0'
 
 jobs:
   validate:
-    name: Lint / test / build
+    name: Lint / typecheck / test / build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -28,10 +30,20 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
-          cache: npm
+
+      - name: Install pinned npm
+        run: npm install --global --ignore-scripts npm@12.0.1
+
+      - name: Verify toolchain versions
+        run: |
+          test "$(node --version)" = "v24.16.0"
+          test "$(npm --version)" = "12.0.1"
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Report dependency install-script policy
+        run: npm install-scripts ls
 
       - name: Derive base/head SHAs for affected
         uses: nrwl/nx-set-shas@v4
@@ -39,8 +51,19 @@ jobs:
       - name: Check TypeScript project references are in sync
         run: npx nx sync:check
 
-      - name: Lint, test, and build affected projects
-        run: npx nx affected --targets=lint,test,build
+      - name: Check required Nx targets
+        run: npm run validate:nx-targets
+
+      - name: Validate OpenSpec artifacts
+        run: npm run validate:openspec -- --all
+
+      - name: Lint, typecheck, test, and build affected projects
+        if: github.event_name == 'pull_request'
+        run: npx nx affected -t lint,typecheck,test,build --base="$NX_BASE" --head="$NX_HEAD" --outputStyle=static
+
+      - name: Lint, typecheck, test, and build all projects
+        if: github.event_name != 'pull_request'
+        run: npx nx run-many -t lint,typecheck,test,build --outputStyle=static
 
   docker:
     name: Docker image builds
