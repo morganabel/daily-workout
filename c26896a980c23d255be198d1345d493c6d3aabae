@@ -1,0 +1,1 @@
+Simplify OpenSpec validation: remove the untested Git-aware wrapper, run the pinned CLI directly across all recognized artifacts, and delete the stale duplicate change stub.
