@@ -1,0 +1,1 @@
+Align the package-integrity OpenSpec with the simplified implementation: one direct pinned CLI alias, full CI validation, and no custom Git-aware wrapper.
