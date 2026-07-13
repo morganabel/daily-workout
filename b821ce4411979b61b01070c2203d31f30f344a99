@@ -1,0 +1,1 @@
+Align the package-integrity plan with the implementation: accept npm 12 patch releases for ordinary local commands while retaining exact canonical, CI, Docker, and lockfile versions.
