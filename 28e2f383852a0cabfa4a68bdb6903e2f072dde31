@@ -1,0 +1,1 @@
+Relax local npm patch enforcement while retaining the exact npm 12.0.1 pin in package metadata, CI, Docker, and lockfile-changing guidance.
