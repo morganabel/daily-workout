@@ -1,6 +1,7 @@
 {
   "name": "@workout-agent-ce/source",
   "version": "0.0.0",
+  "packageManager": "npm@12.0.1",
   "license": "AGPL-3.0-only",
   "scripts": {
     "start": "nx dev server",
@@ -17,15 +18,18 @@
     "db:down": "docker compose down",
     "db:reset": "docker compose down -v && docker compose up -d db",
     "better-auth:generate": "nx run server-auth:build && better-auth generate --config apps/server/src/lib/auth.ts --output packages/server-db/src/lib/schema.ts --yes",
-    "lint": "nx run-many --target=lint --all",
-    "test": "nx run-many --target=test --all",
+    "lint": "nx run-many --target=lint",
+    "test": "nx run-many --target=test",
+    "typecheck": "nx run-many --target=typecheck",
+    "validate:nx-targets": "node ./tools/scripts/check-required-nx-targets.mjs",
+    "validate:openspec": "openspec validate --strict --no-interactive --no-color",
     "validate:generation-scenarios": "nx test @workout-agent/shared --testPathPatterns=src/lib/evaluation/workout-generation-scenarios.spec.ts",
     "evaluate:generation": "node ./tools/scripts/run-generation-evaluation.mjs",
     "review:generation": "node ./tools/scripts/review-generation-report.mjs",
     "promptfoo:generation": "node ./tools/scripts/run-promptfoo-generation-evaluation.mjs",
     "promptfoo:generation:view": "node ./tools/scripts/view-promptfoo-generation-report.mjs",
     "promptfoo:generation:redteam": "node ./tools/scripts/run-promptfoo-generation-redteam.mjs",
-    "build": "nx run-many --target=build --all"
+    "build": "nx run-many --target=build"
   },
   "private": true,
   "dependencies": {
@@ -75,17 +79,18 @@
     "@eslint/eslintrc": "^2.1.1",
     "@eslint/js": "^9.8.0",
     "@expo/cli": "~0.24.14",
+    "@fission-ai/openspec": "1.5.0",
     "@modelcontextprotocol/sdk": "^1.29.0",
     "@next/eslint-plugin-next": "^15.2.4",
-    "@nx/devkit": "22.0.2",
-    "@nx/eslint": "22.0.2",
-    "@nx/eslint-plugin": "22.0.2",
-    "@nx/expo": "22.0.2",
-    "@nx/jest": "22.0.2",
+    "@nx/devkit": "22.3.3",
+    "@nx/eslint": "22.3.3",
+    "@nx/eslint-plugin": "22.3.3",
+    "@nx/expo": "22.3.3",
+    "@nx/jest": "22.3.3",
     "@nx/js": "22.3.3",
-    "@nx/next": "^22.0.2",
-    "@nx/playwright": "22.0.2",
-    "@nx/workspace": "22.0.2",
+    "@nx/next": "22.3.3",
+    "@nx/playwright": "22.3.3",
+    "@nx/workspace": "22.3.3",
     "@playwright/test": "^1.36.0",
     "@swc-node/register": "~1.9.1",
     "@swc/cli": "~0.6.0",
@@ -122,7 +127,7 @@
     "jsonc-eslint-parser": "^2.1.0",
     "metro-config": "~0.82.4",
     "metro-resolver": "~0.82.4",
-    "nx": "22.0.2",
+    "nx": "22.3.3",
     "postcss": "8.4.38",
     "prettier": "^2.6.2",
     "tailwindcss": "3.4.3",
@@ -136,9 +141,40 @@
   "overrides": {
     "react-test-renderer": "19.0.0"
   },
+  "allowScripts": {
+    "@fission-ai/openspec": false,
+    "@parcel/watcher@2.5.1": true,
+    "@prisma/client": false,
+    "@swc/core@1.5.29": true,
+    "better-sqlite3@12.5.0": true,
+    "better-sqlite3@12.8.0": true,
+    "detox": false,
+    "dtrace-provider": false,
+    "esbuild@0.18.20": true,
+    "esbuild@0.25.5": true,
+    "esbuild@0.27.7": true,
+    "fsevents@2.3.2": true,
+    "fsevents@2.3.3": true,
+    "less": false,
+    "nx@22.3.3": true,
+    "sharp@0.33.5": true,
+    "unrs-resolver@1.11.1": true
+  },
   "engines": {
-    "node": ">=24 <25",
-    "npm": ">=11 <12"
+    "node": ">=24.15.0 <25",
+    "npm": ">=12 <13"
+  },
+  "devEngines": {
+    "runtime": {
+      "name": "node",
+      "version": "24.16.0",
+      "onFail": "error"
+    },
+    "packageManager": {
+      "name": "npm",
+      "version": ">=12 <13",
+      "onFail": "error"
+    }
   },
   "nx": {
     "includedScripts": []

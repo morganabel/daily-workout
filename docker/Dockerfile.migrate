@@ -1,8 +1,12 @@
 # Database migration image.
 # Applies the single Drizzle migration lineage owned by server-db.
 # Build context is the daily-workout repo root.
-FROM node:24-alpine
+FROM node:24.16.0-alpine3.24
 WORKDIR /app
+
+RUN npm install --global --ignore-scripts npm@12.0.1 \
+  && test "$(node --version)" = "v24.16.0" \
+  && test "$(npm --version)" = "12.0.1"
 
 # Native toolchain for workspace packages that build from source (e.g. better-sqlite3)
 RUN apk add --no-cache python3 make g++
