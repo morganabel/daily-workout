@@ -206,6 +206,11 @@ describe('OpenAIProvider', () => {
         apiKey: 'sk-test-key',
       });
 
+      expect(OpenAI).toHaveBeenCalledWith({
+        apiKey: 'sk-test-key',
+        baseURL: 'https://api.openai.com/v1',
+        timeout: 60_000,
+      });
       expect(result.plan.id).toBe('mock-plan-id');
       expect(result.plan.source).toBe('ai');
       expect(result.responseId).toBe('resp-abc123');
@@ -258,6 +263,7 @@ describe('OpenAIProvider', () => {
       expect(OpenAI).toHaveBeenCalledWith({
         apiKey: 'sk-test-key',
         baseURL: 'https://custom-openai.example.com/v1',
+        timeout: 60_000,
       });
     });
 
@@ -349,6 +355,7 @@ describe('OpenAIProvider', () => {
       expect(OpenAI).toHaveBeenCalledWith({
         apiKey: 'sk-test-key',
         baseURL: 'https://api.openai.com/v1',
+        timeout: 60_000,
       });
     });
 

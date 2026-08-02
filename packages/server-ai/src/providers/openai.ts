@@ -33,6 +33,14 @@ const DEFAULT_PLANNER_MODEL =
   process.env.OPENAI_PLANNER_MODEL ?? 'gpt-5.6-luna';
 const DEFAULT_API_BASE =
   process.env.OPENAI_API_BASE ?? 'https://api.openai.com/v1';
+const configuredRequestTimeoutMs = Number.parseInt(
+  process.env.OPENAI_TIMEOUT_MS ?? '',
+  10
+);
+const DEFAULT_REQUEST_TIMEOUT_MS =
+  Number.isFinite(configuredRequestTimeoutMs) && configuredRequestTimeoutMs > 0
+    ? configuredRequestTimeoutMs
+    : 60_000;
 
 export class OpenAIProvider implements AiProvider {
   private readonly log = createLogger({ route: 'ai.openai' });
@@ -50,6 +58,7 @@ export class OpenAIProvider implements AiProvider {
     const client = new OpenAI({
       apiKey: options.apiKey,
       baseURL: options.apiBaseUrl ?? DEFAULT_API_BASE,
+      timeout: DEFAULT_REQUEST_TIMEOUT_MS,
     });
     const model = options.model ?? DEFAULT_PLANNER_MODEL;
     const input: OpenAI.Responses.ResponseInputItem[] = [
@@ -130,6 +139,7 @@ export class OpenAIProvider implements AiProvider {
     const client = new OpenAI({
       apiKey: options.apiKey,
       baseURL: options.apiBaseUrl ?? DEFAULT_API_BASE,
+      timeout: DEFAULT_REQUEST_TIMEOUT_MS,
     });
 
     const model = options.model ?? DEFAULT_MODEL;

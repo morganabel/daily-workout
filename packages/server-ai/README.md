@@ -88,6 +88,7 @@ LLM_SCHEMA_VERSION=v2-flat
 
 # Provider selection (optional, defaults to openai)
 AI_PROVIDER=openrouter
+OPENAI_TIMEOUT_MS=60000
 OPENROUTER_API_KEY=your-openrouter-key
 OPENROUTER_MODEL=deepseek/deepseek-v4-flash-0731
 OPENROUTER_PLANNER_MODEL=deepseek/deepseek-v4-flash-0731
