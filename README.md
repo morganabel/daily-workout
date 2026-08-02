@@ -144,6 +144,7 @@ Notes:
 - In `CE`, live providers without configured keys warn and fail with `AI_PROVIDER_NOT_CONFIGURED`; use `--provider fixture` only for explicit plumbing checks.
 - In `HOSTED`, missing keys warn that runs are expected to fail with BYOK requirements.
 - The evaluator reuses the real generation handler, so request validation, context merging, provider routing, and configuration errors match the production flow.
+- Evaluation rows run with bounded concurrency of 4 by default. Use `--concurrency 1` for serial execution or `--concurrency <n>` to tune parallelism up to 16. Regeneration priming remains sequential within its row.
 - The report explicitly calls out fixture-only runs vs mixed/live coverage so it is harder to mistake plumbing validation for real model evaluation.
 
 ## Two-stage planner notes

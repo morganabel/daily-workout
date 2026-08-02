@@ -2,6 +2,9 @@ import { existsSync, readFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 
+const DEFAULT_CONCURRENCY = 4;
+const MAX_CONCURRENCY = 16;
+
 function loadRepoEnv() {
   const candidates = [
     path.join(process.cwd(), '.env'),
@@ -46,6 +49,7 @@ Usage:
 Options:
   --provider <value>     openai | gemini | openrouter | fixture | live | all (repeatable)
   --runs <number>        repeated runs per scenario/provider (default: 1)
+  --concurrency <number> maximum parallel evaluation rows (default: ${DEFAULT_CONCURRENCY}, max: ${MAX_CONCURRENCY})
   --tag <value>          filter scenarios by tag (repeatable)
   --scenario <id>        run only selected scenario id (repeatable)
   --limit <number>       cap total scenarios after filtering
@@ -111,6 +115,7 @@ function parseArgs(argv) {
   const scenarioIds = [];
 
   let runs = 1;
+  let concurrency = DEFAULT_CONCURRENCY;
   let edition = 'CE';
   let outputDir = path.join(
     process.cwd(),
@@ -151,6 +156,16 @@ function parseArgs(argv) {
       index += 1;
       continue;
     }
+    if (arg === '--concurrency' && next) {
+      concurrency = parsePositiveInteger(next, '--concurrency');
+      if (concurrency > MAX_CONCURRENCY) {
+        throw new Error(
+          `--concurrency must be <= ${MAX_CONCURRENCY}. Received: ${next}`
+        );
+      }
+      index += 1;
+      continue;
+    }
     if (arg === '--edition' && next) {
       edition = next.toUpperCase();
       index += 1;
@@ -186,6 +201,7 @@ function parseArgs(argv) {
       providerArgs.length > 0 ? providerArgs : ['openai']
     ),
     runs,
+    concurrency,
     edition,
     outputDir,
     scenarioIds,
@@ -206,6 +222,7 @@ function main() {
     GENERATION_EVAL_OPTIONS_JSON: JSON.stringify({
       providers: options.providers,
       runs: options.runs,
+      concurrency: options.concurrency,
       edition: options.edition,
       outputDir: options.outputDir,
       scenarioIds: options.scenarioIds,
