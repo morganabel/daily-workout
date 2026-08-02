@@ -96,6 +96,15 @@ describe('Promptfoo generation provider helpers', () => {
     ).toThrow(/requires vars.scenarioId/);
   });
 
+  it('accepts OpenRouter as a live evaluation provider', () => {
+    const vars = parsePromptfooGenerationProviderVars({
+      scenarioId: 'beginner-bodyweight-easy-15',
+      provider: 'openrouter',
+    });
+
+    expect(vars.provider).toBe('openrouter');
+  });
+
   it('maps successful entries with passing hard checks to Promptfoo pass output', () => {
     const output = buildPromptfooGenerationProviderOutput({
       entry: createEntry(),

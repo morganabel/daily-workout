@@ -213,6 +213,7 @@ export type GenerationEvaluationCorpus = z.infer<
 export const generationEvaluationProviderSchema = z.enum([
   'openai',
   'gemini',
+  'openrouter',
   'fixture',
 ]);
 export type GenerationEvaluationProvider = z.infer<

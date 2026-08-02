@@ -241,7 +241,9 @@ function createHandlerBundle(
     ? true
     : provider === 'openai'
     ? Boolean(process.env.OPENAI_API_KEY)
-    : hasGeminiAccess;
+    : provider === 'gemini'
+    ? hasGeminiAccess
+    : Boolean(process.env.OPENROUTER_API_KEY);
   let exerciseLibrary: ExerciseLibrary | undefined;
 
   return {
@@ -258,6 +260,7 @@ function createHandlerBundle(
           : {
               openai: process.env.OPENAI_API_KEY,
               gemini: process.env.GEMINI_API_KEY,
+              openrouter: process.env.OPENROUTER_API_KEY,
             },
         enableStageOnePlanner,
         allowUnconfiguredProvider: isFixtureProvider,
@@ -294,7 +297,11 @@ function buildHeaders(provider: GenerationEvaluationProvider, runId: string) {
     'content-type': 'application/json',
   };
 
-  if (provider === 'openai' || provider === 'gemini') {
+  if (
+    provider === 'openai' ||
+    provider === 'gemini' ||
+    provider === 'openrouter'
+  ) {
     headers['x-ai-provider'] = provider;
   }
 
