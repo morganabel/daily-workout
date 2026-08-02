@@ -41,6 +41,7 @@ import { createTodayPlanFixture } from '@workout-agent/shared/testing';
 export type GenerationEvaluationRunOptions = {
   providers: GenerationEvaluationProvider[];
   runs: number;
+  concurrency?: number;
   edition: 'CE' | 'HOSTED';
   outputDir: string;
   creationMode?: NonNullable<GenerationRequest['creationMode']>;
@@ -48,6 +49,9 @@ export type GenerationEvaluationRunOptions = {
   tags?: string[];
   limit?: number;
 };
+
+const DEFAULT_EVALUATION_CONCURRENCY = 4;
+const MAX_EVALUATION_CONCURRENCY = 16;
 
 export type GenerationEvaluationArtifacts = {
   html: string;
@@ -92,6 +96,76 @@ type StageOneCaptureResult = {
   summary: GenerationEvaluationPlannerSummary;
   durationMs?: number;
 };
+
+type EvaluationWorkItem = {
+  scenario: GenerationEvaluationScenario;
+  provider: GenerationEvaluationProvider;
+  runIndex: number;
+};
+
+function resolveEvaluationConcurrency(
+  options: GenerationEvaluationRunOptions
+): number {
+  const concurrency = options.concurrency ?? DEFAULT_EVALUATION_CONCURRENCY;
+  if (
+    !Number.isInteger(concurrency) ||
+    concurrency < 1 ||
+    concurrency > MAX_EVALUATION_CONCURRENCY
+  ) {
+    throw new Error(
+      `Evaluation concurrency must be an integer from 1 to ${MAX_EVALUATION_CONCURRENCY}. Received: ${concurrency}`
+    );
+  }
+  return concurrency;
+}
+
+/** @internal Exported for focused concurrency behavior tests. */
+export async function mapWithBoundedConcurrency<T>(
+  items: readonly T[],
+  concurrency: number,
+  execute: (item: T, index: number, workerIndex: number) => Promise<void>
+): Promise<void> {
+  if (!Number.isInteger(concurrency) || concurrency < 1) {
+    throw new Error('Concurrency must be an integer >= 1.');
+  }
+  if (items.length === 0) {
+    return;
+  }
+
+  const workerCount = Math.min(concurrency, items.length);
+  let nextIndex = 0;
+  let hasFailure = false;
+  let failure: unknown;
+
+  const runWorker = async (workerIndex: number) => {
+    while (!hasFailure) {
+      const index = nextIndex;
+      nextIndex += 1;
+      if (index >= items.length) {
+        return;
+      }
+
+      try {
+        await execute(items[index], index, workerIndex);
+      } catch (error) {
+        if (!hasFailure) {
+          hasFailure = true;
+          failure = error;
+        }
+      }
+    }
+  };
+
+  await Promise.all(
+    Array.from({ length: workerCount }, (_, workerIndex) =>
+      runWorker(workerIndex)
+    )
+  );
+
+  if (hasFailure) {
+    throw failure;
+  }
+}
 
 class PromptCapturingRouter implements ModelRouter {
   private readonly inner = new DefaultModelRouter();
@@ -225,6 +299,24 @@ function selectScenarios(options: GenerationEvaluationRunOptions) {
   return scenarios;
 }
 
+function hasConfiguredProviderAccess(
+  provider: GenerationEvaluationProvider
+): boolean {
+  if (provider === 'fixture') {
+    return true;
+  }
+  if (provider === 'openai') {
+    return Boolean(process.env.OPENAI_API_KEY);
+  }
+  if (provider === 'gemini') {
+    return (
+      Boolean(process.env.GEMINI_API_KEY) ||
+      process.env.GOOGLE_GENAI_USE_VERTEXAI === 'true'
+    );
+  }
+  return Boolean(process.env.OPENROUTER_API_KEY);
+}
+
 function createHandlerBundle(
   provider: GenerationEvaluationProvider,
   edition: 'CE' | 'HOSTED'
@@ -236,14 +328,7 @@ function createHandlerBundle(
   const useVertexAi = process.env.GOOGLE_GENAI_USE_VERTEXAI === 'true';
   const enableStageOnePlanner =
     !isFixtureProvider && process.env.ENABLE_STAGE_ONE_PLANNER !== 'false';
-  const hasGeminiAccess = Boolean(process.env.GEMINI_API_KEY) || useVertexAi;
-  const hasConfiguredAccess = isFixtureProvider
-    ? true
-    : provider === 'openai'
-    ? Boolean(process.env.OPENAI_API_KEY)
-    : provider === 'gemini'
-    ? hasGeminiAccess
-    : Boolean(process.env.OPENROUTER_API_KEY);
+  const hasConfiguredAccess = hasConfiguredProviderAccess(provider);
   let exerciseLibrary: ExerciseLibrary | undefined;
 
   return {
@@ -1247,6 +1332,9 @@ function renderHtmlReport(
             options.providers.join(', ')
           )}</span>
           <span class="badge">runs per scenario: ${options.runs}</span>
+          <span class="badge">concurrency: ${resolveEvaluationConcurrency(
+            options
+          )}</span>
           <span class="badge">edition: ${escapeHtml(options.edition)}</span>
           <span class="badge">entries: ${report.summary.totalEntries}</span>
           <span class="badge">unique scenarios: ${
@@ -1461,6 +1549,7 @@ function renderMarkdownReport(
     `- Rubric: ${report.rubricVersion}`,
     `- Providers: ${options.providers.join(', ')}`,
     `- Runs per scenario: ${options.runs}`,
+    `- Concurrency: ${resolveEvaluationConcurrency(options)}`,
     `- Edition: ${options.edition}`,
     '',
     '## Summary',
@@ -1648,17 +1737,44 @@ export async function runGenerationEvaluation(
   const scenarios = selectScenarios(options);
   const warnings: string[] = [];
   const coverageNotes: string[] = [];
-  const entries: GenerationEvaluationReportEntry[] = [];
-  const handlerBundles = new Map<GenerationEvaluationProvider, HandlerBundle>();
   const catalogPrimedRegenerationRuns = new Map<string, Set<string>>();
+  const concurrency = resolveEvaluationConcurrency(options);
+  const workItems: EvaluationWorkItem[] = scenarios.flatMap((baseScenario) => {
+    const scenario = buildEffectiveScenario(baseScenario, options);
+    return options.providers.flatMap((provider) =>
+      Array.from({ length: options.runs }, (_, index) => ({
+        scenario,
+        provider,
+        runIndex: index + 1,
+      }))
+    );
+  });
+  const workerCount = Math.min(concurrency, workItems.length);
+  const handlerBundlePools = Array.from(
+    { length: workerCount },
+    () =>
+      new Map(
+        options.providers.map((provider) => [
+          provider,
+          createHandlerBundle(provider, options.edition),
+        ])
+      )
+  );
+  const entries = new Array<GenerationEvaluationReportEntry>(workItems.length);
+  const workWarnings = Array.from(
+    { length: workItems.length },
+    () => new Array<string>()
+  );
+  const catalogPrimedByWorkIndex = new Array<boolean>(workItems.length).fill(
+    false
+  );
 
   options.providers.forEach((provider) => {
-    const bundle = createHandlerBundle(provider, options.edition);
-    handlerBundles.set(provider, bundle);
+    const hasConfiguredAccess = hasConfiguredProviderAccess(provider);
 
     if (
       provider !== 'fixture' &&
-      !bundle.hasConfiguredAccess &&
+      !hasConfiguredAccess &&
       options.edition === 'CE'
     ) {
       warnings.push(
@@ -1667,7 +1783,7 @@ export async function runGenerationEvaluation(
     }
     if (
       provider !== 'fixture' &&
-      !bundle.hasConfiguredAccess &&
+      !hasConfiguredAccess &&
       options.edition === 'HOSTED'
     ) {
       warnings.push(
@@ -1689,152 +1805,161 @@ export async function runGenerationEvaluation(
       scenarios.length * options.runs * liveProviders.length +
       primingAttemptCount;
 
-    for (const baseScenario of scenarios) {
-      const scenario = buildEffectiveScenario(baseScenario, options);
-
-      for (const provider of options.providers) {
-        const bundle = handlerBundles.get(provider);
+    await mapWithBoundedConcurrency(
+      workItems,
+      concurrency,
+      async ({ scenario, provider, runIndex }, index, workerIndex) => {
+        const bundle = handlerBundlePools[workerIndex]?.get(provider);
         if (!bundle) {
-          continue;
+          throw new Error(
+            `Evaluation worker ${workerIndex} has no handler for ${provider}.`
+          );
         }
 
-        for (let runIndex = 1; runIndex <= options.runs; runIndex += 1) {
-          const runId = `${scenario.id}-${provider}-${runIndex}`;
-          let effectiveBaselinePlan = scenario.baselinePlan;
-          let requestBody = buildRequestBody(scenario);
+        const runId = `${scenario.id}-${provider}-${runIndex}`;
+        let effectiveBaselinePlan = scenario.baselinePlan;
+        let requestBody = buildRequestBody(scenario);
 
-          if (
-            scenario.mode === 'regeneration' &&
-            provider !== 'fixture' &&
-            options.creationMode !== 'library'
-          ) {
-            if (!bundle.hasConfiguredAccess && options.edition === 'CE') {
-              pushUniqueWarning(
-                warnings,
-                `Could not prime live regeneration for ${scenario.id} (${provider}); configured access is unavailable.`
-              );
-            } else {
-              const primingResult = await executeScenarioRequest({
-                bundle,
-                provider,
-                token: `${runId}-prime`,
-                body: buildPrimingRequest(scenario),
-              });
+        if (
+          scenario.mode === 'regeneration' &&
+          provider !== 'fixture' &&
+          options.creationMode !== 'library'
+        ) {
+          if (!bundle.hasConfiguredAccess && options.edition === 'CE') {
+            pushUniqueWarning(
+              workWarnings[index],
+              `Could not prime live regeneration for ${scenario.id} (${provider}); configured access is unavailable.`
+            );
+          } else {
+            const primingResult = await executeScenarioRequest({
+              bundle,
+              provider,
+              token: `${runId}-prime`,
+              body: buildPrimingRequest(scenario),
+            });
 
-              if (
-                primingResult.responseStatus === 200 &&
-                primingResult.executionSource === 'live'
-              ) {
-                const primedPlan =
-                  primingResult.payload as GenerationEvaluationReportEntry['plan'];
-                const primedResponseId = primedPlan?.responseId;
+            if (
+              primingResult.responseStatus === 200 &&
+              primingResult.executionSource === 'live'
+            ) {
+              const primedPlan =
+                primingResult.payload as GenerationEvaluationReportEntry['plan'];
+              const primedResponseId = primedPlan?.responseId;
 
-                if (primedResponseId) {
-                  effectiveBaselinePlan = primedPlan;
-                  requestBody = {
-                    ...(scenario.context
-                      ? { ...scenario.request, context: scenario.context }
-                      : scenario.request),
-                    previousResponseId: primedResponseId,
-                  };
-                } else if (primedPlan?.source === 'library') {
-                  const providers =
-                    catalogPrimedRegenerationRuns.get(scenario.id) ??
-                    new Set<string>();
-                  providers.add(provider);
-                  catalogPrimedRegenerationRuns.set(scenario.id, providers);
-                } else {
-                  pushUniqueWarning(
-                    warnings,
-                    `Could not prime live regeneration for ${scenario.id} (${provider}); the baseline response had no responseId.`
-                  );
-                }
+              if (primedResponseId) {
+                effectiveBaselinePlan = primedPlan;
+                requestBody = {
+                  ...(scenario.context
+                    ? { ...scenario.request, context: scenario.context }
+                    : scenario.request),
+                  previousResponseId: primedResponseId,
+                };
+              } else if (primedPlan?.source === 'library') {
+                catalogPrimedByWorkIndex[index] = true;
               } else {
                 pushUniqueWarning(
-                  warnings,
-                  `Could not prime live regeneration for ${scenario.id} (${provider}); baseline generation was not live.`
+                  workWarnings[index],
+                  `Could not prime live regeneration for ${scenario.id} (${provider}); the baseline response had no responseId.`
                 );
               }
+            } else {
+              pushUniqueWarning(
+                workWarnings[index],
+                `Could not prime live regeneration for ${scenario.id} (${provider}); baseline generation was not live.`
+              );
             }
           }
+        }
 
-          const executed = await executeScenarioRequest({
-            bundle,
+        const executed = await executeScenarioRequest({
+          bundle,
+          provider,
+          token: runId,
+          body: requestBody,
+        });
+
+        if (executed.responseStatus === 200) {
+          const plan =
+            executed.payload as GenerationEvaluationReportEntry['plan'];
+          entries[index] = {
+            scenarioId: scenario.id,
+            scenarioTitle: scenario.title,
+            scenarioDescription: scenario.description,
+            scenarioTags: scenario.tags,
+            scenarioMode: scenario.mode,
+            runId,
             provider,
-            token: runId,
-            body: requestBody,
-          });
-
-          if (executed.responseStatus === 200) {
-            const plan =
-              executed.payload as GenerationEvaluationReportEntry['plan'];
-            entries.push({
-              scenarioId: scenario.id,
-              scenarioTitle: scenario.title,
-              scenarioDescription: scenario.description,
-              scenarioTags: scenario.tags,
-              scenarioMode: scenario.mode,
-              runId,
-              provider,
-              executionSource: executed.executionSource,
-              status: 'success',
+            executionSource: executed.executionSource,
+            status: 'success',
+            request: scenario.request,
+            context: scenario.context,
+            baselinePlan: effectiveBaselinePlan,
+            latencyMs: executed.latencyMs,
+            catalogRouting: buildCatalogRouting({
               request: scenario.request,
-              context: scenario.context,
-              baselinePlan: effectiveBaselinePlan,
-              latencyMs: executed.latencyMs,
-              catalogRouting: buildCatalogRouting({
-                request: scenario.request,
-                plan,
-                latencyMs: executed.latencyMs,
-                providerPrompt: executed.providerPrompt,
-              }),
-              plannerSummary: executed.plannerSummary,
-              providerPrompt: executed.providerPrompt,
-              hardChecks: runHardChecksForScenario(
-                {
-                  ...scenario,
-                  baselinePlan: effectiveBaselinePlan,
-                },
-                plan
-              ),
               plan,
-            });
-          } else {
-            const errorPayload = parseErrorPayload(executed.payload);
-            entries.push({
-              scenarioId: scenario.id,
-              scenarioTitle: scenario.title,
-              scenarioDescription: scenario.description,
-              scenarioTags: scenario.tags,
-              scenarioMode: scenario.mode,
-              runId,
-              provider,
-              executionSource: executed.executionSource,
-              status: 'generation-error',
-              request: scenario.request,
-              context: scenario.context,
-              baselinePlan: effectiveBaselinePlan,
               latencyMs: executed.latencyMs,
-              catalogRouting: buildCatalogRouting({
-                request: scenario.request,
-                errorCode: errorPayload.code,
-                latencyMs: executed.latencyMs,
-                providerPrompt: executed.providerPrompt,
-              }),
-              plannerSummary: executed.plannerSummary,
               providerPrompt: executed.providerPrompt,
-              hardChecks: runHardChecksForScenario({
+            }),
+            plannerSummary: executed.plannerSummary,
+            providerPrompt: executed.providerPrompt,
+            hardChecks: runHardChecksForScenario(
+              {
                 ...scenario,
                 baselinePlan: effectiveBaselinePlan,
-              }),
+              },
+              plan
+            ),
+            plan,
+          };
+        } else {
+          const errorPayload = parseErrorPayload(executed.payload);
+          entries[index] = {
+            scenarioId: scenario.id,
+            scenarioTitle: scenario.title,
+            scenarioDescription: scenario.description,
+            scenarioTags: scenario.tags,
+            scenarioMode: scenario.mode,
+            runId,
+            provider,
+            executionSource: executed.executionSource,
+            status: 'generation-error',
+            request: scenario.request,
+            context: scenario.context,
+            baselinePlan: effectiveBaselinePlan,
+            latencyMs: executed.latencyMs,
+            catalogRouting: buildCatalogRouting({
+              request: scenario.request,
               errorCode: errorPayload.code,
-              errorMessage:
-                errorPayload.message ?? `HTTP ${executed.responseStatus}`,
-            });
-          }
+              latencyMs: executed.latencyMs,
+              providerPrompt: executed.providerPrompt,
+            }),
+            plannerSummary: executed.plannerSummary,
+            providerPrompt: executed.providerPrompt,
+            hardChecks: runHardChecksForScenario({
+              ...scenario,
+              baselinePlan: effectiveBaselinePlan,
+            }),
+            errorCode: errorPayload.code,
+            errorMessage:
+              errorPayload.message ?? `HTTP ${executed.responseStatus}`,
+          };
         }
       }
-    }
+    );
+
+    workWarnings
+      .flat()
+      .forEach((warning) => pushUniqueWarning(warnings, warning));
+    workItems.forEach(({ scenario, provider }, index) => {
+      if (!catalogPrimedByWorkIndex[index]) {
+        return;
+      }
+      const providers =
+        catalogPrimedRegenerationRuns.get(scenario.id) ?? new Set<string>();
+      providers.add(provider);
+      catalogPrimedRegenerationRuns.set(scenario.id, providers);
+    });
 
     const successfulEntries = entries.filter(
       (entry) => entry.status === 'success'
@@ -1929,8 +2054,10 @@ export async function runGenerationEvaluation(
     );
     return { report, warnings, coverageNotes, artifacts };
   } finally {
-    for (const bundle of handlerBundles.values()) {
-      bundle.close();
+    for (const pool of handlerBundlePools) {
+      for (const bundle of pool.values()) {
+        bundle.close();
+      }
     }
   }
 }

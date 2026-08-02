@@ -1,7 +1,10 @@
 import os from 'node:os';
 import path from 'node:path';
 
-import { runGenerationEvaluation } from './generation-evaluation-runner';
+import {
+  mapWithBoundedConcurrency,
+  runGenerationEvaluation,
+} from './generation-evaluation-runner';
 
 type RunnerOptions = Parameters<typeof runGenerationEvaluation>[0];
 
@@ -35,6 +38,37 @@ function loadOptions(): RunnerOptions | null {
 }
 
 describe('generation evaluation runner', () => {
+  it('bounds parallel work and keeps indexed results deterministic', async () => {
+    const started: number[] = [];
+    const results: number[] = [];
+    let active = 0;
+    let maxActive = 0;
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+
+    const execution = mapWithBoundedConcurrency(
+      [10, 20, 30],
+      2,
+      async (item, index) => {
+        active += 1;
+        maxActive = Math.max(maxActive, active);
+        started.push(item);
+        await gate;
+        results[index] = item;
+        active -= 1;
+      }
+    );
+
+    expect(started).toEqual([10, 20]);
+    release();
+    await execution;
+
+    expect(maxActive).toBe(2);
+    expect(results).toEqual([10, 20, 30]);
+  });
+
   it('classifies auto-mode catalog fixture rows as library execution source', async () => {
     const outputDir = path.join(
       os.tmpdir(),
@@ -43,7 +77,8 @@ describe('generation evaluation runner', () => {
 
     const result = await runGenerationEvaluation({
       providers: ['fixture'],
-      runs: 1,
+      runs: 2,
+      concurrency: 2,
       edition: 'CE',
       outputDir,
       scenarioIds: ['beginner-bodyweight-moderate-30'],
@@ -52,8 +87,12 @@ describe('generation evaluation runner', () => {
 
     expect(entry.plan?.source).toBe('library');
     expect(entry.executionSource).toBe('library');
+    expect(result.report.entries.map((item) => item.runId)).toEqual([
+      'beginner-bodyweight-moderate-30-fixture-1',
+      'beginner-bodyweight-moderate-30-fixture-2',
+    ]);
     expect(result.report.summary.fixtureEntries).toBe(0);
-    expect(result.report.summary.executionSourceCounts.library).toBe(1);
+    expect(result.report.summary.executionSourceCounts.library).toBe(2);
   });
 
   it(
