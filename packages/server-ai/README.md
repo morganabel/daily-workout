@@ -8,7 +8,7 @@ This package contains the LLM providers, prompts, and transformation logic share
 
 ## Contents
 
-- **Providers**: OpenAI and Gemini implementations
+- **Providers**: OpenAI, Gemini, and OpenRouter implementations
 - **Prompts**: Workout generation prompts
 - **Transformer**: LLM response normalization (v1-current, v2-flat schemas)
 - **DefaultModelRouter**: Implements `ModelRouter` interface from `server-core`
@@ -28,6 +28,7 @@ const generateHandler = createGenerateHandler({
     defaultApiKeys: {
       openai: process.env.OPENAI_API_KEY,
       gemini: process.env.GEMINI_API_KEY,
+      openrouter: process.env.OPENROUTER_API_KEY,
     },
   },
 });
@@ -35,8 +36,9 @@ const generateHandler = createGenerateHandler({
 
 ## Supported Providers
 
-- **OpenAI**: `gpt-4o`, `gpt-4o-mini` (configurable via model option)
-- **Gemini**: `gemini-2.0-flash-exp`, supports Vertex AI ADC
+- **OpenAI**: `gpt-5.6-luna` for planning and generation by default
+- **Gemini**: `gemini-3.1-flash-lite` planning and `gemini-3.5-flash` generation; supports Vertex AI ADC
+- **OpenRouter**: `deepseek/deepseek-v4-flash-0731` for planning and generation by default, using strict structured outputs
 
 ## Schema Versions
 
@@ -85,7 +87,12 @@ The transformer automatically validates, rebuilds nested structure, and attaches
 LLM_SCHEMA_VERSION=v2-flat
 
 # Provider selection (optional, defaults to openai)
-AI_PROVIDER=gemini
+AI_PROVIDER=openrouter
+OPENROUTER_API_KEY=your-openrouter-key
+OPENROUTER_MODEL=deepseek/deepseek-v4-flash-0731
+OPENROUTER_PLANNER_MODEL=deepseek/deepseek-v4-flash-0731
+# Optional request timeout; defaults to 60 seconds
+OPENROUTER_TIMEOUT_MS=60000
 
 # Vertex AI for Gemini (optional)
 GOOGLE_GENAI_USE_VERTEXAI=true

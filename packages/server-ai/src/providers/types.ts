@@ -12,7 +12,7 @@ import type {
 } from '@workout-agent/shared';
 import type { LlmSchemaVersion } from '../llm-transformer';
 
-export type AiProviderName = 'openai' | 'gemini';
+export type AiProviderName = 'openai' | 'gemini' | 'openrouter';
 
 export interface AiProviderOptions {
   apiKey?: string;

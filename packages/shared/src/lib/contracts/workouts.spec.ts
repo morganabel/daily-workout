@@ -375,6 +375,20 @@ describe('generation request upcoming events', () => {
     expect(result.success).toBe(true);
   });
 
+  it('accepts OpenRouter generation provenance', () => {
+    const result = todayPlanSchema.safeParse(
+      createTodayPlanFixture({
+        responseId: 'openrouter-response',
+        generationProvenance: {
+          provider: 'openrouter',
+          responseId: 'openrouter-response',
+        },
+      })
+    );
+
+    expect(result.success).toBe(true);
+  });
+
   it('accepts context payloads for regeneration requests', () => {
     const result = generationRequestPayloadSchema.safeParse({
       previousResponseId: 'resp-baseline',

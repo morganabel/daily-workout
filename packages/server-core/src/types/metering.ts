@@ -1,3 +1,5 @@
+import type { AiProviderName } from '@workout-agent/shared';
+
 /**
  * Usage event recorded after model calls
  */
@@ -15,7 +17,7 @@ export interface UsageEvent {
   /**
    * Provider used
    */
-  provider: 'openai' | 'gemini';
+  provider: AiProviderName;
 
   /**
    * Model used (optional)

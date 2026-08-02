@@ -85,7 +85,7 @@ function createRouterMock(
     isSupportedProvider: jest
       .fn()
       .mockImplementation((provider: string) =>
-        ['openai', 'gemini'].includes(provider)
+        ['openai', 'gemini', 'openrouter'].includes(provider)
       ),
     getDefaultProvider: jest.fn().mockReturnValue('openai'),
   };
@@ -551,6 +551,71 @@ describe('createGenerateHandler', () => {
 
     const meteringPayload = metering.recordUsage.mock.calls[0][0];
     expect(JSON.stringify(meteringPayload)).not.toContain('sk-test-123456789');
+  });
+
+  it('routes OpenRouter BYOK requests through the generic key header', async () => {
+    const metering = createMeteringMock();
+    const router = createRouterMock(
+      createTodayPlanFixture({ id: 'openrouter-byok-plan' })
+    );
+    const { handler } = createHandler({ router, metering });
+
+    const response = await handler(
+      createRequest(
+        { timeMinutes: 30, focus: 'Full Body' },
+        {
+          'x-ai-provider': 'openrouter',
+          'x-ai-key': 'sk-or-v1-test-key',
+        }
+      )
+    );
+
+    expect(response.status).toBe(200);
+    expect(router.generate).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      expect.objectContaining({
+        provider: 'openrouter',
+        apiKey: 'sk-or-v1-test-key',
+      })
+    );
+    expect(metering.recordUsage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        provider: 'openrouter',
+        byok: true,
+      })
+    );
+  });
+
+  it('uses a server-managed OpenRouter key when it is the default provider', async () => {
+    const policy = createPolicyMock();
+    const router = createRouterMock(
+      createTodayPlanFixture({ id: 'openrouter-managed-plan' })
+    );
+    const { handler } = createHandler({
+      router,
+      policy,
+      config: {
+        edition: 'CE',
+        defaultProvider: 'openrouter',
+        defaultApiKeys: { openrouter: 'managed-openrouter-key' },
+      },
+    });
+
+    const response = await handler(
+      createRequest({ timeMinutes: 30, focus: 'Full Body' })
+    );
+
+    expect(response.status).toBe(200);
+    expect(policy.canGenerate).toHaveBeenCalledTimes(1);
+    expect(router.generate).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      expect.objectContaining({
+        provider: 'openrouter',
+        apiKey: 'managed-openrouter-key',
+      })
+    );
   });
 
   it('returns a provider configuration error in CE when no key is available', async () => {

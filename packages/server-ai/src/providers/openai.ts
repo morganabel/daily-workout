@@ -28,9 +28,9 @@ import {
   stageOnePlannerArtifactSchema,
 } from './stage-one-schema';
 
-const DEFAULT_MODEL = process.env.OPENAI_MODEL ?? 'gpt-5-mini';
+const DEFAULT_MODEL = process.env.OPENAI_MODEL ?? 'gpt-5.6-luna';
 const DEFAULT_PLANNER_MODEL =
-  process.env.OPENAI_PLANNER_MODEL ?? 'gpt-5.4-nano';
+  process.env.OPENAI_PLANNER_MODEL ?? 'gpt-5.6-luna';
 const DEFAULT_API_BASE =
   process.env.OPENAI_API_BASE ?? 'https://api.openai.com/v1';
 

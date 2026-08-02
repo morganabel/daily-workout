@@ -19,6 +19,7 @@ import {
   getDebugStateSnapshot,
   setDebugLastGenerationTrace,
 } from '../debug/debugState';
+import { getByokConfig } from '../storage/byokKey';
 
 // Mock auth-client to avoid ESM import issues (jest.mock is hoisted)
 jest.mock('./auth-client', () => ({
@@ -74,6 +75,7 @@ const mockPlannedEventRepository = plannedEventRepository as jest.Mocked<
 describe('buildGenerationContext', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    (getByokConfig as jest.Mock).mockResolvedValue(null);
     global.fetch = jest.fn();
     mockUserRepository.getPreferences.mockResolvedValue({
       equipment: ['Dumbbells'],
@@ -162,6 +164,7 @@ describe('buildGenerationContext', () => {
 describe('generateWorkout', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    (getByokConfig as jest.Mock).mockResolvedValue(null);
     global.fetch = jest.fn();
     mockUserRepository.getPreferences.mockResolvedValue({
       equipment: ['Dumbbells'],
@@ -297,6 +300,36 @@ describe('generateWorkout', () => {
         }),
       })
     );
+  });
+
+  it('sends OpenRouter BYOK through the provider selector and generic key header', async () => {
+    (getByokConfig as jest.Mock).mockResolvedValue({
+      provider: 'openrouter',
+      apiKey: 'sk-or-v1-test-key',
+    });
+    const generatedPlan = createTodayPlanFixture({
+      id: 'openrouter-plan',
+      generationProvenance: {
+        provider: 'openrouter',
+        responseId: 'openrouter-response',
+      },
+    });
+    (global.fetch as jest.Mock).mockResolvedValue({
+      ok: true,
+      json: jest.fn().mockResolvedValue(generatedPlan),
+    });
+
+    await generateWorkout({ timeMinutes: 30, focus: 'Full Body' });
+
+    const [, requestInit] = (global.fetch as jest.Mock).mock.calls[0];
+    expect(requestInit.headers).toEqual(
+      expect.objectContaining({
+        'x-ai-provider': 'openrouter',
+        'x-ai-key': 'sk-or-v1-test-key',
+      })
+    );
+    expect(requestInit.headers).not.toHaveProperty('x-openai-key');
+    expect(requestInit.headers).not.toHaveProperty('x-gemini-key');
   });
 
   it('sends device-local planning date and effective profile equipment for default generation', async () => {

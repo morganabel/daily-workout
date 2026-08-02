@@ -9,7 +9,7 @@ export type WorkoutSource = z.infer<typeof workoutSourceSchema>;
 export const workoutCreationModeSchema = z.enum(['auto', 'library', 'ai']);
 export type WorkoutCreationMode = z.infer<typeof workoutCreationModeSchema>;
 
-export const aiProviderNameSchema = z.enum(['openai', 'gemini']);
+export const aiProviderNameSchema = z.enum(['openai', 'gemini', 'openrouter']);
 export type AiProviderName = z.infer<typeof aiProviderNameSchema>;
 
 export const coachScheduleStrategySchema = z.enum([

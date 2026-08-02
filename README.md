@@ -1,6 +1,6 @@
 # Workout Agent CE
 
-Workout Agent CE is the open-source community edition of a daily workout planner. It ships with a Next.js backend and an Expo mobile app that calls AI providers (OpenAI or Gemini) to generate personalized plans.
+Workout Agent CE is the open-source community edition of a daily workout planner. It ships with a Next.js backend and an Expo mobile app that calls AI providers (OpenAI, Gemini, or OpenRouter) to generate personalized plans.
 
 ## Tech stack
 
@@ -49,6 +49,14 @@ Create a `.env` file (or `.env.local` for Next.js) using the template below:
 AI_PROVIDER=openai
 OPENAI_API_KEY=
 GEMINI_API_KEY=
+OPENROUTER_API_KEY=
+
+# Defaults; override these only when intentionally changing models
+OPENAI_MODEL=gpt-5.6-luna
+OPENAI_PLANNER_MODEL=gpt-5.6-luna
+OPENROUTER_MODEL=deepseek/deepseek-v4-flash-0731
+OPENROUTER_PLANNER_MODEL=deepseek/deepseek-v4-flash-0731
+OPENROUTER_TIMEOUT_MS=60000
 
 # Hosted mode toggles an HTTP 402 BYOK_REQUIRED response if no key is available
 EDITION=CE
@@ -84,7 +92,7 @@ BETTER_AUTH_SECRET=dev-secret-dev-secret-dev-secret-dev-secret
 BETTER_AUTH_URL=http://localhost:3000
 ```
 
-- Server BYOK headers: `x-ai-provider`, `x-openai-key`, `x-gemini-key`, or `x-ai-key` (generic fallback). When using `x-ai-key`, also send `x-ai-provider` to specify which provider to route to.
+- Server BYOK headers: `x-ai-provider`, `x-openai-key`, `x-gemini-key`, or `x-ai-key` (generic fallback). OpenRouter uses `x-ai-provider: openrouter` with `x-ai-key`. When using `x-ai-key`, always send `x-ai-provider` to specify which provider to route to.
 - If `EDITION=HOSTED` and no key is available for the chosen provider, `/api/workouts/generate` responds with `{ code: 'BYOK_REQUIRED' }` (HTTP 402).
 - When no key is present in CE mode, configure a server key or add BYOK in the app before requesting AI generation.
 
@@ -104,7 +112,7 @@ EXPO_PUBLIC_BACKEND_URL=http://localhost:3000 \
 npm run dev:server:db
 ```
 
-BYOK requests bypass hosted quota because the user funds inference directly. To exercise the quota-to-paywall path, use a server-managed key such as `OPENAI_API_KEY` or `GEMINI_API_KEY` and do not configure a BYOK key in the app.
+BYOK requests bypass hosted quota because the user funds inference directly. To exercise the quota-to-paywall path, use a server-managed key such as `OPENAI_API_KEY`, `GEMINI_API_KEY`, or `OPENROUTER_API_KEY` and do not configure a BYOK key in the app.
 
 The hosted billing runtime in this repository is intended for local/test flows and deployment-specific swapping. Production deployments should provide durable quota, entitlement, and RevenueCat synchronization implementations.
 
@@ -145,7 +153,8 @@ The generation flow now supports an optional stage-1 planner pass before the fin
 - Activation is ambiguous-only in v1. The extra planner call is considered for Smart focus, recent-session plus upcoming-event conflicts, dense free-form notes, and regeneration requests with feedback.
 - Stage 1 is advisory only. Hard constraints such as equipment, contraindications, avoid lists, and planner-safe candidate filtering remain server-owned.
 - Disable the feature with `ENABLE_STAGE_ONE_PLANNER=false` to force the legacy single-pass path for comparison or rollback.
-- Planner model defaults are intentionally cheaper than the final generation model: `OPENAI_PLANNER_MODEL` defaults to `gpt-5.4-nano` and `GEMINI_PLANNER_MODEL` defaults to `gemini-3.1-flash-lite`.
+- OpenAI uses `gpt-5.6-luna` for both planning and final generation by default. OpenRouter uses `deepseek/deepseek-v4-flash-0731` for both phases. Gemini retains `gemini-3.1-flash-lite` for planning and `gemini-3.5-flash` for final generation. Each default can be overridden with its corresponding `*_MODEL` or `*_PLANNER_MODEL` variable.
+- Direct OpenAI regeneration can reuse stored response continuity. Gemini and OpenRouter rebuild regeneration context from the baseline workout and feedback instead.
 - In `HOSTED`, eligible requests may incur an extra provider call and extra latency because stage 1 runs before stage 2. In `CE`, the staged path follows the same provider-configuration requirements as normal generation.
 
 For staged-vs-single-pass comparisons, run the evaluator twice against the same live slice, once with the default config and once with stage 1 disabled:

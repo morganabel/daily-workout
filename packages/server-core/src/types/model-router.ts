@@ -1,4 +1,5 @@
 import type {
+  AiProviderName,
   GenerationRequest,
   GenerationContext,
   TodayPlan,
@@ -54,7 +55,7 @@ export interface ExerciseCandidatePool {
 }
 
 export interface ModelPromptCapture {
-  provider: 'openai' | 'gemini';
+  provider: AiProviderName;
   model?: string;
   schemaVersion?: string;
   isRegeneration: boolean;
@@ -114,7 +115,7 @@ export interface ModelGenerationOptions {
   /**
    * Provider to use
    */
-  provider?: 'openai' | 'gemini';
+  provider?: AiProviderName;
 
   /**
    * Internal candidate-pool summary derived from the exercise library.
@@ -153,7 +154,7 @@ export interface ModelGenerationOptions {
 
 /**
  * ModelRouter defines how the server generates workout plans using LLMs.
- * Implementations can use OpenAI/Gemini directly (OSS default), add caching,
+ * Implementations can use OpenAI, Gemini, or OpenRouter directly (OSS default), add caching,
  * proxy through a gateway, or use custom models.
  */
 export interface ModelRouter {

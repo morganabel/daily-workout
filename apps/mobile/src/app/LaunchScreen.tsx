@@ -402,13 +402,40 @@ export const LaunchScreen: React.FC = () => {
                     Gemini
                   </Text>
                 </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={() => setProvider('openrouter')}
+                  style={[
+                    styles.providerPill,
+                    provider === 'openrouter'
+                      ? styles.providerPillActive
+                      : null,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.providerPillText,
+                      provider === 'openrouter'
+                        ? styles.providerPillTextActive
+                        : null,
+                    ]}
+                  >
+                    OpenRouter
+                  </Text>
+                </TouchableOpacity>
               </View>
 
               <TextInput
                 style={styles.input}
                 value={apiKeyInput}
                 onChangeText={setApiKeyInput}
-                placeholder={provider === 'openai' ? 'sk-…' : 'AIza…'}
+                placeholder={
+                  provider === 'openai'
+                    ? 'sk-…'
+                    : provider === 'gemini'
+                    ? 'AIza…'
+                    : 'sk-or-v1-…'
+                }
                 placeholderTextColor={palette.textMuted}
                 autoCapitalize="none"
                 autoCorrect={false}
