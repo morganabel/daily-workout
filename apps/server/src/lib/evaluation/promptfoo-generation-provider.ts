@@ -60,7 +60,8 @@ export function parsePromptfooGenerationProviderVars(
     provider !== undefined &&
     provider !== 'fixture' &&
     provider !== 'openai' &&
-    provider !== 'gemini'
+    provider !== 'gemini' &&
+    provider !== 'openrouter'
   ) {
     throw new Error(
       `Unsupported Promptfoo generation provider: ${String(provider)}`

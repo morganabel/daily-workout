@@ -74,7 +74,7 @@ ios/DerivedData/
 
 
 test-output
-reports/generation-evaluation/
+/reports/
 
 # Next.js
 .next

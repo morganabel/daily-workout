@@ -32,6 +32,7 @@ function providerAvailability() {
       (process.env.GOOGLE_GENAI_USE_VERTEXAI === 'true' &&
         Boolean(process.env.GOOGLE_CLOUD_PROJECT) &&
         Boolean(process.env.GOOGLE_CLOUD_LOCATION)),
+    openrouter: Boolean(process.env.OPENROUTER_API_KEY),
   };
 }
 
@@ -43,7 +44,7 @@ Usage:
   npm run evaluate:generation -- [options]
 
 Options:
-  --provider <value>     openai | gemini | fixture | live | all (repeatable)
+  --provider <value>     openai | gemini | openrouter | fixture | live | all (repeatable)
   --runs <number>        repeated runs per scenario/provider (default: 1)
   --tag <value>          filter scenarios by tag (repeatable)
   --scenario <id>        run only selected scenario id (repeatable)
@@ -87,12 +88,13 @@ function expandProviders(values) {
   const expanded = values.flatMap((value) => {
     switch (value) {
       case 'all':
-        return ['openai', 'gemini'];
+        return ['openai', 'gemini', 'openrouter'];
       case 'live':
-        return ['openai', 'gemini'];
+        return ['openai', 'gemini', 'openrouter'];
       case 'fixture':
       case 'openai':
       case 'gemini':
+      case 'openrouter':
         return [value];
       default:
         throw new Error(`Unsupported provider option: ${value}`);
@@ -246,7 +248,7 @@ function main() {
     console.log(`Loaded env files: ${loadedEnvFiles.join(', ')}`);
   }
   console.log(
-    `Provider access: openai=${availability.openai} gemini=${availability.gemini}`
+    `Provider access: openai=${availability.openai} gemini=${availability.gemini} openrouter=${availability.openrouter}`
   );
 
   if (summary.warnings.length > 0) {

@@ -34,7 +34,7 @@ Usage:
   npm run promptfoo:generation -- [options]
 
 Options:
-  --provider <value>        fixture | openai | gemini | live | all (repeatable)
+  --provider <value>        fixture | openai | gemini | openrouter | live | all (repeatable)
   --runs <number>           repeated runs per scenario/provider (default: 1)
   --tag <value>             filter scenarios by tag (repeatable)
   --scenario <id>           run only selected scenario id (repeatable)
@@ -70,12 +70,13 @@ function expandProviders(values) {
   const expanded = values.flatMap((value) => {
     switch (value) {
       case 'all':
-        return ['openai', 'gemini'];
+        return ['openai', 'gemini', 'openrouter'];
       case 'live':
-        return ['openai', 'gemini'];
+        return ['openai', 'gemini', 'openrouter'];
       case 'fixture':
       case 'openai':
       case 'gemini':
+      case 'openrouter':
         return [value];
       default:
         throw new Error(`Unsupported provider option: ${value}`);
@@ -213,6 +214,7 @@ function providerAvailability() {
       (useVertexAi &&
         Boolean(process.env.GOOGLE_CLOUD_PROJECT) &&
         Boolean(process.env.GOOGLE_CLOUD_LOCATION)),
+    openrouter: Boolean(process.env.OPENROUTER_API_KEY),
   };
 }
 

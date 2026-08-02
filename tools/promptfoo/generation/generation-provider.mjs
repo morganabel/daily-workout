@@ -27,7 +27,7 @@ function parseVars(context) {
   }
 
   const provider = vars.provider ?? 'openai';
-  if (!['fixture', 'openai', 'gemini'].includes(provider)) {
+  if (!['fixture', 'openai', 'gemini', 'openrouter'].includes(provider)) {
     throw new Error(`Unsupported workout-generation provider: ${provider}`);
   }
 

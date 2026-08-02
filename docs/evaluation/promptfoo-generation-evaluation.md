@@ -112,6 +112,7 @@ Provider access uses the same environment conventions as the canonical evaluator
 
 - `OPENAI_API_KEY`
 - `GEMINI_API_KEY`
+- `OPENROUTER_API_KEY`
 - `GOOGLE_GENAI_USE_VERTEXAI=true` with `GOOGLE_CLOUD_PROJECT` and `GOOGLE_CLOUD_LOCATION`
 - `ENABLE_STAGE_ONE_PLANNER=false` or `--planner disabled` for planner comparison
 
