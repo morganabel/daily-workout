@@ -391,7 +391,9 @@ describe('buildRegenerationMessage', () => {
         ],
       };
 
-      expect(buildCandidatePoolPromptData(groupedPool)).toEqual(
+      const promptData = buildCandidatePoolPromptData(groupedPool);
+
+      expect(promptData).toEqual(
         expect.objectContaining({
           buckets: [
             expect.objectContaining({
@@ -418,6 +420,11 @@ describe('buildRegenerationMessage', () => {
           ],
         })
       );
+      expect(promptData).not.toHaveProperty('exercises');
+
+      const serializedBuckets = JSON.stringify(promptData?.buckets);
+      expect(serializedBuckets.match(/fedb:pushups/g)).toHaveLength(1);
+      expect(serializedBuckets.match(/fedb:row/g)).toHaveLength(1);
     });
 
     it('includes classic strength guidance in initial instructions', () => {

@@ -47,7 +47,7 @@ export function buildCandidatePoolPromptData(
       totalEligibleCount: number;
       searchText?: string;
       baselineExerciseIds: string[];
-      exercises: CandidatePromptExercise[];
+      exercises?: CandidatePromptExercise[];
       buckets?: Array<{
         key: string;
         title: string;
@@ -68,7 +68,7 @@ export function buildCandidatePoolPromptData(
     ? buildCandidateBucketPromptData(candidatePool)
     : undefined;
   const exercises = buckets
-    ? buckets.flatMap((bucket) => bucket.exercises)
+    ? undefined
     : candidatePool.candidateExercises
         .slice(0, MAX_PROMPT_CANDIDATE_EXERCISES)
         .map(formatCandidatePromptExercise);
@@ -78,7 +78,7 @@ export function buildCandidatePoolPromptData(
     totalEligibleCount: candidatePool.totalEligibleCount,
     searchText: candidatePool.searchText,
     baselineExerciseIds: candidatePool.baselineExerciseIds,
-    exercises,
+    ...(exercises ? { exercises } : {}),
     buckets,
     instructions:
       'Prefer exercises from this candidate pool unless there is a strong reason not to. Treat it as a bounded high-confidence set chosen from the exercise library after applying hard constraints. Candidate buckets are available roles, and exercises are ranked within each bucket. Use the planning brief and any stage-one selectionIntent to decide which roles fit this context; buckets are not unconditional requirements. Bucket shortfalls mean that role is thin for the selected equipment or constraints. For strength work, prefer classic compound and simple accessory exercises within the relevant bucket over obscure variations. For gym strength, avoid overusing resistance-band candidates when loaded gym alternatives are available. Do not mention the candidate pool in the final response.',
@@ -515,7 +515,9 @@ export function buildRegenerationMessage(
               .join(', ')}`;
           })
           .join('; ')
-      : promptData.exercises.map(formatCandidateForTextPrompt).join(', ');
+      : (promptData.exercises ?? [])
+          .map(formatCandidateForTextPrompt)
+          .join(', ');
 
     parts.push(
       `Candidate pool from exercise library v${promptData.libraryVersion}: ${formattedExercises}. ${promptData.instructions}`
