@@ -2,7 +2,10 @@ import type { AiProvider, AiProviderName } from './types';
 
 const providers = new Map<AiProviderName, AiProvider>();
 
-export function registerProvider(name: AiProviderName, provider: AiProvider): void {
+export function registerProvider(
+  name: AiProviderName,
+  provider: AiProvider
+): void {
   providers.set(name, provider);
 }
 
@@ -17,13 +20,12 @@ export function resetProviders(): void {
 
 export function getDefaultProviderName(): AiProviderName {
   const envProvider = process.env.AI_PROVIDER?.trim().toLowerCase();
-  if (envProvider === 'gemini') {
-    return 'gemini';
+  if (envProvider && isSupportedProvider(envProvider)) {
+    return envProvider;
   }
   return 'openai'; // Default to OpenAI
 }
 
 export function isSupportedProvider(name: string): name is AiProviderName {
-  return name === 'openai' || name === 'gemini';
+  return name === 'openai' || name === 'gemini' || name === 'openrouter';
 }
-

@@ -23,6 +23,7 @@ import {
   DefaultStageOnePlanner,
 } from '@workout-agent-ce/server-ai';
 import type { ExerciseLibrary } from '@workout-agent-ce/server-exercise-library';
+import type { AiProviderName } from '@workout-agent/shared';
 import { getAuthContext } from './auth-context';
 import { hostedBillingRuntime, HostedUsagePolicy } from './hosted-billing';
 import { isBillingEnabled, resolveEdition } from './deployment';
@@ -54,14 +55,15 @@ const loadExerciseLibrary = async (): Promise<ExerciseLibrary | undefined> => {
   return cachedExerciseLibrary ?? undefined;
 };
 
-const allowedProviders = new Set(['openai', 'gemini'] as const);
+const allowedProviders = new Set<AiProviderName>([
+  'openai',
+  'gemini',
+  'openrouter',
+]);
 
 const buildConfig = (): GenerateHandlerConfig => {
   const rawProvider = process.env.AI_PROVIDER?.toLowerCase();
-  if (
-    rawProvider &&
-    !allowedProviders.has(rawProvider as 'openai' | 'gemini')
-  ) {
+  if (rawProvider && !allowedProviders.has(rawProvider as AiProviderName)) {
     throw new Error(`Invalid AI_PROVIDER value: ${rawProvider}`);
   }
 
@@ -82,8 +84,9 @@ const buildConfig = (): GenerateHandlerConfig => {
     defaultApiKeys: {
       openai: process.env.OPENAI_API_KEY,
       gemini: process.env.GEMINI_API_KEY,
+      openrouter: process.env.OPENROUTER_API_KEY,
     },
-    defaultProvider: (rawProvider as 'openai' | 'gemini') ?? 'openai',
+    defaultProvider: (rawProvider as AiProviderName) ?? 'openai',
     enableStageOnePlanner: process.env.ENABLE_STAGE_ONE_PLANNER !== 'false',
   };
 };
@@ -139,9 +142,7 @@ const getGenerateHandler = (): Promise<GenerateHandler> => {
   return generateHandlerPromise;
 };
 
-export const generateHandler = async (
-  request: Request
-): Promise<Response> => {
+export const generateHandler = async (request: Request): Promise<Response> => {
   const handler = await getGenerateHandler();
   return handler(request);
 };

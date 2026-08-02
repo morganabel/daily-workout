@@ -17,6 +17,7 @@
     },
     "dependencies": {
         "@google/genai": "^1.31.0",
+        "@openrouter/sdk": "^1.2.4",
         "@workout-agent-ce/server-core": "*",
         "@workout-agent/shared": "*",
         "openai": "^6.8.1",

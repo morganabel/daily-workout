@@ -29,14 +29,17 @@ export async function getByokConfig(): Promise<ByokConfig | null> {
   try {
     const apiKey = await SecureStore.getItemAsync(BYOK_KEY);
     const providerStr = await SecureStore.getItemAsync(BYOK_PROVIDER_KEY);
-    
+
     if (!apiKey) {
       return null;
     }
-    
-    // Default to 'openai' for legacy keys without provider
-    const provider = (providerStr === 'gemini' ? 'gemini' : 'openai') as AiProvider['name'];
-    
+
+    // Default to 'openai' for legacy keys without a supported provider.
+    const provider: AiProvider['name'] =
+      providerStr === 'gemini' || providerStr === 'openrouter'
+        ? providerStr
+        : 'openai';
+
     return { apiKey, provider };
   } catch (error) {
     console.error('Failed to read BYOK config:', error);

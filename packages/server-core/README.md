@@ -42,6 +42,7 @@ const generateHandler = createGenerateHandler({
     defaultApiKeys: {
       openai: process.env.OPENAI_API_KEY,
       gemini: process.env.GEMINI_API_KEY,
+      openrouter: process.env.OPENROUTER_API_KEY,
     },
   },
 });
@@ -92,7 +93,7 @@ const generateHandler = createGenerateHandler({
 
 The `createGenerateHandler` includes built-in BYOK safety:
 
-- Keys from headers (`x-openai-key`, `x-gemini-key`, `x-ai-key`) are never logged
+- Keys from headers (`x-openai-key`, `x-gemini-key`, `x-ai-key`) are never logged; OpenRouter BYOK uses the generic `x-ai-key` header
 - Keys are not persisted to storage
 - Error messages are sanitized to redact key patterns
 - Keys are used only for upstream provider calls, then discarded

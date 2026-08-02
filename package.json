@@ -143,6 +143,7 @@
   },
   "allowScripts": {
     "@fission-ai/openspec": false,
+    "@openrouter/sdk@1.2.4": true,
     "@parcel/watcher@2.5.1": true,
     "@prisma/client": false,
     "@swc/core@1.5.29": true,

@@ -2,7 +2,7 @@
  * Server AI package - shareable LLM implementation for workout generation
  *
  * This package implements the ModelRouter interface from server-core
- * and provides OpenAI/Gemini providers, prompts, and transformation logic.
+ * and provides OpenAI, Gemini, and OpenRouter providers, prompts, and transformation logic.
  */
 
 import type {
@@ -25,6 +25,7 @@ import {
 } from './providers/registry';
 import { OpenAIProvider } from './providers/openai';
 import { GeminiProvider } from './providers/gemini';
+import { OpenRouterProvider } from './providers/openrouter';
 import { attachGeneratedIds } from './providers/utils';
 import type {
   AiProviderOptions,
@@ -44,6 +45,7 @@ import {
 function ensureProvidersRegistered() {
   registerProvider('openai', new OpenAIProvider());
   registerProvider('gemini', new GeminiProvider());
+  registerProvider('openrouter', new OpenRouterProvider());
 }
 
 /**
@@ -154,4 +156,4 @@ export {
 };
 
 // Export provider classes for custom router implementations
-export { OpenAIProvider, GeminiProvider };
+export { OpenAIProvider, GeminiProvider, OpenRouterProvider };

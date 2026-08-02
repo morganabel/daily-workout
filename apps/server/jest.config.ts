@@ -39,7 +39,9 @@ module.exports = {
     '^uuid$': '<rootDir>/jest-mocks/uuid.ts',
     '^uuid/(.*)$': '<rootDir>/jest-mocks/uuid.ts',
   },
-  transformIgnorePatterns: ['node_modules/(?!(uuid|@workout-agent)/)'],
+  transformIgnorePatterns: [
+    'node_modules/(?!(uuid|@workout-agent|@openrouter/sdk)/)',
+  ],
   coverageDirectory: '../../coverage/apps/server',
   testEnvironment: 'node',
   watchman: false,

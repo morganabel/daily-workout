@@ -24,6 +24,7 @@ import {
 import {
   generationRequestPayloadSchema,
   todayPlanSchema,
+  type AiProviderName,
   type TodayPlan,
   type WorkoutCatalogProvenance,
   type WorkoutCreationMode,
@@ -135,12 +136,13 @@ export interface GenerateHandlerConfig {
   defaultApiKeys?: {
     openai?: string;
     gemini?: string;
+    openrouter?: string;
   };
 
   /**
    * Default provider when not specified
    */
-  defaultProvider?: 'openai' | 'gemini';
+  defaultProvider?: AiProviderName;
 
   /**
    * Enables the optional stage-one planner path.
@@ -177,7 +179,7 @@ function sanitizeErrorMessage(message: string): string {
 
 function canUseProviderContinuity(
   request: GenerationRequestWithContext,
-  provider: 'openai' | 'gemini',
+  provider: AiProviderName,
   previousPlan: TodayPlan | null
 ): boolean {
   if (!request.previousResponseId || provider !== 'openai') {
@@ -196,7 +198,7 @@ function canUseProviderContinuity(
 
 function createProviderRequest(
   request: GenerationRequestWithContext,
-  provider: 'openai' | 'gemini',
+  provider: AiProviderName,
   previousPlan: TodayPlan | null
 ): GenerationRequestWithContext {
   if (canUseProviderContinuity(request, provider, previousPlan)) {
@@ -620,7 +622,7 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
     const genericKeyHeader = request.headers.get('x-ai-key')?.trim();
 
     // Determine provider: explicit header > legacy x-openai-key inference > config default
-    let provider: 'openai' | 'gemini';
+    let provider: AiProviderName;
     if (providerHeader) {
       if (
         !deps.router.isSupportedProvider(providerHeader) &&
@@ -628,15 +630,14 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
       ) {
         return errorResponse(
           'INVALID_PROVIDER',
-          `Unsupported provider: ${providerHeader}. Supported providers: openai, gemini`,
+          `Unsupported provider: ${providerHeader}. Supported providers: openai, gemini, openrouter`,
           400
         );
       }
       provider = deps.router.isSupportedProvider(providerHeader)
-        ? (providerHeader as 'openai' | 'gemini')
-        : ((deps.config.defaultProvider ?? deps.router.getDefaultProvider()) as
-            | 'openai'
-            | 'gemini');
+        ? (providerHeader as AiProviderName)
+        : ((deps.config.defaultProvider ??
+            deps.router.getDefaultProvider()) as AiProviderName);
     } else if (openaiKeyHeader) {
       // Legacy: x-openai-key implies OpenAI
       provider = 'openai';
@@ -644,7 +645,7 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
       // Default from config or router
       const defaultProvider =
         deps.config.defaultProvider ?? deps.router.getDefaultProvider();
-      provider = defaultProvider as 'openai' | 'gemini';
+      provider = defaultProvider as AiProviderName;
     }
 
     // Determine if Vertex AI should be used
@@ -670,6 +671,9 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
         genericKeyHeader ||
         deps.config.defaultApiKeys?.gemini ||
         (useVertexAi ? 'vertex-env' : null);
+    } else if (provider === 'openrouter') {
+      apiKey =
+        genericKeyHeader || deps.config.defaultApiKeys?.openrouter || null;
     }
 
     const isByok = Boolean(
