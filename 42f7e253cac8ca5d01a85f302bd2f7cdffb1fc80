@@ -1,0 +1,1 @@
+address review: correct expiration and renewal semantics, support current RevenueCat lifecycle events, and require pre-bootstrap reconciliation
