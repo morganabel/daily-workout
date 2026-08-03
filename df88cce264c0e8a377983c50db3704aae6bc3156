@@ -1,0 +1,1 @@
+Simplified per updated openspec: dropped managed-spend reservations, source-rate admission, idempotency bindings, and the finalizer contract; added settle-only SpendCeilingPolicy; made usage-event modelCalls/usage required; updated spec artifacts to the trimmed design.
