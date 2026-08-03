@@ -1,0 +1,27 @@
+{
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "name": "metering",
+  "targets": {
+    "test": {
+      "options": {
+        "cwd": "packages/metering",
+        "env": {
+          "TS_NODE_COMPILER_OPTIONS": "{\"moduleResolution\":\"node10\",\"module\":\"commonjs\",\"customConditions\":null}",
+          "NODE_OPTIONS": "--no-experimental-strip-types"
+        },
+        "command": "jest"
+      },
+      "cache": true,
+      "inputs": [
+        "default",
+        "^production",
+        "{workspaceRoot}/jest.preset.js",
+        {
+          "externalDependencies": ["jest"]
+        }
+      ],
+      "outputs": ["{projectRoot}/test-output/jest/coverage"],
+      "executor": "nx:run-commands"
+    }
+  }
+}

@@ -26,7 +26,7 @@ import type { ExerciseLibrary } from '@workout-agent-ce/server-exercise-library'
 import { PostgresMeteringSink } from '@workout-agent-ce/server-db';
 import type { AiProviderName } from '@workout-agent/shared';
 import { getAuthContext } from './auth-context';
-import { hostedBillingRuntime, HostedUsagePolicy } from './hosted-billing';
+import { hostedBillingRuntime } from './hosted-billing';
 import { isBillingEnabled, resolveEdition } from './deployment';
 
 const store = new InMemoryGenerationStore();
@@ -103,7 +103,7 @@ if (hostedBilling && process.env.NODE_ENV !== 'test') {
 }
 
 export const usagePolicy: UsagePolicy = hostedBilling
-  ? new HostedUsagePolicy(hostedBillingRuntime)
+  ? hostedBillingRuntime
   : new NoOpUsagePolicy();
 
 let cachedPostgresMeteringSink: PostgresMeteringSink | null = null;

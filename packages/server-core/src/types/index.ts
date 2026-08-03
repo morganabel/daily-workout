@@ -40,7 +40,7 @@ export type {
   PlanningVariationMode,
   StageOnePlannerArtifact,
 } from './planning';
-export type { UsagePolicy, PolicyResult, Entitlements } from './policy';
+export type { UsagePolicy, PolicyResult } from './policy';
 export type {
   GenerationUsageSummary,
   MeteringSink,

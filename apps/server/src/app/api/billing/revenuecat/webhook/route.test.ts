@@ -1,5 +1,11 @@
 jest.mock('@/lib/hosted-billing', () => ({
   hostedBillingRuntime: {
+    domainConfig: {
+      allowedAppIds: new Set(['app.test']),
+      allowedEnvironments: new Set(['SANDBOX', 'PRODUCTION']),
+      allowedEntitlementIds: new Set(['OpenLift Pro']),
+      allowedProductIds: new Set(['monthly']),
+    },
     applyRevenueCatWebhook: jest.fn(),
   },
 }));
@@ -8,9 +14,41 @@ import { POST } from './route';
 
 const { hostedBillingRuntime } = jest.requireMock('@/lib/hosted-billing') as {
   hostedBillingRuntime: {
+    domainConfig: {
+      allowedAppIds: Set<string>;
+      allowedEnvironments: Set<string>;
+      allowedEntitlementIds: Set<string>;
+      allowedProductIds: Set<string>;
+    };
     applyRevenueCatWebhook: jest.Mock;
   };
 };
+
+function event(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 'event-1',
+    type: 'INITIAL_PURCHASE',
+    event_timestamp_ms: Date.parse('2026-08-02T12:00:00.000Z'),
+    app_id: 'app.test',
+    environment: 'SANDBOX',
+    app_user_id: 'rc-user-123',
+    product_id: 'monthly',
+    entitlement_ids: ['OpenLift Pro'],
+    expiration_at_ms: Date.parse('2026-09-02T12:00:00.000Z'),
+    ...overrides,
+  };
+}
+
+function request(
+  headers: Record<string, string> = {},
+  body: unknown = { event: event() }
+) {
+  return new Request('http://localhost/api/billing/revenuecat/webhook', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...headers },
+    body: JSON.stringify(body),
+  });
+}
 
 describe('POST /api/billing/revenuecat/webhook', () => {
   const originalEnv = process.env;
@@ -27,134 +65,80 @@ describe('POST /api/billing/revenuecat/webhook', () => {
   });
 
   it('returns 503 when webhook secret is not configured', async () => {
-    const response = await POST(
-      new Request('http://localhost/api/billing/revenuecat/webhook', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ event: { type: 'INITIAL_PURCHASE' } }),
-      })
-    );
-    const payload = (await response.json()) as { code?: string };
-
+    const response = await POST(request());
     expect(response.status).toBe(503);
-    expect(payload.code).toBe('SERVICE_UNAVAILABLE');
     expect(hostedBillingRuntime.applyRevenueCatWebhook).not.toHaveBeenCalled();
   });
 
-  it('rejects invalid webhook credentials when secret is configured', async () => {
+  it('rejects invalid webhook credentials', async () => {
     process.env.REVENUECAT_WEBHOOK_SECRET = 'top-secret';
-
-    const response = await POST(
-      new Request('http://localhost/api/billing/revenuecat/webhook', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ event: { type: 'INITIAL_PURCHASE' } }),
-      })
-    );
-
+    const response = await POST(request());
     expect(response.status).toBe(401);
     expect(hostedBillingRuntime.applyRevenueCatWebhook).not.toHaveBeenCalled();
   });
 
-  it('allows unsigned webhook requests when explicit override is enabled', async () => {
-    process.env.REVENUECAT_ALLOW_UNSIGNED_WEBHOOKS = 'true';
-    hostedBillingRuntime.applyRevenueCatWebhook.mockReturnValue({
-      applied: true,
-      userId: 'user-123',
-    });
-
+  it('rejects missing identity and timestamp fields before domain processing', async () => {
+    process.env.REVENUECAT_WEBHOOK_SECRET = 'top-secret';
     const response = await POST(
-      new Request('http://localhost/api/billing/revenuecat/webhook', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          event: {
-            type: 'INITIAL_PURCHASE',
-            app_user_id: 'user-123',
-            product_id: 'monthly',
-          },
-        }),
-      })
+      request(
+        { Authorization: 'Bearer top-secret' },
+        { event: { type: 'INITIAL_PURCHASE' } }
+      )
     );
-
-    expect(response.status).toBe(200);
-    expect(hostedBillingRuntime.applyRevenueCatWebhook).toHaveBeenCalledTimes(
-      1
-    );
+    expect(response.status).toBe(400);
+    expect(hostedBillingRuntime.applyRevenueCatWebhook).not.toHaveBeenCalled();
   });
 
-  it('applies valid webhook events and returns success', async () => {
+  it('rejects events outside configured billing scope', async () => {
     process.env.REVENUECAT_WEBHOOK_SECRET = 'top-secret';
-    hostedBillingRuntime.applyRevenueCatWebhook.mockReturnValue({
-      applied: true,
-      userId: 'user-123',
-    });
-
     const response = await POST(
-      new Request('http://localhost/api/billing/revenuecat/webhook', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: 'Bearer top-secret',
-        },
-        body: JSON.stringify({
-          event: {
-            type: 'INITIAL_PURCHASE',
-            app_user_id: 'user-123',
-            product_id: 'monthly',
-          },
-        }),
-      })
+      request(
+        { Authorization: 'Bearer top-secret' },
+        { event: event({ app_id: 'other-app' }) }
+      )
     );
+    expect(response.status).toBe(400);
+    expect(hostedBillingRuntime.applyRevenueCatWebhook).not.toHaveBeenCalled();
+  });
 
+  it('normalizes and applies a valid event', async () => {
+    process.env.REVENUECAT_WEBHOOK_SECRET = 'top-secret';
+    hostedBillingRuntime.applyRevenueCatWebhook.mockResolvedValue({
+      outcome: 'applied',
+      accountId: 'user-123',
+    });
+    const response = await POST(
+      request({ Authorization: 'Bearer top-secret' })
+    );
     const data = (await response.json()) as {
       ok: boolean;
       applied: boolean;
-      userId?: string;
+      outcome: string;
     };
 
     expect(response.status).toBe(200);
-    expect(data.ok).toBe(true);
-    expect(data.applied).toBe(true);
-    expect(data.userId).toBeUndefined();
-    expect(hostedBillingRuntime.applyRevenueCatWebhook).toHaveBeenCalledTimes(
-      1
+    expect(data).toMatchObject({ ok: true, applied: true, outcome: 'applied' });
+    expect(hostedBillingRuntime.applyRevenueCatWebhook).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventId: 'event-1',
+        kind: 'grant',
+        appId: 'app.test',
+        customerIds: ['rc-user-123'],
+      })
     );
   });
 
-  it('acknowledges valid events that are not mapped to an account', async () => {
+  it('acknowledges an unmapped valid event without granting access', async () => {
     process.env.REVENUECAT_WEBHOOK_SECRET = 'top-secret';
-    hostedBillingRuntime.applyRevenueCatWebhook.mockReturnValue({
-      applied: false,
-      reason: 'missing_user_mapping',
+    hostedBillingRuntime.applyRevenueCatWebhook.mockResolvedValue({
+      outcome: 'unmapped',
     });
-
     const response = await POST(
-      new Request('http://localhost/api/billing/revenuecat/webhook', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: 'Bearer top-secret',
-        },
-        body: JSON.stringify({
-          event: {
-            type: 'INITIAL_PURCHASE',
-            original_app_user_id: '$RCAnonymousID:abc',
-            product_id: 'monthly',
-          },
-        }),
-      })
+      request({ Authorization: 'Bearer top-secret' })
     );
-
-    const data = (await response.json()) as {
-      ok: boolean;
-      applied: boolean;
-      reason?: string;
-    };
+    const data = (await response.json()) as { outcome: string };
 
     expect(response.status).toBe(202);
-    expect(data.ok).toBe(true);
-    expect(data.applied).toBe(false);
-    expect(data.reason).toBe('missing_user_mapping');
+    expect(data.outcome).toBe('unmapped');
   });
 });

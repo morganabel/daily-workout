@@ -62,6 +62,9 @@ describe('GET /api/billing/entitlements', () => {
       planId: 'pro',
       entitlementId: 'OpenLift Pro',
       status: 'active',
+      willRenew: true,
+      paidThrough: '2026-09-01T00:00:00.000Z',
+      graceThrough: null,
       quotaWindow: {
         startsAt: '2026-01-01T00:00:00.000Z',
         endsAt: '2026-02-01T00:00:00.000Z',

@@ -1,4 +1,5 @@
 import { HostedBillingRuntime } from './hosted-billing';
+import { normalizeRevenueCatEvent } from './revenuecat';
 
 describe('HostedBillingRuntime', () => {
   const originalEnv = process.env;
@@ -14,39 +15,91 @@ describe('HostedBillingRuntime', () => {
     process.env = originalEnv;
   });
 
-  it('enforces hosted quota limits for managed usage', () => {
+  it('enforces hosted quota limits with exact reservation tokens', async () => {
     const runtime = new HostedBillingRuntime();
-    const userId = 'user-free';
+    const reserved = await runtime.reserveGenerate({
+      accountId: 'user-free',
+      operationId: 'operation-1',
+      operation: 'generate',
+    });
+    expect(reserved.allowed).toBe(true);
 
-    expect(runtime.canGenerate(userId).allowed).toBe(true);
-    const denied = runtime.canGenerate(userId);
-    expect(denied.allowed).toBe(false);
-    expect(denied.upgrade?.entitlementId).toBe('OpenLift Pro');
+    const denied = await runtime.reserveGenerate({
+      accountId: 'user-free',
+      operationId: 'operation-2',
+      operation: 'generate',
+    });
+    expect(denied).toMatchObject({
+      allowed: false,
+      code: 'quota_exceeded',
+    });
   });
 
-  it('can roll back a reserved managed usage unit', () => {
+  it('rolls back only the exact managed-usage reservation', async () => {
     const runtime = new HostedBillingRuntime();
-    const userId = 'user-free';
+    const reserved = await runtime.reserveGenerate({
+      accountId: 'user-free',
+      operationId: 'operation-1',
+      operation: 'generate',
+    });
+    if (!reserved.allowed || !reserved.reservation) {
+      throw new Error('expected reservation');
+    }
+    await runtime.rollbackGenerateReservation(reserved.reservation);
 
-    expect(runtime.canGenerate(userId).allowed).toBe(true);
-    runtime.rollbackManagedUsage(userId);
-
-    expect(runtime.canGenerate(userId).allowed).toBe(true);
+    await expect(
+      runtime.reserveGenerate({
+        accountId: 'user-free',
+        operationId: 'operation-2',
+        operation: 'generate',
+      })
+    ).resolves.toMatchObject({ allowed: true });
   });
 
-  it('applies RevenueCat purchase events and grants pro entitlements', () => {
+  it('grants paid access only after authenticated customer bootstrap', async () => {
     const runtime = new HostedBillingRuntime();
+    await runtime.bootstrapAuthenticatedCustomer('user-pro', 'rc-user-pro');
+    const event = normalizeRevenueCatEvent(
+      {
+        id: 'event-1',
+        type: 'INITIAL_PURCHASE',
+        event_timestamp_ms: Date.parse('2026-08-02T12:00:00.000Z'),
+        app_id: 'app.test',
+        environment: 'SANDBOX',
+        app_user_id: 'rc-user-pro',
+        product_id: 'monthly',
+        entitlement_ids: ['OpenLift Pro'],
+        expiration_at_ms: Date.parse('2026-09-02T12:00:00.000Z'),
+      },
+      runtime.domainConfig
+    );
 
-    const result = runtime.applyRevenueCatWebhook({
-      type: 'INITIAL_PURCHASE',
-      app_user_id: 'user-pro',
-      product_id: 'monthly',
-      entitlement_ids: ['OpenLift Pro'],
+    await expect(runtime.applyRevenueCatWebhook(event)).resolves.toMatchObject({
+      outcome: 'applied',
+      accountId: 'user-pro',
+    });
+    await expect(runtime.getEntitlements('user-pro')).resolves.toMatchObject({
+      planId: 'pro',
+      status: 'active',
+      willRenew: true,
+      paidThrough: '2026-09-02T12:00:00.000Z',
     });
 
-    expect(result.applied).toBe(true);
-    const entitlements = runtime.getEntitlements('user-pro');
-    expect(entitlements.planId).toBe('pro');
-    expect(entitlements.status).toBe('active');
+    const first = await runtime.reserveGenerate({
+      accountId: 'user-pro',
+      operationId: 'operation-1',
+      operation: 'generate',
+    });
+    if (!first.allowed || !first.reservation) {
+      throw new Error('expected paid reservation');
+    }
+    await runtime.commitGenerateReservation(first.reservation);
+    await expect(
+      runtime.reserveGenerate({
+        accountId: 'user-pro',
+        operationId: 'operation-2',
+        operation: 'generate',
+      })
+    ).resolves.toMatchObject({ allowed: true });
   });
 });

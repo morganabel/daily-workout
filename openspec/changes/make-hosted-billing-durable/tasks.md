@@ -8,15 +8,14 @@
 
 ## PR Map
 
-| PR  | Repository      | Depends On                                         | Purpose                                                                                                                               |
-| --- | --------------- | -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| S0  | Specs only      | Current origin; package-and-CI PR 1 before merge   | Reconcile stale predecessors, establish canonical base specs, and rebase this delta without application-code changes                  |
-| B1  | This repository | Specification prerequisite S0; package-and-CI PR 1 | Normalize RevenueCat events, correct lifecycle reduction, and make `quotas`/`metering` the canonical exact-reservation contracts      |
-| B2  | This repository | B1                                                 | Add PostgreSQL schema and repositories to the `server-db` migration lineage                                                           |
-| B3  | This repository | B2; generation G1                                  | Cut the single server's billing routes and wiring directly to durable storage; remove process memory and extend boot/readiness checks |
-| B4  | This repository | B3; generation G1 and G5                           | Persist generation attempt results and exact quota commits atomically, then verify crash/restart/concurrency behavior                 |
+| PR  | Repository      | Depends On                                         | Purpose                                                                                                                                                 |
+| --- | --------------- | -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| S0  | Specs only      | Current origin; package-and-CI PR 1 before merge   | Reconcile stale predecessors, establish canonical base specs, and rebase this delta without application-code changes                                    |
+| B1  | This repository | Specification prerequisite S0; package-and-CI PR 1 | Normalize RevenueCat events, correct lifecycle reduction, and make `quotas`/`metering` the canonical exact-reservation contracts                        |
+| B2  | This repository | B1                                                 | Add PostgreSQL schema and repositories to the `server-db` migration lineage                                                                             |
+| B3  | This repository | B2; generation G1                                  | Cut the single server's billing routes, wiring, and generation flow directly to durable storage; remove process memory and extend boot/readiness checks |
 
-B1 can proceed alongside generation G1 and G3. Generation G2 and G5 depend on B1's canonical contracts. B2 may proceed while generation G2-G5 are developed. No PR adds a feature flag, dual write, backfill, compatibility read, or production memory fallback.
+B1 can proceed alongside generation G1 and G3. Generation G2 depends on B1's canonical contracts. B2 may proceed while generation G2-G4 are developed. No PR adds a feature flag, dual write, backfill, compatibility read, or production memory fallback.
 
 ### S0 Acceptance Criteria
 
@@ -37,31 +36,31 @@ git diff --name-only origin/main...HEAD
 
 ### Implementation Tasks
 
-- [ ] B1.1 Keep the bounded RevenueCat envelope/schema and vendor-to-domain normalizer in `apps/server`; retain event ID, vendor timestamp, app ID, environment, customer identifiers, entitlements, product, and lifecycle timestamps while mapping vendor event names to a provider-neutral entitlement lifecycle event exported by `packages/quotas`.
-- [ ] B1.2 Add an explicit domain configuration object for allowed app, environment, entitlement, and product values; keep supported environments/event types as bounded code-owned enums and reject conditionally incomplete state-changing events.
-- [ ] B1.3 Add a pure provider-neutral entitlement reducer in `packages/quotas` with deterministic ordering and lifecycle outcomes limited to `apply`, `stale`, `ignored`, or `no_change`; it must not parse RevenueCat envelopes or depend on RevenueCat field names.
-- [ ] B1.4 Define processor/repository outcomes (`applied`, `duplicate`, `stale`, `ignored`, `unmapped`, `conflict`) separately from reducer decisions.
-- [ ] B1.5 Make `packages/quotas` the canonical entitlement and reserve/commit/rollback contract, and make `packages/metering` the canonical non-secret usage-event/sink contract. Replace or remove the current check-only quota service, process-array metering service, duplicate `server-core` policy shape, and app-local variants so one model remains.
-- [ ] B1.6 Define an authenticated billing-customer bootstrap contract that derives the current account's RevenueCat identity without accepting arbitrary account ownership from webhook or client input.
-- [ ] B1.7 Model `willRenew`, paid-through, and grace boundaries in entitlement contracts and responses.
-- [ ] B1.8 Define exact reservation-token and provider-neutral finalization contracts that correlate stable `auth.userId`, operation key, generation attempt result, and reservation without importing database code into `server-core`.
-- [ ] B1.8a Define separate exact contracts for included-generation allowance, provider-work admission leases, and conservative managed-spend reservations. `x-request-id` is correlation only; operation ID is server-owned; optional idempotency is account-scoped and fingerprint-bound.
-- [ ] B1.9 Adapt the temporary development/test memory implementation to the canonical contracts so B1 remains buildable; production wiring is removed in B3.
-- [ ] B1.10 Export reusable reducer, event-processor, customer-mapping, reservation, metering, and finalization contract tests.
-- [ ] B1.10a Export reusable admission/spend tests covering rate and concurrency denial, matching replay, correlation-ID reuse, rotating idempotency keys, maximum-cost reserve, actual-cost settlement on failure, and zero-attempt release.
-- [ ] B1.11 Add real Jest configuration and test targets to `quotas` and `metering`; neither target may pass with an empty suite.
+- [x] B1.1 Keep the bounded RevenueCat envelope/schema and vendor-to-domain normalizer in `apps/server`; retain event ID, vendor timestamp, app ID, environment, customer identifiers, entitlements, product, and lifecycle timestamps while mapping vendor event names to a provider-neutral entitlement lifecycle event exported by `packages/quotas`.
+- [x] B1.2 Add an explicit domain configuration object for allowed app, environment, entitlement, and product values; keep supported environments/event types as bounded code-owned enums and reject conditionally incomplete state-changing events.
+- [x] B1.3 Add a pure provider-neutral entitlement reducer in `packages/quotas` with deterministic ordering and lifecycle outcomes limited to `apply`, `stale`, `ignored`, or `no_change`; it must not parse RevenueCat envelopes or depend on RevenueCat field names.
+- [x] B1.4 Define processor/repository outcomes (`applied`, `duplicate`, `stale`, `ignored`, `unmapped`, `conflict`) separately from reducer decisions.
+- [x] B1.5 Make `packages/quotas` the canonical entitlement and reserve/commit/rollback contract, and make `packages/metering` the canonical non-secret usage-event/sink contract. Replace or remove the current check-only quota service, process-array metering service, duplicate `server-core` policy shape, and app-local variants so one model remains.
+- [x] B1.6 Define an authenticated billing-customer bootstrap contract that derives the current account's RevenueCat identity without accepting arbitrary account ownership from webhook or client input.
+- [x] B1.7 Model `willRenew`, paid-through, and grace boundaries in entitlement contracts and responses.
+- [x] B1.8 Define the exact reservation-token contract that correlates stable `auth.userId`, operation key, and reservation without importing database code into `server-core`.
+- [x] B1.8a Define separate contracts for included-generation allowance, in-process provider-work admission (per-account rate and concurrency), and the settle-only daily spend-ceiling check. `x-request-id` is correlation only; operation ID is server-owned.
+- [x] B1.9 Adapt the temporary development/test memory implementation to the canonical contracts so B1 remains buildable; production wiring is removed in B3.
+- [x] B1.10 Export reusable reducer, event-processor, customer-mapping, reservation, and metering contract tests.
+- [x] B1.10a Export reusable admission/spend-ceiling tests covering account rate and concurrency denial, matching server-operation replay, independently keyed operations exhausting the same account limits, ceiling denial at the configured daily limit with failed billable attempts counting toward it, and per-account independence of ceilings.
+- [x] B1.11 Add real Jest configuration and test targets to `quotas` and `metering`; neither target may pass with an empty suite.
 
 ### Acceptance Criteria
 
-- [ ] B1.A1 Cancellation keeps paid access active through expiration while setting `willRenew=false`; expiration ends access and older events cannot regress a newer period.
-- [ ] B1.A2 Duplicate event IDs do not mutate a projection; the same ID with different normalized content is a conflict.
-- [ ] B1.A3 Generation failures roll back only their returned reservation, and the finalizer contract can commit one validated result and that exact reservation atomically.
-- [ ] B1.A4 Schemas reject missing IDs/timestamps and unbounded identifier or alias collections without logging secret headers or complete payloads.
-- [ ] B1.A5 No webhook or unauthenticated request can map a RevenueCat customer to an arbitrary account.
-- [ ] B1.A6 Exactly one quota policy and one metering contract remain; `server-core`, `apps/server`, `quotas`, and `metering` do not expose competing production abstractions.
-- [ ] B1.A7 Metering contracts support an idempotent account/operation/event identity and bounded non-secret provider, credential-source, result, logical-phase, and upstream-attempt fields.
-- [ ] B1.A8 Included-generation allowance and managed-provider spend are independent: a failed billable attempt may release customer allowance but must settle actual platform cost.
-- [ ] B1.A9 BYOK bypasses included allowance and managed-spend reservations only; it remains subject to account/source rate, concurrency, and execution-budget admission.
+- [x] B1.A1 Cancellation keeps paid access active through expiration while setting `willRenew=false`; expiration ends access and older events cannot regress a newer period.
+- [x] B1.A2 Duplicate event IDs do not mutate a projection; the same ID with different normalized content is a conflict.
+- [x] B1.A3 Generation failures roll back only their returned reservation; commit and rollback are idempotent and address only their exact reservation.
+- [x] B1.A4 Schemas reject missing IDs/timestamps and unbounded identifier or alias collections without logging secret headers or complete payloads.
+- [x] B1.A5 No webhook or unauthenticated request can map a RevenueCat customer to an arbitrary account.
+- [x] B1.A6 Exactly one quota policy and one metering contract remain; `server-core`, `apps/server`, `quotas`, and `metering` do not expose competing production abstractions.
+- [x] B1.A7 Metering contracts support an idempotent account/operation/event identity and bounded non-secret provider, credential-source, result, logical-phase, and upstream-attempt fields.
+- [x] B1.A8 Included-generation allowance and managed-provider spend are independent: a failed billable attempt may release customer allowance but must settle actual platform cost.
+- [x] B1.A9 BYOK bypasses included allowance and spend ceilings only; it remains subject to account rate, concurrency, and execution-budget admission.
 
 ### Verification Commands
 
@@ -77,29 +76,26 @@ nx run-many -t typecheck,lint,build --projects=@workout-agent/shared,@workout-ag
 
 ### Implementation Tasks
 
-- [ ] B2.1 Add Drizzle tables and one migration under `packages/server-db` for webhook events, customer mappings, entitlement projections, quota windows/reservations, durable usage events, generation admission windows/leases, managed-spend windows, and managed-spend reservations.
-- [ ] B2.2 Enforce unique source/event IDs, unique external customer mappings, account-scoped `(account_id, operation_key)` reservations, account-scoped metering event keys, user foreign keys, and indexes for active window/reservation lookup.
+- [ ] B2.1 Add Drizzle tables and one migration under `packages/server-db` for webhook events, customer mappings, entitlement projections, and included-generation windows/reservations. Nano-USD columns use PostgreSQL `bigint`.
+- [ ] B2.2 Enforce unique source/event IDs, unique external customer mappings, account-scoped `(account_id, operation_key)` reservations, user foreign keys, and indexes for active window/reservation lookup and the daily spend-ceiling query. Fix the metering event key: replace the `(user, operation)` unique index with `(user, operation, event)` so one operation can record distinct event kinds, and persist the event ID column the sink already carries.
 - [ ] B2.3 Implement authenticated customer bootstrap and idempotent reconciliation of previously unmapped ledger events.
 - [ ] B2.4 Implement one-transaction webhook ledger/projection processing with row locking and the B1 normalizer/reducer; webhook data alone cannot create account ownership.
 - [ ] B2.5 Implement account-scoped entitlement reads that derive expiry from paid/grace boundaries when a final expiration webhook is delayed.
-- [ ] B2.6 Implement atomic included-generation reserve/commit/rollback with row locking, idempotent transitions, and durable pending-reservation TTL metadata. Leave result-aware autonomous reclaim disabled until B4.
+- [ ] B2.6 Implement atomic included-generation reserve/commit/rollback with row locking and idempotent transitions. Expired pending reservations stop counting toward the active check; commit after expiry is rejected. No reclaim job or result-aware reconciliation.
 - [ ] B2.7 Add a `server-db` PostgreSQL integration target that applies the repository migration and runs B1's contract suites against two independent repository instances sharing one database.
 - [ ] B2.8 Add redacted structured outcomes for applied, duplicate, stale, ignored, unmapped, conflict, mapping, reserve, commit, rollback, and reconciliation operations.
-- [ ] B2.9 Implement the canonical durable metering sink with idempotent success/failure writes and bounded non-secret fields; do not derive production metering from a process-local array.
-- [ ] B2.10 Implement transactional account/source rate and active-concurrency admission plus per-account/global hourly/daily managed-spend reservation and settlement. Conservative maximum cost is reserved before invocation; every billable attempt settles actual cost even on operation failure.
+- [ ] B2.9 Implement the daily account/global spend-ceiling check as a bounded query over the existing durable `ai_usage_event` cost data; it fails closed (deny) on query error and does not require new tables.
 
 ### Acceptance Criteria
 
 - [ ] B2.A1 Entitlements, mappings, ledger outcomes, reservations, and committed usage survive repository/server recreation.
 - [ ] B2.A2 Duplicate and stale deliveries are persisted but never mutate the current projection.
-- [ ] B2.A3 Concurrent reservations from separate instances never exceed the window limit.
-- [ ] B2.A4 Commit and rollback are idempotent and address only their exact reservation; automated TTL reclaim remains disabled until B4 can inspect durable attempt state.
+- [ ] B2.A3 Concurrent reservations from separate repository instances never exceed the window limit.
+- [ ] B2.A4 Commit and rollback are idempotent and address only their exact reservation; an expired pending reservation frees its slot and rejects a late commit.
 - [ ] B2.A5 Unknown accounts, apps, environments, products, and entitlements cannot grant access.
 - [ ] B2.A6 The schema and repositories use the existing `packages/server-db` client, Cloud SQL support, and single migration lineage rather than a parallel database package.
-- [ ] B2.A7 Replaying one operation cannot duplicate its usage event, while two accounts may independently use the same client operation-key string.
-- [ ] B2.A8 Two repository instances cannot exceed account/source request, active-concurrency, included-generation, or managed-spend limits through concurrent admission.
-- [ ] B2.A9 Reusing a correlation ID creates independent operation rows; matching idempotency reuses one operation; conflicting fingerprints fail before admission.
-- [ ] B2.A10 Spend settlement releases the full reserve only with zero billable attempts and otherwise releases only the unused remainder.
+- [ ] B2.A7 Replaying one operation cannot duplicate its usage event, while two accounts may independently use the same operation-key string.
+- [ ] B2.A8 The spend-ceiling check denies at or over a configured account or global daily ceiling, counts failed billable attempts, and denies when the query fails or pricing is unknown.
 
 ### Verification Commands
 
@@ -118,28 +114,28 @@ nx run server-db:integration
 
 - [ ] B3.1 Keep the entitlement and RevenueCat webhook routes in `apps/server` as thin adapters over the B2 repositories; gate both routes on `BILLING_PROVIDER=revenuecat`.
 - [ ] B3.2 Replace direct `HostedBillingRuntime` construction in `wiring.ts` with the durable repositories and canonical B1 policy/metering contracts.
-- [ ] B3.3 Delete the process-local hosted entitlement, customer, quota, and metering maps from production code. Retain a memory adapter only through an explicit test/development entry point.
-- [ ] B3.4 Extend the environment-only `validateBootConfig` path to parse required `REVENUECAT_WEBHOOK_SECRET`, allowed app/environment/entitlement/product lists, `BILLING_FREE_GENERATION_LIMIT`, `BILLING_PRO_GENERATION_LIMIT`, and `BILLING_QUOTA_WINDOW_DAYS`; reject empty, duplicate, unbounded, invalid-enum, and invalid-number values without performing database I/O.
-- [ ] B3.4a Parse and validate bounded account/source request windows, maximum active generations per account, managed-spend hourly/daily account and global limits, spend-reservation TTL, and trusted-ingress source-header configuration.
+- [ ] B3.3 Delete the process-local hosted entitlement, customer, quota, and metering maps from production code. Retain a memory billing adapter only through an explicit test/development entry point. The in-process admission limiter is intentionally process-local and remains.
+- [ ] B3.4 Extend the environment-only `validateBootConfig` path to parse required `REVENUECAT_WEBHOOK_SECRET`, allowed app/environment/entitlement/product lists, `BILLING_FREE_GENERATION_LIMIT`, `BILLING_PRO_GENERATION_LIMIT`, `BILLING_QUOTA_WINDOW_DAYS`, per-account request-rate and maximum-active-generation settings, per-account and global daily managed-spend ceilings, and the pending-reservation TTL; reject empty, duplicate, unbounded, invalid-enum, and invalid-number values without performing database I/O.
 - [ ] B3.5 Use `DEPLOYMENT_MODE=hosted` plus `BILLING_PROVIDER=revenuecat`; delete `EDITION`, `HOSTED_BILLING_ENABLED`, the three `HOSTED_*` quota names, and `REVENUECAT_ALLOW_UNSIGNED_WEBHOOKS` from code, tests, root/app env examples, README, and AGENTS guidance.
 - [ ] B3.6 Accept only `Authorization: Bearer <REVENUECAT_WEBHOOK_SECRET>` for RevenueCat webhooks, remove `x-revenuecat-signature`, and test that no environment or route path accepts unsigned production or development webhook state.
 - [ ] B3.7 Extend `/api/ready` with billing schema/repository health when RevenueCat billing is enabled; connectivity/schema failure keeps readiness false and dependent routes return service unavailable before managed provider work, without turning boot validation into an I/O probe.
-- [ ] B3.7a Include admission and spend-settlement health in readiness; unhealthy accounting opens the managed-provider circuit breaker before invocation.
 - [ ] B3.8 Wire authenticated customer bootstrap and unmapped-event reconciliation before purchase or restore UI can initiate RevenueCat work.
-- [ ] B3.9 Reset non-production billing data and apply the new schema without a backfill or compatibility transform.
-- [ ] B3.10 Add route/composition cases for self-hosted billing-disabled, hosted durable, provider-disabled webhook, malformed/scope-invalid event, cancellation-before-expiry, duplicate, stale, mapping conflict, and unavailable repository states.
-- [ ] B3.10a Add route/composition cases for account/source rate denial, active-concurrency denial, BYOK admission, managed-spend denial, open circuit breaker, untrusted forwarding headers, and unknown managed pricing.
+- [ ] B3.9 Wire hosted generation to the full simplified flow: in-process per-account rate/concurrency admission, daily spend-ceiling check, included-generation reserve, provider invocation, metering settlement of every billable attempt, then commit on validated success or rollback on failure. BYOK skips allowance and ceilings only. Remove every permissive or process-memory hosted billing fallback.
+- [ ] B3.10 Reset non-production billing data and apply the new schema without a backfill or compatibility transform.
+- [ ] B3.11 Add route/composition cases for self-hosted billing-disabled, hosted durable, provider-disabled webhook, malformed/scope-invalid event, cancellation-before-expiry, duplicate, stale, mapping conflict, unavailable repository, account rate denial, concurrency denial, BYOK admission, spend-ceiling denial, and unknown managed pricing.
+- [ ] B3.12 Add credential-source cases: matching provider BYOK bypasses entitlement quota and ceilings; unrelated or unused key headers do not; managed and Vertex credentials reserve quota and are ceiling-checked.
 
 ### Acceptance Criteria
 
 - [ ] B3.A1 Self-hosted mode starts with billing disabled and generation unrestricted by billing services.
 - [ ] B3.A2 Hosted RevenueCat production cannot start without valid durable-adapter/database and authenticated-webhook configuration; database connectivity/schema health is enforced through readiness rather than boot I/O.
-- [ ] B3.A3 No process-local hosted entitlement, customer, quota, or metering state remains in production composition.
-- [ ] B3.A4 Restarting the server does not change entitlement, mapping, ledger, reservation, or quota state.
+- [ ] B3.A3 No process-local hosted entitlement, customer, quota, or metering state remains in production composition; the only intentional process-local state is the admission limiter.
+- [ ] B3.A4 Restarting the server does not change entitlement, mapping, ledger, reservation, or quota state; admission counters may reset.
 - [ ] B3.A5 Billing routes are part of the consolidated server image and do not rely on private source injection or a second application.
 - [ ] B3.A6 Readiness reflects billing repository/schema health only when billing is enabled, and failures do not invoke a managed model provider.
 - [ ] B3.A7 `rg` finds no runtime or documentation use of removed deployment, quota, unsigned-webhook, or custom-signature aliases outside historical OpenSpec artifacts.
-- [ ] B3.A8 Hosted provider work cannot proceed when durable admission, pricing, spend reservation, or settlement health is unavailable; self-host billing-disabled composition remains unaffected.
+- [ ] B3.A8 A quota limit of N permits at most N committed or active reservations; a failed attempt records a durable failure outcome and settles its actual provider cost without committing included allowance.
+- [ ] B3.A9 The only billing bypass is a credential selected from a matching BYOK header for the chosen provider; managed generation is denied before provider work when pricing, the spend query, or the quota repository is unavailable.
 
 ### Verification Commands
 
@@ -153,52 +149,17 @@ docker build -f docker/Dockerfile.server -t workout-agent-server:billing .
 docker build -f docker/Dockerfile.migrate -t workout-agent-migrate:billing .
 ```
 
-## PR B4 - Atomic Generation And Quota Finalization
+## Deferred Until Launch Scale Justifies It
 
-### Prerequisites
+Deliberately out of scope for this change; revisit when there are real paying users, more than one server instance, or meaningful managed-provider spend:
 
-- [ ] B4.P1 B3 is merged or stacked beneath this PR.
-- [ ] B4.P2 `harden-workout-generation` G1 and G5 are merged so billing bypass uses selected credential provenance and attempts use stable account-scoped idempotency.
-
-### Implementation Tasks
-
-- [ ] B4.1 Add durable generation-attempt/result persistence to `packages/server-db` using the G5 contract and existing migration lineage.
-- [ ] B4.2 Persist validated attempt success, its idempotent successful usage summary, the exact included-generation commit, actual managed-spend settlement, and admission-lease release in one PostgreSQL transaction before returning or replaying the result. If an outbox is necessary, replay waits for reconciliation.
-- [ ] B4.3 Enable TTL reclaim only through result-aware reconciliation: roll back reservations with no durable result and commit result-ready outbox entries before replay.
-- [ ] B4.4 Wire `apps/server` generation to durable attempt acquisition, account/source admission, allowance reservation, managed-spend reservation, and result/failure finalization for hosted RevenueCat mode; remove every permissive or process-memory hosted fallback.
-- [ ] B4.5 Add credential-source cases: matching provider BYOK bypasses entitlement quota; unrelated or unused key headers do not; managed and Vertex credentials reserve quota.
-- [ ] B4.6 Add end-to-end cases for concurrent last-slot reservation, duplicate idempotency across sessions, reused correlation IDs, rotating idempotency keys, rate/concurrency caps, failed billable spend, global circuit breaking, crash before/after finalization, restart, reclaim, replay, and two server instances.
-- [ ] B4.7 Document operational inspection for stuck reservations, result reconciliation, unmapped events, and webhook conflicts without rollout flags.
-- [ ] B4.8 Document and test circuit-breaker recovery, spend-window inspection, trusted-ingress assumptions, and edge/WAF responsibility without treating monitoring alerts as preventive enforcement.
-
-### Acceptance Criteria
-
-- [ ] B4.A1 A quota limit of N permits at most N committed or active reservations across instances.
-- [ ] B4.A2 A crash before atomic finalization leaves no replayable result and permits rollback/expiry; a crash after finalization leaves both replayable result and committed usage.
-- [ ] B4.A3 No result-ready generation becomes free through TTL reclaim.
-- [ ] B4.A4 The only billing bypass is a credential selected from a matching BYOK header for the chosen provider.
-- [ ] B4.A5 Two sessions for one `auth.userId` replay the same completed idempotent result, while another user with the same key string has an independent operation.
-- [ ] B4.A6 Restarting either server instance preserves attempt, result, entitlement, and quota state.
-- [ ] B4.A7 A successful replay does not duplicate metering. A failed attempt records a durable failure outcome without committing included-generation allowance and settles every actual managed-provider cost.
-- [ ] B4.A8 Unique request or idempotency identifiers cannot bypass account/source rate, active-concurrency, or managed-spend limits.
-- [ ] B4.A9 BYOK remains subject to infrastructure admission, while managed/Vertex requests also require healthy conservative spend reservation before provider work.
-
-### Verification Commands
-
-```bash
-nx test @workout-agent-ce/server-core
-nx test server-db
-nx test quotas
-nx test metering
-nx test @workout-agent-ce/server
-nx run-many -t typecheck,lint,build --projects=@workout-agent-ce/server-core,server-db,quotas,metering,@workout-agent-ce/server
-nx run @workout-agent-ce/server-e2e:e2e
-```
-
-Manual crash/restart/concurrency proof is also required: run two server processes in hosted RevenueCat mode against one migrated PostgreSQL database, reserve the final quota slot concurrently, terminate a process immediately before and after result finalization, restart both processes, and confirm replayable results and quota counters remain consistent.
+- Atomic result-and-quota finalization (single transaction or transactional outbox) with result-aware TTL reclaim and crash-point tests; depends on `harden-workout-generation` G5.
+- Client `Idempotency-Key` acquisition, request-fingerprint conflict detection, and cross-session result replay.
+- Durable or Redis-backed request-rate/concurrency admission and trusted-ingress source-identity configuration.
+- Pre-invocation conservative cost reservation, hourly spend windows, and circuit-breaker recovery machinery.
 
 ## Final Change Verification
 
 - [ ] V1 Run `npm run validate:openspec -- make-hosted-billing-durable` successfully using the repo-owned CLI from package-and-CI PR 1.
 - [ ] V2 Run `nx sync:check` and the complete applicable lint, typecheck, test, build, server E2E, and Docker image gates.
-- [ ] V3 Run the PostgreSQL contract, restart, crash-point, and two-instance quota checks from B2-B4.
+- [ ] V3 Run the PostgreSQL contract, restart, and concurrent last-slot reservation checks from B2-B3.

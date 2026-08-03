@@ -63,6 +63,9 @@ export const billingEntitlementsResponseSchema = z
     planId: z.string().nullable(),
     entitlementId: z.string().nullable(),
     status: billingEntitlementStatusSchema,
+    willRenew: z.boolean(),
+    paidThrough: z.string().datetime().nullable(),
+    graceThrough: z.string().datetime().nullable(),
     quotaWindow: billingQuotaWindowSchema,
     refreshedAt: z.string().datetime(),
   })

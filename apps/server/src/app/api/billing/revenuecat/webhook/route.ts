@@ -4,24 +4,11 @@ import {
 } from '@workout-agent-ce/server-core';
 import { createErrorResponse } from '@/lib/errors';
 import { hostedBillingRuntime } from '@/lib/hosted-billing';
-import { z } from 'zod';
-
-const revenueCatEventSchema = z
-  .object({
-    type: z.string().min(1),
-    app_user_id: z.string().optional(),
-    original_app_user_id: z.string().optional(),
-    aliases: z.array(z.string()).optional(),
-    entitlement_ids: z.array(z.string()).optional(),
-    product_id: z.string().optional(),
-  })
-  .passthrough();
-
-const webhookPayloadSchema = z
-  .object({
-    event: revenueCatEventSchema,
-  })
-  .passthrough();
+import {
+  normalizeRevenueCatEvent,
+  RevenueCatNormalizationError,
+  revenueCatWebhookSchema,
+} from '@/lib/revenuecat';
 
 const hasValidWebhookSecret = (
   request: Request,
@@ -85,7 +72,7 @@ export async function POST(request: Request): Promise<Response> {
     return response;
   }
 
-  const parsed = webhookPayloadSchema.safeParse(body);
+  const parsed = revenueCatWebhookSchema.safeParse(body);
   if (!parsed.success) {
     const response = createErrorResponse(
       'VALIDATION_ERROR',
@@ -96,14 +83,32 @@ export async function POST(request: Request): Promise<Response> {
     return response;
   }
 
-  const result = hostedBillingRuntime.applyRevenueCatWebhook(parsed.data.event);
-  const status = result.applied ? 200 : 202;
+  let normalized: ReturnType<typeof normalizeRevenueCatEvent>;
+  try {
+    normalized = normalizeRevenueCatEvent(
+      parsed.data.event,
+      hostedBillingRuntime.domainConfig
+    );
+  } catch (error) {
+    const response = createErrorResponse(
+      'VALIDATION_ERROR',
+      error instanceof RevenueCatNormalizationError
+        ? 'RevenueCat event is incomplete or outside configured billing scope'
+        : 'Invalid RevenueCat webhook payload',
+      400
+    );
+    attachRequestId(response, requestId);
+    return response;
+  }
+
+  const result = await hostedBillingRuntime.applyRevenueCatWebhook(normalized);
+  const status = result.outcome === 'applied' ? 200 : 202;
 
   const response = Response.json(
     {
       ok: true,
-      applied: result.applied,
-      reason: result.reason,
+      applied: result.outcome === 'applied',
+      outcome: result.outcome,
       eventType: parsed.data.event.type,
     },
     { status }
@@ -116,7 +121,7 @@ export async function POST(request: Request): Promise<Response> {
     status,
     durationMs: Date.now() - startedAt,
     eventType: parsed.data.event.type,
-    applied: result.applied,
+    outcome: result.outcome,
   });
   return response;
 }
