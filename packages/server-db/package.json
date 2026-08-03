@@ -21,8 +21,12 @@
   "dependencies": {
     "@google-cloud/cloud-sql-connector": "^1.4.2",
     "@workout-agent-ce/metering": "*",
+    "@workout-agent-ce/quotas": "*",
     "drizzle-orm": "*",
     "pg": "^8.13.1",
     "tslib": "^2.3.0"
+  },
+  "devDependencies": {
+    "@testcontainers/postgresql": "^12.0.4"
   }
 }

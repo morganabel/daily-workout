@@ -65,6 +65,9 @@ jobs:
         if: github.event_name != 'pull_request'
         run: npx nx run-many -t lint,typecheck,test,build --outputStyle=static
 
+      - name: Run PostgreSQL integration tests
+        run: npx nx run server-db:integration --outputStyle=static
+
   docker:
     name: Docker image builds
     runs-on: ubuntu-latest

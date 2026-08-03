@@ -1,12 +1,14 @@
-import { relations } from 'drizzle-orm';
+import { relations, sql } from 'drizzle-orm';
 import {
   bigint,
-  pgTable,
-  text,
-  timestamp,
   boolean,
   index,
   integer,
+  jsonb,
+  pgTable,
+  primaryKey,
+  text,
+  timestamp,
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
 
@@ -88,6 +90,7 @@ export const aiUsageEvent = pgTable(
   {
     id: text('id').primaryKey(),
     operationId: text('operation_id').notNull(),
+    eventId: text('event_id').notNull(),
     userId: text('user_id')
       .notNull()
       .references(() => user.id, { onDelete: 'cascade' }),
@@ -124,13 +127,156 @@ export const aiUsageEvent = pgTable(
       .notNull(),
   },
   (table) => [
-    uniqueIndex('ai_usage_event_user_operation_idx').on(
+    uniqueIndex('ai_usage_event_user_operation_event_idx').on(
       table.userId,
-      table.operationId
+      table.operationId,
+      table.eventId
     ),
     index('ai_usage_event_user_occurred_idx').on(
       table.userId,
       table.occurredAt
+    ),
+    index('ai_usage_event_occurred_idx').on(table.occurredAt),
+  ]
+);
+
+export const billingWebhookEvent = pgTable(
+  'billing_webhook_event',
+  {
+    source: text('source').notNull(),
+    eventId: text('event_id').notNull(),
+    normalizedHash: text('normalized_hash').notNull(),
+    eventTimestamp: timestamp('event_timestamp', {
+      withTimezone: true,
+    }).notNull(),
+    originalEventType: text('original_event_type').notNull(),
+    lifecycleKind: text('lifecycle_kind').notNull(),
+    appId: text('app_id').notNull(),
+    environment: text('environment').notNull(),
+    customerIds: jsonb('customer_ids').$type<string[]>().notNull(),
+    entitlementIds: jsonb('entitlement_ids').$type<string[]>().notNull(),
+    productId: text('product_id'),
+    purchasedAt: timestamp('purchased_at', { withTimezone: true }),
+    expiresAt: timestamp('expires_at', { withTimezone: true }),
+    graceExpiresAt: timestamp('grace_expires_at', { withTimezone: true }),
+    willRenew: boolean('will_renew'),
+    outcome: text('outcome').notNull(),
+    failureCode: text('failure_code'),
+    accountId: text('account_id').references(() => user.id, {
+      onDelete: 'cascade',
+    }),
+    receivedAt: timestamp('received_at', { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    processedAt: timestamp('processed_at', { withTimezone: true }),
+  },
+  (table) => [
+    primaryKey({ columns: [table.source, table.eventId] }),
+    index('billing_webhook_event_outcome_idx').on(
+      table.outcome,
+      table.receivedAt
+    ),
+    index('billing_webhook_event_account_idx').on(
+      table.accountId,
+      table.eventTimestamp
+    ),
+  ]
+);
+
+export const billingCustomerMapping = pgTable(
+  'billing_customer_mapping',
+  {
+    source: text('source').notNull(),
+    externalCustomerId: text('external_customer_id').notNull(),
+    accountId: text('account_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.source, table.externalCustomerId] }),
+    index('billing_customer_mapping_account_idx').on(table.accountId),
+  ]
+);
+
+export const billingEntitlementProjection = pgTable(
+  'billing_entitlement_projection',
+  {
+    accountId: text('account_id')
+      .primaryKey()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    planId: text('plan_id').notNull(),
+    entitlementId: text('entitlement_id'),
+    productId: text('product_id'),
+    status: text('status').notNull(),
+    willRenew: boolean('will_renew').notNull(),
+    paidThrough: timestamp('paid_through', { withTimezone: true }),
+    graceThrough: timestamp('grace_through', { withTimezone: true }),
+    lastEventTimestamp: timestamp('last_event_timestamp', {
+      withTimezone: true,
+    }).notNull(),
+    lastEventId: text('last_event_id').notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [index('billing_entitlement_status_idx').on(table.status)]
+);
+
+export const includedGenerationWindow = pgTable(
+  'included_generation_window',
+  {
+    id: text('id').primaryKey(),
+    accountId: text('account_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    startsAt: timestamp('starts_at', { withTimezone: true }).notNull(),
+    endsAt: timestamp('ends_at', { withTimezone: true }).notNull(),
+    committedCount: integer('committed_count').default(0).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex('included_generation_window_account_start_idx').on(
+      table.accountId,
+      table.startsAt
+    ),
+  ]
+);
+
+export const includedGenerationReservation = pgTable(
+  'included_generation_reservation',
+  {
+    id: text('id').primaryKey(),
+    accountId: text('account_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    operationKey: text('operation_key').notNull(),
+    windowId: text('window_id')
+      .notNull()
+      .references(() => includedGenerationWindow.id, { onDelete: 'cascade' }),
+    operation: text('operation').notNull(),
+    status: text('status').notNull(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex('included_generation_reservation_account_operation_active_idx')
+      .on(table.accountId, table.operationKey)
+      .where(sql`${table.status} in ('pending', 'committed')`),
+    index('included_generation_reservation_active_idx').on(
+      table.accountId,
+      table.windowId,
+      table.status,
+      table.expiresAt
     ),
   ]
 );

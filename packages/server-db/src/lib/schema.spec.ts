@@ -1,7 +1,7 @@
 import { aiModelCall, aiUsageEvent } from './schema.js';
 
-describe('AI usage schema', () => {
-  it('stores nano-USD amounts as database integers', () => {
+describe('database money schema', () => {
+  it('stores every nano-USD amount as a PostgreSQL integer', () => {
     expect(aiUsageEvent.accountedCostNanoUsd.getSQLType()).toBe('bigint');
     expect(aiUsageEvent.platformCostNanoUsd.getSQLType()).toBe('bigint');
     expect(aiUsageEvent.byokEstimatedCostNanoUsd.getSQLType()).toBe('bigint');

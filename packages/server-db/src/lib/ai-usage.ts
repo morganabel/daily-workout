@@ -4,6 +4,7 @@ import {
   type UsageEvent,
 } from '@workout-agent-ce/metering';
 import { and, desc, eq, gte, lt } from 'drizzle-orm';
+import { createHash } from 'node:crypto';
 
 import type { Database } from './client.js';
 import { aiModelCall, aiUsageEvent } from './schema.js';
@@ -70,6 +71,26 @@ function addEventToTotals(
   ).toString();
 }
 
+function canonicalize(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(canonicalize);
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value)
+        .filter(([, entry]) => entry !== undefined)
+        .sort(([left], [right]) => left.localeCompare(right))
+        .map(([key, entry]) => [key, canonicalize(entry)])
+    );
+  }
+  return value;
+}
+
+function usageEventStorageId(event: UsageEvent): string {
+  const digest = createHash('sha256')
+    .update(JSON.stringify(canonicalize(event)))
+    .digest('hex');
+  return `usage_${digest}`;
+}
+
 /** Durable, idempotent operation and per-call ledger for hosted generation. */
 export class PostgresMeteringSink implements MeteringSink {
   constructor(private readonly db: Database) {}
@@ -80,13 +101,14 @@ export class PostgresMeteringSink implements MeteringSink {
     const operationId = event.operationId;
     const usage = event.usage;
     const modelCalls = event.modelCalls;
-    const eventId = `${event.userId}:${operationId}:${event.eventId}`;
+    const storageId = usageEventStorageId(event);
     await this.db.transaction(async (transaction) => {
       const inserted = await transaction
         .insert(aiUsageEvent)
         .values({
-          id: eventId,
+          id: storageId,
           operationId,
+          eventId: event.eventId,
           userId: event.userId,
           operation: event.operation,
           provider: event.provider,
@@ -112,14 +134,31 @@ export class PostgresMeteringSink implements MeteringSink {
         .onConflictDoNothing()
         .returning({ id: aiUsageEvent.id });
 
-      if (inserted.length === 0 || modelCalls.length === 0) {
+      if (inserted.length === 0) {
+        const [stored] = await transaction
+          .select({ id: aiUsageEvent.id })
+          .from(aiUsageEvent)
+          .where(
+            and(
+              eq(aiUsageEvent.userId, event.userId),
+              eq(aiUsageEvent.operationId, operationId),
+              eq(aiUsageEvent.eventId, event.eventId)
+            )
+          );
+        if (stored?.id !== storageId) {
+          throw new Error('metering_event_conflict');
+        }
+        return;
+      }
+
+      if (modelCalls.length === 0) {
         return;
       }
 
       await transaction.insert(aiModelCall).values(
         modelCalls.map((call, index) => ({
-          id: `${eventId}:${index}`,
-          usageEventId: eventId,
+          id: `${storageId}:${index}`,
+          usageEventId: storageId,
           phase: call.phase,
           provider: call.provider,
           requestedModel: call.requestedModel,
