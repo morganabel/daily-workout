@@ -1,0 +1,1 @@
+Fix CI by explicitly normalizing renewal state for initial and non-renewing purchases after the reducer stopped inventing defaults.
