@@ -1,4 +1,4 @@
-## ADDED Requirements
+## MODIFIED Requirements
 
 ### Requirement: Canonical Single-Server Product Repository
 
@@ -17,6 +17,8 @@ A private deployment repository MAY publish or configure images built from this 
 - **GIVEN** the deployment repository selects a tested image from this repository
 - **WHEN** it publishes or deploys that image
 - **THEN** it does not inject billing implementation code or replace the product repository's schema lineage
+
+## ADDED Requirements
 
 ### Requirement: Canonical Billing Policy Packages
 

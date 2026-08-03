@@ -10,6 +10,7 @@ The app currently has no first-class upgrade flow, so hosted users who hit usage
 - Add conditional upgrade entry points in mobile (for example Home/Profile) that appear only when billing is enabled by backend capabilities.
 - Add explicit mobile error handling rules: `QUOTA_EXCEEDED` routes to upgrade/paywall, while `BYOK_REQUIRED` routes to BYOK setup.
 - Preserve CE/self-host behavior: no billing enforcement, no forced upgrade screens, and BYOK remains available as an advanced option.
+- Keep hosted routes and billing composition in the canonical `apps/server`; private deployment automation publishes images rather than supplying a source overlay.
 
 ## Capabilities
 
@@ -28,7 +29,7 @@ The app currently has no first-class upgrade flow, so hosted users who hit usage
 
 - Affected specs: `authentication` (modified), `home-data` (modified), `mobile-ui` (modified), plus new `billing-entitlements` and `mobile-upgrade-experience` specs.
 - Affected code (CE/open core): `packages/shared` (meta + error contracts), `packages/server-core` (policy result semantics/hooks), `apps/mobile` (capability-aware upgrade/paywall routing), and optionally shared client service modules for purchase state.
-- Affected code (hosted overlay): hosted `UsagePolicy`/`MeteringSink` implementations, entitlement persistence, and store purchase verification wiring.
+- Affected code (hosted mode): repository-owned policy, metering, entitlement persistence, and store-purchase verification wiring composed by `apps/server`.
 - APIs/contracts: `/api/meta` response shape and generation error handling contract for upgrade-related denials.
 - Dependencies/systems: RevenueCat SDK for cross-platform in-app purchase (App Store / Play Store compliant), RevenueCat backend for receipt validation and entitlement management, and hosted entitlement synchronization via RevenueCat webhooks.
 - CE vs Hosted: CE remains self-hostable with no artificial limits and no mandatory paywall UX; hosted gains metering-based limits and optional paid upgrades, with BYOK still supported.

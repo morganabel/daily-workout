@@ -1,7 +1,7 @@
 ## 1. Shared Contracts and Compatibility
 
 - [x] 1.1 Extend shared `MetaResponse` with optional `billing` capability fields (`enabled`, `showUpgradeUi`, `purchaseMethod`, `allowByok`).
-- [x] 1.2 Add/align shared billing + entitlement response schemas needed by mobile and hosted overlays (including optional upgrade metadata on quota denials).
+- [x] 1.2 Add/align shared billing + entitlement response schemas needed by mobile and hosted composition (including optional upgrade metadata on quota denials).
 - [x] 1.3 Add contract tests for backward compatibility (missing `billing` fields must parse as billing-disabled behavior).
 
 ## 2. Server Capability Wiring (Open Core / CE)
@@ -10,7 +10,7 @@
 - [x] 2.2 Keep generation denial contract machine-actionable (`QUOTA_EXCEEDED` and `BYOK_REQUIRED`) with no provider invocation on policy deny. Ensure BYOK detection runs before `UsagePolicy` check so BYOK requests bypass entitlement quota.
 - [x] 2.3 Add server tests for CE behavior to verify no forced paywall state is advertised and existing generation flows remain intact.
 
-## 3. Hosted Entitlements and Billing Enforcement (Overlay)
+## 3. Hosted Entitlements and Billing Enforcement
 
 - [x] 3.1 Implement hosted entitlement read endpoint (authenticated, account-bound) returning plan status, quota window, and remaining allowance.
 - [x] 3.2 Implement hosted `UsagePolicy` checks that enforce entitlements before model calls and return `QUOTA_EXCEEDED` when over limit.

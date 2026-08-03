@@ -12,6 +12,8 @@ There are no production users or billing records to preserve. We can replace the
 - Make webhook processing idempotent by event ID and order-aware by vendor event time. Store duplicates and stale deliveries as non-mutating outcomes.
 - Correct subscription lifecycle semantics: cancellation disables renewal but preserves paid access through the current period; expiration ends access; later renewals and uncancellations cannot be overwritten by older deliveries.
 - Replace generic quota increments with durable, account-scoped reservations that are atomic across server instances and have explicit commit, rollback, expiry, and generation-result finalization semantics.
+- Separate included-generation allowance from managed-provider spend. Reserve a conservative maximum provider cost before each managed operation, settle actual billable spend for every upstream attempt even when no workout is returned, and release only the unused cost reserve.
+- Add durable per-account request and concurrency admission, trusted-source rate limiting, hourly/daily account and global spend ceilings, and a fail-closed provider circuit breaker. BYOK bypasses included-generation and managed-provider cost only; it does not bypass infrastructure admission controls.
 - Make `packages/quotas` and `packages/metering` the single provider-neutral entitlement/reservation and usage-event contracts; remove or repurpose the overlapping check-only, process-array, `UsagePolicy`, and app-local production abstractions.
 - Implement the PostgreSQL event ledger, entitlement projection, customer mapping, quota windows, reservations, and durable generation attempts in this repository through the existing `packages/server-db` migration lineage.
 - Wire the single `apps/server` directly to durable billing in hosted RevenueCat mode, extending its existing boot validation and readiness checks.
@@ -35,7 +37,7 @@ There are no production users or billing records to preserve. We can replace the
 
 - Affected code: `packages/shared`, `packages/server-core`, `packages/quotas`, `packages/metering`, `packages/server-db`, `apps/server` composition/boot/readiness, and the existing billing routes.
 - Private deployment repository: no source adapter change. It continues publishing the standalone images built from this repository.
-- Affected APIs: RevenueCat webhook responses become explicitly `applied`, `duplicate`, `stale`, `ignored`, or rejected; entitlement responses expose renewal and paid-period boundaries.
+- Affected APIs: RevenueCat webhook responses become explicitly `applied`, `duplicate`, `stale`, `ignored`, or rejected; entitlement responses expose renewal and paid-period boundaries; generation may return stable rate, concurrency, spend-budget, idempotency-conflict, or dependency-unavailable errors before provider invocation.
 - Self-host: billing remains disabled and unrestricted by default; durable billing code exists in the product image but is not initialized or required when `BILLING_PROVIDER=none`.
 - Hosted: managed-key generation is unavailable when the durable billing dependency is absent or unhealthy; BYOK behavior is governed by the selected credential source.
 - Data migration: none. Development billing tables and state may be dropped and recreated.
