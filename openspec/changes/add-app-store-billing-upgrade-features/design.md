@@ -2,7 +2,7 @@
 
 The current mobile app can detect backend auth capabilities through `/api/meta`, but it has no equivalent contract for billing capabilities or upgrade flows. When hosted users exceed allowance, generation failures are surfaced as generic errors, and there is no intentional path to purchase or restore access. At the same time, the CE product promise requires self-hosting to remain fully functional with no artificial paywalls.
 
-This change introduces billing-aware UX and entitlement enforcement for hosted deployments while preserving open-core boundaries: CE remains no-op for billing policy/metering, and hosted overlays provide commercial behavior.
+This change introduces billing-aware UX and entitlement enforcement for hosted deployments while preserving open-core boundaries: self-host remains no-op for billing policy/metering, and the canonical `apps/server` composes commercial behavior in hosted mode.
 
 ## Goals / Non-Goals
 
@@ -12,14 +12,14 @@ This change introduces billing-aware UX and entitlement enforcement for hosted d
 - Keep server-side enforcement authoritative for hosted quotas/entitlements.
 - Provide a store-compliant mobile purchase and restore flow for iOS/Android hosted deployments.
 - Preserve CE/self-host behavior (no mandatory upgrades, no forced paywall screens, BYOK still available).
-- Maintain backward compatibility with older clients/servers during rollout.
+- Keep capability discovery tolerant of a missing billing block while cutting the server directly to the consolidated architecture.
 
 **Non-Goals:**
 
 - Implementing proprietary hosted billing storage/providers in CE.
 - Removing BYOK or changing existing BYOK header semantics.
 - Introducing web checkout in this change (mobile store purchases are the initial path).
-- Platform-level rate limiting (infrastructure protection from extreme request volume applies to all users regardless of billing status and is orthogonal to entitlement enforcement).
+- Platform admission, spend ceilings, and circuit breaking are specified by the successor generation-hardening and durable-billing changes rather than this purchase-UX change.
 - Reworking unrelated generation/auth architecture.
 
 ## Decisions
@@ -44,7 +44,7 @@ Proposed shape (conceptual):
 
 ### 2) Separate "capability discovery" from "current entitlement state"
 
-**Decision:** Keep `/api/meta` as coarse capability discovery, and expose authenticated entitlement state via a billing endpoint in hosted overlays (for example `GET /api/billing/entitlements`) so paywall and badges can reflect current plan/quota.
+**Decision:** Keep `/api/meta` as coarse capability discovery, and expose authenticated entitlement state via a billing endpoint in hosted mode (for example `GET /api/billing/entitlements`) so paywall and badges can reflect current plan/quota.
 
 **Alternatives considered:**
 
@@ -87,7 +87,7 @@ RevenueCat provides cross-platform StoreKit/Play Billing abstraction, server-sid
 
 - Trust local device purchase state alone. Rejected because it is vulnerable to desync and does not support server-enforced quotas.
 
-### 6) Preserve CE and self-host backward compatibility by default
+### 6) Preserve self-host billing-neutral behavior by default
 
 **Decision:** In CE wiring and default contracts:
 
@@ -95,7 +95,7 @@ RevenueCat provides cross-platform StoreKit/Play Billing abstraction, server-sid
 - No upgrade UI entry points rendered when billing is disabled/missing
 - Existing generation behavior remains unchanged except improved client routing for known error codes
 
-Hosted overlays opt into billing by populating billing capabilities and policy implementations.
+Hosted mode opts into billing through `apps/server` deployment composition and durable repository-owned implementations. Production does not use a permissive billing fallback.
 
 **Alternatives considered:**
 
@@ -129,21 +129,17 @@ Hosted overlays opt into billing by populating billing capabilities and policy i
 
 4. **Hosted enforcement and verification**
 
-   - Implement hosted `UsagePolicy` entitlement checks.
+   - Implement hosted policy entitlement checks in the canonical server.
    - Add purchase verification/reconciliation path that updates entitlements by `userId`.
 
-5. **Progressive rollout**
+5. **Direct cutover and rollback**
 
-   - Start with hosted `showUpgradeUi=false` while validating telemetry.
-   - Enable upgrade UI after entitlement and restore flows are verified.
-
-6. **Rollback strategy**
-   - Disable hosted billing capabilities in `/api/meta` and entitlement endpoint response.
-   - Keep server-side policy permissive fallback if entitlement service degrades.
+   - Validate entitlement, purchase, restore, and capability flows before enabling hosted production.
+   - Roll back by reverting the deployment; managed generation fails closed when its durable billing dependency is unhealthy rather than using a permissive fallback.
 
 ## Open Questions
 
 - ~~Should the initial IAP implementation use a direct StoreKit/Play Billing integration or an abstraction provider (for example RevenueCat) for faster cross-platform parity?~~ **Resolved:** Use RevenueCat for cross-platform billing, server-side receipt validation, and webhook-driven entitlement management. See Decision #4.
 - ~~Must users always sign in before purchasing, or can anonymous sessions purchase and then link later without entitlement confusion?~~ **Resolved:** No sign-in gate needed. Better Auth anonymous plugin gives every user a stable `userId` from first launch, and `userId` is preserved when upgrading from anonymous to email (account linking). RevenueCat customer ID maps to `userId` immediately with no deferred linking or merge required.
-- ~~What hosted entitlement model is first (fixed monthly generations, tiered model access, or both)?~~ **Resolved:** Out of scope for this change. The entitlement model (generations, tiers, etc.) is a hosted backend concern. The CE open-core contracts are intentionally abstract (`plan status`, `quota window`, `remaining allowance`) so the hosted overlay can define its own model without requiring CE spec changes.
-- ~~Should BYOK usage bypass hosted quota checks entirely, or still count toward some platform limits?~~ **Resolved:** BYOK bypasses billing/entitlement quota checks (users funding their own AI inference should not count against platform quotas). The generation handler checks for BYOK keys before running `UsagePolicy`, and skips the policy check when BYOK keys are present. Platform-level rate limiting (protecting infrastructure from extreme request volume regardless of key source) is a separate concern not addressed in this change; see Non-Goals.
+- ~~What hosted entitlement model is first (fixed monthly generations, tiered model access, or both)?~~ **Resolved:** Out of scope for this change. The entitlement model remains abstract (`plan status`, `quota window`, `remaining allowance`) so hosted composition can evolve it without changing self-host behavior.
+- ~~Should BYOK usage bypass hosted quota checks entirely, or still count toward some platform limits?~~ **Resolved:** only a credential actually selected from the chosen provider's matching BYOK header bypasses included-generation and managed-provider-spend quota. BYOK remains subject to account/source request-rate, concurrency, and infrastructure controls specified by the successor hardening and durable-billing changes.

@@ -14,6 +14,8 @@ No real users or billing history exist. Correct final-state architecture is more
 - Model cancellation, expiration, renewal, billing issues, and uncancellation without shortening already-paid access.
 - Make entitlements and managed-key quota reservations durable across restarts and consistent across instances.
 - Ensure every quota rollback or commit addresses one exact reservation.
+- Keep user-facing included-generation allowance separate from platform provider spend so failed billable attempts remain visible to cost admission.
+- Bound authenticated request rate, concurrent generation, per-account managed spend, and global managed spend before provider invocation, with a fail-closed circuit breaker.
 - Keep self-host unrestricted and free of mandatory billing configuration or runtime dependencies when billing is disabled.
 - Refuse to run hosted production billing without authenticated webhooks and a durable adapter.
 
@@ -23,6 +25,7 @@ No real users or billing history exist. Correct final-state architecture is more
 - Dual writes, shadow evaluation, feature flags, canaries, or compatibility with the current hosted runtime.
 - Changing store purchase UI, RevenueCat SDK purchase flows, pricing, plan limits, or product catalog strategy.
 - Counting BYOK provider spend as included hosted usage.
+- Replacing upstream edge/WAF volumetric DDoS protection; application admission complements it and remains authoritative for authenticated account, concurrency, and provider-spend limits.
 - Splitting hosted behavior into a second application or code-bearing private overlay.
 
 ## Decisions
@@ -76,6 +79,9 @@ Duplicate, conflict, and unmapped outcomes are not reducer decisions: they requi
 - `billing_entitlements`: current account entitlement projection and last applied ordering key
 - `billing_quota_windows`: account, operation/metric, time bounds, limit, committed count, and reserved count
 - `billing_quota_reservations`: immutable reservation ID, operation key, window, state, timestamps, and expiry
+- `billing_admission_windows`: trusted source/account dimensions, bounded rolling-window counters, active-operation counts, and expiry
+- `billing_spend_windows`: account/global scope, provider/model pricing snapshot, reserved nano-USD, settled nano-USD, time bounds, and hard limit
+- `billing_spend_reservations`: immutable operation-scoped maximum-cost reservation, state, settled actual cost, timestamps, and expiry
 - `billing_usage_events`: account, operation key, event kind, provider, credential source, result, logical phase counts, upstream attempt count, timestamps, and only bounded non-secret metadata
 
 One database transaction inserts the event ledger row, locks the affected projection, applies the reducer, and updates the outcome. A unique `(source, eventId)` constraint provides idempotency:
@@ -95,21 +101,33 @@ The mapping table is populated through an authenticated hosted billing bootstrap
 
 **Decision:** The core billing policy contract changes directly to a reservation lifecycle:
 
-1. `reserveGenerate` receives the authenticated user, generation request, and operation key.
-2. It returns a denial or an allowed result containing a unique reservation ID.
+1. `reserveGenerate` receives the authenticated user, generation request, server operation ID, optional client idempotency key, and a bounded admission context.
+2. It returns a denial or an allowed result containing an exact included-generation reservation when managed allowance applies, an exact managed-spend reservation when platform credentials apply, and an admission lease for every provider-backed operation.
 3. The generation handler produces a semantically validated result and records it through the durable hosted `GenerationAttemptStore` defined by `harden-workout-generation` G5.
 4. The durable `server-db` finalizer makes the attempt's successful result and the exact reservation commit durable in one PostgreSQL transaction before returning the result.
-5. It rolls back that exact reservation on every failure or abort before the atomic finalization point.
+5. It rolls back the included-generation reservation on failure or abort before the atomic result-finalization point. The managed-spend reservation is instead settled to the actual cost of every upstream attempt; it is fully released only when no billable attempt occurred.
 
 The durable quota repository reserves in a transaction that locks the active quota window and checks `committed + active reserved < limit` before inserting. `(account_id, operation_key)` is unique so an internal retry for one account cannot reserve twice while another account may use the same client key independently. Commit and rollback are idempotent state transitions. Durable metering uses an idempotent `(account_id, operation_key, event_kind)` key. B4 writes the successful usage summary in the same finalization transaction as attempt success and reservation commit; failure summaries are durable independent outcomes and never change committed quota.
 
 Pending reservations have a configured TTL. B2 persists the expiry metadata but does not enable autonomous reclaim because it does not yet depend on the durable generation-attempt store. B4 enables reclaim only after it can consult that store: a reservation with no durable validated result may expire and roll back, while a result-ready attempt may never be reclaimed as unused. If atomic finalization is implemented through a transactional outbox rather than one transaction, reconciliation must commit the reservation before the result can be replayed. Crash-point tests must cover both sides of finalization.
 
+The included-generation reservation and managed-spend reservation are intentionally different. A failed or rejected workout may release the customer's included generation while still settling the provider cost already incurred. Provider pricing and configured prompt/output caps determine a conservative maximum-cost reservation before invocation. Unknown managed pricing, unavailable admission storage, or inability to reserve within the account/global spend windows fails closed before provider work.
+
 Entitlement and quota lookup, reservation, commit, and rollback are asynchronous. A durable-adapter error is not interpreted as available quota.
 
 **Rationale:** A token prevents one request from rolling back another request's usage and makes concurrency behavior explicit.
 
-### 5) Use one repository, one server, and one canonical policy model
+### 5) Separate correlation, idempotency, execution, and admission
+
+**Decision:** `x-request-id` remains an untrusted correlation value only. It MUST NOT provide ledger uniqueness, idempotency, quota deduplication, or spend deduplication. Every accepted owner receives a server-generated operation ID. Optional `Idempotency-Key` is scoped to stable `auth.userId`, bound to a secret-free normalized request fingerprint, and atomically maps matching retries to that one operation ID. Same key plus different fingerprint returns conflict before reservation or provider work.
+
+Every provider-backed request, including BYOK, passes bounded account and trusted-source request-rate and concurrency admission. Managed/Vertex requests additionally reserve conservative cost against per-account and global hourly/daily spend windows. The circuit breaker denies new managed provider work when a hard limit is reached, pricing is unavailable, actual-cost settlement is unhealthy, or the durable admission repository is unavailable. BYOK may bypass entitlement and managed-spend reservations but never request-rate, concurrency, payload, timeout, or retry controls.
+
+Ingress infrastructure remains responsible for volumetric unauthenticated DDoS protection. `apps/server` trusts source-address metadata only from configured ingress and never accepts an arbitrary client forwarding header as the rate-limit identity.
+
+**Rationale:** Idempotency prevents duplicate logical work, while admission controls bound attackers who rotate keys or payloads. A server-owned operation ID makes every actual execution auditable without treating a caller-controlled correlation value as authority.
+
+### 6) Use one repository, one server, and one canonical policy model
 
 **Decision:** `packages/quotas` owns entitlement projection and exact reservation policy contracts. `packages/metering` owns the non-secret usage-event and sink contract. `server-core` consumes those contracts instead of defining a competing production policy. `packages/server-db` owns their durable PostgreSQL repositories, and `apps/server` owns deployment-mode composition. A bounded memory implementation exists only for tests and explicitly selected local development; self-hosted production defaults to billing disabled.
 
@@ -119,7 +137,7 @@ Native ESM repair remains a package-quality goal, but it is not a prerequisite f
 
 **Rationale:** One contract and one schema avoid divergent billing semantics while matching origin's actual deployment model.
 
-### 6) Fail closed in hosted production
+### 7) Fail closed in hosted production
 
 **Decision:** When `DEPLOYMENT_MODE=hosted` and `BILLING_PROVIDER=revenuecat`, the composition root requires the durable billing event processor and reservation policy. `validateBootConfig` remains environment-only: missing or invalid configuration and failure to construct the configured adapter prevent startup. Database connectivity and schema availability are checked by `/api/ready`; an unhealthy repository keeps readiness false and makes entitlement or managed-generation requests return service unavailable before provider invocation, but does not turn boot validation into an I/O check.
 
@@ -130,6 +148,7 @@ RevenueCat mode uses these exact settings:
 - required comma-separated `REVENUECAT_ALLOWED_APP_IDS`, `REVENUECAT_ALLOWED_ENVIRONMENTS`, `REVENUECAT_ENTITLEMENT_IDS`, and `REVENUECAT_PRODUCT_IDS` lists, trimmed, length/count bounded, non-empty, and rejected when they contain duplicates;
 - environments restricted to the code-owned `SANDBOX` and `PRODUCTION` enum and event types restricted to a code-owned allowlist rather than arbitrary environment input;
 - `BILLING_FREE_GENERATION_LIMIT` and `BILLING_PRO_GENERATION_LIMIT` as bounded non-negative safe integers, and `BILLING_QUOTA_WINDOW_DAYS` as a positive bounded integer;
+- bounded account/source request-window limits, maximum active generations per account, managed-spend hourly/daily account and global nano-USD limits, reservation TTL, and trusted-ingress source-header configuration;
 - optional `REVENUECAT_DEFAULT_OFFERING_ID` for capability discovery.
 
 The deprecated `EDITION`, `HOSTED_BILLING_ENABLED`, `HOSTED_*_GENERATION_LIMIT`, `HOSTED_QUOTA_WINDOW_DAYS`, `REVENUECAT_ALLOW_UNSIGNED_WEBHOOKS`, and `x-revenuecat-signature` forms are deleted directly. No aliases or fallback defaults are retained for hosted RevenueCat mode.
@@ -162,6 +181,9 @@ There are no backfills, compatibility adapters, dual reads/writes, or gradual fl
 - [Unknown RevenueCat lifecycle event changes vendor behavior] -> Record it as ignored, alert on it, and add reducer support deliberately before it can mutate access.
 - [Memory and PostgreSQL reducer behavior drift] -> Export reusable contract tests from B1 and require the `server-db` repositories to pass them against PostgreSQL.
 - [Parallel quota/metering APIs survive] -> Make removal or adaptation of every existing production abstraction an explicit B1 acceptance criterion before generation G2 or G5 integrates.
+- [A failed provider call consumes money but returns no workout] -> Release the included-generation reservation while settling every billable upstream attempt against the managed-spend reservation; never infer zero cost from an application-level failure.
+- [An attacker rotates idempotency keys] -> Enforce account/source request and concurrency limits plus managed-spend windows independently of idempotency identity.
+- [Concurrent calls overshoot a global budget] -> Reserve conservative maximum cost transactionally before invocation, settle actual cost afterward, and fail closed when pricing or settlement health is unknown.
 
 ## Open Questions
 

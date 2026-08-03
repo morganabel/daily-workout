@@ -1,4 +1,10 @@
-## ADDED Requirements
+# billing-entitlements Specification
+
+## Purpose
+
+Define hosted billing capability discovery, account-scoped entitlement state, included-usage enforcement, purchase synchronization, and billing-neutral self-host defaults.
+
+## Requirements
 
 ### Requirement: Hosted Entitlement State Endpoint
 
@@ -28,13 +34,13 @@ Hosted generation policy MUST evaluate entitlements before model invocation for 
 
 #### Scenario: Over-limit user is denied before model call
 
-- **GIVEN** the account has exhausted included usage for the active quota window and the selected credential is managed or Vertex
+- **GIVEN** the account has exhausted included usage and the selected credential is managed or Vertex
 - **WHEN** the user requests generation
 - **THEN** policy denies the request with `QUOTA_EXCEEDED` and no model provider is invoked
 
 #### Scenario: Selected BYOK credential bypasses entitlement quota
 
-- **GIVEN** the account has exhausted included usage for the active quota window but provides a matching BYOK key selected for the chosen provider
+- **GIVEN** the account has exhausted included usage but provides a matching BYOK key selected for the chosen provider
 - **WHEN** the user requests generation
 - **THEN** the entitlement policy check is skipped and generation proceeds using the BYOK key
 
@@ -57,21 +63,21 @@ Hosted billing MUST verify purchase evidence before granting paid entitlements a
 #### Scenario: Restore updates entitlement state
 
 - **GIVEN** a user reinstalls the app or signs in on a new device
-- **WHEN** they trigger restore purchases via RevenueCat SDK and verification succeeds
-- **THEN** the backend reconciles entitlement state from RevenueCat and returns the restored entitlement for that account
+- **WHEN** they trigger restore purchases and verification succeeds
+- **THEN** the backend reconciles entitlement state and returns the restored entitlement for that account
 
 #### Scenario: Invalid or unverified purchase does not grant access
 
 - **GIVEN** purchase evidence is invalid, expired, or unverifiable
 - **WHEN** RevenueCat verification runs
-- **THEN** no webhook is dispatched and existing entitlement state remains unchanged
+- **THEN** no entitlement is granted and existing entitlement state remains unchanged
 
 ### Requirement: CE/Self-Host Neutral Billing Defaults
 
-Community Edition/self-host deployments MUST remain billing-neutral by default. They MUST NOT require purchase verification or entitlement endpoints for core generation behavior.
+Community Edition and self-host deployments MUST remain billing-neutral by default. They MUST NOT require purchase verification or entitlement endpoints for core generation behavior.
 
-#### Scenario: CE deployment remains functional without billing services
+#### Scenario: Self-host remains functional without billing services
 
-- **GIVEN** a CE/self-host deployment without hosted billing infrastructure
+- **GIVEN** a self-host deployment without hosted billing infrastructure
 - **WHEN** users generate workouts
 - **THEN** core generation behavior continues without entitlement enforcement from hosted billing systems

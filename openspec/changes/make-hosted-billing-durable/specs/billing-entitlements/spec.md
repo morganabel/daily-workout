@@ -48,7 +48,7 @@ Hosted generation policy MUST reserve included usage atomically before invoking 
 
 - **GIVEN** a managed-key request has an active quota reservation
 - **WHEN** provider invocation, validation, or result finalization fails before the atomic commit point
-- **THEN** the server rolls back that exact reservation without changing any other request's usage
+- **THEN** the server rolls back that exact included-generation reservation without changing any other request's allowance, while separately settling any actual managed-provider spend already incurred
 
 #### Scenario: Abandoned reservation expires
 
@@ -161,3 +161,57 @@ Self-host deployments MUST remain billing-neutral by default. The canonical bill
 - **GIVEN** hosted production uses managed provider credentials and its durable billing adapter is unavailable
 - **WHEN** a user requests generation
 - **THEN** the server returns service unavailable before provider invocation rather than granting usage permissively
+
+## ADDED Requirements
+
+### Requirement: Abuse-Resistant Generation Admission And Spend Enforcement
+
+Hosted generation MUST treat correlation, idempotency, execution, allowance, and spend as separate identities and controls. `x-request-id` is caller-controlled correlation metadata and MUST NOT determine ledger uniqueness, quota deduplication, spend deduplication, or replay. Every owned execution MUST have a server-generated operation ID. Optional `Idempotency-Key` MUST be scoped to stable `auth.userId`, bound to a bounded secret-free normalized request fingerprint, and atomically map matching retries to one operation.
+
+Before any provider invocation, hosted generation MUST enforce bounded authenticated-account request rate, trusted-source request rate, and per-account active-generation concurrency. These infrastructure controls apply to managed, Vertex, and BYOK calls. Source identity MUST come only from configured trusted ingress metadata, not arbitrary forwarding headers supplied directly by a client.
+
+Before a managed or Vertex invocation, the server MUST reserve a conservative maximum cost against durable per-account and global hourly/daily spend windows using the selected provider/model pricing snapshot and configured prompt/output/retry caps. It MUST settle actual provider cost for every upstream attempt, including attempts belonging to operations that time out, fail validation, fail persistence, or return no workout. It MUST release the full spend reservation only when no billable upstream attempt occurred and otherwise release only the unused remainder. Unknown managed pricing, exhausted spend windows, unhealthy settlement, or unavailable durable admission state MUST trip or preserve a fail-closed circuit breaker before further managed provider work.
+
+The customer-facing included-generation reservation remains independent: an operation that returns no workout MAY release that allowance even though its already-incurred provider spend remains settled against platform budgets.
+
+#### Scenario: Reused correlation ID creates independent executions
+
+- **GIVEN** one authenticated account submits different requests using the same `x-request-id` and no `Idempotency-Key`
+- **WHEN** both pass admission
+- **THEN** each receives a distinct server operation ID, each actual provider attempt is metered, and neither usage record suppresses the other
+
+#### Scenario: Idempotency key is reused for different input
+
+- **GIVEN** an account has an existing operation bound to an idempotency key and request fingerprint
+- **WHEN** the same account submits that key with a different normalized fingerprint
+- **THEN** the server returns an idempotency conflict before allowance, spend, or provider work
+
+#### Scenario: Attacker rotates idempotency keys
+
+- **GIVEN** an authenticated account submits many requests with unique idempotency keys
+- **WHEN** its request-rate or active-generation limit is reached
+- **THEN** further requests are denied before provider invocation regardless of key uniqueness
+
+#### Scenario: Failed provider attempt still consumes platform spend
+
+- **GIVEN** a managed operation reserved allowance and maximum provider cost
+- **WHEN** a billable upstream attempt occurs but no workout is returned
+- **THEN** the included-generation reservation may roll back, actual provider cost is durably settled, and only unused spend reserve is released
+
+#### Scenario: BYOK exceeds infrastructure admission
+
+- **GIVEN** a matching selected BYOK credential and an exhausted account/source request or concurrency limit
+- **WHEN** generation is requested
+- **THEN** the server denies the request before provider invocation even though no included-generation or managed-spend reservation would apply
+
+#### Scenario: Global managed-spend circuit breaker is open
+
+- **GIVEN** the global hourly or daily managed-spend window cannot reserve the operation's conservative maximum cost
+- **WHEN** a managed or Vertex request reaches admission
+- **THEN** the server returns a stable spend-budget denial and does not invoke the provider
+
+#### Scenario: Managed pricing is unknown
+
+- **GIVEN** the selected managed provider/model has no usable provider-reported cost contract or configured pricing snapshot
+- **WHEN** the server cannot conservatively reserve maximum cost
+- **THEN** managed generation fails closed before provider invocation rather than recording the call as free

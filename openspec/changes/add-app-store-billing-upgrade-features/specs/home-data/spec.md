@@ -2,7 +2,7 @@
 
 ### Requirement: Workout Generation Endpoint
 
-The system MUST accept quick-action parameters and route the generation request to a selectable AI provider (OpenAI or Gemini) using either a managed key or BYOK. It SHALL validate structured output against `TodayPlan`, update per-device generation status before and after the call, and fall back to a deterministic mock when no key or a provider error occurs (except when hosted mode requires BYOK). In hosted mode, entitlement policy MUST be enforced before provider invocation; over-limit requests MUST return `QUOTA_EXCEEDED` so clients can route users to upgrade flows. BYOK requests bypass entitlement quota checks (users providing their own keys are self-funding inference costs); platform-level rate limiting is a separate concern outside this spec.
+The system MUST accept quick-action parameters and route the generation request to a selectable AI provider (OpenAI or Gemini) using either a managed credential or BYOK. It SHALL validate structured output against `TodayPlan`, update per-device generation status before and after the call, and fall back to a deterministic mock when no key or a provider error occurs (except when hosted mode requires a configured provider path). In hosted mode, entitlement policy MUST be enforced before provider invocation; over-limit requests MUST return `QUOTA_EXCEEDED` so clients can route users to upgrade flows. Only a matching BYOK credential actually selected for the chosen provider bypasses entitlement quota, and all provider-backed requests remain subject to platform admission controls.
 
 #### Scenario: Status transitions to pending
 

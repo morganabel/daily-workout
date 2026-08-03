@@ -133,16 +133,19 @@ Verification:
 
 - [ ] 5.1 Define a provider-neutral `GenerationAttemptStore` with server-generated operation/attempt identity, atomic acquire, success, failure, expiry, and replay behavior, separate from latest-plan `GenerationStore`.
 - [ ] 5.2 Create an owned attempt for requests without `Idempotency-Key`. When the key is present, scope it by stable account `auth.userId`, never session `auth.principalId`, and bind it to a fingerprint of normalized request/provider/creation-mode data without credentials, prompts, or other secrets.
+- [ ] 5.2a Keep `x-request-id` as correlation metadata only. Reusing it without `Idempotency-Key` must create independent server-owned operation IDs and independent metering identities.
 - [ ] 5.3 Refactor handler lifecycle so only the acquired attempt owner can reserve quota or invoke providers, and all paths after pending state reach one success or error terminal transition.
 - [ ] 5.4 Return a completed matching replay without provider or quota work; coalesce a concurrent matching request; reject key reuse with a different fingerprint.
 - [ ] 5.5 Add a bounded, expiring in-memory implementation for configurations that make no restart-safe guarantee; document that hosted RevenueCat durability is incomplete until billing B4 wires `server-db`.
 - [ ] 5.6 Coordinate the exported interface with `make-hosted-billing-durable` B4 so the single server can atomically persist a replayable result and commit its exact quota reservation through this repository's database lineage.
+- [ ] 5.6a Add a provider-neutral admission-lease contract for account/source request rate and active concurrency; only the attempt owner acquires it, every terminal path releases it once, and hosted composition can supply the durable cross-instance implementation and managed-spend denial outcomes.
 - [ ] 5.7 Add race-focused tests for two sessions of one user, two users reusing the same key string, concurrent duplicates, completed cross-session replay, conflicting reuse, timeout, cancellation, provider failure, persistence failure, and retry after failed/expired attempts.
 
 Acceptance criteria:
 
 - [ ] 5.8 A user/key/fingerprint tuple causes at most one provider execution while active and returns the same completed result on replay, including across sessions for that user.
 - [ ] 5.9 A request without `Idempotency-Key` still owns one server-generated attempt/operation ID used by quota, metering, cleanup, and the B4 finalization contract.
+- [ ] 5.9a Reusing `x-request-id` cannot suppress metering, quota, spend, or provider-attempt records, and rotating idempotency keys cannot bypass account/source admission limits.
 - [ ] 5.10 Key reuse with a different request fails before policy, pending state, or provider work.
 - [ ] 5.11 Managed quota reservation and rollback occur at most once per owned attempt, and no failure path leaves latest-plan or attempt state indefinitely pending.
 - [ ] 5.12 The process-local guarantee and later hosted `server-db` durability requirement are explicit in package documentation and tests; the exported contract supports atomic result/reservation finalization in billing B4.

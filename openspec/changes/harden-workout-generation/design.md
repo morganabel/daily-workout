@@ -137,6 +137,10 @@ When `Idempotency-Key` is present, it becomes an additional lookup key scoped to
 
 The attempt owner alone reserves or rolls back managed quota. Every path after `markPending` ends in persisted success or a terminal error in `finally`-guarded lifecycle code. For hosted managed usage, the durable implementation must expose a finalization boundary that `make-hosted-billing-durable` can use to persist the replayable result and commit its exact quota reservation atomically.
 
+`x-request-id` remains untrusted correlation metadata and is never passed as the attempt ID, operation key, idempotency key, quota key, spend key, or metering uniqueness key. Reusing it without an `Idempotency-Key` creates independent server-owned attempts. The operation ID may be attached to safe logs and durable accounting so correlation and execution remain inspectable without granting authority to the header.
+
+Attempt acquisition composes with an admission lease. After authentication and bounded request validation, but before pending state, quota reservation, or provider work, every provider-backed request acquires bounded account and trusted-source rate/concurrency admission. BYOK bypasses entitlement and managed-provider spend only; it retains this infrastructure admission. The durable billing change implements cross-instance counters and managed-spend reservations, while the generation contract guarantees that only an acquired attempt owner can hold the lease and that terminal cleanup releases active concurrency exactly once.
+
 The single server receives a bounded, expiring in-memory implementation for configurations that do not claim restart-safe behavior. The interface is exported so billing B4 can wire this repository's transactional `server-db` implementation and coordinate result finalization with quota in the same database. Hosted RevenueCat mode may not claim durable idempotency until B4 replaces the memory adapter.
 
 ## Error Contract
@@ -182,4 +186,5 @@ Rollback is a normal Git revert of one PR, not a runtime flag. Unsafe-output enf
 - Transport and prompt limits may need tuning as adaptive-plan context grows. Exported constants and boundary tests make changes deliberate.
 - SDKs expose timeout, retry, abort, and token controls differently. Provider contract tests must verify observed behavior rather than assuming option names are equivalent.
 - In-memory idempotency cannot coordinate multiple processes. The contract documents this explicitly, and hosted durability is completed by billing B4 in the same repository.
+- Application admission cannot replace edge/WAF volumetric DDoS protection. Hosted ingress must supply trusted source metadata, while the application remains authoritative for authenticated account, concurrency, and provider-work controls.
 - Generation, quota, and metering currently have overlapping in-memory abstractions. Billing B1 must select one canonical contract before G2 and G5 integrate with it.

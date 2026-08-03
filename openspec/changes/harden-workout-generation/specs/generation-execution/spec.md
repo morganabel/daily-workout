@@ -45,7 +45,7 @@ Self-hosted mode MUST retain a configurable no-op usage-policy default and MUST 
 #### Scenario: Failed managed call releases reservation
 
 - **WHEN** a managed operation times out, is cancelled, fails safety validation, or otherwise returns no workout
-- **THEN** its quota reservation is released exactly once
+- **THEN** its included-generation reservation is released exactly once while any actual managed-provider attempt remains metered for durable spend settlement
 
 ### Requirement: Bounded Generation Input
 
@@ -114,15 +114,22 @@ No phase or SDK retry MAY extend the total operation deadline. Cancellation, dea
 
 Every accepted generation operation MUST receive a server-generated attempt/operation ID before managed quota or provider work, whether or not the request has an `Idempotency-Key`. After generation is marked pending, every execution path MUST reach exactly one terminal success or error transition. Managed quota reservation, provider invocation, plan persistence, metering, and cleanup MUST be coordinated so an operation that returns no plan does not retain quota or indefinite pending state.
 
+`x-request-id` MUST remain correlation metadata only. It MUST NOT be used as the attempt ID, idempotency key, quota/spend operation key, or metering uniqueness key.
+
 #### Scenario: Request omits idempotency key
 
 - **WHEN** an accepted request has no `Idempotency-Key`
 - **THEN** the server creates one owned attempt ID used consistently for reservation, metering, terminal cleanup, and later durable finalization
 
+#### Scenario: Correlation ID is reused
+
+- **WHEN** the same authenticated user submits two different accepted requests with the same `x-request-id` and no `Idempotency-Key`
+- **THEN** the server creates two independent owned attempt IDs and records both actual executions
+
 #### Scenario: Provider succeeds but persistence fails
 
 - **WHEN** a valid provider result cannot be persisted
-- **THEN** the attempt ends in error, managed quota is released according to policy semantics, and successful metering is not recorded
+- **THEN** the attempt ends in error, included-generation allowance is released according to policy semantics, no successful workout is metered, and actual provider attempts remain available for managed-spend settlement
 
 #### Scenario: Semantic validation rejects output
 
@@ -159,3 +166,26 @@ The attempt store MUST support atomic ownership and terminal completion. This ch
 
 - **WHEN** an owned attempt fails or expires
 - **THEN** it reaches an explicit terminal or retryable state according to the store policy and cannot block matching requests indefinitely
+
+### Requirement: Abuse-Resistant Admission Contract
+
+Every provider-backed request MUST acquire bounded authenticated-account request-rate, trusted-source request-rate, and per-account active-generation admission after authentication and bounded input validation but before pending state, quota/spend reservation, or provider invocation. Only the acquired attempt owner may hold the admission lease. Terminal success, error, timeout, cancellation, and expiry MUST release active concurrency exactly once.
+
+Matching BYOK MAY bypass included-generation and managed-provider-spend policy, but MUST NOT bypass request-rate, concurrency, payload, deadline, retry, or output controls. Source-address identity MUST be accepted only from configured trusted ingress metadata.
+
+The contract MUST allow hosted composition to enforce these controls durably across instances and to distinguish rate denial, concurrency denial, spend-budget denial, idempotency conflict, and dependency failure without invoking a provider.
+
+#### Scenario: Unique keys do not bypass account rate limits
+
+- **WHEN** one account submits requests with different payloads and unique idempotency keys above its configured request window
+- **THEN** excess requests are denied before provider work
+
+#### Scenario: Concurrent attempts reach the account cap
+
+- **WHEN** an account already owns the maximum active provider-backed attempts
+- **THEN** another request is denied before pending state or provider work and no admission lease leaks
+
+#### Scenario: BYOK reaches the infrastructure cap
+
+- **WHEN** a selected BYOK request exceeds the account or trusted-source admission limit
+- **THEN** it is denied even though entitlement quota and managed-provider spend do not apply

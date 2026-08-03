@@ -13,6 +13,7 @@ These are correctness and resource-control issues rather than rollout risks. The
 - Bound the raw HTTP body, every user-controlled generation field, nested collection sizes, and baseline workout size before policy reservation or pending state. Preflight deterministically bounded prompt components before reservation, then check each exact serialized provider phase immediately before that phase; a later-phase overflow terminates the attempt and rolls back its exact reservation.
 - Propagate client cancellation and server deadlines through stage-one and final provider calls. Bound SDK retries and structured-output size for OpenAI, Gemini API-key, and Gemini Vertex paths.
 - Add an explicit generation-attempt lifecycle for every request, using a server-generated operation ID when no client key exists. Optional `Idempotency-Key` adds account-scoped coalescing and replay semantics.
+- Keep `x-request-id` as correlation only; it never supplies attempt, ledger, quota, spend, or idempotency identity. Route every provider-backed request through bounded account/source rate and concurrency admission, while durable billing separately enforces managed-spend reservations and circuit breaking.
 - Keep provider-neutral execution contracts in `server-core`, use the canonical quota/metering contracts selected by billing B1, and compose deployment-specific defaults in the single `apps/server`. Billing B4 later implements durable persistence through this repository's `server-db` lineage.
 
 ## Capabilities
