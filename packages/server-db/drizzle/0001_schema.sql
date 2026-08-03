@@ -14,7 +14,7 @@ CREATE TABLE "ai_model_call" (
 	"cached_input_tokens" integer,
 	"reasoning_output_tokens" integer,
 	"total_tokens" integer,
-	"cost_amount_nano_usd" text,
+	"cost_amount_nano_usd" bigint,
 	"cost_source" text NOT NULL,
 	"pricing_snapshot_id" text,
 	"upstream_attempt_count" integer NOT NULL,
@@ -41,10 +41,10 @@ CREATE TABLE "ai_usage_event" (
 	"cached_input_tokens" integer NOT NULL,
 	"reasoning_output_tokens" integer NOT NULL,
 	"total_tokens" integer NOT NULL,
-	"accounted_cost_nano_usd" text NOT NULL,
-	"platform_cost_nano_usd" text NOT NULL,
-	"byok_estimated_cost_nano_usd" text NOT NULL,
-	"allowance_charge_nano_usd" text NOT NULL,
+	"accounted_cost_nano_usd" bigint NOT NULL,
+	"platform_cost_nano_usd" bigint NOT NULL,
+	"byok_estimated_cost_nano_usd" bigint NOT NULL,
+	"allowance_charge_nano_usd" bigint NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint

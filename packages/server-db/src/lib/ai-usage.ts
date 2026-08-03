@@ -52,8 +52,7 @@ function addEventToTotals(
   totals.cachedInputTokens += event.cachedInputTokens;
   totals.totalTokens += event.totalTokens;
   totals.accountedCostNanoUsd = (
-    BigInt(totals.accountedCostNanoUsd) +
-    BigInt(event.accountedCostNanoUsd)
+    BigInt(totals.accountedCostNanoUsd) + BigInt(event.accountedCostNanoUsd)
   ).toString();
   totals.platformCostNanoUsd = (
     BigInt(totals.platformCostNanoUsd) + BigInt(event.platformCostNanoUsd)
@@ -63,8 +62,7 @@ function addEventToTotals(
     BigInt(event.byokEstimatedCostNanoUsd)
   ).toString();
   totals.allowanceChargeNanoUsd = (
-    BigInt(totals.allowanceChargeNanoUsd) +
-    BigInt(event.allowanceChargeNanoUsd)
+    BigInt(totals.allowanceChargeNanoUsd) + BigInt(event.allowanceChargeNanoUsd)
   ).toString();
 }
 
@@ -104,10 +102,10 @@ export class PostgresMeteringSink implements MeteringSink {
           cachedInputTokens: usage.cachedInputTokens,
           reasoningOutputTokens: usage.reasoningOutputTokens,
           totalTokens: usage.totalTokens,
-          accountedCostNanoUsd: usage.accountedCostNanoUsd,
-          platformCostNanoUsd: usage.platformCostNanoUsd,
-          byokEstimatedCostNanoUsd: usage.byokEstimatedCostNanoUsd,
-          allowanceChargeNanoUsd: usage.allowanceChargeNanoUsd,
+          accountedCostNanoUsd: BigInt(usage.accountedCostNanoUsd),
+          platformCostNanoUsd: BigInt(usage.platformCostNanoUsd),
+          byokEstimatedCostNanoUsd: BigInt(usage.byokEstimatedCostNanoUsd),
+          allowanceChargeNanoUsd: BigInt(usage.allowanceChargeNanoUsd),
         })
         .onConflictDoNothing()
         .returning({ id: aiUsageEvent.id });
@@ -133,7 +131,10 @@ export class PostgresMeteringSink implements MeteringSink {
           cachedInputTokens: call.tokens?.cachedInputTokens,
           reasoningOutputTokens: call.tokens?.reasoningOutputTokens,
           totalTokens: call.tokens?.totalTokens,
-          costAmountNanoUsd: call.cost.amountNanoUsd,
+          costAmountNanoUsd:
+            call.cost.amountNanoUsd === undefined
+              ? undefined
+              : BigInt(call.cost.amountNanoUsd),
           costSource: call.cost.source,
           pricingSnapshotId: call.cost.pricingSnapshotId,
           upstreamAttemptCount: call.upstreamAttemptCount,
@@ -212,8 +213,8 @@ export async function getAiUsageSummary(
       durationMs: event.durationMs,
       callCount: event.callCount,
       totalTokens: event.totalTokens,
-      accountedCostNanoUsd: event.accountedCostNanoUsd,
-      allowanceChargeNanoUsd: event.allowanceChargeNanoUsd,
+      accountedCostNanoUsd: event.accountedCostNanoUsd.toString(),
+      allowanceChargeNanoUsd: event.allowanceChargeNanoUsd.toString(),
     })),
   };
 }
