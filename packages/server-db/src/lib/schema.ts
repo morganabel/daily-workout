@@ -1,5 +1,6 @@
 import { relations } from 'drizzle-orm';
 import {
+  bigint,
   pgTable,
   text,
   timestamp,
@@ -106,10 +107,18 @@ export const aiUsageEvent = pgTable(
     cachedInputTokens: integer('cached_input_tokens').notNull(),
     reasoningOutputTokens: integer('reasoning_output_tokens').notNull(),
     totalTokens: integer('total_tokens').notNull(),
-    accountedCostNanoUsd: text('accounted_cost_nano_usd').notNull(),
-    platformCostNanoUsd: text('platform_cost_nano_usd').notNull(),
-    byokEstimatedCostNanoUsd: text('byok_estimated_cost_nano_usd').notNull(),
-    allowanceChargeNanoUsd: text('allowance_charge_nano_usd').notNull(),
+    accountedCostNanoUsd: bigint('accounted_cost_nano_usd', {
+      mode: 'bigint',
+    }).notNull(),
+    platformCostNanoUsd: bigint('platform_cost_nano_usd', {
+      mode: 'bigint',
+    }).notNull(),
+    byokEstimatedCostNanoUsd: bigint('byok_estimated_cost_nano_usd', {
+      mode: 'bigint',
+    }).notNull(),
+    allowanceChargeNanoUsd: bigint('allowance_charge_nano_usd', {
+      mode: 'bigint',
+    }).notNull(),
     createdAt: timestamp('created_at', { withTimezone: true })
       .defaultNow()
       .notNull(),
@@ -146,7 +155,7 @@ export const aiModelCall = pgTable(
     cachedInputTokens: integer('cached_input_tokens'),
     reasoningOutputTokens: integer('reasoning_output_tokens'),
     totalTokens: integer('total_tokens'),
-    costAmountNanoUsd: text('cost_amount_nano_usd'),
+    costAmountNanoUsd: bigint('cost_amount_nano_usd', { mode: 'bigint' }),
     costSource: text('cost_source').notNull(),
     pricingSnapshotId: text('pricing_snapshot_id'),
     upstreamAttemptCount: integer('upstream_attempt_count').notNull(),

@@ -222,7 +222,7 @@
         },
         "cost_amount_nano_usd": {
           "name": "cost_amount_nano_usd",
-          "type": "text",
+          "type": "bigint",
           "primaryKey": false,
           "notNull": false
         },
@@ -409,25 +409,25 @@
         },
         "accounted_cost_nano_usd": {
           "name": "accounted_cost_nano_usd",
-          "type": "text",
+          "type": "bigint",
           "primaryKey": false,
           "notNull": true
         },
         "platform_cost_nano_usd": {
           "name": "platform_cost_nano_usd",
-          "type": "text",
+          "type": "bigint",
           "primaryKey": false,
           "notNull": true
         },
         "byok_estimated_cost_nano_usd": {
           "name": "byok_estimated_cost_nano_usd",
-          "type": "text",
+          "type": "bigint",
           "primaryKey": false,
           "notNull": true
         },
         "allowance_charge_nano_usd": {
           "name": "allowance_charge_nano_usd",
-          "type": "text",
+          "type": "bigint",
           "primaryKey": false,
           "notNull": true
         },
