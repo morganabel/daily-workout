@@ -93,14 +93,14 @@ export function geminiTokenUsage(usage: {
   thoughtsTokenCount?: number;
 } | null | undefined): ModelTokenUsage | undefined {
   if (!usage) return undefined;
+  const outputTokens =
+    (usage.candidatesTokenCount ?? 0) + (usage.thoughtsTokenCount ?? 0);
   return {
     inputTokens: usage.promptTokenCount ?? 0,
-    outputTokens: usage.candidatesTokenCount ?? 0,
+    outputTokens,
     totalTokens:
       usage.totalTokenCount ??
-      (usage.promptTokenCount ?? 0) +
-        (usage.candidatesTokenCount ?? 0) +
-        (usage.thoughtsTokenCount ?? 0),
+      (usage.promptTokenCount ?? 0) + outputTokens,
     cachedInputTokens: usage.cachedContentTokenCount,
     reasoningOutputTokens: usage.thoughtsTokenCount,
   };
