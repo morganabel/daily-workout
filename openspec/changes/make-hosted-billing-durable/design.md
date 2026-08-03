@@ -86,6 +86,8 @@ Duplicate, conflict, and unmapped outcomes are not reducer decisions: they requi
 
 Durable usage events and per-attempt provider costs already live in the existing `ai_usage_event`/`ai_model_call` lineage; billing reuses them rather than adding a parallel usage table. No admission or spend tables are added: request-rate and concurrency admission is in-process (Decision 5), and spend ceilings are evaluated against settled metered cost.
 
+Quota-window boundaries are derived from account creation and the configured fixed window length, then persisted on first read or reservation. A first usage read therefore has the same durable boundary as a later managed reservation and does not hide earlier BYOK usage behind a synthetic `now` boundary.
+
 Every nano-USD database column uses PostgreSQL `bigint`. Provider-neutral and JSON-facing application contracts retain decimal strings and repositories convert only at the persistence boundary, avoiding both floating-point loss and JSON `bigint` serialization failures.
 
 One database transaction inserts the event ledger row, locks the affected projection, applies the reducer, and updates the outcome. A unique `(source, eventId)` constraint provides idempotency:
@@ -145,17 +147,21 @@ Native ESM repair remains a package-quality goal, but it is not a prerequisite f
 
 **Decision:** When `DEPLOYMENT_MODE=hosted` and `BILLING_PROVIDER=revenuecat`, the composition root requires the durable billing event processor and reservation policy. `validateBootConfig` remains environment-only: missing or invalid configuration and failure to construct the configured adapter prevent startup. Database connectivity and schema availability are checked by `/api/ready`; an unhealthy repository keeps readiness false and makes entitlement or managed-generation requests return service unavailable before provider invocation, but does not turn boot validation into an I/O check.
 
-RevenueCat mode uses these exact settings:
+This public repository owns a strict versioned schema for the non-secret billing configuration, but no deployment-specific app, catalog, quota, or guardrail values. The deployment owner supplies those values in `BILLING_CONFIG_JSON`. The private deployment repository may represent them as a typed Pulumi object and serialize them for Cloud Run, but it does not define a competing schema or inject product code. Because it pins the product commit used to build the image, its configuration and the server parser can be advanced together through the existing candidate/readiness promotion gate.
+
+RevenueCat mode uses these exact settings and ownership boundaries:
 
 - `DEPLOYMENT_MODE=hosted`, `BILLING_PROVIDER=revenuecat`, and the existing database settings;
 - required `REVENUECAT_WEBHOOK_SECRET`, accepted only as `Authorization: Bearer <secret>` and compared without logging it;
-- required comma-separated `REVENUECAT_ALLOWED_APP_IDS`, `REVENUECAT_ALLOWED_ENVIRONMENTS`, `REVENUECAT_ENTITLEMENT_IDS`, and `REVENUECAT_PRODUCT_IDS` lists, trimmed, length/count bounded, non-empty, and rejected when they contain duplicates;
-- environments restricted to the code-owned `SANDBOX` and `PRODUCTION` enum and event types restricted to a code-owned allowlist rather than arbitrary environment input;
-- `BILLING_FREE_GENERATION_LIMIT` and `BILLING_PRO_GENERATION_LIMIT` as bounded non-negative safe integers, and `BILLING_QUOTA_WINDOW_DAYS` as a positive bounded integer;
-- bounded per-account request-rate and maximum-active-generation settings, per-account and global daily managed-spend nano-USD ceilings, and the pending-reservation TTL;
-- optional `REVENUECAT_DEFAULT_OFFERING_ID` for capability discovery.
+- required `BILLING_CONFIG_JSON`, bounded before parsing and validated as one strict document with `schemaVersion: 1`; unknown versions, malformed JSON, unknown properties, missing properties, invalid types, and out-of-bound values fail startup without logging the document;
+- a `revenueCat` section containing non-empty, bounded, duplicate-free app, environment, entitlement, and product ID arrays plus an optional default offering ID; environments remain restricted to the code-owned `SANDBOX` and `PRODUCTION` enum and event types remain a code-owned allowlist;
+- a `plans` section containing bounded non-negative free/pro generation limits and a positive bounded quota-window duration;
+- a `guardrails` section containing bounded per-account request-rate and maximum-active-generation values, decimal-string per-account/global daily nano-USD ceilings, and a bounded pending-reservation TTL;
+- a `capabilities` section containing the hosted upgrade-UI discovery setting.
 
-The deprecated `EDITION`, `HOSTED_BILLING_ENABLED`, `HOSTED_*_GENERATION_LIMIT`, `HOSTED_QUOTA_WINDOW_DAYS`, `REVENUECAT_ALLOW_UNSIGNED_WEBHOOKS`, and `x-revenuecat-signature` forms are deleted directly. No aliases or fallback defaults are retained for hosted RevenueCat mode.
+The webhook secret is intentionally excluded from the serialized document so deployment secret handling and rotation remain independent. `BILLING_PROVIDER=none` does not parse or require either RevenueCat setting. Self-hosters who enable RevenueCat use the same public schema with their own values; this repository ships documentation and validation tests, not OpenLift-specific profiles.
+
+The deprecated `EDITION`, `HOSTED_BILLING_ENABLED`, per-setting `HOSTED_*` and `BILLING_*` policy variables, `REVENUECAT_ALLOWED_*`, `REVENUECAT_ENTITLEMENT_IDS`, `REVENUECAT_PRODUCT_IDS`, `REVENUECAT_DEFAULT_OFFERING_ID`, `REVENUECAT_ALLOW_UNSIGNED_WEBHOOKS`, and `x-revenuecat-signature` forms are deleted directly. No aliases or fallback defaults are retained for hosted RevenueCat mode.
 
 Self-host and local development remain usable:
 
@@ -188,6 +194,7 @@ There are no backfills, compatibility adapters, dual reads/writes, or gradual fl
 - [An attacker floods the generation route] -> Per-account request-rate and concurrency admission denies before provider work, and daily account/global spend ceilings cap the total money at risk even if admission is bypassed or reset by a restart.
 - [Concurrent calls overshoot a spend ceiling] -> Overshoot is bounded by max concurrency times maximum single-request cost; configure ceilings with that headroom and fail closed when pricing or the spend query is unavailable.
 - [Admission counters reset on restart] -> Accepted: a restart briefly forgets rate counts, while spend ceilings remain durable because they derive from metered cost. This is the intended durability split.
+- [Deployment configuration and image schema drift] -> The document carries an explicit schema version, the server rejects unknown versions at boot, the deployment repository pins the product commit it builds, and candidate readiness prevents an incompatible revision from receiving traffic.
 
 ## Open Questions
 

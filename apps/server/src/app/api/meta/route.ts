@@ -24,7 +24,8 @@ import {
   metaResponseSchema,
 } from '@workout-agent/shared';
 import { getAuthContext } from '@/lib/auth-context';
-import { isBillingEnabled, resolveEdition } from '@/lib/deployment';
+import { getBillingConfig } from '@/lib/billing-config';
+import { resolveEdition } from '@/lib/deployment';
 
 export async function GET(request: Request): Promise<Response> {
   const { requestId, startedAt, log } = createRequestContext(
@@ -34,12 +35,12 @@ export async function GET(request: Request): Promise<Response> {
   const ctx = await getAuthContext();
 
   const edition = resolveEdition();
-  const billingEnabled = isBillingEnabled();
+  const billingConfig = getBillingConfig();
   const billing = createBillingCapabilities(
-    billingEnabled
+    billingConfig.provider === 'revenuecat'
       ? {
           enabled: true,
-          showUpgradeUi: process.env.HOSTED_SHOW_UPGRADE_UI !== 'false',
+          showUpgradeUi: billingConfig.showUpgradeUi,
           purchaseMethod: 'iap',
           allowByok: true,
         }

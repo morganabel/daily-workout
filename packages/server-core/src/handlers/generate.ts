@@ -10,7 +10,12 @@ import type {
   PlanningBrief,
   CatalogSeed,
 } from '../types';
-import type { IncludedGenerationReservation } from '@workout-agent-ce/quotas';
+import type {
+  IncludedGenerationReservation,
+  ProviderAdmissionLease,
+  ProviderAdmissionPolicy,
+  SpendCeilingPolicy,
+} from '@workout-agent-ce/quotas';
 import { createErrorResponse } from '../utils/errors';
 import {
   loadGenerationContext,
@@ -173,6 +178,8 @@ export interface GenerateHandlerDeps {
   exerciseLibrary?: ExerciseLibrary;
   loadExerciseLibrary?: () => Promise<ExerciseLibrary | undefined>;
   policy?: UsagePolicy;
+  admission?: ProviderAdmissionPolicy;
+  spendCeiling?: SpendCeilingPolicy;
   metering?: MeteringSink;
   config: GenerateHandlerConfig;
 }
@@ -685,6 +692,7 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
     );
 
     let includedReservation: IncludedGenerationReservation | undefined;
+    let admissionLease: ProviderAdmissionLease | undefined;
 
     const rollbackManagedReservation = async (): Promise<void> => {
       if (!includedReservation || !deps.policy) {
@@ -698,6 +706,19 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
         log.warn('failed to rollback managed quota reservation', {
           message: sanitizeErrorMessage((error as Error).message),
           error,
+        });
+      }
+    };
+
+    const releaseProviderAdmission = async (): Promise<void> => {
+      if (!admissionLease || !deps.admission) return;
+      const lease = admissionLease;
+      admissionLease = undefined;
+      try {
+        await deps.admission.releaseProviderAdmission(lease);
+      } catch (error) {
+        log.warn('failed to release provider admission lease', {
+          message: sanitizeErrorMessage((error as Error).message),
         });
       }
     };
@@ -888,8 +909,62 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
         );
       }
 
-      // Check policy (quota/rate limits) for managed-key requests only.
-      // BYOK requests are self-funded and bypass entitlement quotas.
+      if (deps.admission) {
+        const admission = await deps.admission.acquireProviderAdmission({
+          accountId: auth.userId,
+          operationId,
+        });
+        if (!admission.allowed) {
+          if (admission.code === 'account_rate_limited') {
+            return errorResponse(
+              'ACCOUNT_RATE_LIMITED',
+              'Account generation rate limit exceeded',
+              429,
+              admission.retryAfterSeconds
+            );
+          }
+          if (admission.code === 'concurrency_limited') {
+            return errorResponse(
+              'CONCURRENCY_LIMITED',
+              'Too many active generations for this account',
+              429,
+              admission.retryAfterSeconds
+            );
+          }
+          return errorResponse(
+            'SERVICE_UNAVAILABLE',
+            'Generation admission is temporarily unavailable',
+            503
+          );
+        }
+        admissionLease = admission.lease;
+      }
+
+      if (deps.spendCeiling && credential.source !== 'byok') {
+        const spendDecision = await deps.spendCeiling.checkSpendCeiling({
+          accountId: auth.userId,
+          provider,
+          credentialSource:
+            credential.source === 'vertex' ? 'vertex' : 'managed',
+        });
+        if (!spendDecision.allowed) {
+          return spendDecision.code === 'spend_limit_exceeded'
+            ? errorResponse(
+                'SPEND_LIMIT_EXCEEDED',
+                'Daily managed generation spend limit reached',
+                429
+              )
+            : errorResponse(
+                'SERVICE_UNAVAILABLE',
+                spendDecision.code === 'pricing_unavailable'
+                  ? 'Managed provider pricing is unavailable'
+                  : 'Managed spend data is temporarily unavailable',
+                503
+              );
+        }
+      }
+
+      // BYOK requests are self-funded and bypass included entitlement quota.
       if (deps.policy && credential.source !== 'byok') {
         const policyResult = await deps.policy.reserveGenerate({
           accountId: auth.userId,
@@ -1072,32 +1147,26 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
           'We could not generate a workout plan. Please try again.'
         );
         if (deps.metering) {
-          try {
-            await deps.metering.recordUsage({
-              userId: auth.userId,
-              operationId,
-              eventId: 'generation-error',
-              operation: effectivePlanningBrief.regeneration.isRegeneration
-                ? 'regenerate'
-                : 'generate',
-              provider,
+          await deps.metering.recordUsage({
+            userId: auth.userId,
+            operationId,
+            eventId: 'generation-error',
+            operation: effectivePlanningBrief.regeneration.isRegeneration
+              ? 'regenerate'
+              : 'generate',
+            provider,
+            credentialSource,
+            byok: isByok,
+            timestamp: new Date().toISOString(),
+            durationMs: Date.now() - startedAt,
+            result: 'error',
+            errorCode: 'AI_GENERATION_ERROR',
+            modelCalls,
+            usage: buildGenerationUsageSummary(modelCalls, {
               credentialSource,
-              byok: isByok,
-              timestamp: new Date().toISOString(),
-              durationMs: Date.now() - startedAt,
-              result: 'error',
-              errorCode: 'AI_GENERATION_ERROR',
-              modelCalls,
-              usage: buildGenerationUsageSummary(modelCalls, {
-                credentialSource,
-                operationSucceeded: false,
-              }),
-            });
-          } catch (meteringError) {
-            log.warn('failed to record generation usage', {
-              message: sanitizeErrorMessage((meteringError as Error).message),
-            });
-          }
+              operationSucceeded: false,
+            }),
+          });
         }
         await rollbackManagedReservation();
         return errorResponse('AI_GENERATION_ERROR', sanitizedMessage, 502);
@@ -1108,14 +1177,66 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
         equipment: effectivePlanningBrief.availableEquipment,
       };
 
-      const validated = todayPlanSchema.parse(plan);
+      let validated: TodayPlan;
+      try {
+        validated = todayPlanSchema.parse(plan);
+      } catch (error) {
+        if (deps.metering) {
+          await deps.metering.recordUsage({
+            userId: auth.userId,
+            operationId,
+            eventId: 'generation-error',
+            operation: effectivePlanningBrief.regeneration.isRegeneration
+              ? 'regenerate'
+              : 'generate',
+            provider,
+            credentialSource,
+            byok: isByok,
+            timestamp: new Date().toISOString(),
+            durationMs: Date.now() - startedAt,
+            result: 'error',
+            errorCode: 'AI_GENERATION_VALIDATION_ERROR',
+            responseId,
+            schemaVersion,
+            modelCalls,
+            usage: buildGenerationUsageSummary(modelCalls, {
+              credentialSource,
+              operationSucceeded: false,
+            }),
+          });
+        }
+        throw error;
+      }
+
+      if (deps.metering) {
+        await deps.metering.recordUsage({
+          userId: auth.userId,
+          operationId,
+          eventId: 'generation-success',
+          operation: effectivePlanningBrief.regeneration.isRegeneration
+            ? 'regenerate'
+            : 'generate',
+          provider,
+          credentialSource,
+          byok: isByok,
+          timestamp: new Date().toISOString(),
+          durationMs: Date.now() - startedAt,
+          result: 'success',
+          responseId,
+          schemaVersion,
+          modelCalls,
+          usage: buildGenerationUsageSummary(modelCalls, {
+            credentialSource,
+            operationSucceeded: true,
+          }),
+        });
+      }
 
       await deps.store.persistPlan(auth.principalId, validated, {
         schemaVersion,
       });
       if (includedReservation && deps.policy) {
-        const reservation = includedReservation;
-        await deps.policy.commitGenerateReservation(reservation);
+        await deps.policy.commitGenerateReservation(includedReservation);
         includedReservation = undefined;
       }
       log.info('generation completed', {
@@ -1129,37 +1250,6 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
         schemaVersion,
       });
 
-      // Record metering event
-      if (deps.metering) {
-        try {
-          await deps.metering.recordUsage({
-            userId: auth.userId,
-            operationId,
-            eventId: 'generation-success',
-            operation: effectivePlanningBrief.regeneration.isRegeneration
-              ? 'regenerate'
-              : 'generate',
-            provider,
-            credentialSource,
-            byok: isByok,
-            timestamp: new Date().toISOString(),
-            durationMs: Date.now() - startedAt,
-            result: 'success',
-            responseId,
-            schemaVersion,
-            modelCalls,
-            usage: buildGenerationUsageSummary(modelCalls, {
-              credentialSource,
-              operationSucceeded: true,
-            }),
-          });
-        } catch (meteringError) {
-          log.warn('failed to record generation usage', {
-            message: sanitizeErrorMessage((meteringError as Error).message),
-          });
-        }
-      }
-
       const response = Response.json(validated);
       attachRequestId(response, requestId);
       log.info('request completed', {
@@ -1172,6 +1262,8 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
     } catch (error) {
       await rollbackManagedReservation();
       throw error;
+    } finally {
+      await releaseProviderAdmission();
     }
   };
 }

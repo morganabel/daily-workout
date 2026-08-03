@@ -35,7 +35,6 @@ describe('auth-context', () => {
     delete process.env.AUTH_MODE;
     delete process.env.DATABASE_URL;
     delete process.env.INSTANCE_CONNECTION_NAME;
-    delete process.env.EDITION;
     delete process.env.DEPLOYMENT_MODE;
     delete process.env.BILLING_PROVIDER;
     delete process.env.BETTER_AUTH_SECRET;
@@ -101,20 +100,6 @@ describe('auth-context', () => {
       expect(() => validateAuthConfig('stub')).toThrow(
         'Hosted mode requires Better Auth'
       );
-    });
-
-    it('should honor EDITION=HOSTED as a backward-compatible alias', () => {
-      process.env.EDITION = 'HOSTED';
-      expect(() => validateAuthConfig('stub')).toThrow(
-        'Hosted mode requires Better Auth'
-      );
-    });
-
-    it('should treat OSS/CE editions as self-hosted', () => {
-      process.env.EDITION = 'OSS';
-      expect(() => validateAuthConfig('stub')).not.toThrow();
-      process.env.EDITION = 'CE';
-      expect(() => validateAuthConfig('stub')).not.toThrow();
     });
 
     it('should pass when no mode is set (defaults to self-hosted)', () => {

@@ -58,18 +58,13 @@ OPENROUTER_MODEL=deepseek/deepseek-v4-flash-0731
 OPENROUTER_PLANNER_MODEL=deepseek/deepseek-v4-flash-0731
 OPENROUTER_TIMEOUT_MS=60000
 
-# Hosted mode toggles an HTTP 402 BYOK_REQUIRED response if no key is available
-EDITION=CE
+# Deployment and billing mode
+DEPLOYMENT_MODE=self-hosted
+BILLING_PROVIDER=none
 
-# Hosted billing (RevenueCat + entitlement gating)
-HOSTED_BILLING_ENABLED=false
-HOSTED_SHOW_UPGRADE_UI=true
-HOSTED_FREE_GENERATION_LIMIT=25
-HOSTED_PRO_GENERATION_LIMIT=1000
-HOSTED_QUOTA_WINDOW_DAYS=30
-REVENUECAT_DEFAULT_OFFERING_ID=
-REVENUECAT_WEBHOOK_SECRET=
-REVENUECAT_ALLOW_UNSIGNED_WEBHOOKS=false
+# Hosted billing (required only when BILLING_PROVIDER=revenuecat)
+# BILLING_CONFIG_JSON={"schemaVersion":1,"revenueCat":{"appIds":["app.test"],"environments":["SANDBOX"],"entitlementIds":["OpenLift Pro"],"productIds":["weekly","monthly","yearly"],"defaultOfferingId":"default"},"plans":{"freeGenerations":25,"proGenerations":1000,"windowDays":30},"guardrails":{"accountRequestsPerMinute":30,"accountMaxActiveGenerations":2,"accountDailySpendLimitNanoUsd":"5000000000","globalDailySpendLimitNanoUsd":"50000000000","pendingReservationTtlSeconds":300},"capabilities":{"showUpgradeUi":true}}
+# REVENUECAT_WEBHOOK_SECRET=
 
 # Optional: use Vertex AI for Gemini
 GOOGLE_GENAI_USE_VERTEXAI=false
@@ -93,7 +88,7 @@ BETTER_AUTH_URL=http://localhost:3000
 ```
 
 - Server BYOK headers: `x-ai-provider`, `x-openai-key`, `x-gemini-key`, or `x-ai-key` (generic fallback). OpenRouter uses `x-ai-provider: openrouter` with `x-ai-key`. When using `x-ai-key`, always send `x-ai-provider` to specify which provider to route to.
-- If `EDITION=HOSTED` and no key is available for the chosen provider, `/api/workouts/generate` responds with `{ code: 'BYOK_REQUIRED' }` (HTTP 402).
+- If `DEPLOYMENT_MODE=hosted` and no key is available for the chosen provider, `/api/workouts/generate` responds with `{ code: 'BYOK_REQUIRED' }` (HTTP 402).
 - When no key is present in CE mode, configure a server key or add BYOK in the app before requesting AI generation.
 
 ### Hosted paywall test setup
@@ -101,12 +96,10 @@ BETTER_AUTH_URL=http://localhost:3000
 Use this command to boot the local server in hosted mode with billing and upgrade UI enabled, plus a very low free generation limit so the paywall is easy to trigger:
 
 ```bash
-EDITION=HOSTED \
-HOSTED_BILLING_ENABLED=true \
-HOSTED_SHOW_UPGRADE_UI=true \
-HOSTED_FREE_GENERATION_LIMIT=1 \
-HOSTED_PRO_GENERATION_LIMIT=1000 \
-HOSTED_QUOTA_WINDOW_DAYS=30 \
+DEPLOYMENT_MODE=hosted \
+BILLING_PROVIDER=revenuecat \
+BILLING_CONFIG_JSON='{"schemaVersion":1,"revenueCat":{"appIds":["app.test"],"environments":["SANDBOX"],"entitlementIds":["OpenLift Pro"],"productIds":["weekly","monthly","yearly"]},"plans":{"freeGenerations":1,"proGenerations":1000,"windowDays":30},"guardrails":{"accountRequestsPerMinute":30,"accountMaxActiveGenerations":2,"accountDailySpendLimitNanoUsd":"5000000000","globalDailySpendLimitNanoUsd":"50000000000","pendingReservationTtlSeconds":300},"capabilities":{"showUpgradeUi":true}}' \
+REVENUECAT_WEBHOOK_SECRET=local-test-secret \
 OPENAI_API_KEY=sk-your-managed-test-key \
 EXPO_PUBLIC_BACKEND_URL=http://localhost:3000 \
 npm run dev:server:db
@@ -114,7 +107,9 @@ npm run dev:server:db
 
 BYOK requests bypass hosted quota because the user funds inference directly. To exercise the quota-to-paywall path, use a server-managed key such as `OPENAI_API_KEY`, `GEMINI_API_KEY`, or `OPENROUTER_API_KEY` and do not configure a BYOK key in the app.
 
-The hosted billing runtime in this repository is intended for local/test flows and deployment-specific swapping. Production deployments should provide durable quota, entitlement, and RevenueCat synchronization implementations.
+Hosted RevenueCat mode uses the repository's PostgreSQL billing ledger, entitlement projection, included-generation reservations, metering data, and spend ceilings. The RevenueCat Test Store can be used for local purchase-flow testing; production builds must use platform store products and keys.
+
+The public server owns and strictly validates billing configuration schema version 1; it does not compile any hosted deployment's catalog or policy values. Deployment owners should keep the structured source values in their deployment configuration, serialize them into `BILLING_CONFIG_JSON`, and manage `REVENUECAT_WEBHOOK_SECRET` separately. Self-hosted deployments with `BILLING_PROVIDER=none` do not parse or require either value. See [`billing-config.example.json`](./billing-config.example.json) for a formatted example.
 
 ## Running tests and lint checks
 

@@ -6,6 +6,10 @@ jest.mock('@workout-agent-ce/server-db', () => ({
   ping: jest.fn(),
 }));
 
+jest.mock('@/lib/billing-services', () => ({
+  getRevenueCatBillingServices: jest.fn(),
+}));
+
 import { GET } from './route';
 
 const { getAuthContext } = jest.requireMock('@/lib/auth-context') as {
@@ -14,6 +18,12 @@ const { getAuthContext } = jest.requireMock('@/lib/auth-context') as {
 const { ping } = jest.requireMock('@workout-agent-ce/server-db') as {
   ping: jest.Mock;
 };
+const { getRevenueCatBillingServices } = jest.requireMock(
+  '@/lib/billing-services'
+) as {
+  getRevenueCatBillingServices: jest.Mock;
+};
+const checkHealth = jest.fn();
 
 describe('GET /api/ready', () => {
   const originalEnv = process.env;
@@ -26,7 +36,10 @@ describe('GET /api/ready', () => {
       .mockImplementation(() => undefined);
     process.env = { ...originalEnv };
     delete process.env.DEPLOYMENT_MODE;
-    delete process.env.EDITION;
+    delete process.env.BILLING_PROVIDER;
+    getRevenueCatBillingServices.mockResolvedValue({
+      repository: { checkHealth },
+    });
   });
 
   afterEach(() => {
@@ -91,6 +104,31 @@ describe('GET /api/ready', () => {
 
     const response = await GET();
 
+    expect(response.status).toBe(503);
+  });
+
+  it('checks billing schema health when RevenueCat is enabled', async () => {
+    process.env.DEPLOYMENT_MODE = 'hosted';
+    process.env.BILLING_PROVIDER = 'revenuecat';
+    getAuthContext.mockResolvedValue({ mode: 'better-auth', db: { name: 'db' } });
+    ping.mockResolvedValue(undefined);
+
+    const response = await GET();
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data.billing).toBe('connected');
+    expect(checkHealth).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns 503 when billing schema health fails', async () => {
+    process.env.DEPLOYMENT_MODE = 'hosted';
+    process.env.BILLING_PROVIDER = 'revenuecat';
+    getAuthContext.mockResolvedValue({ mode: 'better-auth', db: { name: 'db' } });
+    ping.mockResolvedValue(undefined);
+    checkHealth.mockRejectedValue(new Error('billing schema unavailable'));
+
+    const response = await GET();
     expect(response.status).toBe(503);
   });
 });

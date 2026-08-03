@@ -1,28 +1,28 @@
-jest.mock('@/lib/hosted-billing', () => ({
-  hostedBillingRuntime: {
+jest.mock('@/lib/billing-config', () => ({
+  getBillingConfig: jest.fn(() => ({
+    provider: 'revenuecat',
+    webhookSecret: 'top-secret',
     domainConfig: {
       allowedAppIds: new Set(['app.test']),
       allowedEnvironments: new Set(['SANDBOX', 'PRODUCTION']),
       allowedEntitlementIds: new Set(['OpenLift Pro']),
       allowedProductIds: new Set(['monthly']),
     },
-    applyRevenueCatWebhook: jest.fn(),
-  },
+  })),
+}));
+
+jest.mock('@/lib/billing-services', () => ({
+  getRevenueCatBillingServices: jest.fn(),
 }));
 
 import { POST } from './route';
 
-const { hostedBillingRuntime } = jest.requireMock('@/lib/hosted-billing') as {
-  hostedBillingRuntime: {
-    domainConfig: {
-      allowedAppIds: Set<string>;
-      allowedEnvironments: Set<string>;
-      allowedEntitlementIds: Set<string>;
-      allowedProductIds: Set<string>;
-    };
-    applyRevenueCatWebhook: jest.Mock;
-  };
+const { getRevenueCatBillingServices } = jest.requireMock(
+  '@/lib/billing-services'
+) as {
+  getRevenueCatBillingServices: jest.Mock;
 };
+const processWebhook = jest.fn();
 
 function event(overrides: Record<string, unknown> = {}) {
   return {
@@ -56,29 +56,39 @@ describe('POST /api/billing/revenuecat/webhook', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     process.env = { ...originalEnv };
-    delete process.env.REVENUECAT_WEBHOOK_SECRET;
-    delete process.env.REVENUECAT_ALLOW_UNSIGNED_WEBHOOKS;
+    process.env.DEPLOYMENT_MODE = 'hosted';
+    process.env.BILLING_PROVIDER = 'revenuecat';
+    getRevenueCatBillingServices.mockResolvedValue({
+      repository: { process: processWebhook },
+    });
   });
 
   afterAll(() => {
     process.env = originalEnv;
   });
 
-  it('returns 503 when webhook secret is not configured', async () => {
+  it('rejects the route before parsing when RevenueCat is disabled', async () => {
+    process.env.BILLING_PROVIDER = 'none';
     const response = await POST(request());
-    expect(response.status).toBe(503);
-    expect(hostedBillingRuntime.applyRevenueCatWebhook).not.toHaveBeenCalled();
+    expect(response.status).toBe(404);
+    expect(processWebhook).not.toHaveBeenCalled();
   });
 
   it('rejects invalid webhook credentials', async () => {
-    process.env.REVENUECAT_WEBHOOK_SECRET = 'top-secret';
     const response = await POST(request());
     expect(response.status).toBe(401);
-    expect(hostedBillingRuntime.applyRevenueCatWebhook).not.toHaveBeenCalled();
+    expect(processWebhook).not.toHaveBeenCalled();
+  });
+
+  it('rejects the removed custom signature header', async () => {
+    const response = await POST(
+      request({ 'x-revenuecat-signature': 'top-secret' })
+    );
+    expect(response.status).toBe(401);
+    expect(processWebhook).not.toHaveBeenCalled();
   });
 
   it('rejects missing identity and timestamp fields before domain processing', async () => {
-    process.env.REVENUECAT_WEBHOOK_SECRET = 'top-secret';
     const response = await POST(
       request(
         { Authorization: 'Bearer top-secret' },
@@ -86,11 +96,10 @@ describe('POST /api/billing/revenuecat/webhook', () => {
       )
     );
     expect(response.status).toBe(400);
-    expect(hostedBillingRuntime.applyRevenueCatWebhook).not.toHaveBeenCalled();
+    expect(processWebhook).not.toHaveBeenCalled();
   });
 
   it('rejects events outside configured billing scope', async () => {
-    process.env.REVENUECAT_WEBHOOK_SECRET = 'top-secret';
     const response = await POST(
       request(
         { Authorization: 'Bearer top-secret' },
@@ -98,12 +107,11 @@ describe('POST /api/billing/revenuecat/webhook', () => {
       )
     );
     expect(response.status).toBe(400);
-    expect(hostedBillingRuntime.applyRevenueCatWebhook).not.toHaveBeenCalled();
+    expect(processWebhook).not.toHaveBeenCalled();
   });
 
   it('normalizes and applies a valid event', async () => {
-    process.env.REVENUECAT_WEBHOOK_SECRET = 'top-secret';
-    hostedBillingRuntime.applyRevenueCatWebhook.mockResolvedValue({
+    processWebhook.mockResolvedValue({
       outcome: 'applied',
       accountId: 'user-123',
     });
@@ -118,7 +126,7 @@ describe('POST /api/billing/revenuecat/webhook', () => {
 
     expect(response.status).toBe(200);
     expect(data).toMatchObject({ ok: true, applied: true, outcome: 'applied' });
-    expect(hostedBillingRuntime.applyRevenueCatWebhook).toHaveBeenCalledWith(
+    expect(processWebhook).toHaveBeenCalledWith(
       expect.objectContaining({
         eventId: 'event-1',
         kind: 'grant',
@@ -129,8 +137,7 @@ describe('POST /api/billing/revenuecat/webhook', () => {
   });
 
   it('acknowledges an unmapped valid event without granting access', async () => {
-    process.env.REVENUECAT_WEBHOOK_SECRET = 'top-secret';
-    hostedBillingRuntime.applyRevenueCatWebhook.mockResolvedValue({
+    processWebhook.mockResolvedValue({
       outcome: 'unmapped',
     });
     const response = await POST(
@@ -140,5 +147,25 @@ describe('POST /api/billing/revenuecat/webhook', () => {
 
     expect(response.status).toBe(202);
     expect(data.outcome).toBe('unmapped');
+  });
+
+  it('rejects a conflicting duplicate', async () => {
+    processWebhook.mockResolvedValue({ outcome: 'conflict' });
+    const response = await POST(
+      request({ Authorization: 'Bearer top-secret' })
+    );
+    expect(response.status).toBe(409);
+    expect(await response.json()).toMatchObject({
+      ok: false,
+      outcome: 'conflict',
+    });
+  });
+
+  it('returns 503 when the durable repository is unavailable', async () => {
+    processWebhook.mockRejectedValue(new Error('connection failed'));
+    const response = await POST(
+      request({ Authorization: 'Bearer top-secret' })
+    );
+    expect(response.status).toBe(503);
   });
 });

@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "revenueCat": {
+    "appIds": ["app.test"],
+    "environments": ["SANDBOX"],
+    "entitlementIds": ["OpenLift Pro"],
+    "productIds": ["weekly", "monthly", "yearly"],
+    "defaultOfferingId": "default"
+  },
+  "plans": {
+    "freeGenerations": 25,
+    "proGenerations": 1000,
+    "windowDays": 30
+  },
+  "guardrails": {
+    "accountRequestsPerMinute": 30,
+    "accountMaxActiveGenerations": 2,
+    "accountDailySpendLimitNanoUsd": "5000000000",
+    "globalDailySpendLimitNanoUsd": "50000000000",
+    "pendingReservationTtlSeconds": 300
+  },
+  "capabilities": {
+    "showUpgradeUi": true
+  }
+}

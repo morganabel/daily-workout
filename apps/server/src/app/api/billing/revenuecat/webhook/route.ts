@@ -2,8 +2,11 @@ import {
   attachRequestId,
   createRequestContext,
 } from '@workout-agent-ce/server-core';
+import type { EntitlementProcessorOutcome } from '@workout-agent-ce/quotas';
+import { getBillingConfig } from '@/lib/billing-config';
+import { getRevenueCatBillingServices } from '@/lib/billing-services';
+import { getBillingProvider } from '@/lib/deployment';
 import { createErrorResponse } from '@/lib/errors';
-import { hostedBillingRuntime } from '@/lib/hosted-billing';
 import {
   normalizeRevenueCatEvent,
   RevenueCatNormalizationError,
@@ -15,12 +18,7 @@ const hasValidWebhookSecret = (
   configuredSecret: string
 ): boolean => {
   const authorization = request.headers.get('authorization');
-  const signature = request.headers.get('x-revenuecat-signature');
-
-  return (
-    authorization === `Bearer ${configuredSecret}` ||
-    signature === configuredSecret
-  );
+  return authorization === `Bearer ${configuredSecret}`;
 };
 
 export async function POST(request: Request): Promise<Response> {
@@ -29,27 +27,22 @@ export async function POST(request: Request): Promise<Response> {
     'api.billing.revenuecat.webhook'
   );
 
-  const configuredSecret = process.env.REVENUECAT_WEBHOOK_SECRET?.trim();
-  const allowUnsignedWebhooks =
-    process.env.REVENUECAT_ALLOW_UNSIGNED_WEBHOOKS === 'true';
-
-  if (!configuredSecret && !allowUnsignedWebhooks) {
+  if (getBillingProvider() !== 'revenuecat') {
     const response = createErrorResponse(
-      'SERVICE_UNAVAILABLE',
-      'RevenueCat webhook secret is not configured',
-      503
+      'NOT_FOUND',
+      'RevenueCat billing is not enabled for this deployment',
+      404
     );
     attachRequestId(response, requestId);
     return response;
   }
 
-  if (!configuredSecret && allowUnsignedWebhooks) {
-    log.warn('allowing unsigned RevenueCat webhook due to env override', {
-      path: '/api/billing/revenuecat/webhook',
-    });
+  const billingConfig = getBillingConfig();
+  if (billingConfig.provider !== 'revenuecat') {
+    throw new Error('billing_provider_disabled');
   }
 
-  if (configuredSecret && !hasValidWebhookSecret(request, configuredSecret)) {
+  if (!hasValidWebhookSecret(request, billingConfig.webhookSecret)) {
     const response = createErrorResponse(
       'UNAUTHORIZED',
       'Invalid webhook credentials',
@@ -87,7 +80,7 @@ export async function POST(request: Request): Promise<Response> {
   try {
     normalized = normalizeRevenueCatEvent(
       parsed.data.event,
-      hostedBillingRuntime.domainConfig
+      billingConfig.domainConfig
     );
   } catch (error) {
     const response = createErrorResponse(
@@ -101,12 +94,29 @@ export async function POST(request: Request): Promise<Response> {
     return response;
   }
 
-  const result = await hostedBillingRuntime.applyRevenueCatWebhook(normalized);
-  const status = result.outcome === 'applied' ? 200 : 202;
+  let result: { outcome: EntitlementProcessorOutcome; accountId?: string };
+  try {
+    const services = await getRevenueCatBillingServices();
+    result = await services.repository.process(normalized);
+  } catch {
+    const response = createErrorResponse(
+      'SERVICE_UNAVAILABLE',
+      'Billing repository is temporarily unavailable',
+      503
+    );
+    attachRequestId(response, requestId);
+    return response;
+  }
+  const status =
+    result.outcome === 'applied'
+      ? 200
+      : result.outcome === 'conflict'
+      ? 409
+      : 202;
 
   const response = Response.json(
     {
-      ok: true,
+      ok: result.outcome !== 'conflict',
       applied: result.outcome === 'applied',
       outcome: result.outcome,
       eventType: parsed.data.event.type,

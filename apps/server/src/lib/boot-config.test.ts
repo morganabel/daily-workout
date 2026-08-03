@@ -17,14 +17,49 @@ import { validateBootConfig } from './boot-config';
 describe('validateBootConfig', () => {
   const originalEnv = process.env;
 
+  const billingDocument = () => ({
+    schemaVersion: 1,
+    revenueCat: {
+      appIds: ['app.test'],
+      environments: ['SANDBOX', 'PRODUCTION'],
+      entitlementIds: ['OpenLift Pro'],
+      productIds: ['weekly', 'monthly', 'yearly'],
+      defaultOfferingId: 'default',
+    },
+    plans: {
+      freeGenerations: 25,
+      proGenerations: 1000,
+      windowDays: 30,
+    },
+    guardrails: {
+      accountRequestsPerMinute: 30,
+      accountMaxActiveGenerations: 2,
+      accountDailySpendLimitNanoUsd: '5000000000',
+      globalDailySpendLimitNanoUsd: '50000000000',
+      pendingReservationTtlSeconds: 300,
+    },
+    capabilities: {
+      showUpgradeUi: true,
+    },
+  });
+
+  const configureRevenueCat = (
+    document: unknown = billingDocument()
+  ): void => {
+    process.env.DEPLOYMENT_MODE = 'hosted';
+    process.env.DATABASE_URL = 'postgres://localhost/db';
+    process.env.BETTER_AUTH_SECRET = 'secret';
+    process.env.BILLING_PROVIDER = 'revenuecat';
+    process.env.REVENUECAT_WEBHOOK_SECRET = 'whsec';
+    process.env.BILLING_CONFIG_JSON = JSON.stringify(document);
+  };
+
   beforeEach(() => {
     jest.resetModules();
     process.env = { ...originalEnv };
     for (const key of [
       'DEPLOYMENT_MODE',
       'BILLING_PROVIDER',
-      'EDITION',
-      'HOSTED_BILLING_ENABLED',
       'AUTH_MODE',
       'DATABASE_URL',
       'INSTANCE_CONNECTION_NAME',
@@ -33,7 +68,9 @@ describe('validateBootConfig', () => {
       'DB_PASSWORD',
       'BETTER_AUTH_SECRET',
       'REVENUECAT_WEBHOOK_SECRET',
-      'REVENUECAT_ALLOW_UNSIGNED_WEBHOOKS',
+      'BILLING_CONFIG_JSON',
+      'EDITION',
+      'HOSTED_BILLING_ENABLED',
     ]) {
       delete process.env[key];
     }
@@ -58,10 +95,32 @@ describe('validateBootConfig', () => {
     expect(() => validateBootConfig()).toThrow('Invalid DEPLOYMENT_MODE');
   });
 
+  it('rejects legacy hosted mode instead of silently starting self-hosted', () => {
+    process.env.EDITION = 'HOSTED';
+    expect(() => validateBootConfig()).toThrow(
+      'Legacy hosted configuration detected'
+    );
+  });
+
+  it('rejects legacy billing enablement without the canonical mode', () => {
+    process.env.HOSTED_BILLING_ENABLED = 'true';
+    expect(() => validateBootConfig()).toThrow(
+      'Legacy hosted configuration detected'
+    );
+  });
+
   it('throws on an invalid BILLING_PROVIDER value in hosted mode', () => {
     process.env.DEPLOYMENT_MODE = 'hosted';
     process.env.BILLING_PROVIDER = 'bogus';
     expect(() => validateBootConfig()).toThrow('Invalid BILLING_PROVIDER');
+  });
+
+  it('rejects legacy billing enablement without BILLING_PROVIDER', () => {
+    process.env.DEPLOYMENT_MODE = 'hosted';
+    process.env.HOSTED_BILLING_ENABLED = 'true';
+    expect(() => validateBootConfig()).toThrow(
+      'Legacy hosted billing configuration detected'
+    );
   });
 
   it('passes for a fully configured hosted deployment (DATABASE_URL)', () => {
@@ -115,45 +174,90 @@ describe('validateBootConfig', () => {
   });
 
   it('throws for hosted revenuecat billing without a webhook secret', () => {
-    process.env.DEPLOYMENT_MODE = 'hosted';
-    process.env.DATABASE_URL = 'postgres://localhost/db';
-    process.env.BETTER_AUTH_SECRET = 'secret';
-    process.env.BILLING_PROVIDER = 'revenuecat';
+    configureRevenueCat();
+    delete process.env.REVENUECAT_WEBHOOK_SECRET;
     expect(() => validateBootConfig()).toThrow('REVENUECAT_WEBHOOK_SECRET');
   });
 
-  it('passes for hosted revenuecat billing with a webhook secret', () => {
-    process.env.DEPLOYMENT_MODE = 'hosted';
-    process.env.DATABASE_URL = 'postgres://localhost/db';
-    process.env.BETTER_AUTH_SECRET = 'secret';
-    process.env.BILLING_PROVIDER = 'revenuecat';
-    process.env.REVENUECAT_WEBHOOK_SECRET = 'whsec';
+  it('passes for fully configured hosted revenuecat billing', () => {
+    configureRevenueCat();
     expect(() => validateBootConfig()).not.toThrow();
   });
 
-  it('allows revenuecat billing without a secret when unsigned webhooks are permitted outside production', () => {
-    process.env.DEPLOYMENT_MODE = 'hosted';
-    process.env.DATABASE_URL = 'postgres://localhost/db';
-    process.env.BETTER_AUTH_SECRET = 'secret';
-    process.env.BILLING_PROVIDER = 'revenuecat';
-    process.env.REVENUECAT_ALLOW_UNSIGNED_WEBHOOKS = 'true';
-    expect(() => validateBootConfig()).not.toThrow();
+  it('rejects missing billing configuration instead of applying defaults', () => {
+    configureRevenueCat();
+    delete process.env.BILLING_CONFIG_JSON;
+    expect(() => validateBootConfig()).toThrow('BILLING_CONFIG_JSON is required');
   });
 
-  it('rejects unsigned revenuecat webhooks in hosted production', () => {
-    process.env.NODE_ENV = 'production';
-    process.env.DEPLOYMENT_MODE = 'hosted';
-    process.env.DATABASE_URL = 'postgres://localhost/db';
-    process.env.BETTER_AUTH_SECRET = 'secret';
-    process.env.BILLING_PROVIDER = 'revenuecat';
-    process.env.REVENUECAT_ALLOW_UNSIGNED_WEBHOOKS = 'true';
+  it('rejects malformed billing configuration JSON', () => {
+    configureRevenueCat();
+    process.env.BILLING_CONFIG_JSON = '{';
+    expect(() => validateBootConfig()).toThrow('must be valid JSON');
+  });
+
+  it('rejects oversized billing configuration before parsing', () => {
+    configureRevenueCat();
+    process.env.BILLING_CONFIG_JSON = `{"padding":"${'x'.repeat(33_000)}"}`;
+    expect(() => validateBootConfig()).toThrow('exceeds the maximum length');
+  });
+
+  it('rejects an unknown billing configuration schema version', () => {
+    configureRevenueCat({ ...billingDocument(), schemaVersion: 2 });
+    expect(() => validateBootConfig()).toThrow('unsupported');
+  });
+
+  it('rejects unknown billing configuration properties', () => {
+    configureRevenueCat({ ...billingDocument(), webhookSecret: 'embedded' });
     expect(() => validateBootConfig()).toThrow(
-      'Hosted production billing cannot use REVENUECAT_ALLOW_UNSIGNED_WEBHOOKS=true'
+      'does not match billing configuration schema version 1'
     );
   });
 
-  it('honors EDITION=HOSTED as a backward-compatible alias', () => {
-    process.env.EDITION = 'HOSTED';
-    expect(() => validateBootConfig()).toThrow('requires a database');
+  it('does not include rejected configuration contents in boot errors', () => {
+    const sensitiveMarker = 'deployment-private-marker';
+    configureRevenueCat({
+      ...billingDocument(),
+      unexpected: sensitiveMarker,
+    });
+
+    let message = '';
+    try {
+      validateBootConfig();
+    } catch (error) {
+      message = error instanceof Error ? error.message : String(error);
+    }
+    expect(message).toContain('does not match');
+    expect(message).not.toContain(sensitiveMarker);
+  });
+
+  it('rejects duplicate configured identifiers', () => {
+    const document = billingDocument();
+    document.revenueCat.productIds = ['monthly', 'monthly'];
+    configureRevenueCat(document);
+    expect(() => validateBootConfig()).toThrow('does not match');
+  });
+
+  it('rejects unknown RevenueCat environments', () => {
+    const document = billingDocument();
+    document.revenueCat.environments = ['SANDBOX', 'STAGING'];
+    configureRevenueCat(document);
+    expect(() => validateBootConfig()).toThrow('does not match');
+  });
+
+  it('rejects invalid numeric billing settings', () => {
+    const document = billingDocument();
+    document.guardrails.accountMaxActiveGenerations = 0;
+    configureRevenueCat(document);
+    expect(() => validateBootConfig()).toThrow('does not match');
+  });
+
+  it('does not require or parse billing configuration when billing is disabled', () => {
+    process.env.DEPLOYMENT_MODE = 'hosted';
+    process.env.DATABASE_URL = 'postgres://localhost/db';
+    process.env.BETTER_AUTH_SECRET = 'secret';
+    process.env.BILLING_PROVIDER = 'none';
+    process.env.BILLING_CONFIG_JSON = '{';
+    expect(() => validateBootConfig()).not.toThrow();
   });
 });

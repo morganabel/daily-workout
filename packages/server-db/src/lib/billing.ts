@@ -39,6 +39,13 @@ import {
 
 type DbTransaction = Parameters<Parameters<Database['transaction']>[0]>[0];
 
+const WRITE_TRANSACTION_CONFIG = {
+  isolationLevel: 'read committed',
+  accessMode: 'read write',
+} as const;
+const BILLING_LOCK_TIMEOUT_MS = 2_000;
+const RECONCILIATION_BATCH_SIZE = 100;
+
 export type BillingRepositoryOperation =
   | 'webhook'
   | 'mapping'
@@ -46,6 +53,7 @@ export type BillingRepositoryOperation =
   | 'reserve'
   | 'commit'
   | 'rollback'
+  | 'usage_read'
   | 'spend_ceiling';
 
 /**
@@ -59,6 +67,7 @@ export interface BillingRepositoryOutcome {
   eventId?: string;
   operationId?: string;
   reservationId?: string;
+  durationMs?: number;
 }
 
 export type BillingRepositoryObserver = (
@@ -79,12 +88,46 @@ export interface PostgresBillingRepositoryOptions {
   observe?: BillingRepositoryObserver;
 }
 
+export interface IncludedGenerationUsageSnapshot {
+  startsAt: string;
+  endsAt: string;
+  limit: number;
+  used: number;
+  reserved: number;
+  remaining: number;
+}
+
 function createId(kind: 'window' | 'reservation'): string {
   return `${kind}_${globalThis.crypto.randomUUID()}`;
 }
 
 function asError(code: string): Error {
   return new Error(code);
+}
+
+function hasDatabaseErrorCode(error: unknown, code: string): boolean {
+  const seen = new Set<unknown>();
+  let current = error;
+
+  while (
+    typeof current === 'object' &&
+    current !== null &&
+    !seen.has(current)
+  ) {
+    seen.add(current);
+    if ('code' in current && current.code === code) {
+      return true;
+    }
+    current = 'cause' in current ? current.cause : undefined;
+  }
+
+  return false;
+}
+
+function databaseFailureOutcome(error: unknown): string {
+  return hasDatabaseErrorCode(error, '55P03')
+    ? 'lock_timeout'
+    : 'dependency_unavailable';
 }
 
 function toIso(value: Date | null): string | null {
@@ -167,11 +210,37 @@ async function lockCustomerAliases(
   source: string,
   customerIds: readonly string[]
 ): Promise<void> {
-  for (const customerId of [...new Set(customerIds)].sort()) {
+  const aliases = [...new Set(customerIds)].sort();
+  if (aliases.length === 0) return;
+  await transaction.execute(sql`
+    select pg_advisory_xact_lock(
+      hashtextextended(${source} || ':' || alias.customer_id, 0)
+    )
+    from jsonb_array_elements_text(${JSON.stringify(aliases)}::jsonb)
+      as alias(customer_id)
+    order by alias.customer_id
+  `);
+}
+
+async function lockBillingAccount(
+  transaction: DbTransaction,
+  accountId: string
+): Promise<void> {
+  await transaction.execute(
+    sql`select pg_advisory_xact_lock(hashtextextended(${`billing-account:${accountId}`}, 0))`
+  );
+}
+
+async function runWriteTransaction<T>(
+  db: Database,
+  callback: (transaction: DbTransaction) => Promise<T>
+): Promise<T> {
+  return db.transaction(async (transaction) => {
     await transaction.execute(
-      sql`select pg_advisory_xact_lock(hashtextextended(${`${source}:${customerId}`}, 0))`
+      sql`select set_config('lock_timeout', ${`${BILLING_LOCK_TIMEOUT_MS}ms`}, true)`
     );
-  }
+    return callback(transaction);
+  }, WRITE_TRANSACTION_CONFIG);
 }
 
 export class PostgresBillingRepository
@@ -218,21 +287,106 @@ export class PostgresBillingRepository
     return limit;
   }
 
+  private quotaWindowBounds(accountCreatedAt: Date, now: Date) {
+    const periodMs = this.options.quotaWindowDays * 86_400_000;
+    const anchorMs = Math.min(accountCreatedAt.getTime(), now.getTime());
+    const periodIndex = Math.floor((now.getTime() - anchorMs) / periodMs);
+    const startsAt = new Date(anchorMs + periodIndex * periodMs);
+    return {
+      startsAt,
+      endsAt: new Date(startsAt.getTime() + periodMs),
+    };
+  }
+
+  private async getOrCreateActiveWindow(
+    transaction: DbTransaction,
+    accountId: string,
+    accountCreatedAt: Date,
+    now: Date
+  ): Promise<typeof includedGenerationWindow.$inferSelect> {
+    const [existing] = await transaction
+      .select()
+      .from(includedGenerationWindow)
+      .where(
+        and(
+          eq(includedGenerationWindow.accountId, accountId),
+          lte(includedGenerationWindow.startsAt, now),
+          gt(includedGenerationWindow.endsAt, now)
+        )
+      )
+      .orderBy(desc(includedGenerationWindow.startsAt))
+      .limit(1)
+      .for('update');
+    if (existing) return existing;
+
+    const { startsAt, endsAt } = this.quotaWindowBounds(accountCreatedAt, now);
+    const [created] = await transaction
+      .insert(includedGenerationWindow)
+      .values({
+        id: this.id('window'),
+        accountId,
+        startsAt,
+        endsAt,
+      })
+      .returning();
+    if (!created) throw asError('billing_window_unavailable');
+    return created;
+  }
+
+  private async getActiveWindowSnapshot(accountId: string, now: Date) {
+    const [window] = await this.db
+      .select({
+        id: includedGenerationWindow.id,
+        startsAt: includedGenerationWindow.startsAt,
+        endsAt: includedGenerationWindow.endsAt,
+        committedCount: includedGenerationWindow.committedCount,
+        reserved: sql<number>`count(${includedGenerationReservation.id})::int`,
+      })
+      .from(includedGenerationWindow)
+      .leftJoin(
+        includedGenerationReservation,
+        and(
+          eq(
+            includedGenerationReservation.windowId,
+            includedGenerationWindow.id
+          ),
+          eq(includedGenerationReservation.status, 'pending'),
+          gt(includedGenerationReservation.expiresAt, now)
+        )
+      )
+      .where(
+        and(
+          eq(includedGenerationWindow.accountId, accountId),
+          lte(includedGenerationWindow.startsAt, now),
+          gt(includedGenerationWindow.endsAt, now)
+        )
+      )
+      .groupBy(
+        includedGenerationWindow.id,
+        includedGenerationWindow.startsAt,
+        includedGenerationWindow.endsAt,
+        includedGenerationWindow.committedCount
+      )
+      .orderBy(desc(includedGenerationWindow.startsAt))
+      .limit(1);
+    return window;
+  }
+
   async bootstrapAuthenticatedCustomer(input: {
     accountId: string;
     externalCustomerId: string;
   }): Promise<{ accountId: string; externalCustomerId: string }> {
+    const startedAt = Date.now();
     let mappingOutcome = 'existing';
     try {
-      await this.db.transaction(async (transaction) => {
+      await runWriteTransaction(this.db, async (transaction) => {
         await lockCustomerAliases(transaction, 'revenuecat', [
           input.externalCustomerId,
         ]);
         const [account] = await transaction
           .select({ id: user.id })
           .from(user)
-          .where(eq(user.id, input.accountId))
-          .for('update');
+          .where(eq(user.id, input.accountId));
         if (!account) throw asError('billing_account_not_found');
 
         const [inserted] = await transaction
@@ -268,29 +422,34 @@ export class PostgresBillingRepository
         (error.message === 'billing_account_not_found' ||
           error.message === 'billing_customer_conflict')
           ? error.message
-          : 'dependency_unavailable';
+          : databaseFailureOutcome(error);
       this.observe({
         operation: 'mapping',
         outcome,
         accountId: input.accountId,
+        durationMs: Date.now() - startedAt,
       });
-      throw outcome === 'dependency_unavailable'
-        ? asError('billing_dependency_unavailable')
-        : error;
+      throw outcome === 'billing_account_not_found' ||
+        outcome === 'billing_customer_conflict'
+        ? error
+        : asError('billing_dependency_unavailable');
     }
 
     this.observe({
       operation: 'mapping',
       outcome: mappingOutcome,
       accountId: input.accountId,
+      durationMs: Date.now() - startedAt,
     });
+    const reconciliationStartedAt = Date.now();
     try {
       await this.reconcileUnmappedEvents(input.externalCustomerId);
-    } catch {
+    } catch (error) {
       this.observe({
         operation: 'reconciliation',
-        outcome: 'dependency_unavailable',
+        outcome: databaseFailureOutcome(error),
         accountId: input.accountId,
+        durationMs: Date.now() - reconciliationStartedAt,
       });
       throw asError('billing_dependency_unavailable');
     }
@@ -302,8 +461,9 @@ export class PostgresBillingRepository
     accountId?: string;
     projection?: EntitlementProjection | null;
   }> {
+    const startedAt = Date.now();
     try {
-      const result = await this.db.transaction(async (transaction) => {
+      const result = await runWriteTransaction(this.db, async (transaction) => {
         await lockCustomerAliases(transaction, event.source, event.customerIds);
         const [inserted] = await transaction
           .insert(billingWebhookEvent)
@@ -360,13 +520,15 @@ export class PostgresBillingRepository
         outcome: result.outcome,
         accountId: result.accountId,
         eventId: event.eventId,
+        durationMs: Date.now() - startedAt,
       });
       return result;
-    } catch {
+    } catch (error) {
       this.observe({
         operation: 'webhook',
-        outcome: 'dependency_unavailable',
+        outcome: databaseFailureOutcome(error),
         eventId: event.eventId,
+        durationMs: Date.now() - startedAt,
       });
       throw asError('billing_dependency_unavailable');
     }
@@ -380,7 +542,6 @@ export class PostgresBillingRepository
     accountId?: string;
     projection?: EntitlementProjection | null;
   }> {
-    await lockCustomerAliases(transaction, event.source, event.customerIds);
     const customerIds = [...new Set(event.customerIds)];
     const mappings =
       customerIds.length === 0
@@ -412,6 +573,7 @@ export class PostgresBillingRepository
     }
 
     const accountId = accountIds[0];
+    await lockBillingAccount(transaction, accountId);
     await transaction
       .insert(billingCustomerMapping)
       .values(
@@ -448,11 +610,6 @@ export class PostgresBillingRepository
       return { outcome: 'conflict' };
     }
 
-    await transaction
-      .select({ id: user.id })
-      .from(user)
-      .where(eq(user.id, accountId))
-      .for('update');
     const [storedProjection] = await transaction
       .select()
       .from(billingEntitlementProjection)
@@ -527,6 +684,7 @@ export class PostgresBillingRepository
       .select({
         source: billingWebhookEvent.source,
         eventId: billingWebhookEvent.eventId,
+        customerIds: billingWebhookEvent.customerIds,
       })
       .from(billingWebhookEvent)
       .where(
@@ -541,10 +699,17 @@ export class PostgresBillingRepository
       .orderBy(
         asc(billingWebhookEvent.eventTimestamp),
         asc(billingWebhookEvent.eventId)
-      );
+      )
+      .limit(RECONCILIATION_BATCH_SIZE);
 
     for (const pendingEvent of pending) {
-      const result = await this.db.transaction(async (transaction) => {
+      const startedAt = Date.now();
+      const result = await runWriteTransaction(this.db, async (transaction) => {
+        await lockCustomerAliases(
+          transaction,
+          pendingEvent.source,
+          pendingEvent.customerIds
+        );
         const [stored] = await transaction
           .select()
           .from(billingWebhookEvent)
@@ -563,6 +728,7 @@ export class PostgresBillingRepository
         outcome: result?.outcome ?? 'already_reconciled',
         accountId: result?.accountId,
         eventId: pendingEvent.eventId,
+        durationMs: Date.now() - startedAt,
       });
     }
   }
@@ -582,17 +748,90 @@ export class PostgresBillingRepository
     return this.getProjection(accountId);
   }
 
+  async getIncludedGenerationUsage(
+    accountId: string
+  ): Promise<IncludedGenerationUsageSnapshot> {
+    const startedAt = Date.now();
+    const now = this.now();
+    const projection = await this.getProjection(accountId, now);
+    const limit = this.limitFor(accountId, projection);
+    let window = await this.getActiveWindowSnapshot(accountId, now);
+    if (!window) {
+      await runWriteTransaction(this.db, async (transaction) => {
+        await lockBillingAccount(transaction, accountId);
+        const [account] = await transaction
+          .select({ createdAt: user.createdAt })
+          .from(user)
+          .where(eq(user.id, accountId));
+        if (!account) throw asError('billing_account_not_found');
+        await this.getOrCreateActiveWindow(
+          transaction,
+          accountId,
+          account.createdAt,
+          now
+        );
+      });
+      window = await this.getActiveWindowSnapshot(accountId, now);
+    }
+    if (!window) throw asError('billing_window_unavailable');
+
+    const result = {
+      startsAt: window.startsAt.toISOString(),
+      endsAt: window.endsAt.toISOString(),
+      limit,
+      used: window.committedCount,
+      reserved: window.reserved,
+      remaining: Math.max(0, limit - window.committedCount - window.reserved),
+    };
+    this.observe({
+      operation: 'usage_read',
+      outcome: 'read',
+      accountId,
+      durationMs: Date.now() - startedAt,
+    });
+    return result;
+  }
+
+  async checkHealth(): Promise<void> {
+    await Promise.all([
+      this.db
+        .select({ eventId: billingWebhookEvent.eventId })
+        .from(billingWebhookEvent)
+        .limit(1),
+      this.db
+        .select({
+          externalCustomerId: billingCustomerMapping.externalCustomerId,
+        })
+        .from(billingCustomerMapping)
+        .limit(1),
+      this.db
+        .select({ accountId: billingEntitlementProjection.accountId })
+        .from(billingEntitlementProjection)
+        .limit(1),
+      this.db
+        .select({ id: includedGenerationWindow.id })
+        .from(includedGenerationWindow)
+        .limit(1),
+      this.db
+        .select({ id: includedGenerationReservation.id })
+        .from(includedGenerationReservation)
+        .limit(1),
+      this.db.select({ id: aiUsageEvent.id }).from(aiUsageEvent).limit(1),
+    ]);
+  }
+
   async reserveGenerate(
     request: IncludedGenerationReserveRequest
   ): Promise<IncludedGenerationReserveResult> {
+    const startedAt = Date.now();
     try {
-      const result = await this.db.transaction(async (transaction) => {
+      const result = await runWriteTransaction(this.db, async (transaction) => {
         const now = this.now();
+        await lockBillingAccount(transaction, request.accountId);
         const [account] = await transaction
-          .select({ id: user.id })
+          .select({ id: user.id, createdAt: user.createdAt })
           .from(user)
-          .where(eq(user.id, request.accountId))
-          .for('update');
+          .where(eq(user.id, request.accountId));
         if (!account) {
           return {
             allowed: false,
@@ -636,33 +875,12 @@ export class PostgresBillingRepository
           }
         }
 
-        let [window] = await transaction
-          .select()
-          .from(includedGenerationWindow)
-          .where(
-            and(
-              eq(includedGenerationWindow.accountId, request.accountId),
-              lte(includedGenerationWindow.startsAt, now),
-              gt(includedGenerationWindow.endsAt, now)
-            )
-          )
-          .orderBy(desc(includedGenerationWindow.startsAt))
-          .limit(1)
-          .for('update');
-        if (!window) {
-          const endsAt = new Date(
-            now.getTime() + this.options.quotaWindowDays * 86_400_000
-          );
-          [window] = await transaction
-            .insert(includedGenerationWindow)
-            .values({
-              id: this.id('window'),
-              accountId: request.accountId,
-              startsAt: now,
-              endsAt,
-            })
-            .returning();
-        }
+        const window = await this.getOrCreateActiveWindow(
+          transaction,
+          request.accountId,
+          account.createdAt,
+          now
+        );
 
         const [active] = await transaction
           .select({
@@ -671,10 +889,7 @@ export class PostgresBillingRepository
           .from(includedGenerationReservation)
           .where(
             and(
-              eq(
-                includedGenerationReservation.accountId,
-                request.accountId
-              ),
+              eq(includedGenerationReservation.accountId, request.accountId),
               eq(includedGenerationReservation.windowId, window.id),
               eq(includedGenerationReservation.status, 'pending'),
               gt(includedGenerationReservation.expiresAt, now)
@@ -721,14 +936,16 @@ export class PostgresBillingRepository
         reservationId: result.allowed
           ? result.reservation?.reservationId
           : undefined,
+        durationMs: Date.now() - startedAt,
       });
       return result;
-    } catch {
+    } catch (error) {
       this.observe({
         operation: 'reserve',
-        outcome: 'dependency_unavailable',
+        outcome: databaseFailureOutcome(error),
         accountId: request.accountId,
         operationId: request.operationId,
+        durationMs: Date.now() - startedAt,
       });
       return { allowed: false, code: 'dependency_unavailable' };
     }
@@ -737,7 +954,8 @@ export class PostgresBillingRepository
   async commitGenerateReservation(
     reservation: IncludedGenerationReservation
   ): Promise<void> {
-    const outcome = await this.db.transaction(async (transaction) => {
+    const startedAt = Date.now();
+    const outcome = await runWriteTransaction(this.db, async (transaction) => {
       const now = this.now();
       const [stored] = await transaction
         .select()
@@ -780,6 +998,7 @@ export class PostgresBillingRepository
       accountId: reservation.accountId,
       operationId: reservation.operationId,
       reservationId: reservation.reservationId,
+      durationMs: Date.now() - startedAt,
     });
     if (outcome === 'not_found') throw asError('billing_reservation_not_found');
   }
@@ -787,7 +1006,8 @@ export class PostgresBillingRepository
   async rollbackGenerateReservation(
     reservation: IncludedGenerationReservation
   ): Promise<void> {
-    const outcome = await this.db.transaction(async (transaction) => {
+    const startedAt = Date.now();
+    const outcome = await runWriteTransaction(this.db, async (transaction) => {
       const [stored] = await transaction
         .select()
         .from(includedGenerationReservation)
@@ -814,6 +1034,7 @@ export class PostgresBillingRepository
       accountId: reservation.accountId,
       operationId: reservation.operationId,
       reservationId: reservation.reservationId,
+      durationMs: Date.now() - startedAt,
     });
     if (outcome === 'not_found') throw asError('billing_reservation_not_found');
   }

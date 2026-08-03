@@ -7,11 +7,12 @@ import {
   type BillingEntitlementsResponse,
 } from '@workout-agent/shared';
 import { getAuthContext } from '@/lib/auth-context';
+import { getRevenueCatBillingServices } from '@/lib/billing-services';
 import { createErrorResponse } from '@/lib/errors';
-import { usagePolicy } from '@/lib/wiring';
-import { isBillingEnabled } from '@/lib/deployment';
+import { getBillingProvider } from '@/lib/deployment';
 
-const billingRouteDisabled = (): boolean => !isBillingEnabled();
+const billingRouteDisabled = (): boolean =>
+  getBillingProvider() !== 'revenuecat';
 
 export async function GET(request: Request): Promise<Response> {
   const { requestId, startedAt, log } = createRequestContext(
@@ -41,19 +42,27 @@ export async function GET(request: Request): Promise<Response> {
     return response;
   }
 
-  if (!usagePolicy.getEntitlements) {
+  let entitlements: BillingEntitlementsResponse;
+  try {
+    const services = await getRevenueCatBillingServices();
+    await services.repository.bootstrapAuthenticatedCustomer({
+      accountId: auth.userId,
+      externalCustomerId: auth.userId,
+    });
+    entitlements = await services.getEntitlements(auth.userId);
+  } catch (error) {
+    const conflict =
+      error instanceof Error && error.message === 'billing_customer_conflict';
     const response = createErrorResponse(
-      'NOT_FOUND',
-      'Billing entitlements are unavailable',
-      404
+      conflict ? 'CONFLICT' : 'SERVICE_UNAVAILABLE',
+      conflict
+        ? 'Billing customer identity belongs to another account'
+        : 'Billing entitlements are temporarily unavailable',
+      conflict ? 409 : 503
     );
     attachRequestId(response, requestId);
     return response;
   }
-
-  const entitlements = (await usagePolicy.getEntitlements(
-    auth.userId
-  )) as BillingEntitlementsResponse;
   const validated = billingEntitlementsResponseSchema.parse(entitlements);
 
   const response = Response.json(validated);

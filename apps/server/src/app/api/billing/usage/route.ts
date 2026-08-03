@@ -1,29 +1,14 @@
-import { usdToNanoUsd } from '@workout-agent-ce/metering';
 import { getAiUsageSummary } from '@workout-agent-ce/server-db';
-import {
-  billingAiUsageResponseSchema,
-  type BillingEntitlementsResponse,
-} from '@workout-agent/shared';
+import { billingAiUsageResponseSchema } from '@workout-agent/shared';
 import {
   attachRequestId,
   createRequestContext,
 } from '@workout-agent-ce/server-core';
 
 import { getAuthContext } from '@/lib/auth-context';
-import { isBillingEnabled } from '@/lib/deployment';
+import { getRevenueCatBillingServices } from '@/lib/billing-services';
+import { getBillingProvider } from '@/lib/deployment';
 import { createErrorResponse } from '@/lib/errors';
-import { usagePolicy } from '@/lib/wiring';
-
-function resolveShadowBudgetNanoUsd(planId: string | null): string | undefined {
-  const raw =
-    planId === 'pro'
-      ? process.env.HOSTED_PRO_AI_COST_BUDGET_USD
-      : process.env.HOSTED_FREE_AI_COST_BUDGET_USD;
-  if (!raw) {
-    return undefined;
-  }
-  return usdToNanoUsd(Number(raw));
-}
 
 export async function GET(request: Request): Promise<Response> {
   const { requestId, startedAt, log } = createRequestContext(
@@ -31,7 +16,7 @@ export async function GET(request: Request): Promise<Response> {
     'api.billing.usage'
   );
 
-  if (!isBillingEnabled()) {
+  if (getBillingProvider() !== 'revenuecat') {
     const response = createErrorResponse(
       'NOT_FOUND',
       'AI usage accounting is not enabled for this deployment',
@@ -53,7 +38,7 @@ export async function GET(request: Request): Promise<Response> {
     return response;
   }
 
-  if (!context.db || !usagePolicy.getEntitlements) {
+  if (!context.db) {
     const response = createErrorResponse(
       'SERVICE_UNAVAILABLE',
       'AI usage accounting is unavailable',
@@ -63,14 +48,27 @@ export async function GET(request: Request): Promise<Response> {
     return response;
   }
 
-  const entitlements = (await usagePolicy.getEntitlements(
-    auth.userId
-  )) as BillingEntitlementsResponse;
+  let entitlements;
+  try {
+    const billing = await getRevenueCatBillingServices();
+    await billing.repository.bootstrapAuthenticatedCustomer({
+      accountId: auth.userId,
+      externalCustomerId: auth.userId,
+    });
+    entitlements = await billing.getEntitlements(auth.userId);
+  } catch {
+    const response = createErrorResponse(
+      'SERVICE_UNAVAILABLE',
+      'AI usage accounting is unavailable',
+      503
+    );
+    attachRequestId(response, requestId);
+    return response;
+  }
   const summary = await getAiUsageSummary(context.db, {
     userId: auth.userId,
     startsAt: new Date(entitlements.quotaWindow.startsAt),
     endsAt: new Date(entitlements.quotaWindow.endsAt),
-    shadowBudgetNanoUsd: resolveShadowBudgetNanoUsd(entitlements.planId),
   });
   const validated = billingAiUsageResponseSchema.parse(summary);
   const response = Response.json(validated);

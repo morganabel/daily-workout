@@ -2,7 +2,7 @@
 
 ### Requirement: Hosted Entitlement State Endpoint
 
-Hosted deployments MUST expose an authenticated, account-scoped entitlement state backed by durable storage. The response MUST include plan/tier, entitlement identity, effective status, renewal state, current paid/grace boundaries, quota window, remaining included generations, and refresh time. Effective access MUST be computed from stored validity boundaries so a delayed expiration webhook cannot grant access indefinitely.
+Hosted deployments MUST expose an authenticated, account-scoped entitlement state backed by durable storage. The response MUST include plan/tier, entitlement identity, effective status, renewal state, current paid/grace boundaries, quota window, remaining included generations, and refresh time. Quota-window boundaries MUST be stable and account-anchored before the first managed reservation so earlier BYOK usage remains in the same reported window. Effective access MUST be computed from stored validity boundaries so a delayed expiration webhook cannot grant access indefinitely.
 
 #### Scenario: Cancellation remains active through the paid period
 

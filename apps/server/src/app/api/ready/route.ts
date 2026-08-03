@@ -10,7 +10,12 @@
 import { NextResponse } from 'next/server';
 import { ping } from '@workout-agent-ce/server-db';
 import { getAuthContext } from '@/lib/auth-context';
-import { getDeploymentMode, resolveEdition } from '@/lib/deployment';
+import { getRevenueCatBillingServices } from '@/lib/billing-services';
+import {
+  getBillingProvider,
+  getDeploymentMode,
+  resolveEdition,
+} from '@/lib/deployment';
 
 function readinessErrorMessage(error: unknown): string {
   if (process.env.NODE_ENV === 'production') {
@@ -22,17 +27,24 @@ function readinessErrorMessage(error: unknown): string {
 export async function GET(): Promise<Response> {
   const mode = getDeploymentMode();
   const edition = resolveEdition();
+  const billingProvider = getBillingProvider();
 
   try {
     const ctx = await getAuthContext();
     if (ctx.db) {
       await ping(ctx.db);
     }
+    if (billingProvider === 'revenuecat') {
+      const billing = await getRevenueCatBillingServices();
+      await billing.repository.checkHealth();
+    }
     return NextResponse.json({
       status: 'ready',
       mode,
       edition,
       database: ctx.db ? 'connected' : 'not-configured',
+      billing:
+        billingProvider === 'revenuecat' ? 'connected' : 'not-configured',
       timestamp: new Date().toISOString(),
     });
   } catch (error) {

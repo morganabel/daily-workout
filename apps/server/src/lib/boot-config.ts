@@ -11,6 +11,7 @@
 
 import { getBillingProvider, getDeploymentMode } from './deployment';
 import { resolveAuthMode, validateAuthConfig } from './auth-context';
+import { getBillingConfig } from './billing-config';
 
 const hasEnvValue = (key: string): boolean => Boolean(process.env[key]?.trim());
 
@@ -56,25 +57,5 @@ export function validateBootConfig(): void {
     throw new Error('Hosted mode requires BETTER_AUTH_SECRET.');
   }
 
-  if (
-    billingProvider === 'revenuecat' &&
-    !hasEnvValue('REVENUECAT_WEBHOOK_SECRET') &&
-    process.env.REVENUECAT_ALLOW_UNSIGNED_WEBHOOKS !== 'true'
-  ) {
-    throw new Error(
-      'Hosted billing (BILLING_PROVIDER=revenuecat) requires REVENUECAT_WEBHOOK_SECRET ' +
-        '(or set REVENUECAT_ALLOW_UNSIGNED_WEBHOOKS=true to accept unsigned webhooks).'
-    );
-  }
-
-  if (
-    billingProvider === 'revenuecat' &&
-    process.env.REVENUECAT_ALLOW_UNSIGNED_WEBHOOKS === 'true' &&
-    process.env.NODE_ENV === 'production'
-  ) {
-    throw new Error(
-      'Hosted production billing cannot use REVENUECAT_ALLOW_UNSIGNED_WEBHOOKS=true; ' +
-        'set REVENUECAT_WEBHOOK_SECRET.'
-    );
-  }
+  if (billingProvider === 'revenuecat') getBillingConfig();
 }

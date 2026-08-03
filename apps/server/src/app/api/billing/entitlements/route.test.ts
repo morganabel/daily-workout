@@ -2,10 +2,8 @@ jest.mock('@/lib/auth-context', () => ({
   getAuthContext: jest.fn(),
 }));
 
-jest.mock('@/lib/wiring', () => ({
-  usagePolicy: {
-    getEntitlements: jest.fn(),
-  },
+jest.mock('@/lib/billing-services', () => ({
+  getRevenueCatBillingServices: jest.fn(),
 }));
 
 import { GET } from './route';
@@ -14,11 +12,13 @@ const { getAuthContext } = jest.requireMock('@/lib/auth-context') as {
   getAuthContext: jest.Mock;
 };
 
-const { usagePolicy } = jest.requireMock('@/lib/wiring') as {
-  usagePolicy: {
-    getEntitlements: jest.Mock;
-  };
+const { getRevenueCatBillingServices } = jest.requireMock(
+  '@/lib/billing-services'
+) as {
+  getRevenueCatBillingServices: jest.Mock;
 };
+const bootstrapAuthenticatedCustomer = jest.fn();
+const getEntitlements = jest.fn();
 
 describe('GET /api/billing/entitlements', () => {
   const originalEnv = process.env;
@@ -26,8 +26,12 @@ describe('GET /api/billing/entitlements', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     process.env = { ...originalEnv };
-    process.env.EDITION = 'HOSTED';
-    process.env.HOSTED_BILLING_ENABLED = 'true';
+    process.env.DEPLOYMENT_MODE = 'hosted';
+    process.env.BILLING_PROVIDER = 'revenuecat';
+    getRevenueCatBillingServices.mockResolvedValue({
+      repository: { bootstrapAuthenticatedCustomer },
+      getEntitlements,
+    });
   });
 
   afterAll(() => {
@@ -58,7 +62,7 @@ describe('GET /api/billing/entitlements', () => {
       },
     });
 
-    usagePolicy.getEntitlements.mockResolvedValue({
+    getEntitlements.mockResolvedValue({
       planId: 'pro',
       entitlementId: 'OpenLift Pro',
       status: 'active',
@@ -88,5 +92,28 @@ describe('GET /api/billing/entitlements', () => {
     expect(data.planId).toBe('pro');
     expect(data.status).toBe('active');
     expect(data.quotaWindow.remaining).toBe(90);
+    expect(bootstrapAuthenticatedCustomer).toHaveBeenCalledWith({
+      accountId: 'user-123',
+      externalCustomerId: 'user-123',
+    });
+  });
+
+  it('returns 503 when durable billing is unavailable', async () => {
+    getAuthContext.mockReturnValue({
+      provider: {
+        authenticate: jest.fn().mockResolvedValue({
+          userId: 'user-123',
+          principalId: 'session-123',
+        }),
+      },
+    });
+    getRevenueCatBillingServices.mockRejectedValue(
+      new Error('billing_dependency_unavailable')
+    );
+
+    const response = await GET(
+      new Request('http://localhost/api/billing/entitlements')
+    );
+    expect(response.status).toBe(503);
   });
 });
