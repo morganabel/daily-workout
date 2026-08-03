@@ -40,6 +40,7 @@ import {
   createRequestContext,
   redactSensitiveStrings,
 } from '../utils/logging';
+import { resolveProviderCredential } from '../utils/provider-credential';
 import {
   buildGenerationUsageSummary,
   type ModelCallUsage,
@@ -627,7 +628,7 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
     const genericKeyHeader = request.headers.get('x-ai-key')?.trim();
 
     // Determine provider: explicit header > legacy x-openai-key inference > config default
-    let provider: AiProviderName;
+    let selectedProvider: AiProviderName;
     if (providerHeader) {
       if (
         !deps.router.isSupportedProvider(providerHeader) &&
@@ -639,56 +640,43 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
           400
         );
       }
-      provider = deps.router.isSupportedProvider(providerHeader)
+      selectedProvider = deps.router.isSupportedProvider(providerHeader)
         ? (providerHeader as AiProviderName)
         : ((deps.config.defaultProvider ??
             deps.router.getDefaultProvider()) as AiProviderName);
     } else if (openaiKeyHeader) {
       // Legacy: x-openai-key implies OpenAI
-      provider = 'openai';
+      selectedProvider = 'openai';
     } else {
       // Default from config or router
       const defaultProvider =
         deps.config.defaultProvider ?? deps.router.getDefaultProvider();
-      provider = defaultProvider as AiProviderName;
+      selectedProvider = defaultProvider as AiProviderName;
     }
 
-    // Determine if Vertex AI should be used
-    const useVertexAi = Boolean(
-      provider === 'gemini' &&
-        deps.config.useVertexAi &&
-        deps.config.googleCloudProject &&
-        deps.config.googleCloudLocation
-    );
-
-    // Extract API key based on provider
-    // Priority: BYOK header > server default key
-    let apiKey: string | null = null;
-    if (provider === 'openai') {
-      apiKey =
-        openaiKeyHeader ||
-        genericKeyHeader ||
-        deps.config.defaultApiKeys?.openai ||
-        null;
-    } else if (provider === 'gemini') {
-      apiKey =
-        geminiKeyHeader ||
-        genericKeyHeader ||
-        deps.config.defaultApiKeys?.gemini ||
-        (useVertexAi ? 'vertex-env' : null);
-    } else if (provider === 'openrouter') {
-      apiKey =
-        genericKeyHeader || deps.config.defaultApiKeys?.openrouter || null;
-    }
-
-    const isByok = Boolean(
-      openaiKeyHeader || geminiKeyHeader || genericKeyHeader
-    );
-    const credentialSource: ModelCredentialSource = isByok
-      ? 'byok'
-      : useVertexAi
-      ? 'vertex'
-      : 'managed';
+    const credential = resolveProviderCredential({
+      provider: selectedProvider,
+      byok: {
+        openai: openaiKeyHeader,
+        gemini: geminiKeyHeader,
+        generic: genericKeyHeader,
+      },
+      managed: deps.config.defaultApiKeys,
+      vertexAi: {
+        enabled: deps.config.useVertexAi,
+        project: deps.config.googleCloudProject,
+        location: deps.config.googleCloudLocation,
+      },
+    });
+    const { provider, useVertexAi } = credential;
+    const apiKey =
+      credential.source === 'byok' || credential.source === 'managed'
+        ? credential.secret
+        : undefined;
+    const isByok = credential.source === 'byok';
+    const credentialSource: ModelCredentialSource | undefined =
+      credential.source === 'none' ? undefined : credential.source;
+    const hasProviderCredential = credential.source !== 'none';
     const modelCalls: ModelCallUsage[] = [];
     const allowUnconfiguredProvider = Boolean(
       deps.config.allowUnconfiguredProvider
@@ -757,9 +745,8 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
       let catalogMatch: WorkoutCatalogMatch | undefined;
       let catalogSeed: CatalogSeed | undefined;
       let catalogUnavailable = false;
-      const providerCanRun = Boolean(
-        apiKey || useVertexAi || allowUnconfiguredProvider
-      );
+      const providerCanRun =
+        hasProviderCredential || allowUnconfiguredProvider;
       const loadAvailableExerciseLibrary = async (): Promise<
         ExerciseLibrary | undefined
       > => {
@@ -886,8 +873,7 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
         : undefined;
 
       if (
-        !apiKey &&
-        !useVertexAi &&
+        !hasProviderCredential &&
         deps.config.edition === 'HOSTED' &&
         !allowUnconfiguredProvider
       ) {
@@ -898,7 +884,7 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
         );
       }
 
-      if (!apiKey && !useVertexAi && !allowUnconfiguredProvider) {
+      if (!hasProviderCredential && !allowUnconfiguredProvider) {
         return errorResponse(
           'AI_PROVIDER_NOT_CONFIGURED',
           `No API key or server-managed ${provider} provider configuration is available`,
@@ -908,7 +894,7 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
 
       // Check policy (quota/rate limits) for managed-key requests only.
       // BYOK requests are self-funded and bypass entitlement quotas.
-      if (deps.policy && !isByok) {
+      if (deps.policy && credential.source !== 'byok') {
         const policyResult = await deps.policy.canGenerate(
           auth.userId,
           generationRequest
@@ -927,7 +913,7 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
 
       if (
         (deps.exerciseLibrary || deps.loadExerciseLibrary) &&
-        (apiKey || useVertexAi)
+        hasProviderCredential
       ) {
         try {
           const exerciseLibrary = await loadAvailableExerciseLibrary();
@@ -977,11 +963,11 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
         deps.config.enableStageOnePlanner &&
         deps.planner &&
         effectivePlanningBrief.stagedPlanning.shouldRun &&
-        (apiKey || useVertexAi)
+        hasProviderCredential
       ) {
         try {
           stageOneArtifact = await deps.planner.plan(providerRequest, context, {
-            apiKey: useVertexAi ? undefined : apiKey ?? undefined,
+            apiKey,
             candidatePool,
             planningBrief: effectivePlanningBrief,
             provider,
@@ -1016,7 +1002,7 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
         creationMode,
         provider,
         hasApiKey: Boolean(apiKey),
-        isByok,
+        credentialSource: credential.source,
         catalogDecision: catalogMatch?.decision,
         catalogRecipeId: catalogMatch?.recipe?.id,
         isRegeneration: effectivePlanningBrief.regeneration.isRegeneration,
@@ -1042,7 +1028,7 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
 
       try {
         const result = await deps.router.generate(providerRequest, context, {
-          apiKey: useVertexAi ? undefined : apiKey ?? undefined,
+          apiKey,
           candidatePool,
           catalogMatch: providerCatalogMatch,
           catalogSeed,

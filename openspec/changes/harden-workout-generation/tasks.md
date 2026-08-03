@@ -2,9 +2,9 @@
 
 External prerequisites:
 
-- [ ] 0.1 Treat origin's `nx sync:check`, affected lint/test/build, and Docker jobs as the existing baseline; merge `harden-package-and-ci-integrity` PR 1 with npm 12 and explicit typecheck before any generation PR merges.
+- [x] 0.1 Treat origin's `nx sync:check`, affected lint/test/build, and Docker jobs as the existing baseline; merge `harden-package-and-ci-integrity` PR 1 with npm 12 and explicit typecheck before any generation PR merges.
 - [ ] 0.2 Do not gate generation on native ESM repair; run the package-import smoke target once package-and-CI PR 2 lands.
-- [ ] 0.3 Keep each generation PR behavior-focused: no package moves, handler decomposition, broad lint cleanup, feature flags, shadow paths, or compatibility adapters.
+- [x] 0.3 Keep each generation PR behavior-focused: no package moves, handler decomposition, broad lint cleanup, feature flags, shadow paths, or compatibility adapters.
 
 Internal dependency graph:
 
@@ -23,24 +23,24 @@ billing B4 atomic finalization             depends on G5
 
 **PR scope:** Correct BYOK and managed-credential attribution without changing provider prompts, request limits, or persistence.
 
-- [ ] 1.1 Add a typed provider credential resolver that returns selected provider plus `byok`, `managed`, `vertex`, or `none` source as one decision.
-- [ ] 1.2 Make matching provider-specific BYOK and generic BYOK take precedence over the selected provider's managed or Vertex credentials; ignore mismatched provider-specific headers for funding attribution.
-- [ ] 1.3 Drive policy bypass, provider invocation options, safe logs, and logical-operation metering metadata from the resolved credential source rather than header presence; leave SDK attempt counting to G4.
-- [ ] 1.4 Add a full header/provider matrix covering explicit OpenAI/Gemini selection, legacy `x-openai-key` inference, generic keys, mismatched keys, managed defaults, Vertex, and missing credentials.
-- [ ] 1.5 Verify secret redaction for the new credential object and every error path touched by resolution.
+- [x] 1.1 Add a typed provider credential resolver that returns selected provider plus `byok`, `managed`, `vertex`, or `none` source as one decision.
+- [x] 1.2 Make matching provider-specific BYOK and generic BYOK take precedence over the selected provider's managed or Vertex credentials; ignore mismatched provider-specific headers for funding attribution.
+- [x] 1.3 Drive policy bypass, provider invocation options, safe logs, and logical-operation metering metadata from the resolved credential source rather than header presence; leave SDK attempt counting to G4.
+- [x] 1.4 Add a full header/provider matrix covering explicit OpenAI/Gemini selection, legacy `x-openai-key` inference, generic keys, mismatched keys, managed defaults, Vertex, and missing credentials.
+- [x] 1.5 Verify secret redaction for the new credential object and every error path touched by resolution.
 
 Acceptance criteria:
 
-- [ ] 1.6 A key header that is not used by the selected provider cannot bypass hosted `UsagePolicy`.
-- [ ] 1.7 Managed OpenAI, managed Gemini, and Vertex calls reserve policy exactly once; matching BYOK calls bypass managed quota and use the supplied key upstream.
-- [ ] 1.8 Provider, policy, and metering tests agree on one credential source, and no secret value appears in logs, errors, snapshots, or request fingerprints.
+- [x] 1.6 A key header that is not used by the selected provider cannot bypass hosted `UsagePolicy`.
+- [x] 1.7 Managed OpenAI, managed Gemini, and Vertex calls reserve policy exactly once; matching BYOK calls bypass managed quota and use the supplied key upstream.
+- [x] 1.8 Provider, policy, and metering tests agree on one credential source, and no secret value appears in logs, errors, snapshots, or request fingerprints.
 
 Verification:
 
-- [ ] 1.9 Run `nx test @workout-agent-ce/server-core`.
-- [ ] 1.10 Run `nx test @workout-agent-ce/server`.
-- [ ] 1.11 Run `nx run @workout-agent-ce/server-core:typecheck` and `nx run @workout-agent-ce/server:typecheck`.
-- [ ] 1.12 Run `nx build @workout-agent-ce/server`.
+- [x] 1.9 Run `nx test @workout-agent-ce/server-core`.
+- [x] 1.10 Run `nx test @workout-agent-ce/server`.
+- [x] 1.11 Run `nx run @workout-agent-ce/server-core:typecheck` and `nx run @workout-agent-ce/server:typecheck`.
+- [x] 1.12 Run `nx build @workout-agent-ce/server`.
 
 ## G2 - Candidate Safety And Direct Semantic Enforcement
 

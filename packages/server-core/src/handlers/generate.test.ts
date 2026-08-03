@@ -553,6 +553,179 @@ describe('createGenerateHandler', () => {
     expect(JSON.stringify(meteringPayload)).not.toContain('sk-test-123456789');
   });
 
+  it('ignores a mismatched Gemini key when selecting managed OpenAI', async () => {
+    const policy = createPolicyMock();
+    const metering = createMeteringMock();
+    const { handler, router } = createHandler({ policy, metering });
+
+    const response = await handler(
+      createRequest(
+        { timeMinutes: 30, focus: 'Upper Body' },
+        {
+          'x-ai-provider': 'openai',
+          'x-gemini-key': 'stale-gemini-secret',
+        }
+      )
+    );
+
+    expect(response.status).toBe(200);
+    expect(policy.canGenerate).toHaveBeenCalledTimes(1);
+    expect(router.generate).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      expect.objectContaining({
+        provider: 'openai',
+        apiKey: 'server-openai-key',
+        useVertexAi: false,
+      })
+    );
+    expect(metering.recordUsage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        provider: 'openai',
+        credentialSource: 'managed',
+        byok: false,
+      })
+    );
+    expect(JSON.stringify(metering.recordUsage.mock.calls[0][0])).not.toContain(
+      'stale-gemini-secret'
+    );
+  });
+
+  it('ignores a mismatched OpenAI key when selecting managed Gemini', async () => {
+    const policy = createPolicyMock();
+    const metering = createMeteringMock();
+    const { handler, router } = createHandler({
+      policy,
+      metering,
+      config: {
+        edition: 'HOSTED',
+        defaultProvider: 'gemini',
+        defaultApiKeys: { gemini: 'managed-gemini-key' },
+      },
+    });
+
+    const response = await handler(
+      createRequest(
+        { timeMinutes: 30, focus: 'Full Body' },
+        {
+          'x-ai-provider': 'gemini',
+          'x-openai-key': 'stale-openai-secret',
+        }
+      )
+    );
+
+    expect(response.status).toBe(200);
+    expect(policy.canGenerate).toHaveBeenCalledTimes(1);
+    expect(router.generate).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      expect.objectContaining({
+        provider: 'gemini',
+        apiKey: 'managed-gemini-key',
+        useVertexAi: false,
+      })
+    );
+    expect(metering.recordUsage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        provider: 'gemini',
+        credentialSource: 'managed',
+        byok: false,
+      })
+    );
+  });
+
+  it('uses matching Gemini BYOK instead of configured Vertex', async () => {
+    const policy = createPolicyMock();
+    const metering = createMeteringMock();
+    const { handler, router } = createHandler({
+      policy,
+      metering,
+      config: {
+        edition: 'HOSTED',
+        defaultProvider: 'gemini',
+        defaultApiKeys: {},
+        useVertexAi: true,
+        googleCloudProject: 'project',
+        googleCloudLocation: 'location',
+      },
+    });
+
+    const response = await handler(
+      createRequest(
+        { timeMinutes: 30, focus: 'Full Body' },
+        {
+          'x-ai-provider': 'gemini',
+          'x-gemini-key': 'gemini-byok-secret',
+        }
+      )
+    );
+
+    expect(response.status).toBe(200);
+    expect(policy.canGenerate).not.toHaveBeenCalled();
+    expect(router.generate).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      expect.objectContaining({
+        provider: 'gemini',
+        apiKey: 'gemini-byok-secret',
+        useVertexAi: false,
+      })
+    );
+    expect(metering.recordUsage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        provider: 'gemini',
+        credentialSource: 'byok',
+        byok: true,
+      })
+    );
+    expect(JSON.stringify(metering.recordUsage.mock.calls[0][0])).not.toContain(
+      'gemini-byok-secret'
+    );
+  });
+
+  it('treats configured Vertex as managed execution', async () => {
+    const policy = createPolicyMock();
+    const metering = createMeteringMock();
+    const { handler, router } = createHandler({
+      policy,
+      metering,
+      config: {
+        edition: 'HOSTED',
+        defaultProvider: 'gemini',
+        defaultApiKeys: {},
+        useVertexAi: true,
+        googleCloudProject: 'project',
+        googleCloudLocation: 'location',
+      },
+    });
+
+    const response = await handler(
+      createRequest(
+        { timeMinutes: 30, focus: 'Full Body' },
+        { 'x-ai-provider': 'gemini' }
+      )
+    );
+
+    expect(response.status).toBe(200);
+    expect(policy.canGenerate).toHaveBeenCalledTimes(1);
+    expect(router.generate).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      expect.objectContaining({
+        provider: 'gemini',
+        apiKey: undefined,
+        useVertexAi: true,
+      })
+    );
+    expect(metering.recordUsage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        provider: 'gemini',
+        credentialSource: 'vertex',
+        byok: false,
+      })
+    );
+  });
+
   it('routes OpenRouter BYOK requests through the generic key header', async () => {
     const metering = createMeteringMock();
     const router = createRouterMock(
@@ -1092,13 +1265,16 @@ describe('createGenerateHandler', () => {
   });
 
   it('returns an error response on provider failure and sanitizes logged errors', async () => {
+    const credentialSecret = 'sk-live-should-not-appear';
     const router = createRouterMock();
     router.generate.mockRejectedValueOnce(
-      new Error('provider exploded with key sk-live-should-not-appear')
+      new Error(`provider exploded with key ${credentialSecret}`)
     );
+    const metering = createMeteringMock();
 
     const { handler, store } = createHandler({
       router,
+      metering,
       config: {
         edition: 'CE',
         defaultProvider: 'openai',
@@ -1107,16 +1283,20 @@ describe('createGenerateHandler', () => {
     });
 
     const response = await handler(
-      createRequest({
-        timeMinutes: 25,
-        focus: 'Upper Body',
-        equipment: ['Dumbbells'],
-      })
+      createRequest(
+        {
+          timeMinutes: 25,
+          focus: 'Upper Body',
+          equipment: ['Dumbbells'],
+        },
+        { 'x-openai-key': credentialSecret }
+      )
     );
     const json = (await response.json()) as { code: string; message: string };
 
     expect(response.status).toBe(502);
     expect(json.code).toBe('AI_GENERATION_ERROR');
+    expect(json.message).not.toContain(credentialSecret);
     expect(store.setError).toHaveBeenCalledWith(
       'device-123',
       'We could not generate a workout plan. Please try again.'
@@ -1124,8 +1304,11 @@ describe('createGenerateHandler', () => {
     expect(store.persistPlan).not.toHaveBeenCalled();
 
     const loggedWarnings = warnSpy.mock.calls.map((call) => String(call[0]));
-    expect(loggedWarnings.join(' ')).not.toContain('sk-live-should-not-appear');
+    expect(loggedWarnings.join(' ')).not.toContain(credentialSecret);
     expect(loggedWarnings.join(' ')).toContain('[REDACTED]');
+    expect(JSON.stringify(metering.recordUsage.mock.calls[0][0])).not.toContain(
+      credentialSecret
+    );
   });
 
   it('builds a candidate pool on normal generation without changing the public response', async () => {
