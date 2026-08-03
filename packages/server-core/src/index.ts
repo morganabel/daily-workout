@@ -37,6 +37,9 @@ export type {
   PolicyResult,
   Entitlements,
   MeteringSink,
+  ModelCallRecorder,
+  ModelCallUsage,
+  GenerationUsageSummary,
   UsageEvent,
 } from './types';
 

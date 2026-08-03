@@ -11,6 +11,7 @@ import type {
   TodayPlan,
 } from '@workout-agent/shared';
 import type { LlmSchemaVersion } from '../llm-transformer';
+import type { ModelCallRecorder } from '@workout-agent-ce/metering';
 
 export type AiProviderName = 'openai' | 'gemini' | 'openrouter';
 
@@ -30,6 +31,7 @@ export interface AiProviderOptions {
    */
   useVertexAi?: boolean;
   promptRecorder?: (capture: ModelPromptCapture) => void;
+  modelCallRecorder?: ModelCallRecorder;
 }
 
 export interface GenerationResult {

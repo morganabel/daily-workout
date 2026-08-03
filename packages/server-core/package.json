@@ -16,6 +16,7 @@
     }
   },
   "dependencies": {
+    "@workout-agent-ce/metering": "*",
     "@workout-agent-ce/server-exercise-library": "*",
     "@workout-agent/shared": "*",
     "tslib": "^2.3.0",

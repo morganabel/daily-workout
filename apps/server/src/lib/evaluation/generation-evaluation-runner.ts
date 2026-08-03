@@ -2,6 +2,14 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 import {
+  buildGenerationUsageSummary,
+  formatNanoUsd,
+  type GenerationUsageSummary,
+  type MeteringSink,
+  type ModelCallUsage,
+  type UsageEvent,
+} from '@workout-agent-ce/metering';
+import {
   InMemoryGenerationStore,
   StubAuthProvider,
   createGenerateHandler,
@@ -74,6 +82,7 @@ type HandlerBundle = {
   hasConfiguredAccess: boolean;
   router: PromptCapturingRouter;
   planner: PromptCapturingStageOnePlanner;
+  metering: EvaluationMeteringSink;
   close: () => void;
 };
 
@@ -85,6 +94,8 @@ type ExecutedScenarioResult = {
   latencyMs: GenerationEvaluationLatency;
   plannerSummary: GenerationEvaluationPlannerSummary;
   providerPrompt?: GenerationEvaluationProviderPrompt;
+  modelCalls: ModelCallUsage[];
+  costSummary: GenerationUsageSummary;
 };
 
 type PromptCaptureResult = {
@@ -102,6 +113,31 @@ type EvaluationWorkItem = {
   provider: GenerationEvaluationProvider;
   runIndex: number;
 };
+
+class EvaluationMeteringSink implements MeteringSink {
+  private events: UsageEvent[] = [];
+
+  async recordUsage(event: UsageEvent): Promise<void> {
+    this.events.push(event);
+  }
+
+  reset(): void {
+    this.events = [];
+  }
+
+  consumeLatest(): UsageEvent | undefined {
+    const latest = this.events.at(-1);
+    this.events = [];
+    return latest;
+  }
+}
+
+function emptyUsageSummary(operationSucceeded = true): GenerationUsageSummary {
+  return buildGenerationUsageSummary([], {
+    credentialSource: 'managed',
+    operationSucceeded,
+  });
+}
 
 function resolveEvaluationConcurrency(
   options: GenerationEvaluationRunOptions
@@ -329,6 +365,7 @@ function createHandlerBundle(
   const enableStageOnePlanner =
     !isFixtureProvider && process.env.ENABLE_STAGE_ONE_PLANNER !== 'false';
   const hasConfiguredAccess = hasConfiguredProviderAccess(provider);
+  const metering = new EvaluationMeteringSink();
   let exerciseLibrary: ExerciseLibrary | undefined;
 
   return {
@@ -337,6 +374,7 @@ function createHandlerBundle(
       store,
       router,
       planner,
+      metering,
       config: {
         edition,
         defaultProvider: isFixtureProvider ? 'openai' : provider,
@@ -369,6 +407,7 @@ function createHandlerBundle(
     hasConfiguredAccess,
     planner,
     router,
+    metering,
     close: () => {
       exerciseLibrary?.close();
       exerciseLibrary = undefined;
@@ -539,6 +578,7 @@ async function executeScenarioRequest(params: {
 }): Promise<ExecutedScenarioResult> {
   params.bundle.router.consumeLastCapture();
   params.bundle.planner.consumeLastCapture();
+  params.bundle.metering.reset();
   const request = new Request('http://localhost/api/workouts/generate', {
     method: 'POST',
     headers: buildHeaders(params.provider, params.token),
@@ -552,6 +592,7 @@ async function executeScenarioRequest(params: {
   const state = await params.bundle.store.getState(params.token);
   const plannerCapture = params.bundle.planner.consumeLastCapture();
   const generationCapture = params.bundle.router.consumeLastCapture();
+  const usageEvent = params.bundle.metering.consumeLatest();
 
   return {
     responseStatus: response.status,
@@ -569,6 +610,10 @@ async function executeScenarioRequest(params: {
     },
     plannerSummary: plannerCapture.summary,
     providerPrompt: generationCapture.prompt,
+    modelCalls: usageEvent?.modelCalls ?? [],
+    costSummary:
+      usageEvent?.usage ??
+      emptyUsageSummary(response.status >= 200 && response.status < 300),
   };
 }
 
@@ -748,6 +793,64 @@ function buildAverageLatency(
         .map((entry) => entry.latencyMs.stageTwoGenerationMs)
         .filter((value): value is number => value !== undefined)
     ),
+  };
+}
+
+function buildCostSummary(
+  entries: readonly GenerationEvaluationReportEntry[]
+): Pick<
+  GenerationEvaluationReport['summary'],
+  | 'totalCostNanoUsd'
+  | 'setupCostNanoUsd'
+  | 'averageCostNanoUsd'
+  | 'totalTokens'
+  | 'unknownCostCallCount'
+  | 'costByProvider'
+> {
+  const totalCost = entries.reduce(
+    (sum, entry) => sum + BigInt(entry.costSummary.accountedCostNanoUsd),
+    0n
+  );
+  const setupCost = entries.reduce(
+    (sum, entry) => sum + BigInt(entry.setupCostSummary.accountedCostNanoUsd),
+    0n
+  );
+  const costByProvider = entries.reduce<
+    GenerationEvaluationReport['summary']['costByProvider']
+  >((result, entry) => {
+    const current = result[entry.provider] ?? {
+      accountedCostNanoUsd: '0',
+      totalTokens: 0,
+      callCount: 0,
+      unknownCostCallCount: 0,
+    };
+    current.accountedCostNanoUsd = (
+      BigInt(current.accountedCostNanoUsd) +
+      BigInt(entry.costSummary.accountedCostNanoUsd)
+    ).toString();
+    current.totalTokens += entry.costSummary.totalTokens;
+    current.callCount += entry.costSummary.callCount;
+    current.unknownCostCallCount += entry.costSummary.unknownCostCallCount;
+    result[entry.provider] = current;
+    return result;
+  }, {});
+
+  return {
+    totalCostNanoUsd: totalCost.toString(),
+    setupCostNanoUsd: setupCost.toString(),
+    averageCostNanoUsd:
+      entries.length > 0
+        ? (totalCost / BigInt(entries.length)).toString()
+        : '0',
+    totalTokens: entries.reduce(
+      (sum, entry) => sum + entry.costSummary.totalTokens,
+      0
+    ),
+    unknownCostCallCount: entries.reduce(
+      (sum, entry) => sum + entry.costSummary.unknownCostCallCount,
+      0
+    ),
+    costByProvider,
   };
 }
 
@@ -1183,6 +1286,33 @@ function renderHtmlReport(
               ${latencyDetails}
             </section>
             <section>
+              <h4>Model Usage &amp; Cost</h4>
+              <p><strong>Request:</strong> ${escapeHtml(
+                formatNanoUsd(entry.costSummary.accountedCostNanoUsd)
+              )} · ${entry.costSummary.totalTokens.toLocaleString()} tokens · ${
+        entry.costSummary.callCount
+      } calls</p>
+              <p><strong>Regeneration setup:</strong> ${escapeHtml(
+                formatNanoUsd(entry.setupCostSummary.accountedCostNanoUsd)
+              )} · ${entry.setupCostSummary.totalTokens.toLocaleString()} tokens · ${
+        entry.setupCostSummary.callCount
+      } calls</p>
+              <p><strong>Unknown-cost calls:</strong> ${
+                entry.costSummary.unknownCostCallCount +
+                entry.setupCostSummary.unknownCostCallCount
+              }</p>
+              <pre>${escapeHtml(
+                JSON.stringify(
+                  {
+                    requestCalls: entry.modelCalls,
+                    setupCalls: entry.setupModelCalls,
+                  },
+                  null,
+                  2
+                )
+              )}</pre>
+            </section>
+            <section>
               <h4>Planner Summary</h4>
               ${plannerDetails}
             </section>
@@ -1393,6 +1523,22 @@ function renderHtmlReport(
           <div class="stat"><strong>${formatLatencyMs(
             report.summary.averageLatencyMs.stageTwoGenerationMs
           )}</strong><span>Avg stage 2 latency</span></div>
+          <div class="stat"><strong>${formatNanoUsd(
+            report.summary.totalCostNanoUsd
+          )}</strong><span>Measured request cost</span></div>
+          <div class="stat"><strong>${formatNanoUsd(
+            report.summary.setupCostNanoUsd
+          )}</strong><span>Regeneration setup cost</span></div>
+          <div class="stat"><strong>${formatNanoUsd(
+            (
+              BigInt(report.summary.totalCostNanoUsd) +
+              BigInt(report.summary.setupCostNanoUsd)
+            ).toString()
+          )}</strong><span>All-in evaluation spend</span></div>
+          <div class="stat"><strong>${report.summary.totalTokens.toLocaleString()}</strong><span>Measured request tokens</span></div>
+          <div class="stat"><strong>${
+            report.summary.unknownCostCallCount
+          }</strong><span>Calls with unknown cost</span></div>
         </div>
         <h3 style="margin-top: 20px;">Top hard failures</h3>
         <ul class="failure-list">${
@@ -1560,6 +1706,20 @@ function renderMarkdownReport(
     `- Live entries: ${report.summary.liveEntries}`,
     `- Fixture-backed entries: ${report.summary.fixtureEntries}`,
     `- Library entries: ${report.summary.executionSourceCounts.library ?? 0}`,
+    `- Measured request cost: ${formatNanoUsd(
+      report.summary.totalCostNanoUsd
+    )}`,
+    `- Regeneration setup cost: ${formatNanoUsd(
+      report.summary.setupCostNanoUsd
+    )}`,
+    `- All-in evaluation spend: ${formatNanoUsd(
+      (
+        BigInt(report.summary.totalCostNanoUsd) +
+        BigInt(report.summary.setupCostNanoUsd)
+      ).toString()
+    )}`,
+    `- Measured request tokens: ${report.summary.totalTokens}`,
+    `- Calls with unknown cost: ${report.summary.unknownCostCallCount}`,
     `- Avg total latency: ${formatLatencyMs(
       report.summary.averageLatencyMs.totalRequestMs
     )}`,
@@ -1628,6 +1788,22 @@ function renderMarkdownReport(
     lines.push(
       `- Total latency: ${formatLatencyMs(entry.latencyMs.totalRequestMs)}`
     );
+    lines.push(
+      `- Request cost: ${formatNanoUsd(
+        entry.costSummary.accountedCostNanoUsd
+      )} (${entry.costSummary.totalTokens} tokens across ${
+        entry.costSummary.callCount
+      } calls)`
+    );
+    if (entry.setupCostSummary.callCount > 0) {
+      lines.push(
+        `- Regeneration setup cost: ${formatNanoUsd(
+          entry.setupCostSummary.accountedCostNanoUsd
+        )} (${entry.setupCostSummary.totalTokens} tokens across ${
+          entry.setupCostSummary.callCount
+        } calls)`
+      );
+    }
     lines.push(
       `- Stage 1 latency: ${formatLatencyMs(entry.latencyMs.stageOnePlannerMs)}`
     );
@@ -1819,6 +1995,8 @@ export async function runGenerationEvaluation(
         const runId = `${scenario.id}-${provider}-${runIndex}`;
         let effectiveBaselinePlan = scenario.baselinePlan;
         let requestBody = buildRequestBody(scenario);
+        let setupModelCalls: ModelCallUsage[] = [];
+        let setupCostSummary = emptyUsageSummary();
 
         if (
           scenario.mode === 'regeneration' &&
@@ -1837,6 +2015,8 @@ export async function runGenerationEvaluation(
               token: `${runId}-prime`,
               body: buildPrimingRequest(scenario),
             });
+            setupModelCalls = primingResult.modelCalls;
+            setupCostSummary = primingResult.costSummary;
 
             if (
               primingResult.responseStatus === 200 &&
@@ -1903,6 +2083,10 @@ export async function runGenerationEvaluation(
             }),
             plannerSummary: executed.plannerSummary,
             providerPrompt: executed.providerPrompt,
+            modelCalls: executed.modelCalls,
+            costSummary: executed.costSummary,
+            setupModelCalls,
+            setupCostSummary,
             hardChecks: runHardChecksForScenario(
               {
                 ...scenario,
@@ -1936,6 +2120,10 @@ export async function runGenerationEvaluation(
             }),
             plannerSummary: executed.plannerSummary,
             providerPrompt: executed.providerPrompt,
+            modelCalls: executed.modelCalls,
+            costSummary: executed.costSummary,
+            setupModelCalls,
+            setupCostSummary,
             hardChecks: runHardChecksForScenario({
               ...scenario,
               baselinePlan: effectiveBaselinePlan,
@@ -2000,6 +2188,7 @@ export async function runGenerationEvaluation(
         buildAverageLatency(providerEntries),
       ])
     ) as Record<string, GenerationEvaluationAverageLatency>;
+    const costSummary = buildCostSummary(entries);
     const finalProviderGenerationCount = entries.filter(
       (entry) => entry.catalogRouting.providerInvoked
     ).length;
@@ -2042,6 +2231,7 @@ export async function runGenerationEvaluation(
         hardFailureCounts,
         averageLatencyMs,
         averageLatencyByProvider,
+        ...costSummary,
       },
       entries,
     });

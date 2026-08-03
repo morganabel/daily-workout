@@ -82,6 +82,10 @@ function buildProviderOutput(entry, vars, warnings) {
     hardChecks: entry.hardChecks ?? [],
     latencyMs: entry.latencyMs,
     plannerSummary: entry.plannerSummary,
+    modelCalls: entry.modelCalls ?? [],
+    costSummary: entry.costSummary,
+    setupModelCalls: entry.setupModelCalls ?? [],
+    setupCostSummary: entry.setupCostSummary,
     plan: entry.plan,
     errorCode: entry.errorCode,
     errorMessage: entry.errorMessage,
@@ -178,9 +182,27 @@ export default class WorkoutGenerationEvaluationProvider {
     }
 
     const output = buildProviderOutput(entry, vars, report.warnings ?? []);
+    const requestUsage = output.costSummary ?? {};
+    const setupUsage = output.setupCostSummary ?? {};
+    const allInCostNanoUsd = (
+      BigInt(requestUsage.accountedCostNanoUsd ?? '0') +
+      BigInt(setupUsage.accountedCostNanoUsd ?? '0')
+    ).toString();
     return {
       output: JSON.stringify(output),
       prompt: `workout-generation-scenario:${vars.scenarioId}`,
+      cost: Number(BigInt(allInCostNanoUsd)) / 1_000_000_000,
+      tokenUsage: {
+        prompt: (requestUsage.inputTokens ?? 0) + (setupUsage.inputTokens ?? 0),
+        completion:
+          (requestUsage.outputTokens ?? 0) + (setupUsage.outputTokens ?? 0),
+        total: (requestUsage.totalTokens ?? 0) + (setupUsage.totalTokens ?? 0),
+        cached:
+          (requestUsage.cachedInputTokens ?? 0) +
+          (setupUsage.cachedInputTokens ?? 0),
+        numRequests:
+          (requestUsage.callCount ?? 0) + (setupUsage.callCount ?? 0),
+      },
       metadata: {
         scenarioId: output.scenarioId,
         provider: output.provider,
@@ -190,6 +212,14 @@ export default class WorkoutGenerationEvaluationProvider {
         failedHardChecks: output.failedHardChecks.map((check) => check.name),
         variantLabel: output.variantLabel,
         plannerMode: output.plannerMode,
+        requestCostNanoUsd: requestUsage.accountedCostNanoUsd ?? '0',
+        setupCostNanoUsd: setupUsage.accountedCostNanoUsd ?? '0',
+        allInCostNanoUsd,
+        unknownCostCallCount:
+          (requestUsage.unknownCostCallCount ?? 0) +
+          (setupUsage.unknownCostCallCount ?? 0),
+        modelCalls: output.modelCalls,
+        setupModelCalls: output.setupModelCalls,
         reportDir: outputDir,
       },
     };

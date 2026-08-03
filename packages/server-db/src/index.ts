@@ -21,7 +21,15 @@ export {
 
 // Export schema and types
 export * as schema from './lib/schema.js';
-import { user, session, account, verification } from './lib/schema.js';
+export { PostgresMeteringSink, getAiUsageSummary } from './lib/ai-usage.js';
+import {
+  user,
+  session,
+  account,
+  verification,
+  aiUsageEvent,
+  aiModelCall,
+} from './lib/schema.js';
 
 export type User = typeof user.$inferSelect;
 export type NewUser = typeof user.$inferInsert;
@@ -31,3 +39,7 @@ export type Account = typeof account.$inferSelect;
 export type NewAccount = typeof account.$inferInsert;
 export type Verification = typeof verification.$inferSelect;
 export type NewVerification = typeof verification.$inferInsert;
+export type AiUsageEvent = typeof aiUsageEvent.$inferSelect;
+export type NewAiUsageEvent = typeof aiUsageEvent.$inferInsert;
+export type AiModelCall = typeof aiModelCall.$inferSelect;
+export type NewAiModelCall = typeof aiModelCall.$inferInsert;

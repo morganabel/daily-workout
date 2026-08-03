@@ -48,6 +48,9 @@
   ],
   "references": [
     {
+      "path": "../../packages/metering"
+    },
+    {
       "path": "../../packages/shared"
     },
     {

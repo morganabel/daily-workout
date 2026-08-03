@@ -31,6 +31,10 @@ export type PromptfooGenerationProviderOutput = {
   hardChecks: GenerationEvaluationHardCheckResult[];
   latencyMs: GenerationEvaluationReportEntry['latencyMs'];
   plannerSummary: GenerationEvaluationReportEntry['plannerSummary'];
+  modelCalls: GenerationEvaluationReportEntry['modelCalls'];
+  costSummary: GenerationEvaluationReportEntry['costSummary'];
+  setupModelCalls: GenerationEvaluationReportEntry['setupModelCalls'];
+  setupCostSummary: GenerationEvaluationReportEntry['setupCostSummary'];
   plan?: GenerationEvaluationReportEntry['plan'];
   errorCode?: string;
   errorMessage?: string;
@@ -136,6 +140,10 @@ export function buildPromptfooGenerationProviderOutput(params: {
     hardChecks: params.entry.hardChecks,
     latencyMs: params.entry.latencyMs,
     plannerSummary: params.entry.plannerSummary,
+    modelCalls: params.entry.modelCalls,
+    costSummary: params.entry.costSummary,
+    setupModelCalls: params.entry.setupModelCalls,
+    setupCostSummary: params.entry.setupCostSummary,
     plan: params.entry.plan,
     errorCode: params.entry.errorCode,
     errorMessage: params.entry.errorMessage,

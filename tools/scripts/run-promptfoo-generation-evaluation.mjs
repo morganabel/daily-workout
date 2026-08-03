@@ -466,6 +466,14 @@ function readComparisonRows(outputDir) {
           pass: entry.status === 'success' && failures.length === 0,
           failures,
           latencyMs: entry.latencyMs?.totalRequestMs,
+          requestCostNanoUsd: entry.costSummary?.accountedCostNanoUsd ?? '0',
+          setupCostNanoUsd: entry.setupCostSummary?.accountedCostNanoUsd ?? '0',
+          totalTokens:
+            (entry.costSummary?.totalTokens ?? 0) +
+            (entry.setupCostSummary?.totalTokens ?? 0),
+          unknownCostCallCount:
+            (entry.costSummary?.unknownCostCallCount ?? 0) +
+            (entry.setupCostSummary?.unknownCostCallCount ?? 0),
           plannerUsed: Boolean(entry.plannerSummary?.usedStageOne),
           summary:
             entry.plan?.summary ??
@@ -509,6 +517,14 @@ function buildProviderSummaries(rows) {
       cleanEntries: providerRows.length - failedRows.length,
       failedEntries: failedRows.length,
       avgLatencyMs: average(providerRows.map((row) => row.latencyMs)),
+      totalCostNanoUsd: providerRows
+        .reduce(
+          (sum, row) =>
+            sum + BigInt(row.requestCostNanoUsd) + BigInt(row.setupCostNanoUsd),
+          0n
+        )
+        .toString(),
+      totalTokens: providerRows.reduce((sum, row) => sum + row.totalTokens, 0),
       hardFailures: [
         ...new Set(providerRows.flatMap((row) => row.failures)),
       ].sort(),
@@ -518,6 +534,10 @@ function buildProviderSummaries(rows) {
 
 function formatMs(value) {
   return typeof value === 'number' ? `${Math.round(value)} ms` : 'n/a';
+}
+
+function formatCost(value) {
+  return `$${(Number(BigInt(value)) / 1_000_000_000).toFixed(6)}`;
 }
 
 function formatPass(row) {
@@ -582,14 +602,16 @@ function renderComparisonMarkdown(params) {
     '',
     '## Provider Summary',
     '',
-    '| Provider | Clean / Total | Avg Latency | Hard Failures |',
-    '| --- | ---: | ---: | --- |',
+    '| Provider | Clean / Total | Avg Latency | All-in Cost | Tokens | Hard Failures |',
+    '| --- | ---: | ---: | ---: | ---: | --- |',
     ...providerSummaries
       .map((summary) =>
         [
           summary.provider,
           `${summary.cleanEntries} / ${summary.entries}`,
           formatMs(summary.avgLatencyMs),
+          formatCost(summary.totalCostNanoUsd),
+          summary.totalTokens,
           summary.hardFailures.length > 0
             ? summary.hardFailures.join(', ')
             : 'none',
@@ -601,8 +623,8 @@ function renderComparisonMarkdown(params) {
     '',
     '## Scenario Results',
     '',
-    '| Scenario | Provider | Source | Result | Latency | Workout Summary | Exercises | Detail |',
-    '| --- | --- | --- | --- | ---: | --- | --- | --- |',
+    '| Scenario | Provider | Source | Result | Latency | Cost | Tokens | Workout Summary | Exercises | Detail |',
+    '| --- | --- | --- | --- | ---: | ---: | ---: | --- | --- | --- |',
     ...params.rows
       .map((row) =>
         [
@@ -611,6 +633,12 @@ function renderComparisonMarkdown(params) {
           row.executionSource,
           formatPass(row),
           formatMs(row.latencyMs),
+          formatCost(
+            (
+              BigInt(row.requestCostNanoUsd) + BigInt(row.setupCostNanoUsd)
+            ).toString()
+          ),
+          row.totalTokens,
           row.summary,
           formatExerciseSummary(row),
           row.detailHtmlPath
@@ -638,6 +666,8 @@ function renderComparisonHtml(params) {
         <td>${escapeHtml(summary.provider)}</td>
         <td>${summary.cleanEntries} / ${summary.entries}</td>
         <td>${escapeHtml(formatMs(summary.avgLatencyMs))}</td>
+        <td>${escapeHtml(formatCost(summary.totalCostNanoUsd))}</td>
+        <td>${summary.totalTokens}</td>
         <td>${escapeHtml(
           summary.hardFailures.length > 0
             ? summary.hardFailures.join(', ')
@@ -659,6 +689,14 @@ function renderComparisonHtml(params) {
         formatPass(row)
       )}</span></td>
         <td>${escapeHtml(formatMs(row.latencyMs))}</td>
+        <td>${escapeHtml(
+          formatCost(
+            (
+              BigInt(row.requestCostNanoUsd) + BigInt(row.setupCostNanoUsd)
+            ).toString()
+          )
+        )}</td>
+        <td>${row.totalTokens}</td>
         <td>${escapeHtml(row.summary)}</td>
         <td>${escapeHtml(formatExerciseSummary(row))}</td>
         <td>${
@@ -713,6 +751,19 @@ function renderComparisonHtml(params) {
       <div class="stat"><strong>${
         params.rows.length - cleanEntries
       }</strong><span>Entries with failures</span></div>
+      <div class="stat"><strong>${escapeHtml(
+        formatCost(
+          params.rows
+            .reduce(
+              (sum, row) =>
+                sum +
+                BigInt(row.requestCostNanoUsd) +
+                BigInt(row.setupCostNanoUsd),
+              0n
+            )
+            .toString()
+        )
+      )}</strong><span>All-in evaluation spend</span></div>
       <div class="stat"><strong>${
         promptfooStats
           ? `${promptfooStats.successes ?? 0}/${
@@ -726,13 +777,13 @@ function renderComparisonHtml(params) {
 
     <h2>Provider Summary</h2>
     <table>
-      <thead><tr><th>Provider</th><th>Clean / Total</th><th>Avg Latency</th><th>Hard Failures</th></tr></thead>
+      <thead><tr><th>Provider</th><th>Clean / Total</th><th>Avg Latency</th><th>All-in Cost</th><th>Tokens</th><th>Hard Failures</th></tr></thead>
       <tbody>${providerRows}</tbody>
     </table>
 
     <h2>Scenario Results</h2>
     <table>
-      <thead><tr><th>Scenario</th><th>Provider</th><th>Source</th><th>Result</th><th>Latency</th><th>Workout Summary</th><th>Exercises</th><th>Detail</th></tr></thead>
+      <thead><tr><th>Scenario</th><th>Provider</th><th>Source</th><th>Result</th><th>Latency</th><th>Cost</th><th>Tokens</th><th>Workout Summary</th><th>Exercises</th><th>Detail</th></tr></thead>
       <tbody>${scenarioRows}</tbody>
     </table>
   </main>

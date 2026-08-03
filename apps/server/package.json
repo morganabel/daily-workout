@@ -3,6 +3,7 @@
   "version": "0.0.1",
   "private": true,
   "dependencies": {
+    "@workout-agent-ce/metering": "*",
     "@workout-agent-ce/server-ai": "*",
     "@workout-agent-ce/server-auth": "*",
     "@workout-agent-ce/server-core": "*",

@@ -40,6 +40,11 @@ import {
   createRequestContext,
   redactSensitiveStrings,
 } from '../utils/logging';
+import {
+  buildGenerationUsageSummary,
+  type ModelCallUsage,
+  type ModelCredentialSource,
+} from '@workout-agent-ce/metering';
 
 const DEFAULT_GENERATION_ETA_SECONDS = 18;
 const CATALOG_RECIPE_COOLDOWN_DAYS = 7;
@@ -679,6 +684,12 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
     const isByok = Boolean(
       openaiKeyHeader || geminiKeyHeader || genericKeyHeader
     );
+    const credentialSource: ModelCredentialSource = isByok
+      ? 'byok'
+      : useVertexAi
+      ? 'vertex'
+      : 'managed';
+    const modelCalls: ModelCallUsage[] = [];
     const allowUnconfiguredProvider = Boolean(
       deps.config.allowUnconfiguredProvider
     );
@@ -975,6 +986,7 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
             planningBrief: effectivePlanningBrief,
             provider,
             useVertexAi,
+            modelCallRecorder: (usage) => modelCalls.push(usage),
           });
           log.info('stage-one planner completed', {
             provider,
@@ -1038,6 +1050,7 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
           stageOneArtifact,
           provider,
           useVertexAi,
+          modelCallRecorder: (usage) => modelCalls.push(usage),
         });
         plan = result.plan;
         responseId = result.responseId;
@@ -1069,6 +1082,33 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
           auth.principalId,
           'We could not generate a workout plan. Please try again.'
         );
+        if (deps.metering) {
+          try {
+            await deps.metering.recordUsage({
+              userId: auth.userId,
+              operationId: requestId,
+              operation: effectivePlanningBrief.regeneration.isRegeneration
+                ? 'regenerate'
+                : 'generate',
+              provider,
+              credentialSource,
+              byok: isByok,
+              timestamp: new Date().toISOString(),
+              durationMs: Date.now() - startedAt,
+              result: 'error',
+              modelCalls,
+              usage: buildGenerationUsageSummary(modelCalls, {
+                credentialSource,
+                operationSucceeded: false,
+              }),
+              metadata: { errorCode: 'AI_GENERATION_ERROR' },
+            });
+          } catch (meteringError) {
+            log.warn('failed to record generation usage', {
+              message: sanitizeErrorMessage((meteringError as Error).message),
+            });
+          }
+        }
         await rollbackManagedReservation();
         return errorResponse('AI_GENERATION_ERROR', sanitizedMessage, 502);
       }
@@ -1096,21 +1136,35 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
       });
 
       // Record metering event
-      if (deps.metering && apiKey) {
-        await deps.metering.recordUsage({
-          userId: auth.userId,
-          operation: effectivePlanningBrief.regeneration.isRegeneration
-            ? 'regenerate'
-            : 'generate',
-          provider,
-          byok: isByok,
-          timestamp: new Date().toISOString(),
-          durationMs: Date.now() - startedAt,
-          metadata: {
-            responseId,
-            schemaVersion,
-          },
-        });
+      if (deps.metering) {
+        try {
+          await deps.metering.recordUsage({
+            userId: auth.userId,
+            operationId: requestId,
+            operation: effectivePlanningBrief.regeneration.isRegeneration
+              ? 'regenerate'
+              : 'generate',
+            provider,
+            credentialSource,
+            byok: isByok,
+            timestamp: new Date().toISOString(),
+            durationMs: Date.now() - startedAt,
+            result: 'success',
+            modelCalls,
+            usage: buildGenerationUsageSummary(modelCalls, {
+              credentialSource,
+              operationSucceeded: true,
+            }),
+            metadata: {
+              responseId,
+              schemaVersion,
+            },
+          });
+        } catch (meteringError) {
+          log.warn('failed to record generation usage', {
+            message: sanitizeErrorMessage((meteringError as Error).message),
+          });
+        }
       }
 
       const response = Response.json(validated);

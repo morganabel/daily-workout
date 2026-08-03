@@ -1,5 +1,6 @@
 import type { ExerciseCandidatePool, ModelPromptCapture } from './model-router';
 import type { PlanningBrief, StageOnePlannerArtifact } from './planning';
+import type { ModelCallRecorder } from './metering';
 import type {
   AiProviderName,
   GenerationContext,
@@ -14,6 +15,7 @@ export interface StageOnePlanningOptions {
   candidatePool?: ExerciseCandidatePool;
   planningBrief?: PlanningBrief;
   promptRecorder?: (capture: ModelPromptCapture) => void;
+  modelCallRecorder?: ModelCallRecorder;
 }
 
 export interface StageOnePlanner {
