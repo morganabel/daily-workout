@@ -20,6 +20,12 @@ export {
   type DerivePlanningBriefParams,
 } from './planning';
 export {
+  resolveProviderCredential,
+  type ProviderCredentialSource,
+  type ResolvedProviderCredential,
+  type ResolveProviderCredentialParams,
+} from './provider-credential';
+export {
   safeLog,
   redactSecrets,
   redactSecretsAndPii,
