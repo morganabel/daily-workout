@@ -1,0 +1,1 @@
+replace the custom PostgreSQL process runner with a Testcontainers-managed PostgreSQL 18 lifecycle and run the integration target in CI
