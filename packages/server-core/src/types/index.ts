@@ -41,4 +41,16 @@ export type {
   StageOnePlannerArtifact,
 } from './planning';
 export type { UsagePolicy, PolicyResult, Entitlements } from './policy';
-export type { MeteringSink, UsageEvent } from './metering';
+export type {
+  GenerationUsageSummary,
+  MeteringSink,
+  ModelCallCost,
+  ModelCallCostSource,
+  ModelCallPhase,
+  ModelCallRecorder,
+  ModelCallUsage,
+  ModelCredentialSource,
+  ModelProvider,
+  ModelTokenUsage,
+  UsageEvent,
+} from './metering';

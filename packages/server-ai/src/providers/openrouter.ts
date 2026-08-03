@@ -27,6 +27,7 @@ import {
   parseStageOnePlannerArtifact,
   stageOnePlannerArtifactSchema,
 } from './stage-one-schema';
+import { openRouterTokenUsage, recordModelCall } from './usage';
 
 const DEFAULT_MODEL =
   process.env.OPENROUTER_MODEL ?? 'deepseek/deepseek-v4-flash-0731';
@@ -136,6 +137,7 @@ export class OpenRouterProvider implements AiProvider {
     });
 
     const started = Date.now();
+    let callRecorded = false;
     try {
       const response = await client.chat.send({
         chatRequest: {
@@ -157,6 +159,18 @@ export class OpenRouterProvider implements AiProvider {
       if (!('choices' in response)) {
         throw new Error('Unexpected streaming response from OpenRouter');
       }
+      recordModelCall(options, {
+        provider: 'openrouter',
+        phase: 'stage-one-planner',
+        requestedModel: model,
+        resolvedModel: response.model,
+        responseId: response.id,
+        startedAtMs: started,
+        status: 'success',
+        tokens: openRouterTokenUsage(response.usage),
+        providerReportedCostUsd: response.usage?.cost ?? undefined,
+      });
+      callRecorded = true;
       const text = getTextContent(response.choices[0]?.message.content);
       if (!text) {
         throw new Error('Empty response from OpenRouter');
@@ -173,6 +187,16 @@ export class OpenRouterProvider implements AiProvider {
       const originalMessage =
         error instanceof Error ? error.message : String(error);
       const status = getStatus(error);
+      if (!callRecorded) {
+        recordModelCall(options, {
+          provider: 'openrouter',
+          phase: 'stage-one-planner',
+          requestedModel: model,
+          startedAtMs: started,
+          status: 'error',
+          errorCode: status ? String(status) : 'REQUEST_FAILED',
+        });
+      }
       throw new AiGenerationError(
         `Provider request failed${
           status ? ` (${status})` : ''
@@ -235,6 +259,7 @@ export class OpenRouterProvider implements AiProvider {
     let planPayload: unknown;
     let responseId = '';
     const started = Date.now();
+    let callRecorded = false;
     try {
       const response = await client.chat.send({
         chatRequest: {
@@ -256,6 +281,18 @@ export class OpenRouterProvider implements AiProvider {
       if (!('choices' in response)) {
         throw new Error('Unexpected streaming response from OpenRouter');
       }
+      recordModelCall(options, {
+        provider: 'openrouter',
+        phase: 'stage-two-generation',
+        requestedModel: model,
+        resolvedModel: response.model,
+        responseId: response.id,
+        startedAtMs: started,
+        status: 'success',
+        tokens: openRouterTokenUsage(response.usage),
+        providerReportedCostUsd: response.usage?.cost ?? undefined,
+      });
+      callRecorded = true;
       const text = getTextContent(response.choices[0]?.message.content);
       if (!text) {
         throw new Error('Empty response from OpenRouter');
@@ -273,6 +310,16 @@ export class OpenRouterProvider implements AiProvider {
       const originalMessage =
         error instanceof Error ? error.message : String(error);
       const status = getStatus(error);
+      if (!callRecorded) {
+        recordModelCall(options, {
+          provider: 'openrouter',
+          phase: 'stage-two-generation',
+          requestedModel: model,
+          startedAtMs: started,
+          status: 'error',
+          errorCode: status ? String(status) : 'REQUEST_FAILED',
+        });
+      }
       throw new AiGenerationError(
         `Provider request failed${
           status ? ` (${status})` : ''

@@ -197,13 +197,22 @@ describe('OpenAIProvider', () => {
     });
 
     it('should successfully generate a workout plan', async () => {
+      const modelCallRecorder = jest.fn();
       mockResponsesParse.mockResolvedValue({
         id: 'resp-abc123',
+        model: 'gpt-5.6-luna-2026-07-01',
+        usage: {
+          input_tokens: 1_000,
+          output_tokens: 500,
+          total_tokens: 1_500,
+          input_tokens_details: { cached_tokens: 200 },
+        },
         output_parsed: mockLlmPlan,
       });
 
       const result = await provider.generate(mockRequest, mockContext, {
         apiKey: 'sk-test-key',
+        modelCallRecorder,
       });
 
       expect(OpenAI).toHaveBeenCalledWith({
@@ -214,6 +223,20 @@ describe('OpenAIProvider', () => {
       expect(result.plan.id).toBe('mock-plan-id');
       expect(result.plan.source).toBe('ai');
       expect(result.responseId).toBe('resp-abc123');
+      expect(modelCallRecorder).toHaveBeenCalledWith(
+        expect.objectContaining({
+          phase: 'stage-two-generation',
+          provider: 'openai',
+          requestedModel: 'gpt-5.6-luna',
+          resolvedModel: 'gpt-5.6-luna-2026-07-01',
+          responseId: 'resp-abc123',
+          tokens: expect.objectContaining({ totalTokens: 1_500 }),
+          cost: expect.objectContaining({
+            amountNanoUsd: '3820000',
+            source: 'catalog_estimate',
+          }),
+        })
+      );
       expect(mockResponsesParse).toHaveBeenCalledWith(
         expect.objectContaining({
           model: 'gpt-5.6-luna',

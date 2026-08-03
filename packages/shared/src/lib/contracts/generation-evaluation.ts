@@ -363,6 +363,84 @@ export type GenerationEvaluationCatalogRouting = z.infer<
   typeof generationEvaluationCatalogRoutingSchema
 >;
 
+export const generationEvaluationModelCallSchema = z
+  .object({
+    phase: z.enum([
+      'stage-one-planner',
+      'stage-two-generation',
+      'corrective-generation',
+    ]),
+    provider: z.enum(['openai', 'gemini', 'openrouter']),
+    requestedModel: z.string().min(1),
+    resolvedModel: z.string().min(1).optional(),
+    responseId: z.string().min(1).optional(),
+    status: z.enum(['success', 'error']),
+    startedAt: z.string().datetime(),
+    durationMs: z.number().int().nonnegative(),
+    tokens: z
+      .object({
+        inputTokens: z.number().int().nonnegative(),
+        outputTokens: z.number().int().nonnegative(),
+        totalTokens: z.number().int().nonnegative(),
+        cachedInputTokens: z.number().int().nonnegative().optional(),
+        reasoningOutputTokens: z.number().int().nonnegative().optional(),
+      })
+      .strict()
+      .optional(),
+    cost: z
+      .object({
+        currency: z.literal('USD'),
+        amountNanoUsd: z.string().regex(/^\d+$/).optional(),
+        source: z.enum([
+          'provider_reported',
+          'catalog_estimate',
+          'not_billable',
+          'unavailable',
+        ]),
+        pricingSnapshotId: z.string().min(1).optional(),
+      })
+      .strict(),
+    upstreamAttemptCount: z.number().int().positive(),
+    errorCode: z.string().min(1).optional(),
+  })
+  .strict();
+export type GenerationEvaluationModelCall = z.infer<
+  typeof generationEvaluationModelCallSchema
+>;
+
+export const generationEvaluationUsageSummarySchema = z
+  .object({
+    callCount: z.number().int().nonnegative(),
+    successfulCallCount: z.number().int().nonnegative(),
+    failedCallCount: z.number().int().nonnegative(),
+    unknownCostCallCount: z.number().int().nonnegative(),
+    inputTokens: z.number().int().nonnegative(),
+    outputTokens: z.number().int().nonnegative(),
+    cachedInputTokens: z.number().int().nonnegative(),
+    reasoningOutputTokens: z.number().int().nonnegative(),
+    totalTokens: z.number().int().nonnegative(),
+    accountedCostNanoUsd: z.string().regex(/^\d+$/),
+    platformCostNanoUsd: z.string().regex(/^\d+$/),
+    byokEstimatedCostNanoUsd: z.string().regex(/^\d+$/),
+    allowanceChargeNanoUsd: z.string().regex(/^\d+$/),
+  })
+  .strict();
+export type GenerationEvaluationUsageSummary = z.infer<
+  typeof generationEvaluationUsageSummarySchema
+>;
+
+export const generationEvaluationProviderCostSummarySchema = z
+  .object({
+    accountedCostNanoUsd: z.string().regex(/^\d+$/),
+    totalTokens: z.number().int().nonnegative(),
+    callCount: z.number().int().nonnegative(),
+    unknownCostCallCount: z.number().int().nonnegative(),
+  })
+  .strict();
+export type GenerationEvaluationProviderCostSummary = z.infer<
+  typeof generationEvaluationProviderCostSummarySchema
+>;
+
 export const generationEvaluationReportEntrySchema = z
   .object({
     scenarioId: evaluationScenarioIdSchema,
@@ -383,6 +461,10 @@ export const generationEvaluationReportEntrySchema = z
     catalogRouting: generationEvaluationCatalogRoutingSchema,
     plannerSummary: generationEvaluationPlannerSummarySchema,
     providerPrompt: generationEvaluationProviderPromptSchema.optional(),
+    modelCalls: z.array(generationEvaluationModelCallSchema),
+    costSummary: generationEvaluationUsageSummarySchema,
+    setupModelCalls: z.array(generationEvaluationModelCallSchema),
+    setupCostSummary: generationEvaluationUsageSummarySchema,
     plan: todayPlanSchema.optional(),
     errorCode: z.string().optional(),
     errorMessage: z.string().optional(),
@@ -413,6 +495,15 @@ export const generationEvaluationReportSchema = z
         averageLatencyByProvider: z.record(
           z.string(),
           generationEvaluationAverageLatencySchema
+        ),
+        totalCostNanoUsd: z.string().regex(/^\d+$/),
+        setupCostNanoUsd: z.string().regex(/^\d+$/),
+        averageCostNanoUsd: z.string().regex(/^\d+$/),
+        totalTokens: z.number().int().nonnegative(),
+        unknownCostCallCount: z.number().int().nonnegative(),
+        costByProvider: z.record(
+          z.string(),
+          generationEvaluationProviderCostSummarySchema
         ),
       })
       .strict(),

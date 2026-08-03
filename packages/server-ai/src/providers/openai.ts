@@ -27,6 +27,7 @@ import {
   parseStageOnePlannerArtifact,
   stageOnePlannerArtifactSchema,
 } from './stage-one-schema';
+import { openAiTokenUsage, recordModelCall } from './usage';
 
 const DEFAULT_MODEL = process.env.OPENAI_MODEL ?? 'gpt-5.6-luna';
 const DEFAULT_PLANNER_MODEL =
@@ -89,6 +90,7 @@ export class OpenAIProvider implements AiProvider {
     });
 
     const started = Date.now();
+    let callRecorded = false;
     try {
       const response = await client.responses.parse({
         model,
@@ -101,6 +103,17 @@ export class OpenAIProvider implements AiProvider {
           ),
         },
       });
+      recordModelCall(options, {
+        provider: 'openai',
+        phase: 'stage-one-planner',
+        requestedModel: model,
+        resolvedModel: response.model,
+        responseId: response.id,
+        startedAtMs: started,
+        status: 'success',
+        tokens: openAiTokenUsage(response.usage),
+      });
+      callRecorded = true;
 
       log.info('stage-one planner completed', {
         provider: 'openai',
@@ -116,6 +129,16 @@ export class OpenAIProvider implements AiProvider {
         typeof (error as { status?: number }).status === 'number'
           ? (error as { status?: number }).status
           : undefined;
+      if (!callRecorded) {
+        recordModelCall(options, {
+          provider: 'openai',
+          phase: 'stage-one-planner',
+          requestedModel: model,
+          startedAtMs: started,
+          status: 'error',
+          errorCode: status ? String(status) : 'REQUEST_FAILED',
+        });
+      }
       throw new AiGenerationError(
         `Provider request failed${
           status ? ` (${status})` : ''
@@ -210,6 +233,7 @@ export class OpenAIProvider implements AiProvider {
     let planPayload: unknown = null;
     let responseId = '';
     const started = Date.now();
+    let callRecorded = false;
     try {
       const response = await client.responses.parse({
         model,
@@ -227,6 +251,17 @@ export class OpenAIProvider implements AiProvider {
       });
       planPayload = response.output_parsed;
       responseId = response.id;
+      recordModelCall(options, {
+        provider: 'openai',
+        phase: 'stage-two-generation',
+        requestedModel: model,
+        resolvedModel: response.model,
+        responseId: response.id,
+        startedAtMs: started,
+        status: 'success',
+        tokens: openAiTokenUsage(response.usage),
+      });
+      callRecorded = true;
       log.info('model call completed', {
         provider: 'openai',
         model,
@@ -240,6 +275,16 @@ export class OpenAIProvider implements AiProvider {
         typeof (error as { status?: number }).status === 'number'
           ? (error as { status?: number }).status
           : undefined;
+      if (!callRecorded) {
+        recordModelCall(options, {
+          provider: 'openai',
+          phase: 'stage-two-generation',
+          requestedModel: model,
+          startedAtMs: started,
+          status: 'error',
+          errorCode: status ? String(status) : 'REQUEST_FAILED',
+        });
+      }
       throw new AiGenerationError(
         `Provider request failed${
           status ? ` (${status})` : ''

@@ -84,6 +84,7 @@ export class DefaultModelRouter implements ModelRouter {
       stageOneArtifact: options.stageOneArtifact,
       model: options.model,
       promptRecorder: options.promptRecorder,
+      modelCallRecorder: options.modelCallRecorder,
       useVertexAi: options.useVertexAi,
     };
 
@@ -129,6 +130,7 @@ export class DefaultStageOnePlanner implements StageOnePlanner {
       planningBrief: options.planningBrief,
       model: options.model,
       promptRecorder: options.promptRecorder,
+      modelCallRecorder: options.modelCallRecorder,
       useVertexAi: options.useVertexAi,
     };
 

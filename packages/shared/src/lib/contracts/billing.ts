@@ -72,6 +72,69 @@ export type BillingEntitlementsResponse = z.infer<
   typeof billingEntitlementsResponseSchema
 >;
 
+const nanoUsdSchema = z.string().regex(/^\d+$/);
+
+export const billingAiUsageTotalsSchema = z
+  .object({
+    requestCount: z.number().int().nonnegative(),
+    successfulRequestCount: z.number().int().nonnegative(),
+    failedRequestCount: z.number().int().nonnegative(),
+    callCount: z.number().int().nonnegative(),
+    unknownCostCallCount: z.number().int().nonnegative(),
+    inputTokens: z.number().int().nonnegative(),
+    outputTokens: z.number().int().nonnegative(),
+    cachedInputTokens: z.number().int().nonnegative(),
+    totalTokens: z.number().int().nonnegative(),
+    accountedCostNanoUsd: nanoUsdSchema,
+    platformCostNanoUsd: nanoUsdSchema,
+    byokEstimatedCostNanoUsd: nanoUsdSchema,
+    allowanceChargeNanoUsd: nanoUsdSchema,
+  })
+  .strict();
+export type BillingAiUsageTotals = z.infer<typeof billingAiUsageTotalsSchema>;
+
+export const billingAiUsageResponseSchema = z
+  .object({
+    window: z
+      .object({
+        startsAt: z.string().datetime(),
+        endsAt: z.string().datetime(),
+      })
+      .strict(),
+    totals: billingAiUsageTotalsSchema,
+    byProvider: z.record(z.string(), billingAiUsageTotalsSchema),
+    shadowBudget: z
+      .object({
+        limitNanoUsd: nanoUsdSchema,
+        remainingNanoUsd: nanoUsdSchema,
+        exceeded: z.boolean(),
+        utilizationPercent: z.number().nonnegative(),
+      })
+      .strict()
+      .nullable(),
+    recentRequests: z.array(
+      z
+        .object({
+          operationId: z.string().min(1),
+          operation: z.enum(['generate', 'regenerate']),
+          provider: z.enum(['openai', 'gemini', 'openrouter']),
+          credentialSource: z.enum(['managed', 'vertex', 'byok']).nullable(),
+          result: z.enum(['success', 'error']).nullable(),
+          timestamp: z.string().datetime(),
+          durationMs: z.number().int().nonnegative().nullable(),
+          callCount: z.number().int().nonnegative(),
+          totalTokens: z.number().int().nonnegative(),
+          accountedCostNanoUsd: nanoUsdSchema,
+          allowanceChargeNanoUsd: nanoUsdSchema,
+        })
+        .strict()
+    ),
+  })
+  .strict();
+export type BillingAiUsageResponse = z.infer<
+  typeof billingAiUsageResponseSchema
+>;
+
 export const upgradeMetadataSchema = z
   .object({
     showUpgradeUi: z.boolean().optional(),

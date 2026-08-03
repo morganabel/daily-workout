@@ -23,6 +23,7 @@ import {
   DefaultStageOnePlanner,
 } from '@workout-agent-ce/server-ai';
 import type { ExerciseLibrary } from '@workout-agent-ce/server-exercise-library';
+import { PostgresMeteringSink } from '@workout-agent-ce/server-db';
 import type { AiProviderName } from '@workout-agent/shared';
 import { getAuthContext } from './auth-context';
 import { hostedBillingRuntime, HostedUsagePolicy } from './hosted-billing';
@@ -105,8 +106,21 @@ export const usagePolicy: UsagePolicy = hostedBilling
   ? new HostedUsagePolicy(hostedBillingRuntime)
   : new NoOpUsagePolicy();
 
-// Usage is reserved at policy-check time; metering sink is a no-op for both editions.
-export const meteringSink: MeteringSink = new NoOpMeteringSink();
+let cachedPostgresMeteringSink: PostgresMeteringSink | null = null;
+
+// Hosted generation writes an idempotent operation ledger. CE remains no-op.
+export const meteringSink: MeteringSink = hostedBilling
+  ? {
+      async recordUsage(event) {
+        const { db } = await getAuthContext();
+        if (!db) {
+          return;
+        }
+        cachedPostgresMeteringSink ??= new PostgresMeteringSink(db);
+        await cachedPostgresMeteringSink.recordUsage(event);
+      },
+    }
+  : new NoOpMeteringSink();
 
 // The generate handler needs the auth provider, which is resolved
 // asynchronously (Better Auth may open the DB connection via the Cloud SQL

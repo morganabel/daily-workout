@@ -6,6 +6,7 @@ import type {
 } from '@workout-agent/shared';
 import type { WorkoutCatalogMatch } from '@workout-agent-ce/server-exercise-library';
 import type { PlanningBrief, StageOnePlannerArtifact } from './planning';
+import type { ModelCallRecorder } from './metering';
 
 export interface ExerciseCandidateReference {
   id: string;
@@ -150,6 +151,9 @@ export interface ModelGenerationOptions {
    * Optional sink for capturing the provider prompt for debugging/evaluation.
    */
   promptRecorder?: (capture: ModelPromptCapture) => void;
+
+  /** Optional request-scoped sink for provider usage and cost accounting. */
+  modelCallRecorder?: ModelCallRecorder;
 }
 
 /**

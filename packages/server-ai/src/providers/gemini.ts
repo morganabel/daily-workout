@@ -27,6 +27,7 @@ import {
   parseStageOnePlannerArtifact,
   stageOnePlannerArtifactSchema,
 } from './stage-one-schema';
+import { geminiTokenUsage, recordModelCall } from './usage';
 
 const DEFAULT_MODEL = process.env.GEMINI_MODEL ?? 'gemini-3.5-flash';
 const DEFAULT_PLANNER_MODEL =
@@ -97,6 +98,8 @@ export class GeminiProvider implements AiProvider {
       content: prompt,
     });
 
+    const started = Date.now();
+    let callRecorded = false;
     try {
       const result = await genAI.models.generateContent({
         model,
@@ -106,6 +109,18 @@ export class GeminiProvider implements AiProvider {
           responseSchema: z.toJSONSchema(stageOnePlannerArtifactSchema),
         },
       });
+      recordModelCall(options, {
+        provider: 'gemini',
+        phase: 'stage-one-planner',
+        requestedModel: model,
+        resolvedModel: result.modelVersion,
+        responseId: result.responseId,
+        startedAtMs: started,
+        status: 'success',
+        tokens: geminiTokenUsage(result.usageMetadata),
+        endpoint: useVertex ? 'vertex' : 'standard',
+      });
+      callRecorded = true;
       const text = (result.text ?? '').trim();
       if (!text) {
         throw new Error('Empty response from Gemini');
@@ -128,6 +143,17 @@ export class GeminiProvider implements AiProvider {
         typeof (error as { status?: number }).status === 'number'
           ? (error as { status?: number }).status
           : undefined;
+      if (!callRecorded) {
+        recordModelCall(options, {
+          provider: 'gemini',
+          phase: 'stage-one-planner',
+          requestedModel: model,
+          startedAtMs: started,
+          status: 'error',
+          endpoint: useVertex ? 'vertex' : 'standard',
+          errorCode: status ? String(status) : 'REQUEST_FAILED',
+        });
+      }
       throw new AiGenerationError(
         `Provider request failed${
           status ? ` (${status})` : ''
@@ -227,6 +253,7 @@ export class GeminiProvider implements AiProvider {
     let planPayload: unknown = null;
     let responseId = '';
     const started = Date.now();
+    let callRecorded = false;
     try {
       // Use structured output with JSON schema
       const result = await genAI.models.generateContent({
@@ -238,7 +265,19 @@ export class GeminiProvider implements AiProvider {
         },
       });
 
-      responseId = `gemini-${Date.now()}`;
+      responseId = result.responseId ?? `gemini-${Date.now()}`;
+      recordModelCall(options, {
+        provider: 'gemini',
+        phase: 'stage-two-generation',
+        requestedModel: model,
+        resolvedModel: result.modelVersion,
+        responseId,
+        startedAtMs: started,
+        status: 'success',
+        tokens: geminiTokenUsage(result.usageMetadata),
+        endpoint: useVertex ? 'vertex' : 'standard',
+      });
+      callRecorded = true;
 
       const text = (result.text ?? '').trim();
       if (!text) {
@@ -270,6 +309,17 @@ export class GeminiProvider implements AiProvider {
         typeof (error as { status?: number }).status === 'number'
           ? (error as { status?: number }).status
           : undefined;
+      if (!callRecorded) {
+        recordModelCall(options, {
+          provider: 'gemini',
+          phase: 'stage-two-generation',
+          requestedModel: model,
+          startedAtMs: started,
+          status: 'error',
+          endpoint: useVertex ? 'vertex' : 'standard',
+          errorCode: status ? String(status) : 'REQUEST_FAILED',
+        });
+      }
       throw new AiGenerationError(
         `Provider request failed${
           status ? ` (${status})` : ''
