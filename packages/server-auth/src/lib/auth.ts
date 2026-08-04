@@ -7,8 +7,14 @@
 
 import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
-import type { Database } from '@workout-agent-ce/server-db';
-import { createBetterAuthOptions } from './better-auth-options.js';
+import {
+  promoteAnonymousUserIdentity,
+  type Database,
+} from '@workout-agent-ce/server-db';
+import {
+  createBetterAuthOptions,
+  type GoogleAuthConfig,
+} from './better-auth-options.js';
 
 /**
  * Options for creating a Better Auth instance
@@ -33,6 +39,11 @@ export interface CreateAuthOptions {
    * Trusted origins for CORS (mobile app URLs, etc.)
    */
   trustedOrigins?: string[];
+
+  /**
+   * Optional Google OAuth credentials.
+   */
+  google?: GoogleAuthConfig;
 }
 
 /**
@@ -45,7 +56,7 @@ export type Auth = ReturnType<typeof betterAuth>;
  *
  * Features:
  * - Anonymous sessions (default for first-run experience)
- * - Email/password authentication (upgrade path from anonymous)
+ * - Email/password and optional Google authentication (upgrade paths from anonymous)
  * - Cookie-based sessions (default) with bearer token fallback for clients that can't send cookies
  * - Account linking (anonymous → email preserves userId)
  *
@@ -59,7 +70,7 @@ export type Auth = ReturnType<typeof betterAuth>;
  * ```
  */
 export function createAuth(options: CreateAuthOptions): Auth {
-  const { db, secret, baseURL, trustedOrigins = [] } = options;
+  const { db, secret, baseURL, trustedOrigins = [], google } = options;
 
   return betterAuth({
     database: drizzleAdapter(db, {
@@ -69,6 +80,8 @@ export function createAuth(options: CreateAuthOptions): Auth {
       secret,
       baseURL,
       trustedOrigins,
+      google,
+      promoteAnonymousUser: (input) => promoteAnonymousUserIdentity(db, input),
     }),
   });
 }
