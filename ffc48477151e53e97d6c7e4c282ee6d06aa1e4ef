@@ -1,0 +1,1 @@
+Incorporate follow-up billing concurrency work: use account-scoped advisory locks with bounded waits, avoid user-row lock coupling, make usage reads mostly read-only, bound reconciliation batches, add duration/timeout telemetry, and cover contention with PostgreSQL integration tests.
