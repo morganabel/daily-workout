@@ -21,6 +21,13 @@ jest.mock('./hooks/useBillingState', () => ({
   }),
 }));
 
+jest.mock('./services/auth-client', () => ({
+  fetchServerCapabilities: jest.fn().mockResolvedValue(null),
+  signInWithGoogle: jest.fn(),
+  signOut: jest.fn().mockResolvedValue({ error: null }),
+  useSession: () => ({ data: null }),
+}));
+
 jest.mock('./db/repositories/UserRepository', () => ({
   userRepository: {
     getPreferences: jest.fn(),
