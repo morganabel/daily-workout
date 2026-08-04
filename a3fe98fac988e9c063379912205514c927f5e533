@@ -1,0 +1,1 @@
+Address review: support Vertex/OpenRouter pricing, honor disabled upgrade UI, stabilize quota windows, fail requests when settlement fails, and return conflict bodies consistently.
