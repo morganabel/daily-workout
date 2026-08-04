@@ -10,6 +10,7 @@ import type {
   PlanningBrief,
   CatalogSeed,
 } from '../types';
+import type { IncludedGenerationReservation } from '@workout-agent-ce/quotas';
 import { createErrorResponse } from '../utils/errors';
 import {
   loadGenerationContext,
@@ -677,26 +678,22 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
     const credentialSource: ModelCredentialSource | undefined =
       credential.source === 'none' ? undefined : credential.source;
     const hasProviderCredential = credential.source !== 'none';
+    const operationId = globalThis.crypto.randomUUID();
     const modelCalls: ModelCallUsage[] = [];
     const allowUnconfiguredProvider = Boolean(
       deps.config.allowUnconfiguredProvider
     );
 
-    let quotaReservationActive = false;
+    let includedReservation: IncludedGenerationReservation | undefined;
 
     const rollbackManagedReservation = async (): Promise<void> => {
-      if (!quotaReservationActive) {
+      if (!includedReservation || !deps.policy) {
         return;
       }
-      quotaReservationActive = false;
-      if (!deps.policy?.rollbackGenerateReservation) {
-        return;
-      }
+      const reservation = includedReservation;
+      includedReservation = undefined;
       try {
-        await deps.policy.rollbackGenerateReservation(
-          auth.userId,
-          generationRequest
-        );
+        await deps.policy.rollbackGenerateReservation(reservation);
       } catch (error) {
         log.warn('failed to rollback managed quota reservation', {
           message: sanitizeErrorMessage((error as Error).message),
@@ -745,8 +742,7 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
       let catalogMatch: WorkoutCatalogMatch | undefined;
       let catalogSeed: CatalogSeed | undefined;
       let catalogUnavailable = false;
-      const providerCanRun =
-        hasProviderCredential || allowUnconfiguredProvider;
+      const providerCanRun = hasProviderCredential || allowUnconfiguredProvider;
       const loadAvailableExerciseLibrary = async (): Promise<
         ExerciseLibrary | undefined
       > => {
@@ -895,20 +891,27 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
       // Check policy (quota/rate limits) for managed-key requests only.
       // BYOK requests are self-funded and bypass entitlement quotas.
       if (deps.policy && credential.source !== 'byok') {
-        const policyResult = await deps.policy.canGenerate(
-          auth.userId,
-          generationRequest
-        );
+        const policyResult = await deps.policy.reserveGenerate({
+          accountId: auth.userId,
+          operationId,
+          operation: isRegeneration ? 'regenerate' : 'generate',
+        });
         if (!policyResult.allowed) {
           return errorResponse(
-            'QUOTA_EXCEEDED',
-            policyResult.reason ?? 'Quota exceeded',
-            policyResult.statusCode ?? 429,
+            policyResult.code === 'dependency_unavailable'
+              ? 'SERVICE_UNAVAILABLE'
+              : 'QUOTA_EXCEEDED',
+            policyResult.reason ??
+              (policyResult.code === 'dependency_unavailable'
+                ? 'Usage policy is temporarily unavailable'
+                : 'Quota exceeded'),
+            policyResult.statusCode ??
+              (policyResult.code === 'dependency_unavailable' ? 503 : 429),
             undefined,
             policyResult.upgrade
           );
         }
-        quotaReservationActive = true;
+        includedReservation = policyResult.reservation;
       }
 
       if (
@@ -1072,7 +1075,8 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
           try {
             await deps.metering.recordUsage({
               userId: auth.userId,
-              operationId: requestId,
+              operationId,
+              eventId: 'generation-error',
               operation: effectivePlanningBrief.regeneration.isRegeneration
                 ? 'regenerate'
                 : 'generate',
@@ -1082,12 +1086,12 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
               timestamp: new Date().toISOString(),
               durationMs: Date.now() - startedAt,
               result: 'error',
+              errorCode: 'AI_GENERATION_ERROR',
               modelCalls,
               usage: buildGenerationUsageSummary(modelCalls, {
                 credentialSource,
                 operationSucceeded: false,
               }),
-              metadata: { errorCode: 'AI_GENERATION_ERROR' },
             });
           } catch (meteringError) {
             log.warn('failed to record generation usage', {
@@ -1109,7 +1113,11 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
       await deps.store.persistPlan(auth.principalId, validated, {
         schemaVersion,
       });
-      quotaReservationActive = false;
+      if (includedReservation && deps.policy) {
+        const reservation = includedReservation;
+        await deps.policy.commitGenerateReservation(reservation);
+        includedReservation = undefined;
+      }
       log.info('generation completed', {
         durationMs: Date.now() - startedAt,
         source: 'ai',
@@ -1126,7 +1134,8 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
         try {
           await deps.metering.recordUsage({
             userId: auth.userId,
-            operationId: requestId,
+            operationId,
+            eventId: 'generation-success',
             operation: effectivePlanningBrief.regeneration.isRegeneration
               ? 'regenerate'
               : 'generate',
@@ -1136,15 +1145,13 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
             timestamp: new Date().toISOString(),
             durationMs: Date.now() - startedAt,
             result: 'success',
+            responseId,
+            schemaVersion,
             modelCalls,
             usage: buildGenerationUsageSummary(modelCalls, {
               credentialSource,
               operationSucceeded: true,
             }),
-            metadata: {
-              responseId,
-              schemaVersion,
-            },
           });
         } catch (meteringError) {
           log.warn('failed to record generation usage', {

@@ -1,15 +1,23 @@
-import type { UsagePolicy, PolicyResult } from '../types';
+import type {
+  IncludedGenerationReservation,
+  UsagePolicy,
+} from '@workout-agent-ce/quotas';
 
-/**
- * No-op usage policy for OSS deployments.
- * Allows all operations without quota/rate limiting.
- *
- * Hosted overlays can replace this to enforce subscriptions, quotas, and rate limits.
- */
+/** Billing-neutral policy for self-hosted deployments. */
 export class NoOpUsagePolicy implements UsagePolicy {
-  async canGenerate(): Promise<PolicyResult> {
+  async reserveGenerate(): Promise<{ allowed: true }> {
     return { allowed: true };
   }
 
-  // Optional getEntitlements not implemented - OSS has no entitlements
+  async commitGenerateReservation(
+    reservation: IncludedGenerationReservation
+  ): Promise<void> {
+    void reservation;
+  }
+
+  async rollbackGenerateReservation(
+    reservation: IncludedGenerationReservation
+  ): Promise<void> {
+    void reservation;
+  }
 }

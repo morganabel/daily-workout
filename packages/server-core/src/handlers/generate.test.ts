@@ -119,14 +119,31 @@ function createStageOnePlannerMock(): jest.Mocked<StageOnePlanner> {
 }
 
 function createPolicyMock(allowed = true): jest.Mocked<UsagePolicy> {
+  const reserveGenerate: jest.MockedFunction<UsagePolicy['reserveGenerate']> =
+    jest.fn();
+  reserveGenerate.mockImplementation(async (request) =>
+    allowed
+      ? {
+          allowed: true,
+          reservation: {
+            kind: 'included_generation',
+            reservationId: `reservation-${request.operationId}`,
+            accountId: request.accountId,
+            operationId: request.operationId,
+            expiresAt: '2030-01-01T00:00:00.000Z',
+          },
+        }
+      : {
+          allowed: false,
+          code: 'quota_exceeded',
+          reason: 'Limit reached',
+          statusCode: 429,
+        }
+  );
   return {
-    canGenerate: jest
-      .fn()
-      .mockResolvedValue(
-        allowed
-          ? { allowed: true }
-          : { allowed: false, reason: 'Limit reached', statusCode: 429 }
-      ),
+    reserveGenerate,
+    commitGenerateReservation: jest.fn().mockResolvedValue(undefined),
+    rollbackGenerateReservation: jest.fn().mockResolvedValue(undefined),
   };
 }
 
@@ -542,10 +559,8 @@ describe('createGenerateHandler', () => {
         operation: 'generate',
         provider: 'openai',
         byok: true,
-        metadata: {
-          responseId: 'resp-123',
-          schemaVersion: 'v2-flat',
-        },
+        responseId: 'resp-123',
+        schemaVersion: 'v2-flat',
       })
     );
 
@@ -569,7 +584,7 @@ describe('createGenerateHandler', () => {
     );
 
     expect(response.status).toBe(200);
-    expect(policy.canGenerate).toHaveBeenCalledTimes(1);
+    expect(policy.reserveGenerate).toHaveBeenCalledTimes(1);
     expect(router.generate).toHaveBeenCalledWith(
       expect.anything(),
       expect.anything(),
@@ -615,7 +630,7 @@ describe('createGenerateHandler', () => {
     );
 
     expect(response.status).toBe(200);
-    expect(policy.canGenerate).toHaveBeenCalledTimes(1);
+    expect(policy.reserveGenerate).toHaveBeenCalledTimes(1);
     expect(router.generate).toHaveBeenCalledWith(
       expect.anything(),
       expect.anything(),
@@ -661,7 +676,7 @@ describe('createGenerateHandler', () => {
     );
 
     expect(response.status).toBe(200);
-    expect(policy.canGenerate).not.toHaveBeenCalled();
+    expect(policy.reserveGenerate).not.toHaveBeenCalled();
     expect(router.generate).toHaveBeenCalledWith(
       expect.anything(),
       expect.anything(),
@@ -707,7 +722,7 @@ describe('createGenerateHandler', () => {
     );
 
     expect(response.status).toBe(200);
-    expect(policy.canGenerate).toHaveBeenCalledTimes(1);
+    expect(policy.reserveGenerate).toHaveBeenCalledTimes(1);
     expect(router.generate).toHaveBeenCalledWith(
       expect.anything(),
       expect.anything(),
@@ -780,7 +795,7 @@ describe('createGenerateHandler', () => {
     );
 
     expect(response.status).toBe(200);
-    expect(policy.canGenerate).toHaveBeenCalledTimes(1);
+    expect(policy.reserveGenerate).toHaveBeenCalledTimes(1);
     expect(router.generate).toHaveBeenCalledWith(
       expect.anything(),
       expect.anything(),
@@ -809,7 +824,7 @@ describe('createGenerateHandler', () => {
 
     expect(response.status).toBe(503);
     expect(json.code).toBe('AI_PROVIDER_NOT_CONFIGURED');
-    expect(policy.canGenerate).not.toHaveBeenCalled();
+    expect(policy.reserveGenerate).not.toHaveBeenCalled();
     expect(router.generate).not.toHaveBeenCalled();
     expect(store.markPending).not.toHaveBeenCalled();
     expect(store.persistPlan).not.toHaveBeenCalled();
@@ -842,9 +857,60 @@ describe('createGenerateHandler', () => {
 
     expect(response.status).toBe(429);
     expect(json.code).toBe('QUOTA_EXCEEDED');
-    expect(policy.canGenerate).toHaveBeenCalledTimes(1);
+    expect(policy.reserveGenerate).toHaveBeenCalledTimes(1);
     expect(store.markPending).not.toHaveBeenCalled();
     expect(router.generate).not.toHaveBeenCalled();
+  });
+
+  it('commits the exact server-owned reservation and meters that operation', async () => {
+    const policy = createPolicyMock();
+    const metering = createMeteringMock();
+    const { handler } = createHandler({ policy, metering });
+
+    const response = await handler(
+      createRequest(
+        { timeMinutes: 30, focus: 'Upper Body' },
+        { 'x-request-id': 'caller-correlation-id' }
+      )
+    );
+
+    expect(response.status).toBe(200);
+    const reserveRequest = policy.reserveGenerate.mock.calls[0][0];
+    expect(reserveRequest).toMatchObject({
+      accountId: 'user-123',
+      operation: 'generate',
+    });
+    expect(reserveRequest.operationId).not.toBe('caller-correlation-id');
+    expect(policy.commitGenerateReservation).toHaveBeenCalledWith(
+      expect.objectContaining({
+        accountId: 'user-123',
+        operationId: reserveRequest.operationId,
+      })
+    );
+    expect(metering.recordUsage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        operationId: reserveRequest.operationId,
+        eventId: 'generation-success',
+      })
+    );
+  });
+
+  it('creates independent operations when a correlation ID is reused', async () => {
+    const policy = createPolicyMock();
+    const metering = createMeteringMock();
+    const { handler } = createHandler({ policy, metering });
+    const headers = { 'x-request-id': 'reused-correlation-id' };
+
+    await handler(createRequest({ timeMinutes: 20, focus: 'Push' }, headers));
+    await handler(createRequest({ timeMinutes: 40, focus: 'Pull' }, headers));
+
+    const operationIds = policy.reserveGenerate.mock.calls.map(
+      ([request]) => request.operationId
+    );
+    expect(new Set(operationIds).size).toBe(2);
+    expect(
+      metering.recordUsage.mock.calls.map(([event]) => event.operationId)
+    ).toEqual(operationIds);
   });
 
   it('returns library mode catalog workouts without provider configuration, quota, or metering', async () => {
@@ -878,7 +944,7 @@ describe('createGenerateHandler', () => {
     expect(response.status).toBe(200);
     expect(payload.source).toBe('library');
     expect(exerciseLibrary.matchWorkoutCatalog).toHaveBeenCalledTimes(1);
-    expect(policy.canGenerate).not.toHaveBeenCalled();
+    expect(policy.reserveGenerate).not.toHaveBeenCalled();
     expect(router.generate).not.toHaveBeenCalled();
     expect(metering.recordUsage).not.toHaveBeenCalled();
     expect(store.persistPlan).toHaveBeenCalledWith(
@@ -913,7 +979,7 @@ describe('createGenerateHandler', () => {
 
     expect(response.status).toBe(404);
     expect(payload.code).toBe('WORKOUT_CATALOG_NO_MATCH');
-    expect(policy.canGenerate).not.toHaveBeenCalled();
+    expect(policy.reserveGenerate).not.toHaveBeenCalled();
     expect(router.generate).not.toHaveBeenCalled();
   });
 
@@ -947,7 +1013,7 @@ describe('createGenerateHandler', () => {
 
     expect(response.status).toBe(503);
     expect(payload.code).toBe('WORKOUT_CATALOG_UNAVAILABLE');
-    expect(policy.canGenerate).not.toHaveBeenCalled();
+    expect(policy.reserveGenerate).not.toHaveBeenCalled();
     expect(router.generate).not.toHaveBeenCalled();
   });
 
@@ -1271,26 +1337,25 @@ describe('createGenerateHandler', () => {
       new Error(`provider exploded with key ${credentialSecret}`)
     );
     const metering = createMeteringMock();
+    const policy = createPolicyMock();
 
     const { handler, store } = createHandler({
       router,
       metering,
+      policy,
       config: {
         edition: 'CE',
         defaultProvider: 'openai',
-        defaultApiKeys: { openai: 'server-openai-key' },
+        defaultApiKeys: { openai: credentialSecret },
       },
     });
 
     const response = await handler(
-      createRequest(
-        {
-          timeMinutes: 25,
-          focus: 'Upper Body',
-          equipment: ['Dumbbells'],
-        },
-        { 'x-openai-key': credentialSecret }
-      )
+      createRequest({
+        timeMinutes: 25,
+        focus: 'Upper Body',
+        equipment: ['Dumbbells'],
+      })
     );
     const json = (await response.json()) as { code: string; message: string };
 
@@ -1309,6 +1374,14 @@ describe('createGenerateHandler', () => {
     expect(JSON.stringify(metering.recordUsage.mock.calls[0][0])).not.toContain(
       credentialSecret
     );
+    const reservation = policy.reserveGenerate.mock.results[0].value;
+    await expect(reservation).resolves.toMatchObject({ allowed: true });
+    expect(policy.rollbackGenerateReservation).toHaveBeenCalledWith(
+      expect.objectContaining({
+        operationId: policy.reserveGenerate.mock.calls[0][0].operationId,
+      })
+    );
+    expect(policy.commitGenerateReservation).not.toHaveBeenCalled();
   });
 
   it('builds a candidate pool on normal generation without changing the public response', async () => {

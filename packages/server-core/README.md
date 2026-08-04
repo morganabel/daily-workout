@@ -7,20 +7,14 @@ Core dependency-injected handlers and interfaces for the Workout Agent server.
 This package provides the framework-agnostic business logic for the Workout Agent API. It exports:
 
 - **Handler Factories**: Create `Request → Response` handlers for API routes
-- **Dependency Interfaces**: `AuthProvider`, `GenerationStore`, `ModelRouter`, `UsagePolicy`, `MeteringSink`
+- **Dependency Interfaces**: `AuthProvider`, `GenerationStore`, and `ModelRouter`, plus the canonical `UsagePolicy` and `MeteringSink` contracts from the `quotas` and `metering` packages
 - **CE Defaults**: Stub implementations for Community Edition deployments
 - **Utilities**: Error handling, context loading, generation planning
 
 ## Usage in Community Edition
 
 ```typescript
-import {
-  StubAuthProvider,
-  InMemoryGenerationStore,
-  NoOpUsagePolicy,
-  NoOpMeteringSink,
-  createGenerateHandler,
-} from '@workout-agent-ce/server-core';
+import { StubAuthProvider, InMemoryGenerationStore, NoOpUsagePolicy, NoOpMeteringSink, createGenerateHandler } from '@workout-agent-ce/server-core';
 import { DefaultModelRouter } from '@workout-agent-ce/server-ai';
 
 // Instantiate CE defaults
@@ -55,39 +49,7 @@ export async function POST(request: Request) {
 
 ## Usage in Hosted Deployments
 
-Replace the CE defaults with production implementations:
-
-```typescript
-import {
-  createGenerateHandler,
-} from '@workout-agent-ce/server-core';
-import { DefaultModelRouter } from '@workout-agent-ce/server-ai';
-
-// Production implementations (defined in hosted repo)
-import { BetterAuthProvider } from './auth';
-import { RedisGenerationStore } from './storage';
-import { StripeUsagePolicy } from './billing';
-import { MixpanelMeteringSink } from './analytics';
-
-const auth = new BetterAuthProvider();
-const store = new RedisGenerationStore(redisClient);
-const router = new DefaultModelRouter(); // Reuse shareable LLM behavior
-const policy = new StripeUsagePolicy(stripeClient);
-const metering = new MixpanelMeteringSink(mixpanelClient);
-
-// Create handlers with hosted config
-const generateHandler = createGenerateHandler({
-  auth,
-  store,
-  router,
-  policy,
-  metering,
-  config: {
-    edition: 'HOSTED',
-    // Keys managed server-side or provided via BYOK headers
-  },
-});
-```
+The consolidated server owns hosted composition in `apps/server/src/lib/wiring.ts`. Its adapters implement the canonical contracts from `@workout-agent-ce/quotas` and `@workout-agent-ce/metering`; hosted deployments do not fork `server-core` or define app-local quota and metering interfaces.
 
 ## BYOK Safety
 
@@ -134,10 +96,13 @@ interface ModelRouter {
 
 ```typescript
 interface UsagePolicy {
-  canGenerate(userId: string, request: GenerationRequest): Promise<PolicyResult>;
-  getEntitlements?(userId: string): Promise<Entitlements>; // Optional
+  reserveGenerate(request: { accountId: string; operationId: string; operation: 'generate' | 'regenerate' }): Promise<IncludedGenerationReserveResult>;
+  commitGenerateReservation(reservation: IncludedGenerationReservation): Promise<void>;
+  rollbackGenerateReservation(reservation: IncludedGenerationReservation): Promise<void>;
 }
 ```
+
+`UsagePolicy` is defined by `@workout-agent-ce/quotas`; `MeteringSink` is defined by `@workout-agent-ce/metering`. `server-core` consumes and re-exports those contracts rather than defining competing shapes.
 
 ### `MeteringSink`
 

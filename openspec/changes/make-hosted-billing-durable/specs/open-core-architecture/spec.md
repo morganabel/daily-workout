@@ -38,7 +38,7 @@ The product MUST expose one entitlement/quota reservation contract and one meter
 
 ### Requirement: Reservation-Oriented Generation Integration
 
-The reusable generation core MUST support asynchronous reserve, commit, and rollback operations using an exact reservation token and an operation key scoped by stable `auth.userId`. It MUST expose a finalization boundary that allows the consolidated server to make a replayable validated result and the exact reservation commit durable atomically. Billing dependency errors MUST be distinguishable from quota denials.
+The reusable generation core MUST support asynchronous reserve, commit, and rollback operations using an exact reservation token and an operation key scoped by stable `auth.userId`. The consolidated server MUST commit the exact reservation durably after a validated result is accepted and roll it back on failure; commit is not required to be atomic with result persistence. Billing dependency errors MUST be distinguishable from quota denials.
 
 #### Scenario: Durable policy returns a reservation
 
@@ -49,8 +49,8 @@ The reusable generation core MUST support asynchronous reserve, commit, and roll
 #### Scenario: Hosted generation finalizes successfully
 
 - **GIVEN** hosted generation has a validated result and active reservation
-- **WHEN** it crosses the durable finalization boundary
-- **THEN** the replayable attempt result and exact reservation commit become durable together before the result is returned
+- **WHEN** the result is accepted
+- **THEN** that exact reservation's commit becomes durable before the response is returned
 
 #### Scenario: Policy dependency fails
 

@@ -48,10 +48,10 @@
   ],
   "references": [
     {
-      "path": "../../packages/metering"
+      "path": "../../packages/shared"
     },
     {
-      "path": "../../packages/shared"
+      "path": "../../packages/server-exercise-library"
     },
     {
       "path": "../../packages/server-db"
@@ -66,7 +66,10 @@
       "path": "../../packages/server-ai"
     },
     {
-      "path": "../../packages/server-exercise-library"
+      "path": "../../packages/quotas"
+    },
+    {
+      "path": "../../packages/metering"
     }
   ]
 }

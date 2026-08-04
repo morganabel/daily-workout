@@ -35,7 +35,6 @@ export type {
   StageOnePlannerArtifact,
   UsagePolicy,
   PolicyResult,
-  Entitlements,
   MeteringSink,
   ModelCallRecorder,
   ModelCallUsage,

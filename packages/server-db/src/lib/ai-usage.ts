@@ -1,4 +1,8 @@
-import type { MeteringSink, UsageEvent } from '@workout-agent-ce/metering';
+import {
+  assertUsageEvent,
+  type MeteringSink,
+  type UsageEvent,
+} from '@workout-agent-ce/metering';
 import { and, desc, eq, gte, lt } from 'drizzle-orm';
 
 import type { Database } from './client.js';
@@ -71,14 +75,12 @@ export class PostgresMeteringSink implements MeteringSink {
   constructor(private readonly db: Database) {}
 
   async recordUsage(event: UsageEvent): Promise<void> {
-    if (!event.operationId || !event.usage || !event.modelCalls) {
-      return;
-    }
+    assertUsageEvent(event);
 
     const operationId = event.operationId;
     const usage = event.usage;
     const modelCalls = event.modelCalls;
-    const eventId = `${event.userId}:${operationId}`;
+    const eventId = `${event.userId}:${operationId}:${event.eventId}`;
     await this.db.transaction(async (transaction) => {
       const inserted = await transaction
         .insert(aiUsageEvent)
