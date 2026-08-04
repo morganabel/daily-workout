@@ -11,10 +11,12 @@ import {
   type UserPreferences,
 } from '@workout-agent/shared';
 import { BottomNavigation } from './components/BottomNavigation';
-import { Card } from './components/DesignSystem';
+import { Button, Card } from './components/DesignSystem';
+import { GoogleSignInButton } from './components/GoogleSignInButton';
 import { userRepository } from './db/repositories/UserRepository';
 import { useBillingState } from './hooks/useBillingState';
 import type { RootStackParamList } from './navigation';
+import { signOut, useSession } from './services/auth-client';
 import {
   ConstraintsEditor,
   EquipmentEditor,
@@ -47,6 +49,7 @@ type SettingsNavigation = NativeStackNavigationProp<
 export const SettingsScreen = () => {
   const navigation = useNavigation<SettingsNavigation>();
   const { showUpgradeUi, entitlements } = useBillingState();
+  const { data: session } = useSession();
   const [preferences, setPreferences] =
     useState<UserPreferences>(INITIAL_PREFERENCES);
   const [activeEditor, setActiveEditor] = useState<EditorKey | null>(null);
@@ -54,6 +57,8 @@ export const SettingsScreen = () => {
   const [hasChanges, setHasChanges] = useState(false);
   const [injuryInput, setInjuryInput] = useState('');
   const [avoidInput, setAvoidInput] = useState('');
+  const [isSigningOut, setIsSigningOut] = useState(false);
+  const [accountError, setAccountError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -219,6 +224,26 @@ export const SettingsScreen = () => {
     }
   };
 
+  const handleSignOut = async () => {
+    setIsSigningOut(true);
+    setAccountError(null);
+    try {
+      const result = await signOut();
+      if (result.error) {
+        setAccountError('Could not sign out. Please try again.');
+        return;
+      }
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'Launch' }],
+      });
+    } catch {
+      setAccountError('Could not sign out. Please try again.');
+    } finally {
+      setIsSigningOut(false);
+    }
+  };
+
   const trainingTargets = useMemo(
     () => getTrainingTargets(preferences.adaptiveTrainingPlan),
     [preferences.adaptiveTrainingPlan]
@@ -287,6 +312,15 @@ export const SettingsScreen = () => {
   const quotaLabel = entitlements
     ? `${entitlements.quotaWindow.remaining}/${entitlements.quotaWindow.limit} generated workouts left this period.`
     : 'Upgrade options are available for this hosted server.';
+  const sessionUser = session?.user;
+  const isAnonymous = Boolean(
+    (sessionUser as { isAnonymous?: boolean } | undefined)?.isAnonymous
+  );
+  const accountLabel = !sessionUser
+    ? 'Not signed in'
+    : isAnonymous
+    ? 'Anonymous account'
+    : sessionUser.email;
 
   return (
     <View style={styles.screen}>
@@ -369,6 +403,84 @@ export const SettingsScreen = () => {
                 color={palette.primary}
               />
             </Pressable>
+          </Card>
+        ) : null}
+        {!activeEditor ? (
+          <Card style={styles.summaryCard}>
+            <View style={styles.summaryHeader}>
+              <View style={styles.summaryTitleRow}>
+                <View style={styles.summaryIcon}>
+                  <Ionicons
+                    name="person-circle-outline"
+                    size={19}
+                    color={palette.primary}
+                  />
+                </View>
+                <View style={styles.summaryTitleGroup}>
+                  <Text style={styles.summaryTitle}>Account</Text>
+                  <Text style={styles.summaryEyebrow}>{accountLabel}</Text>
+                </View>
+              </View>
+            </View>
+
+            <Text style={styles.summaryBody}>
+              {isAnonymous
+                ? 'Your workouts are saved on this device. Connect an account to sync them across devices.'
+                : sessionUser
+                ? 'Your account is connected across devices.'
+                : 'Sign in to sync your workouts across devices.'}
+            </Text>
+
+            {accountError ? (
+              <Text style={styles.summaryBody}>{accountError}</Text>
+            ) : null}
+
+            {sessionUser && !isAnonymous ? (
+              <Pressable
+                style={styles.cardAction}
+                onPress={() => void handleSignOut()}
+                disabled={isSigningOut}
+                accessibilityRole="button"
+                accessibilityLabel="Sign out"
+              >
+                <Text style={styles.cardActionText}>
+                  {isSigningOut ? 'Signing out...' : 'Sign out'}
+                </Text>
+                <Ionicons
+                  name="log-out-outline"
+                  size={18}
+                  color={palette.primary}
+                />
+              </Pressable>
+            ) : (
+              <View style={styles.summaryRows}>
+                <GoogleSignInButton
+                  onSuccess={() => setAccountError(null)}
+                  onError={setAccountError}
+                  label="Continue with Google"
+                />
+                <Button
+                  label="Create account"
+                  onPress={() => navigation.navigate('SignUp')}
+                  variant="secondary"
+                />
+                <Pressable
+                  style={styles.cardAction}
+                  onPress={() => navigation.navigate('SignIn')}
+                  accessibilityRole="button"
+                  accessibilityLabel="Sign in"
+                >
+                  <Text style={styles.cardActionText}>
+                    Already have an account? Sign in
+                  </Text>
+                  <Ionicons
+                    name="chevron-forward"
+                    size={18}
+                    color={palette.primary}
+                  />
+                </Pressable>
+              </View>
+            )}
           </Card>
         ) : null}
         {renderEditorContent()}

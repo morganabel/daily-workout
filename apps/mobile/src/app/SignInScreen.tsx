@@ -23,6 +23,7 @@ import type { RootStackParamList } from './navigation';
 import { authClient } from './services/auth-client';
 import { palette, typography } from './theme';
 import { Button } from './components/DesignSystem';
+import { GoogleSignInButton } from './components/GoogleSignInButton';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -127,6 +128,12 @@ export const SignInScreen: React.FC = () => {
             onPress={handleSignIn}
             loading={isLoading}
             variant="primary"
+          />
+
+          <GoogleSignInButton
+            disabled={isLoading}
+            onSuccess={() => navigation.navigate('Home')}
+            onError={setError}
           />
 
           <View style={styles.footer}>

@@ -4,6 +4,7 @@
  * Provides authentication functionality with:
  * - Anonymous sign-in for frictionless first-run
  * - Email/password as upgrade path
+ * - Google OAuth in the system browser when the server advertises it
  * - Session persistence using Expo SecureStore
  * - Per-backend session isolation via storagePrefix
  */
@@ -14,6 +15,7 @@ import { expoClient } from '@better-auth/expo/client';
 import * as SecureStore from 'expo-secure-store';
 import type { MetaResponse } from '@workout-agent/shared';
 import { resetRevenueCatLogin } from './billing-client';
+import { hasCompletedGoogleSignIn } from './google-auth-verification';
 
 const API_BASE_URL =
   process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:3000';
@@ -55,7 +57,10 @@ async function refreshServerCapabilities(): Promise<MetaResponse | null> {
       return data;
     } catch (error) {
       if (LOG_SERVER_CAPABILITIES_FAILURES) {
-        console.warn('[auth-client] Error fetching server capabilities:', error);
+        console.warn(
+          '[auth-client] Error fetching server capabilities:',
+          error
+        );
       }
       // Keep the last known value, but bump timestamp so we don't thrash retries.
       const data = cachedServerCapabilities?.data ?? null;
@@ -125,6 +130,98 @@ export const signOut: typeof authClient.signOut = async (...args) => {
   }
   return result;
 };
+
+export type GoogleSignInResult =
+  | { ok: true }
+  | { ok: false; reason: 'unavailable' | 'failed'; message: string };
+
+/**
+ * Start Google OAuth through Better Auth's Expo browser flow.
+ *
+ * The callback is intentionally relative: the Expo client converts it to the
+ * app scheme (`workout-agent-ce-mobile://`) and the server validates it
+ * against TRUSTED_ORIGINS.
+ */
+export async function signInWithGoogle(): Promise<GoogleSignInResult> {
+  try {
+    const meta = await fetchServerCapabilities();
+    if (!meta?.auth.googleAvailable) {
+      return {
+        ok: false,
+        reason: 'unavailable',
+        message: 'Google sign-in is not enabled on this server.',
+      };
+    }
+
+    const session = await authClient.getSession();
+    if (session.error) {
+      return {
+        ok: false,
+        reason: 'failed',
+        message: 'Could not verify your current session. Please try again.',
+      };
+    }
+    const previousUser = session.data?.user as
+      | { id: string; isAnonymous?: boolean }
+      | undefined;
+    const isAnonymous = Boolean(previousUser?.isAnonymous);
+    const result = isAnonymous
+      ? await authClient.linkSocial({
+          provider: 'google',
+          callbackURL: '/',
+        })
+      : await authClient.signIn.social({
+          provider: 'google',
+          callbackURL: '/',
+        });
+
+    if (result.error) {
+      return {
+        ok: false,
+        reason: 'failed',
+        message: 'Google sign-in failed. Please try again.',
+      };
+    }
+
+    // The Expo browser plugin returns normally on cancellation and when its
+    // callback has no cookie. Prove that OAuth actually completed before any
+    // caller navigates as though the user signed in.
+    const [refreshedSession, linkedAccounts] = await Promise.all([
+      authClient.getSession({
+        query: { disableCookieCache: true },
+      }),
+      authClient.listAccounts(),
+    ]);
+    const currentUser = refreshedSession.data?.user as
+      | { id: string; isAnonymous?: boolean }
+      | undefined;
+    const accounts = (linkedAccounts.data ?? []) as Array<{
+      providerId: string;
+      userId: string;
+    }>;
+
+    if (
+      refreshedSession.error ||
+      linkedAccounts.error ||
+      !hasCompletedGoogleSignIn(previousUser, currentUser, accounts)
+    ) {
+      return {
+        ok: false,
+        reason: 'failed',
+        message: 'Google sign-in was not completed. Please try again.',
+      };
+    }
+
+    return { ok: true };
+  } catch (error) {
+    console.error('[auth-client] Google sign-in error:', error);
+    return {
+      ok: false,
+      reason: 'failed',
+      message: 'Google sign-in failed. Please try again.',
+    };
+  }
+}
 
 /**
  * Fetch server capabilities from /api/meta
