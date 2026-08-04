@@ -21,6 +21,8 @@ export const REVENUECAT_EVENT_TYPES = [
   'PRODUCT_CHANGE',
   'TRANSFER',
   'SUBSCRIPTION_PAUSED',
+  'SUBSCRIPTION_EXTENDED',
+  'REFUND_REVERSED',
 ] as const;
 
 const boundedId = z.string().trim().min(1).max(MAX_ID_LENGTH);
@@ -75,6 +77,8 @@ const KIND_BY_EVENT: Record<
   PRODUCT_CHANGE: 'product_change',
   TRANSFER: 'unsupported',
   SUBSCRIPTION_PAUSED: 'unsupported',
+  SUBSCRIPTION_EXTENDED: 'extend',
+  REFUND_REVERSED: 'restore_access',
 };
 
 function iso(milliseconds: number | undefined): string | undefined {

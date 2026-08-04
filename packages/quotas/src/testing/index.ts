@@ -275,6 +275,7 @@ export async function verifyAdmissionAndSpendCeilingContract(input: {
     await accountCeiling.policy.checkSpendCeiling({
       accountId: 'contract-user',
       provider: 'openai',
+      credentialSource: 'managed',
     }),
     { allowed: true }
   );
@@ -286,6 +287,7 @@ export async function verifyAdmissionAndSpendCeilingContract(input: {
     await accountCeiling.policy.checkSpendCeiling({
       accountId: 'contract-user',
       provider: 'openai',
+      credentialSource: 'managed',
     }),
     { allowed: false, code: 'spend_limit_exceeded' }
   );
@@ -293,6 +295,7 @@ export async function verifyAdmissionAndSpendCeilingContract(input: {
     await accountCeiling.policy.checkSpendCeiling({
       accountId: 'contract-other-user',
       provider: 'openai',
+      credentialSource: 'managed',
     }),
     { allowed: true }
   );
@@ -307,6 +310,7 @@ export async function verifyAdmissionAndSpendCeilingContract(input: {
     await globalCeiling.policy.checkSpendCeiling({
       accountId: 'contract-user-c',
       provider: 'gemini',
+      credentialSource: 'managed',
     }),
     { allowed: false, code: 'spend_limit_exceeded' }
   );

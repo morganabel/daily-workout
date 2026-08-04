@@ -130,5 +130,6 @@ export interface SpendCeilingPolicy {
   checkSpendCeiling(input: {
     accountId: string;
     provider: ModelProvider;
+    credentialSource: Exclude<ModelCredentialSource, 'byok'>;
   }): Promise<SpendCeilingDecision>;
 }

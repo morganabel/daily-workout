@@ -6,6 +6,8 @@ This repository MUST contain the source code, routes, composition, billing persi
 
 A private deployment repository MAY publish or configure images built from this repository, but hosted correctness MUST NOT depend on private source injection, a second Next application, submodule `file:` dependencies, or a parallel migration lineage.
 
+This repository MUST own the versioned billing-configuration schema and validation behavior while allowing a deployment repository to own concrete hosted values. Deployment-specific RevenueCat catalog, quota, and guardrail values MUST NOT be compiled into public product profiles.
+
 #### Scenario: Hosted server image is built
 
 - **GIVEN** this repository is checked out without private application source
@@ -16,7 +18,7 @@ A private deployment repository MAY publish or configure images built from this 
 
 - **GIVEN** the deployment repository selects a tested image from this repository
 - **WHEN** it publishes or deploys that image
-- **THEN** it does not inject billing implementation code or replace the product repository's schema lineage
+- **THEN** it may supply configuration conforming to the pinned product schema but does not inject billing implementation code or replace the product repository's schema lineage
 
 ## ADDED Requirements
 
@@ -66,7 +68,7 @@ The reusable generation core MUST support asynchronous reserve, commit, and roll
 
 ### Requirement: Hosted RevenueCat Mode Fails Closed
 
-A production process with `DEPLOYMENT_MODE=hosted` and `BILLING_PROVIDER=revenuecat` MUST require `REVENUECAT_WEBHOOK_SECRET`, the allowed app/environment/entitlement/product lists, the `BILLING_*` quota settings, and a configured durable adapter. It MUST accept only the `Authorization: Bearer` webhook form. A process-local adapter, removed configuration alias, unsigned mode, or permissive failure fallback MUST NOT satisfy this requirement.
+A production process with `DEPLOYMENT_MODE=hosted` and `BILLING_PROVIDER=revenuecat` MUST require `REVENUECAT_WEBHOOK_SECRET`, a bounded `BILLING_CONFIG_JSON` document with a supported explicit schema version, and a configured durable adapter. The public product schema MUST strictly validate the document's RevenueCat scope, plan allowance, admission, spend-ceiling, reservation-TTL, and upgrade-capability values and MUST reject malformed JSON, unknown schema versions, unknown properties, duplicate identifiers, invalid enums, invalid numeric values, and out-of-bound values without logging the document. The webhook secret MUST remain outside the document and the server MUST accept it only through the `Authorization: Bearer` webhook form. A process-local adapter, removed per-setting configuration variable, unsigned mode, or permissive failure fallback MUST NOT satisfy this requirement.
 
 Boot validation MUST remain environment-only. Missing/invalid configuration or inability to construct the selected adapter MUST fail startup. Database connectivity and schema health MUST be reported through readiness; failure MUST keep readiness false and block dependent requests without requiring the process itself to exit.
 
@@ -75,6 +77,12 @@ Boot validation MUST remain environment-only. Missing/invalid configuration or i
 - **GIVEN** hosted production RevenueCat mode
 - **WHEN** required configuration is absent or the selected adapter cannot be constructed without I/O
 - **THEN** the existing boot-validation path fails before route handlers accept traffic
+
+#### Scenario: Deployment supplies an incompatible billing document
+
+- **GIVEN** hosted production RevenueCat mode
+- **WHEN** `BILLING_CONFIG_JSON` is malformed, uses an unknown schema version, or violates the public product schema
+- **THEN** boot validation fails without logging the configuration document or attempting database I/O
 
 #### Scenario: Unsigned production webhook mode is requested
 

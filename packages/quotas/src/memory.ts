@@ -372,9 +372,9 @@ export class InMemorySpendCeilingPolicy implements SpendCeilingPolicy {
     this.settledGlobal += actual;
   }
 
-  async checkSpendCeiling(input: {
-    accountId: string;
-  }): Promise<SpendCeilingDecision> {
+  async checkSpendCeiling(
+    input: Parameters<SpendCeilingPolicy['checkSpendCeiling']>[0]
+  ): Promise<SpendCeilingDecision> {
     const account = this.settledByAccount.get(input.accountId) ?? 0n;
     if (
       account >= this.options.accountDailyLimitNanoUsd ||

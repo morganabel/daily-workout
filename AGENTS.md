@@ -106,7 +106,8 @@
 
 - Create `.env` or `.env.local` with `AI_PROVIDER`, `OPENAI_API_KEY`, `GEMINI_API_KEY`.
 - Set `EXPO_PUBLIC_BACKEND_URL` to reach the local API (default `http://localhost:3000`).
-- Use `EDITION=HOSTED` to require BYOK or server-managed keys; `EDITION=CE` returns `AI_PROVIDER_NOT_CONFIGURED` for live AI generation when no usable provider key is configured.
+- Use `DEPLOYMENT_MODE=hosted` to require BYOK or server-managed keys; self-hosted mode returns `AI_PROVIDER_NOT_CONFIGURED` for live AI generation when no usable provider key is configured.
+- Hosted RevenueCat mode requires deployment-owned `BILLING_CONFIG_JSON` conforming to the public versioned schema plus a separately managed `REVENUECAT_WEBHOOK_SECRET`; `BILLING_PROVIDER=none` requires neither.
 - DB-backed auth relies on `DATABASE_URL`, `BETTER_AUTH_SECRET`, and `BETTER_AUTH_URL`.
 - BYOK headers: `x-ai-provider`, `x-openai-key`, `x-gemini-key`, or `x-ai-key`.
 

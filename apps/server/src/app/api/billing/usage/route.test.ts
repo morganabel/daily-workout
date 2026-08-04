@@ -5,29 +5,30 @@ jest.mock('@/lib/auth-context', () => ({
   getAuthContext: jest.fn(),
 }));
 jest.mock('@/lib/deployment', () => ({
-  isBillingEnabled: jest.fn(),
+  getBillingProvider: jest.fn(),
 }));
-jest.mock('@/lib/wiring', () => ({
-  usagePolicy: { getEntitlements: jest.fn() },
+jest.mock('@/lib/billing-services', () => ({
+  getRevenueCatBillingServices: jest.fn(),
 }));
 
 import { getAiUsageSummary } from '@workout-agent-ce/server-db';
 import { getAuthContext } from '@/lib/auth-context';
-import { isBillingEnabled } from '@/lib/deployment';
-import { usagePolicy } from '@/lib/wiring';
+import { getBillingProvider } from '@/lib/deployment';
+import { getRevenueCatBillingServices } from '@/lib/billing-services';
 
 import { GET } from './route';
 
 const mockedGetAiUsageSummary = getAiUsageSummary as jest.Mock;
 const mockedGetAuthContext = getAuthContext as jest.Mock;
-const mockedIsBillingEnabled = isBillingEnabled as jest.Mock;
-const mockedGetEntitlements = usagePolicy.getEntitlements as jest.Mock;
+const mockedGetBillingProvider = getBillingProvider as jest.Mock;
+const mockedGetBillingServices = getRevenueCatBillingServices as jest.Mock;
+const mockedGetEntitlements = jest.fn();
+const mockedBootstrap = jest.fn();
 
 describe('GET /api/billing/usage', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    delete process.env.HOSTED_FREE_AI_COST_BUDGET_USD;
-    mockedIsBillingEnabled.mockReturnValue(true);
+    mockedGetBillingProvider.mockReturnValue('revenuecat');
     mockedGetAuthContext.mockResolvedValue({
       db: { name: 'db' },
       provider: { authenticate: jest.fn().mockResolvedValue({ userId: 'u1' }) },
@@ -38,6 +39,10 @@ describe('GET /api/billing/usage', () => {
         startsAt: '2026-08-01T00:00:00.000Z',
         endsAt: '2026-09-01T00:00:00.000Z',
       },
+    });
+    mockedGetBillingServices.mockResolvedValue({
+      repository: { bootstrapAuthenticatedCustomer: mockedBootstrap },
+      getEntitlements: mockedGetEntitlements,
     });
     mockedGetAiUsageSummary.mockResolvedValue({
       window: {
@@ -66,7 +71,7 @@ describe('GET /api/billing/usage', () => {
   });
 
   it('returns 404 when hosted billing is disabled', async () => {
-    mockedIsBillingEnabled.mockReturnValue(false);
+    mockedGetBillingProvider.mockReturnValue('none');
 
     const response = await GET(new Request('http://localhost/api/billing/usage'));
 
@@ -74,8 +79,6 @@ describe('GET /api/billing/usage', () => {
   });
 
   it('returns the authenticated user usage window', async () => {
-    process.env.HOSTED_FREE_AI_COST_BUDGET_USD = '2.50';
-
     const response = await GET(new Request('http://localhost/api/billing/usage'));
 
     expect(response.status).toBe(200);
@@ -83,7 +86,6 @@ describe('GET /api/billing/usage', () => {
       { name: 'db' },
       expect.objectContaining({
         userId: 'u1',
-        shadowBudgetNanoUsd: '2500000000',
       })
     );
     expect(await response.json()).toEqual(

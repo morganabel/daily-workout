@@ -12,6 +12,12 @@ import type {
   ExerciseLibrary,
   WorkoutCatalogMatch,
 } from '@workout-agent-ce/server-exercise-library';
+import type {
+  ProviderAdmissionPolicy,
+  ProviderAdmissionResult,
+  SpendCeilingDecision,
+  SpendCeilingPolicy,
+} from '@workout-agent-ce/quotas';
 
 import { createGenerateHandler } from './generate';
 import type {
@@ -153,6 +159,32 @@ function createMeteringMock(): jest.Mocked<MeteringSink> {
   };
 }
 
+function createAdmissionMock(
+  result: ProviderAdmissionResult = {
+    allowed: true,
+    lease: {
+      kind: 'provider_admission',
+      leaseId: 'lease-1',
+      accountId: 'user-123',
+      operationId: 'operation-1',
+      expiresAt: '2030-01-01T00:00:00.000Z',
+    },
+  }
+): jest.Mocked<ProviderAdmissionPolicy> {
+  return {
+    acquireProviderAdmission: jest.fn().mockResolvedValue(result),
+    releaseProviderAdmission: jest.fn().mockResolvedValue(undefined),
+  };
+}
+
+function createSpendCeilingMock(
+  decision: SpendCeilingDecision = { allowed: true }
+): jest.Mocked<SpendCeilingPolicy> {
+  return {
+    checkSpendCeiling: jest.fn().mockResolvedValue(decision),
+  };
+}
+
 function createHandler(
   overrides: {
     auth?: jest.Mocked<AuthProvider>;
@@ -160,6 +192,8 @@ function createHandler(
     router?: jest.Mocked<ModelRouter>;
     planner?: jest.Mocked<StageOnePlanner>;
     policy?: jest.Mocked<UsagePolicy>;
+    admission?: jest.Mocked<ProviderAdmissionPolicy>;
+    spendCeiling?: jest.Mocked<SpendCeilingPolicy>;
     metering?: jest.Mocked<MeteringSink>;
     exerciseLibrary?: ExerciseLibrary;
     loadExerciseLibrary?: jest.Mock<Promise<ExerciseLibrary | undefined>>;
@@ -179,6 +213,8 @@ function createHandler(
     router,
     planner,
     policy,
+    admission: overrides.admission,
+    spendCeiling: overrides.spendCeiling,
     metering,
     exerciseLibrary: overrides.exerciseLibrary,
     loadExerciseLibrary: overrides.loadExerciseLibrary,
@@ -197,6 +233,8 @@ function createHandler(
     router,
     planner,
     policy,
+    admission: overrides.admission,
+    spendCeiling: overrides.spendCeiling,
     metering,
   };
 }
@@ -698,11 +736,99 @@ describe('createGenerateHandler', () => {
     );
   });
 
+  it('applies account admission to BYOK while bypassing quota and spend', async () => {
+    const admission = createAdmissionMock();
+    const spendCeiling = createSpendCeilingMock();
+    const policy = createPolicyMock();
+    const { handler, router } = createHandler({
+      admission,
+      spendCeiling,
+      policy,
+    });
+
+    const response = await handler(
+      createRequest(
+        { timeMinutes: 30, focus: 'Upper Body' },
+        { 'x-openai-key': 'byok-secret' }
+      )
+    );
+
+    expect(response.status).toBe(200);
+    expect(admission.acquireProviderAdmission).toHaveBeenCalledWith(
+      expect.objectContaining({ accountId: 'user-123' })
+    );
+    expect(admission.releaseProviderAdmission).toHaveBeenCalledTimes(1);
+    expect(spendCeiling.checkSpendCeiling).not.toHaveBeenCalled();
+    expect(policy.reserveGenerate).not.toHaveBeenCalled();
+    expect(router.generate).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    ['account_rate_limited', 'ACCOUNT_RATE_LIMITED'],
+    ['concurrency_limited', 'CONCURRENCY_LIMITED'],
+  ] as const)(
+    'denies %s before provider work',
+    async (admissionCode, apiCode) => {
+      const admission = createAdmissionMock({
+        allowed: false,
+        code: admissionCode,
+      });
+      const policy = createPolicyMock();
+      const spendCeiling = createSpendCeilingMock();
+      const { handler, router } = createHandler({
+        admission,
+        spendCeiling,
+        policy,
+      });
+
+      const response = await handler(createRequest({ timeMinutes: 30 }));
+      const body = (await response.json()) as { code: string };
+
+      expect(response.status).toBe(429);
+      expect(body.code).toBe(apiCode);
+      expect(spendCeiling.checkSpendCeiling).not.toHaveBeenCalled();
+      expect(policy.reserveGenerate).not.toHaveBeenCalled();
+      expect(router.generate).not.toHaveBeenCalled();
+    }
+  );
+
+  it.each([
+    ['spend_limit_exceeded', 'SPEND_LIMIT_EXCEEDED', 429],
+    ['pricing_unavailable', 'SERVICE_UNAVAILABLE', 503],
+    ['dependency_unavailable', 'SERVICE_UNAVAILABLE', 503],
+  ] as const)(
+    'denies managed generation for %s before quota or provider work',
+    async (spendCode, apiCode, status) => {
+      const admission = createAdmissionMock();
+      const spendCeiling = createSpendCeilingMock({
+        allowed: false,
+        code: spendCode,
+      });
+      const policy = createPolicyMock();
+      const { handler, router } = createHandler({
+        admission,
+        spendCeiling,
+        policy,
+      });
+
+      const response = await handler(createRequest({ timeMinutes: 30 }));
+      const body = (await response.json()) as { code: string };
+
+      expect(response.status).toBe(status);
+      expect(body.code).toBe(apiCode);
+      expect(policy.reserveGenerate).not.toHaveBeenCalled();
+      expect(router.generate).not.toHaveBeenCalled();
+      expect(admission.releaseProviderAdmission).toHaveBeenCalledTimes(1);
+    }
+  );
+
   it('treats configured Vertex as managed execution', async () => {
     const policy = createPolicyMock();
+    const spendCeiling = createSpendCeilingMock();
     const metering = createMeteringMock();
     const { handler, router } = createHandler({
       policy,
+      spendCeiling,
       metering,
       config: {
         edition: 'HOSTED',
@@ -722,6 +848,11 @@ describe('createGenerateHandler', () => {
     );
 
     expect(response.status).toBe(200);
+    expect(spendCeiling.checkSpendCeiling).toHaveBeenCalledWith({
+      accountId: 'user-123',
+      provider: 'gemini',
+      credentialSource: 'vertex',
+    });
     expect(policy.reserveGenerate).toHaveBeenCalledTimes(1);
     expect(router.generate).toHaveBeenCalledWith(
       expect.anything(),
@@ -893,6 +1024,27 @@ describe('createGenerateHandler', () => {
         eventId: 'generation-success',
       })
     );
+    expect(metering.recordUsage.mock.invocationCallOrder[0]).toBeLessThan(
+      policy.commitGenerateReservation.mock.invocationCallOrder[0]
+    );
+  });
+
+  it('does not return completed work when allowance commit fails', async () => {
+    const policy = createPolicyMock();
+    policy.commitGenerateReservation.mockRejectedValueOnce(
+      new Error('billing_reservation_expired')
+    );
+    const metering = createMeteringMock();
+    const { handler, store } = createHandler({ policy, metering });
+
+    await expect(
+      handler(createRequest({ timeMinutes: 30, focus: 'Upper Body' }))
+    ).rejects.toThrow('billing_reservation_expired');
+    expect(store.persistPlan).toHaveBeenCalledTimes(1);
+    expect(metering.recordUsage).toHaveBeenCalledWith(
+      expect.objectContaining({ eventId: 'generation-success' })
+    );
+    expect(policy.rollbackGenerateReservation).toHaveBeenCalled();
   });
 
   it('creates independent operations when a correlation ID is reused', async () => {
@@ -1382,6 +1534,49 @@ describe('createGenerateHandler', () => {
       })
     );
     expect(policy.commitGenerateReservation).not.toHaveBeenCalled();
+  });
+
+  it('does not commit allowance when durable metering settlement fails', async () => {
+    const metering = createMeteringMock();
+    metering.recordUsage.mockRejectedValue(
+      new Error('metering_dependency_unavailable')
+    );
+    const policy = createPolicyMock();
+    const { handler, store } = createHandler({ policy, metering });
+
+    await expect(
+      handler(createRequest({ timeMinutes: 30, focus: 'Upper Body' }))
+    ).rejects.toThrow('metering_dependency_unavailable');
+
+    expect(store.persistPlan).not.toHaveBeenCalled();
+    expect(policy.commitGenerateReservation).not.toHaveBeenCalled();
+    expect(policy.rollbackGenerateReservation).toHaveBeenCalledTimes(1);
+  });
+
+  it('meters provider spend when the generated plan fails validation', async () => {
+    const router = createRouterMock({} as TodayPlan);
+    const metering = createMeteringMock();
+    const policy = createPolicyMock();
+    const { handler, store } = createHandler({
+      router,
+      metering,
+      policy,
+    });
+
+    await expect(
+      handler(createRequest({ timeMinutes: 30, focus: 'Upper Body' }))
+    ).rejects.toThrow();
+
+    expect(metering.recordUsage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventId: 'generation-error',
+        result: 'error',
+        errorCode: 'AI_GENERATION_VALIDATION_ERROR',
+      })
+    );
+    expect(store.persistPlan).not.toHaveBeenCalled();
+    expect(policy.commitGenerateReservation).not.toHaveBeenCalled();
+    expect(policy.rollbackGenerateReservation).toHaveBeenCalledTimes(1);
   });
 
   it('builds a candidate pool on normal generation without changing the public response', async () => {

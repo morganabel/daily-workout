@@ -29,7 +29,7 @@ import {
   PostgresSpendCeilingPolicy,
   type BillingRepositoryOutcome,
 } from './billing.js';
-import { PostgresMeteringSink } from './ai-usage.js';
+import { getAiUsageSummary, PostgresMeteringSink } from './ai-usage.js';
 import * as schema from './schema.js';
 
 let container: StartedPostgreSqlContainer | undefined;
@@ -38,6 +38,14 @@ let poolB: Pool | undefined;
 let dbA: Database;
 let dbB: Database;
 const fixedNow = new Date('2026-08-03T12:00:00.000Z');
+
+function deferred(): { promise: Promise<void>; resolve: () => void } {
+  let resolve!: () => void;
+  const promise = new Promise<void>((complete) => {
+    resolve = complete;
+  });
+  return { promise, resolve };
+}
 
 function repository(
   db: Database,
@@ -56,7 +64,11 @@ function repository(
   });
 }
 
-async function seedUser(db: Database, id: string): Promise<void> {
+async function seedUser(
+  db: Database,
+  id: string,
+  createdAt?: Date
+): Promise<void> {
   await db
     .insert(schema.user)
     .values({
@@ -64,6 +76,7 @@ async function seedUser(db: Database, id: string): Promise<void> {
       name: id,
       email: `${id}@example.test`,
       emailVerified: true,
+      createdAt,
     })
     .onConflictDoNothing();
 }
@@ -300,6 +313,68 @@ describe('PostgreSQL billing repositories', () => {
     await verifyUsagePolicyContract((limit) => repository(dbA, limit));
   });
 
+  it('reports durable quota state and billing schema health after recreation', async () => {
+    await seedUser(dbA, 'state-user');
+    const first = repository(dbA, 2);
+    const reserved = await first.reserveGenerate({
+      accountId: 'state-user',
+      operationId: 'operation-a',
+      operation: 'generate',
+    });
+    expect(reserved.allowed).toBe(true);
+
+    const recreated = repository(dbB, 2);
+    await expect(recreated.checkHealth()).resolves.toBeUndefined();
+    await expect(
+      recreated.getIncludedGenerationUsage('state-user')
+    ).resolves.toMatchObject({ used: 0, reserved: 1, remaining: 1 });
+
+    if (!reserved.allowed || !reserved.reservation) {
+      throw new Error('expected reservation');
+    }
+    await recreated.commitGenerateReservation(reserved.reservation);
+    await expect(
+      repository(dbA, 2).getIncludedGenerationUsage('state-user')
+    ).resolves.toMatchObject({ used: 1, reserved: 0, remaining: 1 });
+  });
+
+  it('anchors an initial quota window before BYOK usage is summarized', async () => {
+    const accountCreatedAt = new Date('2026-07-15T12:00:00.000Z');
+    await seedUser(dbA, 'byok-window-user', accountCreatedAt);
+    const usageEvent: UsageEvent = {
+      userId: 'byok-window-user',
+      operationId: 'byok-operation',
+      eventId: 'generation-success',
+      operation: 'generate',
+      provider: 'openai',
+      credentialSource: 'byok',
+      byok: true,
+      timestamp: '2026-08-02T12:00:00.000Z',
+      result: 'success',
+      modelCalls: [],
+      usage: buildGenerationUsageSummary([], {
+        credentialSource: 'byok',
+        operationSucceeded: true,
+      }),
+    };
+    await new PostgresMeteringSink(dbA).recordUsage(usageEvent);
+
+    const repo = repository(dbA, 2);
+    const first = await repo.getIncludedGenerationUsage('byok-window-user');
+    const second = await repository(dbB, 2).getIncludedGenerationUsage(
+      'byok-window-user'
+    );
+    expect(first).toEqual(second);
+    expect(first.startsAt).toBe(accountCreatedAt.toISOString());
+
+    const summary = await getAiUsageSummary(dbA, {
+      userId: 'byok-window-user',
+      startsAt: new Date(first.startsAt),
+      endsAt: new Date(first.endsAt),
+    });
+    expect(summary.totals.requestCount).toBe(1);
+  });
+
   it('serializes the concurrent last quota slot across repository instances', async () => {
     await seedUser(dbA, 'concurrent-user');
     const first = repository(dbA, 1).reserveGenerate({
@@ -317,6 +392,108 @@ describe('PostgreSQL billing repositories', () => {
     expect(results.filter((result) => !result.allowed)).toEqual([
       { allowed: false, code: 'quota_exceeded', statusCode: 429 },
     ]);
+  });
+
+  it('does not let one account billing lock block another account', async () => {
+    await Promise.all([
+      seedUser(dbA, 'locked-account'),
+      seedUser(dbA, 'independent-account'),
+    ]);
+    const acquired = deferred();
+    const release = deferred();
+    const blocker = dbA.transaction(async (transaction) => {
+      await transaction.execute(
+        sql`select pg_advisory_xact_lock(hashtextextended(${'billing-account:locked-account'}, 0))`
+      );
+      acquired.resolve();
+      await release.promise;
+    });
+
+    try {
+      await acquired.promise;
+      await expect(
+        repository(dbB, 1).reserveGenerate({
+          accountId: 'independent-account',
+          operationId: 'independent-operation',
+          operation: 'generate',
+        })
+      ).resolves.toMatchObject({ allowed: true });
+    } finally {
+      release.resolve();
+      await blocker;
+    }
+  });
+
+  it('bounds same-account lock waits and reports the timeout', async () => {
+    await seedUser(dbA, 'timed-lock-account');
+    const acquired = deferred();
+    const release = deferred();
+    const blocker = dbA.transaction(async (transaction) => {
+      await transaction.execute(
+        sql`select pg_advisory_xact_lock(hashtextextended(${'billing-account:timed-lock-account'}, 0))`
+      );
+      acquired.resolve();
+      await release.promise;
+    });
+    const outcomes: BillingRepositoryOutcome[] = [];
+
+    try {
+      await acquired.promise;
+      await expect(
+        repository(dbB, 1, {
+          observe: (outcome) => outcomes.push(outcome),
+        }).reserveGenerate({
+          accountId: 'timed-lock-account',
+          operationId: 'timed-operation',
+          operation: 'generate',
+        })
+      ).resolves.toEqual({
+        allowed: false,
+        code: 'dependency_unavailable',
+      });
+      expect(outcomes).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            operation: 'reserve',
+            outcome: 'lock_timeout',
+            durationMs: expect.any(Number),
+          }),
+        ])
+      );
+    } finally {
+      release.resolve();
+      await blocker;
+    }
+  });
+
+  it('does not couple quota reservation to non-key user updates', async () => {
+    await seedUser(dbA, 'auth-update-account');
+    const acquired = deferred();
+    const release = deferred();
+    const blocker = dbA.transaction(async (transaction) => {
+      await transaction.execute(sql`
+        select id
+        from ${schema.user}
+        where ${schema.user.id} = ${'auth-update-account'}
+        for no key update
+      `);
+      acquired.resolve();
+      await release.promise;
+    });
+
+    try {
+      await acquired.promise;
+      await expect(
+        repository(dbB, 1).reserveGenerate({
+          accountId: 'auth-update-account',
+          operationId: 'auth-update-operation',
+          operation: 'generate',
+        })
+      ).resolves.toMatchObject({ allowed: true });
+    } finally {
+      release.resolve();
+      await blocker;
+    }
   });
 
   it('persists an idempotent commit across repository recreation', async () => {
@@ -445,7 +622,11 @@ describe('PostgreSQL billing repositories', () => {
       isPricingAvailable: () => false,
     });
     await expect(
-      pricing.checkSpendCeiling({ accountId: 'user', provider: 'openai' })
+      pricing.checkSpendCeiling({
+        accountId: 'user',
+        provider: 'openai',
+        credentialSource: 'managed',
+      })
     ).resolves.toEqual({ allowed: false, code: 'pricing_unavailable' });
 
     const unavailable = new PostgresSpendCeilingPolicy(
@@ -464,6 +645,7 @@ describe('PostgreSQL billing repositories', () => {
       unavailable.checkSpendCeiling({
         accountId: 'user',
         provider: 'openai',
+        credentialSource: 'managed',
       })
     ).resolves.toEqual({ allowed: false, code: 'dependency_unavailable' });
   });

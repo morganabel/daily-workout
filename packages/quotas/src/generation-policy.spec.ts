@@ -188,7 +188,11 @@ describe('canonical generation policy contracts', () => {
       actualCostNanoUsd: '600',
     });
     await expect(
-      ceiling.checkSpendCeiling({ accountId: 'user-1', provider: 'openai' })
+      ceiling.checkSpendCeiling({
+        accountId: 'user-1',
+        provider: 'openai',
+        credentialSource: 'managed',
+      })
     ).resolves.toEqual({ allowed: true });
 
     ceiling.settleActualCost({
@@ -196,10 +200,18 @@ describe('canonical generation policy contracts', () => {
       actualCostNanoUsd: '400',
     });
     await expect(
-      ceiling.checkSpendCeiling({ accountId: 'user-1', provider: 'openai' })
+      ceiling.checkSpendCeiling({
+        accountId: 'user-1',
+        provider: 'openai',
+        credentialSource: 'managed',
+      })
     ).resolves.toEqual({ allowed: false, code: 'spend_limit_exceeded' });
     await expect(
-      ceiling.checkSpendCeiling({ accountId: 'user-2', provider: 'openai' })
+      ceiling.checkSpendCeiling({
+        accountId: 'user-2',
+        provider: 'openai',
+        credentialSource: 'managed',
+      })
     ).resolves.toEqual({ allowed: true });
     expect(ceiling.totals()).toEqual({ globalSettledNanoUsd: '1000' });
   });

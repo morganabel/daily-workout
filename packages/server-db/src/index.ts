@@ -30,6 +30,7 @@ export {
   type BillingRepositoryObserver,
   type PostgresBillingRepositoryOptions,
   type PostgresSpendCeilingPolicyOptions,
+  type IncludedGenerationUsageSnapshot,
 } from './lib/billing.js';
 import {
   user,

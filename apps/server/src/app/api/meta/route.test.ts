@@ -16,9 +16,10 @@ describe('GET /api/meta', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     process.env = { ...originalEnv };
-    delete process.env.EDITION;
-    delete process.env.HOSTED_BILLING_ENABLED;
-    delete process.env.HOSTED_SHOW_UPGRADE_UI;
+    delete process.env.DEPLOYMENT_MODE;
+    delete process.env.BILLING_PROVIDER;
+    delete process.env.REVENUECAT_WEBHOOK_SECRET;
+    delete process.env.BILLING_CONFIG_JSON;
   });
 
   afterAll(() => {
@@ -45,8 +46,31 @@ describe('GET /api/meta', () => {
   });
 
   it('returns hosted billing capabilities when enabled in env', async () => {
-    process.env.EDITION = 'HOSTED';
-    process.env.HOSTED_BILLING_ENABLED = 'true';
+    process.env.DEPLOYMENT_MODE = 'hosted';
+    process.env.BILLING_PROVIDER = 'revenuecat';
+    process.env.REVENUECAT_WEBHOOK_SECRET = 'secret';
+    process.env.BILLING_CONFIG_JSON = JSON.stringify({
+      schemaVersion: 1,
+      revenueCat: {
+        appIds: ['app.test'],
+        environments: ['SANDBOX'],
+        entitlementIds: ['OpenLift Pro'],
+        productIds: ['monthly'],
+      },
+      plans: {
+        freeGenerations: 25,
+        proGenerations: 1000,
+        windowDays: 30,
+      },
+      guardrails: {
+        accountRequestsPerMinute: 30,
+        accountMaxActiveGenerations: 2,
+        accountDailySpendLimitNanoUsd: '5000000000',
+        globalDailySpendLimitNanoUsd: '50000000000',
+        pendingReservationTtlSeconds: 300,
+      },
+      capabilities: { showUpgradeUi: true },
+    });
 
     mockGetAuthContext.mockReturnValue({
       mode: 'better-auth',

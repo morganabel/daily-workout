@@ -50,15 +50,32 @@ describe('RevenueCat normalization', () => {
     expect(replay.normalizedHash).toBe(normalized.normalizedHash);
   });
 
-  it('distinguishes renewing and non-renewing purchases explicitly', () => {
+  it('normalizes non-renewing, extension, and refund-reversal semantics', () => {
     const nonRenewing = normalizeRevenueCatEvent(
       revenueCatWebhookSchema.parse({
         event: event({ type: 'NON_RENEWING_PURCHASE' }),
       }).event,
       domainConfig
     );
+    expect(nonRenewing).toMatchObject({ kind: 'grant', willRenew: false });
 
-    expect(nonRenewing.willRenew).toBe(false);
+    const extended = normalizeRevenueCatEvent(
+      revenueCatWebhookSchema.parse({
+        event: event({ type: 'SUBSCRIPTION_EXTENDED' }),
+      }).event,
+      domainConfig
+    );
+    expect(extended).toMatchObject({ kind: 'extend' });
+    expect(extended.willRenew).toBeUndefined();
+
+    const restored = normalizeRevenueCatEvent(
+      revenueCatWebhookSchema.parse({
+        event: event({ type: 'REFUND_REVERSED' }),
+      }).event,
+      domainConfig
+    );
+    expect(restored).toMatchObject({ kind: 'restore_access' });
+    expect(restored.willRenew).toBeUndefined();
   });
 
   it('rejects incomplete state-changing events after envelope parsing', () => {

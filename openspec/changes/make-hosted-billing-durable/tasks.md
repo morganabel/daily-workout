@@ -112,30 +112,30 @@ nx run server-db:integration
 
 ### Implementation Tasks
 
-- [ ] B3.1 Keep the entitlement and RevenueCat webhook routes in `apps/server` as thin adapters over the B2 repositories; gate both routes on `BILLING_PROVIDER=revenuecat`.
-- [ ] B3.2 Replace direct `HostedBillingRuntime` construction in `wiring.ts` with the durable repositories and canonical B1 policy/metering contracts.
-- [ ] B3.3 Delete the process-local hosted entitlement, customer, quota, and metering maps from production code. Retain a memory billing adapter only through an explicit test/development entry point. The in-process admission limiter is intentionally process-local and remains.
-- [ ] B3.4 Extend the environment-only `validateBootConfig` path to parse required `REVENUECAT_WEBHOOK_SECRET`, allowed app/environment/entitlement/product lists, `BILLING_FREE_GENERATION_LIMIT`, `BILLING_PRO_GENERATION_LIMIT`, `BILLING_QUOTA_WINDOW_DAYS`, per-account request-rate and maximum-active-generation settings, per-account and global daily managed-spend ceilings, and the pending-reservation TTL; reject empty, duplicate, unbounded, invalid-enum, and invalid-number values without performing database I/O.
-- [ ] B3.5 Use `DEPLOYMENT_MODE=hosted` plus `BILLING_PROVIDER=revenuecat`; delete `EDITION`, `HOSTED_BILLING_ENABLED`, the three `HOSTED_*` quota names, and `REVENUECAT_ALLOW_UNSIGNED_WEBHOOKS` from code, tests, root/app env examples, README, and AGENTS guidance.
-- [ ] B3.6 Accept only `Authorization: Bearer <REVENUECAT_WEBHOOK_SECRET>` for RevenueCat webhooks, remove `x-revenuecat-signature`, and test that no environment or route path accepts unsigned production or development webhook state.
-- [ ] B3.7 Extend `/api/ready` with billing schema/repository health when RevenueCat billing is enabled; connectivity/schema failure keeps readiness false and dependent routes return service unavailable before managed provider work, without turning boot validation into an I/O probe.
-- [ ] B3.8 Wire authenticated customer bootstrap and unmapped-event reconciliation before purchase or restore UI can initiate RevenueCat work.
-- [ ] B3.9 Wire hosted generation to the full simplified flow: in-process per-account rate/concurrency admission, daily spend-ceiling check, included-generation reserve, provider invocation, metering settlement of every billable attempt, then commit on validated success or rollback on failure. BYOK skips allowance and ceilings only. Remove every permissive or process-memory hosted billing fallback.
+- [x] B3.1 Keep the entitlement and RevenueCat webhook routes in `apps/server` as thin adapters over the B2 repositories; gate both routes on `BILLING_PROVIDER=revenuecat`.
+- [x] B3.2 Replace direct `HostedBillingRuntime` construction in `wiring.ts` with the durable repositories and canonical B1 policy/metering contracts.
+- [x] B3.3 Delete the process-local hosted entitlement, customer, quota, and metering maps from production code. Retain a memory billing adapter only through an explicit test/development entry point. The in-process admission limiter is intentionally process-local and remains.
+- [x] B3.4 Make the public product own a strict, versioned `BILLING_CONFIG_JSON` schema containing RevenueCat scope, plan allowance, admission, spend-ceiling, reservation-TTL, and upgrade-capability sections. Keep `REVENUECAT_WEBHOOK_SECRET` separate; bound the raw document before parsing and reject malformed JSON, unknown schema versions/properties, missing values, duplicate identifiers, invalid enums/types/numbers, and out-of-bound values without logging document contents or performing database I/O.
+- [x] B3.5 Use `DEPLOYMENT_MODE=hosted` plus `BILLING_PROVIDER=revenuecat`, `BILLING_CONFIG_JSON`, and `REVENUECAT_WEBHOOK_SECRET`; delete `EDITION`, `HOSTED_BILLING_ENABLED`, the per-setting hosted/billing/RevenueCat configuration variables, and `REVENUECAT_ALLOW_UNSIGNED_WEBHOOKS` from code, tests, root/app env examples, README, and AGENTS guidance. Document that deployment repositories own concrete values and may serialize a typed configuration object against the pinned public schema.
+- [x] B3.6 Accept only `Authorization: Bearer <REVENUECAT_WEBHOOK_SECRET>` for RevenueCat webhooks, remove `x-revenuecat-signature`, and test that no environment or route path accepts unsigned production or development webhook state.
+- [x] B3.7 Extend `/api/ready` with billing schema/repository health when RevenueCat billing is enabled; connectivity/schema failure keeps readiness false and dependent routes return service unavailable before managed provider work, without turning boot validation into an I/O probe.
+- [x] B3.8 Wire authenticated customer bootstrap and unmapped-event reconciliation before purchase or restore UI can initiate RevenueCat work.
+- [x] B3.9 Wire hosted generation to the full simplified flow: in-process per-account rate/concurrency admission, daily spend-ceiling check, included-generation reserve, provider invocation, metering settlement of every billable attempt, then commit on validated success or rollback on failure. BYOK skips allowance and ceilings only. Persist account-anchored quota windows on first read so BYOK-only usage remains in the reported window. Remove every permissive or process-memory hosted billing fallback.
 - [ ] B3.10 Reset non-production billing data and apply the new schema without a backfill or compatibility transform.
-- [ ] B3.11 Add route/composition cases for self-hosted billing-disabled, hosted durable, provider-disabled webhook, malformed/scope-invalid event, cancellation-before-expiry, duplicate, stale, mapping conflict, unavailable repository, account rate denial, concurrency denial, BYOK admission, spend-ceiling denial, and unknown managed pricing.
-- [ ] B3.12 Add credential-source cases: matching provider BYOK bypasses entitlement quota and ceilings; unrelated or unused key headers do not; managed and Vertex credentials reserve quota and are ceiling-checked.
+- [x] B3.11 Add boot/route/composition cases for self-hosted billing-disabled, valid schema version, malformed/oversized configuration, unknown schema version/property, duplicate identifiers, hosted durable, provider-disabled webhook, malformed/scope-invalid event, cancellation-before-expiry, duplicate, stale, mapping conflict, unavailable repository, account rate denial, concurrency denial, BYOK admission, spend-ceiling denial, and unknown managed pricing.
+- [x] B3.12 Add credential-source cases: matching provider BYOK bypasses entitlement quota and ceilings; unrelated or unused key headers do not; managed and Vertex credentials reserve quota and are ceiling-checked.
 
 ### Acceptance Criteria
 
-- [ ] B3.A1 Self-hosted mode starts with billing disabled and generation unrestricted by billing services.
-- [ ] B3.A2 Hosted RevenueCat production cannot start without valid durable-adapter/database and authenticated-webhook configuration; database connectivity/schema health is enforced through readiness rather than boot I/O.
-- [ ] B3.A3 No process-local hosted entitlement, customer, quota, or metering state remains in production composition; the only intentional process-local state is the admission limiter.
-- [ ] B3.A4 Restarting the server does not change entitlement, mapping, ledger, reservation, or quota state; admission counters may reset.
-- [ ] B3.A5 Billing routes are part of the consolidated server image and do not rely on private source injection or a second application.
-- [ ] B3.A6 Readiness reflects billing repository/schema health only when billing is enabled, and failures do not invoke a managed model provider.
-- [ ] B3.A7 `rg` finds no runtime or documentation use of removed deployment, quota, unsigned-webhook, or custom-signature aliases outside historical OpenSpec artifacts.
-- [ ] B3.A8 A quota limit of N permits at most N committed or active reservations; a failed attempt records a durable failure outcome and settles its actual provider cost without committing included allowance.
-- [ ] B3.A9 The only billing bypass is a credential selected from a matching BYOK header for the chosen provider; managed generation is denied before provider work when pricing, the spend query, or the quota repository is unavailable.
+- [x] B3.A1 Self-hosted mode starts with billing disabled and generation unrestricted by billing services.
+- [x] B3.A2 Hosted RevenueCat production cannot start without a supported strictly valid billing configuration document, valid durable-adapter/database configuration, and authenticated-webhook configuration; database connectivity/schema health is enforced through readiness rather than boot I/O.
+- [x] B3.A3 No process-local hosted entitlement, customer, quota, or metering state remains in production composition; the only intentional process-local state is the admission limiter.
+- [x] B3.A4 Restarting the server does not change entitlement, mapping, ledger, reservation, or quota state; admission counters may reset.
+- [x] B3.A5 Billing routes are part of the consolidated server image and do not rely on private source injection or a second application.
+- [x] B3.A6 Readiness reflects billing repository/schema health only when billing is enabled, and failures do not invoke a managed model provider.
+- [x] B3.A7 `rg` finds no runtime or documentation use of removed deployment, per-setting billing/RevenueCat, unsigned-webhook, or custom-signature aliases outside historical OpenSpec artifacts.
+- [x] B3.A8 A quota limit of N permits at most N committed or active reservations; a failed attempt records a durable failure outcome and settles its actual provider cost without committing included allowance.
+- [x] B3.A9 The only billing bypass is a credential selected from a matching BYOK header for the chosen provider; managed generation is denied before provider work when pricing, the spend query, or the quota repository is unavailable.
 
 ### Verification Commands
 
@@ -160,6 +160,6 @@ Deliberately out of scope for this change; revisit when there are real paying us
 
 ## Final Change Verification
 
-- [ ] V1 Run `npm run validate:openspec -- make-hosted-billing-durable` successfully using the repo-owned CLI from package-and-CI PR 1.
-- [ ] V2 Run `nx sync:check` and the complete applicable lint, typecheck, test, build, server E2E, and Docker image gates.
-- [ ] V3 Run the PostgreSQL contract, restart, and concurrent last-slot reservation checks from B2-B3.
+- [x] V1 Run `npm run validate:openspec -- make-hosted-billing-durable` successfully using the repo-owned CLI from package-and-CI PR 1.
+- [x] V2 Run `nx sync:check` and the complete applicable lint, typecheck, test, build, server E2E, and Docker image gates.
+- [x] V3 Run the PostgreSQL contract, restart, and concurrent last-slot reservation checks from B2-B3.

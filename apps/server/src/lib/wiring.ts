@@ -23,11 +23,14 @@ import {
   DefaultStageOnePlanner,
 } from '@workout-agent-ce/server-ai';
 import type { ExerciseLibrary } from '@workout-agent-ce/server-exercise-library';
-import { PostgresMeteringSink } from '@workout-agent-ce/server-db';
+import type {
+  ProviderAdmissionPolicy,
+  SpendCeilingPolicy,
+} from '@workout-agent-ce/quotas';
 import type { AiProviderName } from '@workout-agent/shared';
 import { getAuthContext } from './auth-context';
-import { hostedBillingRuntime } from './hosted-billing';
-import { isBillingEnabled, resolveEdition } from './deployment';
+import { getRevenueCatBillingServices } from './billing-services';
+import { getBillingProvider, resolveEdition } from './deployment';
 
 const store = new InMemoryGenerationStore();
 const router = new DefaultModelRouter();
@@ -94,30 +97,59 @@ const buildConfig = (): GenerateHandlerConfig => {
 
 // Build server configuration from environment
 const config = buildConfig();
-const hostedBilling = isBillingEnabled();
+const revenueCatBilling = getBillingProvider() === 'revenuecat';
 
-if (hostedBilling && process.env.NODE_ENV !== 'test') {
-  console.warn(
-    '[billing] Hosted billing runtime stores quota/entitlement state in memory only; restart will reset state.'
-  );
-}
-
-export const usagePolicy: UsagePolicy = hostedBilling
-  ? hostedBillingRuntime
+export const usagePolicy: UsagePolicy = revenueCatBilling
+  ? {
+      async reserveGenerate(request) {
+        const services = await getRevenueCatBillingServices();
+        return services.usagePolicy.reserveGenerate(request);
+      },
+      async commitGenerateReservation(reservation) {
+        const services = await getRevenueCatBillingServices();
+        await services.usagePolicy.commitGenerateReservation(reservation);
+      },
+      async rollbackGenerateReservation(reservation) {
+        const services = await getRevenueCatBillingServices();
+        await services.usagePolicy.rollbackGenerateReservation(reservation);
+      },
+      async getEntitlements(accountId) {
+        const services = await getRevenueCatBillingServices();
+        return services.getEntitlements(accountId);
+      },
+    }
   : new NoOpUsagePolicy();
 
-let cachedPostgresMeteringSink: PostgresMeteringSink | null = null;
+export const admissionPolicy: ProviderAdmissionPolicy | undefined =
+  revenueCatBilling
+    ? {
+        async acquireProviderAdmission(input) {
+          const services = await getRevenueCatBillingServices();
+          return services.admissionPolicy.acquireProviderAdmission(input);
+        },
+        async releaseProviderAdmission(lease) {
+          const services = await getRevenueCatBillingServices();
+          await services.admissionPolicy.releaseProviderAdmission(lease);
+        },
+      }
+    : undefined;
+
+export const spendCeilingPolicy: SpendCeilingPolicy | undefined =
+  revenueCatBilling
+    ? {
+        async checkSpendCeiling(input) {
+          const services = await getRevenueCatBillingServices();
+          return services.spendCeilingPolicy.checkSpendCeiling(input);
+        },
+      }
+    : undefined;
 
 // Hosted generation writes an idempotent operation ledger. CE remains no-op.
-export const meteringSink: MeteringSink = hostedBilling
+export const meteringSink: MeteringSink = revenueCatBilling
   ? {
       async recordUsage(event) {
-        const { db } = await getAuthContext();
-        if (!db) {
-          return;
-        }
-        cachedPostgresMeteringSink ??= new PostgresMeteringSink(db);
-        await cachedPostgresMeteringSink.recordUsage(event);
+        const services = await getRevenueCatBillingServices();
+        await services.meteringSink.recordUsage(event);
       },
     }
   : new NoOpMeteringSink();
@@ -143,6 +175,8 @@ const getGenerateHandler = (): Promise<GenerateHandler> => {
         planner,
         loadExerciseLibrary,
         policy: usagePolicy,
+        admission: admissionPolicy,
+        spendCeiling: spendCeilingPolicy,
         metering: meteringSink,
         config,
       });

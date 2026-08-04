@@ -17,6 +17,7 @@ There are no production users or billing records to preserve. We can replace the
 - Make `packages/quotas` and `packages/metering` the single provider-neutral entitlement/reservation and usage-event contracts; remove or repurpose the overlapping check-only, process-array, `UsagePolicy`, and app-local production abstractions.
 - Implement the PostgreSQL event ledger, entitlement projection, customer mapping, and included-generation quota windows/reservations in this repository through the existing `packages/server-db` migration lineage. Spend ceilings read the existing durable `ai_usage_event` cost data; no admission or spend tables are added.
 - Wire the single `apps/server` directly to durable billing in hosted RevenueCat mode, extending its existing boot validation and readiness checks.
+- Make this public product repository own a strict, versioned billing-configuration schema while deployment repositories own concrete catalog, quota, and guardrail values. Hosted deployments inject one serialized non-secret configuration document plus the separately managed RevenueCat webhook secret; no hosted product values are compiled into this repository.
 - **BREAKING** Remove the process-local hosted billing runtime, deprecated deployment aliases, and every production memory fallback. Origin already rejects unsigned production webhooks; preserve and test that invariant rather than reimplementing it.
 
 ## Capabilities
@@ -36,7 +37,7 @@ There are no production users or billing records to preserve. We can replace the
 ## Impact
 
 - Affected code: `packages/shared`, `packages/server-core`, `packages/quotas`, `packages/metering`, `packages/server-db`, `apps/server` composition/boot/readiness, and the existing billing routes.
-- Private deployment repository: no source adapter change. It continues publishing the standalone images built from this repository.
+- Private deployment repository: no source adapter change. It continues publishing the standalone images built from this repository, owns concrete hosted billing values, serializes them against the pinned product schema, and injects them as deployment configuration.
 - Affected APIs: RevenueCat webhook responses become explicitly `applied`, `duplicate`, `stale`, `ignored`, or rejected; entitlement responses expose renewal and paid-period boundaries; generation may return stable rate, concurrency, spend-ceiling, or dependency-unavailable errors before provider invocation.
 - Self-host: billing remains disabled and unrestricted by default; durable billing code exists in the product image but is not initialized or required when `BILLING_PROVIDER=none`.
 - Hosted: managed-key generation is unavailable when the durable billing dependency is absent or unhealthy; BYOK behavior is governed by the selected credential source.
