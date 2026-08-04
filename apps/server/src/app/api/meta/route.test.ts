@@ -32,6 +32,7 @@ describe('GET /api/meta', () => {
       provider: { authenticate: jest.fn() },
       auth: null,
       db: null,
+      googleAvailable: false,
     });
 
     const request = new Request('http://localhost:3000/api/meta');
@@ -77,6 +78,7 @@ describe('GET /api/meta', () => {
       provider: { authenticate: jest.fn() },
       auth: null,
       db: null,
+      googleAvailable: true,
     });
 
     const request = new Request('http://localhost:3000/api/meta');
@@ -89,5 +91,6 @@ describe('GET /api/meta', () => {
     expect(data.billing.showUpgradeUi).toBe(true);
     expect(data.billing.purchaseMethod).toBe('iap');
     expect(data.billing.allowByok).toBe(true);
+    expect(data.auth.googleAvailable).toBe(true);
   });
 });

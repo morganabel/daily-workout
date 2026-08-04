@@ -50,7 +50,12 @@ export async function GET(request: Request): Promise<Response> {
   // Build response based on auth mode
   const response =
     ctx.mode === 'better-auth'
-      ? createBetterAuthMetaResponse(PROTOCOL_VERSION, edition, billing)
+      ? createBetterAuthMetaResponse(
+          PROTOCOL_VERSION,
+          edition,
+          billing,
+          ctx.googleAvailable
+        )
       : createStubMetaResponse(PROTOCOL_VERSION);
 
   // Validate response (ensures type safety)

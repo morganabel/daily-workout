@@ -9,12 +9,16 @@
  * standard DATABASE_URL vs the Cloud SQL Connector (INSTANCE_CONNECTION_NAME).
  */
 
-import { StubAuthProvider, type AuthProvider } from '@workout-agent-ce/server-core';
+import {
+  StubAuthProvider,
+  type AuthProvider,
+} from '@workout-agent-ce/server-core';
 import { createLogger } from '@workout-agent-ce/server-core';
 import { createDbFromEnv, type Database } from '@workout-agent-ce/server-db';
 import {
   createAuth,
   BetterAuthProvider,
+  getGoogleAuthConfig,
   type Auth,
 } from '@workout-agent-ce/server-auth';
 import { isHostedMode } from './deployment';
@@ -41,6 +45,9 @@ export interface AuthContext {
    * The database instance (only available in better-auth mode)
    */
   db: Database | null;
+
+  /** Whether Google OAuth is configured for this Better Auth instance. */
+  googleAvailable: boolean;
 }
 
 // Cached context (and in-flight initialization) to avoid re-initialization.
@@ -130,6 +137,7 @@ async function initializeAuthContext(): Promise<AuthContext> {
     // Autodetects the Cloud SQL Connector (INSTANCE_CONNECTION_NAME) or a
     // standard DATABASE_URL connection string.
     const db = await createDbFromEnv();
+    const google = getGoogleAuthConfig();
     const auth = createAuth({
       db,
       secret,
@@ -137,6 +145,7 @@ async function initializeAuthContext(): Promise<AuthContext> {
       trustedOrigins: process.env.TRUSTED_ORIGINS?.split(',').map((s) =>
         s.trim()
       ),
+      google,
     });
 
     log.info('initialized auth mode', { mode });
@@ -145,6 +154,7 @@ async function initializeAuthContext(): Promise<AuthContext> {
       provider: new BetterAuthProvider(auth),
       auth,
       db,
+      googleAvailable: Boolean(google),
     };
   }
 
@@ -155,6 +165,7 @@ async function initializeAuthContext(): Promise<AuthContext> {
     provider: new StubAuthProvider(),
     auth: null,
     db: null,
+    googleAvailable: false,
   };
 }
 

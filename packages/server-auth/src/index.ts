@@ -11,7 +11,9 @@ export { createAuth, type Auth, type CreateAuthOptions } from './lib/auth.js';
 // Export shared options (used by CLI schema generation to stay in sync with runtime)
 export {
   createBetterAuthOptions,
+  getGoogleAuthConfig,
   type CreateBetterAuthOptionsParams,
+  type GoogleAuthConfig,
 } from './lib/better-auth-options.js';
 
 // Export auth provider for use with server-core
