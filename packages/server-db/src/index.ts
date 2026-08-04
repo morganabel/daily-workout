@@ -22,6 +22,15 @@ export {
 // Export schema and types
 export * as schema from './lib/schema.js';
 export { PostgresMeteringSink, getAiUsageSummary } from './lib/ai-usage.js';
+export {
+  PostgresBillingRepository,
+  PostgresSpendCeilingPolicy,
+  type BillingRepositoryOperation,
+  type BillingRepositoryOutcome,
+  type BillingRepositoryObserver,
+  type PostgresBillingRepositoryOptions,
+  type PostgresSpendCeilingPolicyOptions,
+} from './lib/billing.js';
 import {
   user,
   session,

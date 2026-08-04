@@ -159,7 +159,10 @@
     "less": false,
     "nx@22.3.3": true,
     "sharp@0.33.5": true,
-    "unrs-resolver@1.11.1": true
+    "unrs-resolver@1.11.1": true,
+    "protobufjs": false,
+    "ssh2": false,
+    "cpu-features": false
   },
   "engines": {
     "node": ">=24.15.0 <25",

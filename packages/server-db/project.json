@@ -11,6 +11,15 @@
         "cwd": "packages/server-db",
         "command": "jest --passWithNoTests"
       }
+    },
+    "integration": {
+      "executor": "nx:run-commands",
+      "dependsOn": ["^build"],
+      "cache": false,
+      "options": {
+        "cwd": "packages/server-db",
+        "command": "jest --config jest.integration.config.cjs --runInBand"
+      }
     }
   }
 }

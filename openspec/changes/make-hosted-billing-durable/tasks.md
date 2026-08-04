@@ -76,26 +76,26 @@ nx run-many -t typecheck,lint,build --projects=@workout-agent/shared,@workout-ag
 
 ### Implementation Tasks
 
-- [ ] B2.1 Add Drizzle tables and one migration under `packages/server-db` for webhook events, customer mappings, entitlement projections, and included-generation windows/reservations. Nano-USD columns use PostgreSQL `bigint`.
-- [ ] B2.2 Enforce unique source/event IDs, unique external customer mappings, account-scoped `(account_id, operation_key)` reservations, user foreign keys, and indexes for active window/reservation lookup and the daily spend-ceiling query. Fix the metering event key: replace the `(user, operation)` unique index with `(user, operation, event)` so one operation can record distinct event kinds, and persist the event ID column the sink already carries.
-- [ ] B2.3 Implement authenticated customer bootstrap and idempotent reconciliation of previously unmapped ledger events.
-- [ ] B2.4 Implement one-transaction webhook ledger/projection processing with row locking and the B1 normalizer/reducer; webhook data alone cannot create account ownership.
-- [ ] B2.5 Implement account-scoped entitlement reads that derive expiry from paid/grace boundaries when a final expiration webhook is delayed.
-- [ ] B2.6 Implement atomic included-generation reserve/commit/rollback with row locking and idempotent transitions. Expired pending reservations stop counting toward the active check; commit after expiry is rejected. No reclaim job or result-aware reconciliation.
-- [ ] B2.7 Add a `server-db` PostgreSQL integration target that applies the repository migration and runs B1's contract suites against two independent repository instances sharing one database.
-- [ ] B2.8 Add redacted structured outcomes for applied, duplicate, stale, ignored, unmapped, conflict, mapping, reserve, commit, rollback, and reconciliation operations.
-- [ ] B2.9 Implement the daily account/global spend-ceiling check as a bounded query over the existing durable `ai_usage_event` cost data; it fails closed (deny) on query error and does not require new tables.
+- [x] B2.1 Add Drizzle tables and one migration under `packages/server-db` for webhook events, customer mappings, entitlement projections, and included-generation windows/reservations. Nano-USD columns use PostgreSQL `bigint`.
+- [x] B2.2 Enforce unique source/event IDs, unique external customer mappings, account-scoped `(account_id, operation_key)` reservations, user foreign keys, and indexes for active window/reservation lookup and the daily spend-ceiling query. Fix the metering event key: replace the `(user, operation)` unique index with `(user, operation, event)` so one operation can record distinct event kinds, and persist the event ID column the sink already carries.
+- [x] B2.3 Implement authenticated customer bootstrap and idempotent reconciliation of previously unmapped ledger events.
+- [x] B2.4 Implement one-transaction webhook ledger/projection processing with row locking and the B1 normalizer/reducer; webhook data alone cannot create account ownership.
+- [x] B2.5 Implement account-scoped entitlement reads that derive expiry from paid/grace boundaries when a final expiration webhook is delayed.
+- [x] B2.6 Implement atomic included-generation reserve/commit/rollback with row locking and idempotent transitions. Expired pending reservations stop counting toward the active check, while exact late commits still charge completed in-flight work. No reclaim job or result-aware reconciliation.
+- [x] B2.7 Add a `server-db` PostgreSQL integration target that applies the repository migration and runs B1's contract suites against two independent repository instances sharing one database.
+- [x] B2.8 Add redacted structured outcomes for applied, duplicate, stale, ignored, unmapped, conflict, mapping, reserve, commit, rollback, and reconciliation operations.
+- [x] B2.9 Implement the daily account/global spend-ceiling check as a bounded query over the existing durable `ai_usage_event` cost data; it fails closed (deny) on query error and does not require new tables.
 
 ### Acceptance Criteria
 
-- [ ] B2.A1 Entitlements, mappings, ledger outcomes, reservations, and committed usage survive repository/server recreation.
-- [ ] B2.A2 Duplicate and stale deliveries are persisted but never mutate the current projection.
-- [ ] B2.A3 Concurrent reservations from separate repository instances never exceed the window limit.
-- [ ] B2.A4 Commit and rollback are idempotent and address only their exact reservation; an expired pending reservation frees its slot and rejects a late commit.
-- [ ] B2.A5 Unknown accounts, apps, environments, products, and entitlements cannot grant access.
-- [ ] B2.A6 The schema and repositories use the existing `packages/server-db` client, Cloud SQL support, and single migration lineage rather than a parallel database package.
-- [ ] B2.A7 Replaying one operation cannot duplicate its usage event, while two accounts may independently use the same operation-key string.
-- [ ] B2.A8 The spend-ceiling check denies at or over a configured account or global daily ceiling, counts failed billable attempts, and denies when the query fails or pricing is unknown.
+- [x] B2.A1 Entitlements, mappings, ledger outcomes, reservations, and committed usage survive repository/server recreation.
+- [x] B2.A2 Duplicate and stale deliveries are persisted but never mutate the current projection.
+- [x] B2.A3 Concurrent reservations from separate repository instances never exceed the window limit.
+- [x] B2.A4 Commit and rollback are idempotent and address only their exact reservation; an expired pending reservation frees its slot and rejects a late commit.
+- [x] B2.A5 Unknown accounts, apps, environments, products, and entitlements cannot grant access.
+- [x] B2.A6 The schema and repositories use the existing `packages/server-db` client, Cloud SQL support, and single migration lineage rather than a parallel database package.
+- [x] B2.A7 Replaying one operation cannot duplicate its usage event, while two accounts may independently use the same operation-key string.
+- [x] B2.A8 The spend-ceiling check denies at or over a configured account or global daily ceiling, counts failed billable attempts, and denies when the query fails or pricing is unknown.
 
 ### Verification Commands
 

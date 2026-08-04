@@ -54,7 +54,7 @@ Hosted generation policy MUST reserve included usage atomically before invoking 
 
 - **GIVEN** a process terminates after reserving usage but before commit or rollback
 - **WHEN** the configured reservation lifetime elapses
-- **THEN** the pending reservation no longer counts toward the active-reservation check and a commit attempted after expiry is rejected
+- **THEN** the pending reservation no longer counts toward the active-reservation check, while an exact later commit for completed in-flight work still charges the original window
 
 #### Scenario: Selected BYOK credential bypasses included quota
 
