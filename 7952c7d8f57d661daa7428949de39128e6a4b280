@@ -1,0 +1,1 @@
+Fix CI: transpile ESM uuid in server-ai Jest and use Loki/IndexedDB instead of native SQLite for Expo web bundles.
