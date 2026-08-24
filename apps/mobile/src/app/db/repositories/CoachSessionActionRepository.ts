@@ -1,10 +1,10 @@
 import { Q } from '@nozbe/watermelondb';
+import type { Database } from '@nozbe/watermelondb';
 import type {
   CoachSessionAction as CoachSessionActionContract,
   CoachScheduleStrategy,
 } from '@workout-agent/shared';
 import { coachSessionActionSchema } from '@workout-agent/shared';
-import { database } from '../index';
 import CoachSessionActionModel from '../models/CoachSessionAction';
 
 type RecordSkipActionInput = Omit<
@@ -66,9 +66,13 @@ const toContracts = (
     );
 
 export class CoachSessionActionRepository {
-  private actions = database.collections.get<CoachSessionActionModel>(
-    'coach_session_actions'
-  );
+  private readonly actions;
+
+  constructor(private readonly database: Database) {
+    this.actions = database.collections.get<CoachSessionActionModel>(
+      'coach_session_actions'
+    );
+  }
 
   toCoachSessionAction(
     action: CoachSessionActionModel
@@ -116,7 +120,7 @@ export class CoachSessionActionRepository {
       )
       .fetch();
 
-    const saved = await database.write(async () => {
+    const saved = await this.database.write(async () => {
       const action = existing[0];
       if (action) {
         return await action.update((record) => {
@@ -153,5 +157,3 @@ export class CoachSessionActionRepository {
     return toContractOrThrow(saved);
   }
 }
-
-export const coachSessionActionRepository = new CoachSessionActionRepository();

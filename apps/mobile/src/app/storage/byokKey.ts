@@ -1,85 +1,71 @@
 import * as SecureStore from 'expo-secure-store';
 import type { AiProvider } from '@workout-agent/shared';
+import { getActiveStorageScopeId } from '../db/activeDatabase';
 
-const BYOK_KEY = 'byokApiKey';
-const BYOK_PROVIDER_KEY = 'byokProvider';
+const LEGACY_BYOK_KEY = 'byokApiKey';
+const LEGACY_PROVIDER_KEY = 'byokProvider';
+const LEGACY_CLEANUP_MARKER = 'scopedByokCleanupV1';
 
 export type ByokConfig = {
   apiKey: string;
   provider: AiProvider['name'];
 };
 
-/**
- * Get the stored BYOK API key (legacy - for backward compatibility)
- * @deprecated Use getByokConfig instead
- */
-export async function getByokApiKey(): Promise<string | null> {
-  try {
-    return await SecureStore.getItemAsync(BYOK_KEY);
-  } catch (error) {
-    console.warn('Failed to get BYOK key:', error);
-    return null;
-  }
+const scopedKeys = (dataScopeId: string) => ({
+  apiKey: `byok.${dataScopeId}.apiKey`,
+  provider: `byok.${dataScopeId}.provider`,
+});
+
+async function ensureLegacyByokRemoved(): Promise<void> {
+  if (await SecureStore.getItemAsync(LEGACY_CLEANUP_MARKER)) return;
+  await SecureStore.deleteItemAsync(LEGACY_BYOK_KEY);
+  await SecureStore.deleteItemAsync(LEGACY_PROVIDER_KEY);
+  await SecureStore.setItemAsync(LEGACY_CLEANUP_MARKER, '1');
 }
 
-/**
- * Get the stored BYOK configuration (provider + key)
- */
 export async function getByokConfig(): Promise<ByokConfig | null> {
+  const dataScopeId = getActiveStorageScopeId();
+  await ensureLegacyByokRemoved();
+  const keys = scopedKeys(dataScopeId);
   try {
-    const apiKey = await SecureStore.getItemAsync(BYOK_KEY);
-    const providerStr = await SecureStore.getItemAsync(BYOK_PROVIDER_KEY);
+    const [apiKey, providerStr] = await Promise.all([
+      SecureStore.getItemAsync(keys.apiKey),
+      SecureStore.getItemAsync(keys.provider),
+    ]);
+    if (!apiKey) return null;
 
-    if (!apiKey) {
-      return null;
-    }
-
-    // Default to 'openai' for legacy keys without a supported provider.
     const provider: AiProvider['name'] =
       providerStr === 'gemini' || providerStr === 'openrouter'
         ? providerStr
         : 'openai';
-
     return { apiKey, provider };
   } catch (error) {
-    console.error('Failed to read BYOK config:', error);
+    console.error('Failed to read scoped BYOK config:', error);
     return null;
   }
 }
 
-/**
- * Store BYOK configuration (provider + key)
- */
 export async function setByokConfig(config: ByokConfig): Promise<void> {
+  const dataScopeId = getActiveStorageScopeId();
+  await ensureLegacyByokRemoved();
+  const keys = scopedKeys(dataScopeId);
   try {
-    await SecureStore.setItemAsync(BYOK_KEY, config.apiKey);
-    await SecureStore.setItemAsync(BYOK_PROVIDER_KEY, config.provider);
+    await SecureStore.setItemAsync(keys.apiKey, config.apiKey);
+    await SecureStore.setItemAsync(keys.provider, config.provider);
   } catch (error) {
-    console.error('Failed to store BYOK config:', error);
+    console.error('Failed to store scoped BYOK config:', error);
     throw error;
   }
 }
 
-/**
- * Store BYOK API key (legacy - for backward compatibility)
- * @deprecated Use setByokConfig instead
- */
-export async function setByokApiKey(key: string): Promise<void> {
+export async function removeByokConfig(): Promise<void> {
+  const dataScopeId = getActiveStorageScopeId();
+  await ensureLegacyByokRemoved();
+  const keys = scopedKeys(dataScopeId);
   try {
-    await SecureStore.setItemAsync(BYOK_KEY, key);
-    // Default to openai for legacy calls
-    await SecureStore.setItemAsync(BYOK_PROVIDER_KEY, 'openai');
+    await SecureStore.deleteItemAsync(keys.apiKey);
+    await SecureStore.deleteItemAsync(keys.provider);
   } catch (error) {
-    console.error('Failed to store BYOK key:', error);
-    throw error;
-  }
-}
-
-export async function removeByokApiKey(): Promise<void> {
-  try {
-    await SecureStore.deleteItemAsync(BYOK_KEY);
-    await SecureStore.deleteItemAsync(BYOK_PROVIDER_KEY);
-  } catch (error) {
-    console.warn('Failed to remove BYOK key:', error);
+    console.warn('Failed to remove scoped BYOK config:', error);
   }
 }

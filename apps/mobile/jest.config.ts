@@ -10,6 +10,7 @@ module.exports = {
   moduleNameMapper: {
     '\\.svg$': '@nx/expo/plugins/jest/svg-mock',
     '^expo-secure-store$': '<rootDir>/jest-mocks/expo-secure-store.ts',
+    '^uuid$': '<rootDir>/jest-mocks/uuid.ts',
   },
   transform: {
     '\\.[jt]sx?$': [

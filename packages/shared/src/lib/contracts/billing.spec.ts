@@ -1,5 +1,6 @@
 import {
   billingEntitlementsResponseSchema,
+  billingIdentityResponseSchema,
   createBillingCapabilities,
   resolveBillingCapabilities,
 } from './billing';
@@ -40,6 +41,14 @@ describe('billing contracts', () => {
 
     expect(parsed.status).toBe('active');
     expect(parsed.quotaWindow.remaining).toBe(80);
+  });
+
+  it('parses the server-owned billing identity payload', () => {
+    expect(
+      billingIdentityResponseSchema.parse({
+        appUserId: 'wa_1234567890ab7def8abc1234567890ab',
+      })
+    ).toEqual({ appUserId: 'wa_1234567890ab7def8abc1234567890ab' });
   });
 
   it('parses quota errors with optional upgrade metadata', () => {

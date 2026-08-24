@@ -51,10 +51,6 @@ export async function GET(request: Request): Promise<Response> {
   let entitlements;
   try {
     const billing = await getRevenueCatBillingServices();
-    await billing.repository.bootstrapAuthenticatedCustomer({
-      accountId: auth.userId,
-      externalCustomerId: auth.userId,
-    });
     entitlements = await billing.getEntitlements(auth.userId);
   } catch {
     const response = createErrorResponse(

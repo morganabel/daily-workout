@@ -13,7 +13,7 @@ import {
 import { BottomNavigation } from './components/BottomNavigation';
 import { Button, Card } from './components/DesignSystem';
 import { GoogleSignInButton } from './components/GoogleSignInButton';
-import { userRepository } from './db/repositories/UserRepository';
+import { getActiveRepositories } from './db/activeDatabase';
 import { useBillingState } from './hooks/useBillingState';
 import type { RootStackParamList } from './navigation';
 import { signOut, useSession } from './services/auth-client';
@@ -47,6 +47,7 @@ type SettingsNavigation = NativeStackNavigationProp<
 >;
 
 export const SettingsScreen = () => {
+  const repositories = getActiveRepositories();
   const navigation = useNavigation<SettingsNavigation>();
   const { showUpgradeUi, entitlements } = useBillingState();
   const { data: session } = useSession();
@@ -64,7 +65,7 @@ export const SettingsScreen = () => {
     let cancelled = false;
 
     const loadPreferences = async () => {
-      const prefs = await userRepository.getPreferences();
+      const prefs = await repositories.user.getPreferences();
       if (cancelled) return;
       setPreferences({
         ...prefs,
@@ -77,7 +78,7 @@ export const SettingsScreen = () => {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [repositories.user]);
 
   const updateField = useCallback(
     <K extends keyof UserPreferences>(key: K, value: UserPreferences[K]) => {
@@ -210,7 +211,7 @@ export const SettingsScreen = () => {
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      await userRepository.updatePreferences(preferences);
+      await repositories.user.updatePreferences(preferences);
       setHasChanges(false);
       Alert.alert('Saved', 'Your profile has been updated.');
     } catch (e) {

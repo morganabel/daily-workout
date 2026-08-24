@@ -44,7 +44,7 @@
 - [ ] 2.1 Introduce separate `AuthCapabilityState` and `SessionState` models and a root auth-resolution provider; parse `/api/meta` with `metaResponseSchema.safeParse` and keep timeout, 5xx, initialization failure, and malformed payload states `unknown`.
 - [ ] 2.2 Validate stored Better Auth credentials with `getSession()` before routing to protected app state.
 - [ ] 2.3 Introduce one validated backend descriptor that supplies the normalized request base URL, `backendId`, and Better Auth `storagePrefix`; normalize scheme, host, effective/default port, and base path, ignore query/fragment/trailing slash, and reject non-HTTP(S), invalid, or userinfo-bearing URLs.
-- [ ] 2.4 Resolve `ResolvedMobilePrincipal` from canonical backend plus verified Better Auth `session.user.id`/server `AuthResult.userId` or auth-disabled stub install ID, with deterministic `dataScopeId` and no deployment, credential, or `principalId` ownership keys.
+- [ ] 2.4 Resolve `ResolvedMobilePrincipal` from canonical backend plus verified Better Auth `session.user.id`/server `AuthResult.userId` or auth-disabled stub install ID, with an opaque install-local `dataScopeId` binding and no deployment, credential, or `principalId` ownership keys.
 - [ ] 2.5 Persist only the last verified scope metadata needed for same-backend offline reopening; invalidate it on explicit sign-out or `401`.
 - [ ] 2.6 Add one idempotent unauthorized handler to the API client and root navigation lifecycle; remove screen/hook-specific `401` retries or redirects that conflict with it.
 - [ ] 2.7 Route sign-out through the same principal teardown boundary, including RevenueCat reset, without logging identifiers or credentials.
@@ -58,7 +58,7 @@
 - Capability discovery failure remains `unknown`; it never enables stub auth implicitly.
 - A cookie alone cannot route the app to Home or expose a principal.
 - Better Auth in either deployment mode resolves ownership from stable `userId`, never session `principalId`; only self-hosted auth-disabled stub mode resolves it from a stable install ID.
-- Anonymous-to-email upgrade preserves `userId` and therefore preserves the data scope.
+- Anonymous A-to-authenticated B transition preserves the opaque data scope only after B-authenticated server proof atomically reassigns the binding; sequential sign-in without proof cannot inherit it.
 - Equivalent backend URLs resolve the same backend ID, while HTTP/HTTPS, effective-port, and base-path differences resolve distinct IDs.
 - The same backend descriptor drives requests, ownership, and auth credential storage; default-port equivalents match, invalid/userinfo URLs fail, and no legacy session key is reused.
 - Cached-offline local access is explicit and never enables network actions or reports an unvalidated session as authenticated.
@@ -80,7 +80,7 @@
 **Dependencies:** M2 merged.
 
 - [ ] 3.1 Replace the module-level WatermelonDB singleton with a database factory keyed by `dataScopeId` and a root `MobileDataProvider` that mounts only for a resolved principal.
-- [ ] 3.2 Change all repositories and repository-using services/hooks/debug tools to receive the scoped database or scoped repository container instead of importing global instances.
+- [x] 3.2 Change all repositories and repository-using services/hooks/debug tools to receive the scoped database or scoped repository container instead of importing global instances.
 - [ ] 3.3 Ensure user preferences, workouts, exercises, sets, planned events, coach session actions, generation context, and subscriptions read and write only the mounted partition.
 - [ ] 3.4 Dispose observations and in-flight local state when the principal changes, then remount consumers against the next scope without stale emissions.
 - [ ] 3.5 Implement the one-time destructive cleanup of the legacy unscoped database with a database-specific idempotent version marker; do not use that marker for SecureStore cleanup.
@@ -109,8 +109,8 @@
 
 **Dependencies:** M3 merged.
 
-- [ ] 4.1 Replace device-wide BYOK key names with `dataScopeId`-qualified provider/key entries and require an active scope for every read, write, and delete.
-- [ ] 4.2 Remove legacy BYOK fallback APIs and delete the old unscoped `byokApiKey` and `byokProvider` entries through a SecureStore-specific idempotent cleanup marker that runs even when M3's database reset is already complete.
+- [x] 4.1 Replace device-wide BYOK key names with `dataScopeId`-qualified provider/key entries and require an active scope for every read, write, and delete.
+- [x] 4.2 Remove legacy BYOK fallback APIs and delete the old unscoped `byokApiKey` and `byokProvider` entries through a SecureStore-specific idempotent cleanup marker that runs even when M3's database reset is already complete.
 - [ ] 4.3 Clear in-memory BYOK and generated-request credential state on scope transition before rendering the next account; retain encrypted values only for return to the same scope.
 - [ ] 4.4 Make active-scope reset unmount the scope, invalidate its cached verified-principal/offline eligibility, enter a per-backend `reset-held` state, remove only that scope's SQLite partition and SecureStore values, then return to Launch/onboarding. Auth-disabled stub mode may create a fresh scope only after explicit user re-entry clears the hold.
 - [ ] 4.5 Add end-to-end lifecycle tests covering Account A data/key, sign-out, Account B isolation, return to Account A, backend switch, offline reopening, and centralized `401` teardown.

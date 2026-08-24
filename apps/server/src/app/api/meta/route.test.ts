@@ -92,5 +92,6 @@ describe('GET /api/meta', () => {
     expect(data.billing.purchaseMethod).toBe('iap');
     expect(data.billing.allowByok).toBe(true);
     expect(data.auth.googleAvailable).toBe(true);
+    expect(data.auth.accountTransitionAvailable).toBe(true);
   });
 });

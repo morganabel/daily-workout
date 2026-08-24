@@ -1,3 +1,5 @@
+import { v7 as uuidv7 } from 'uuid';
+
 import {
   effectiveEntitlement,
   reduceEntitlement,
@@ -20,7 +22,7 @@ import type {
 } from './generation-policy';
 
 function id(prefix: string): string {
-  return `${prefix}_${globalThis.crypto.randomUUID()}`;
+  return `${prefix}_${uuidv7()}`;
 }
 
 export class InMemoryEntitlementProcessor

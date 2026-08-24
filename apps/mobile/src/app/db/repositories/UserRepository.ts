@@ -1,4 +1,4 @@
-import { database } from '../index';
+import type { Database } from '@nozbe/watermelondb';
 import User from '../models/User';
 import { Q } from '@nozbe/watermelondb';
 import {
@@ -33,7 +33,11 @@ const ONBOARDING_GOAL_LABELS: Record<OnboardingGoal, string> = {
 };
 
 export class UserRepository {
-  private users = database.collections.get<User>('users');
+  private readonly users;
+
+  constructor(private readonly database: Database) {
+    this.users = database.collections.get<User>('users');
+  }
 
   async getUser(): Promise<User | null> {
     const users = await this.users.query(Q.take(1)).fetch();
@@ -46,7 +50,7 @@ export class UserRepository {
       return user;
     }
 
-    return await database.write(async () => {
+    return await this.database.write(async () => {
       return await this.users.create((u) => {
         u.preferences = JSON.stringify(DEFAULT_PREFERENCES);
       });
@@ -121,7 +125,7 @@ export class UserRepository {
       throw new Error('Invalid preferences data');
     }
 
-    await database.write(async () => {
+    await this.database.write(async () => {
       await user.update((u) => {
         u.preferences = JSON.stringify(result.data);
       });
@@ -222,5 +226,3 @@ export class UserRepository {
     await this.updatePreferences({ onboardingSetupStatus: 'skipped' });
   }
 }
-
-export const userRepository = new UserRepository();

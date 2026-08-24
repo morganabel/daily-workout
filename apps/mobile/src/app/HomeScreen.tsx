@@ -30,7 +30,7 @@ import { useHomeData } from './hooks/useHomeData';
 import { useBillingState } from './hooks/useBillingState';
 import { generateWorkout, type ApiError } from './services/api';
 import { RootStackParamList } from './navigation';
-import { userRepository } from './db/repositories/UserRepository';
+import { getActiveRepositories } from './db/activeDatabase';
 import { palette, typography } from './theme';
 import { BottomNavigation } from './components/BottomNavigation';
 import { Button, Card } from './components/DesignSystem';
@@ -1172,6 +1172,7 @@ const ActivePlanCard = ({
 };
 
 export const HomeScreen = () => {
+  const repositories = getActiveRepositories();
   const navigation = useNavigation<HomeScreenNavigation>();
   const contentScrollRef = useRef<ScrollView | null>(null);
   const hasEditedSetupRef = useRef(false);
@@ -1230,10 +1231,10 @@ export const HomeScreen = () => {
   // Load user profile on mount
   useFocusEffect(
     useCallback(() => {
-      userRepository.hasCompletedOrSkippedOnboarding().then((isDone) => {
+      repositories.user.hasCompletedOrSkippedOnboarding().then((isDone) => {
         setShowProfileSetup(!isDone);
       });
-    }, [])
+    }, [repositories.user])
   );
 
   const routeGenerationError = useCallback(

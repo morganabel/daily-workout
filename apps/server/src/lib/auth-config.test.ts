@@ -1,5 +1,5 @@
 /**
- * Tests for auth-context.ts
+ * Tests for auth-config.ts
  *
  * Verifies:
  * - Auth mode selection algorithm
@@ -7,29 +7,14 @@
  * - Stub fallback only works in CE/no-DB mode
  */
 
-// Mock external dependencies to avoid ESM import issues in Jest
-jest.mock('@workout-agent-ce/server-db', () => ({
-  createDbFromEnv: jest.fn(),
-}));
+import { resolveAuthMode, validateAuthConfig } from './auth-config';
 
-jest.mock('@workout-agent-ce/server-auth', () => ({
-  createAuth: jest.fn(),
-  BetterAuthProvider: jest.fn(),
-}));
-
-import {
-  resolveAuthMode,
-  validateAuthConfig,
-  resetAuthContext,
-} from './auth-context';
-
-describe('auth-context', () => {
+describe('auth-config', () => {
   const originalEnv = process.env;
 
   beforeEach(() => {
-    // Reset environment and cached context before each test
+    // Reset environment before each test
     jest.resetModules();
-    resetAuthContext();
     process.env = { ...originalEnv };
     // Clear auth-related env vars
     delete process.env.AUTH_MODE;

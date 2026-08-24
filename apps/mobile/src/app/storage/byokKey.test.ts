@@ -1,10 +1,19 @@
 import * as SecureStore from 'expo-secure-store';
-import { getByokConfig, removeByokApiKey, setByokConfig } from './byokKey';
+import { getActiveDatabase, setActiveDatabaseForTests } from '../db/activeDatabase';
+import { getByokConfig, removeByokConfig, setByokConfig } from './byokKey';
+
+const database = getActiveDatabase();
+const scopeA = 'scope_aaaaaaaa-aaaa-7aaa-8aaa-aaaaaaaaaaaa';
+const scopeB = 'scope_bbbbbbbb-bbbb-7bbb-8bbb-bbbbbbbbbbbb';
 
 describe('BYOK provider storage', () => {
   beforeEach(async () => {
     jest.clearAllMocks();
-    await removeByokApiKey();
+    setActiveDatabaseForTests(database, scopeA);
+    await removeByokConfig();
+    setActiveDatabaseForTests(database, scopeB);
+    await removeByokConfig();
+    setActiveDatabaseForTests(database, scopeA);
   });
 
   it('preserves OpenRouter as the selected provider', async () => {
@@ -19,13 +28,46 @@ describe('BYOK provider storage', () => {
     });
   });
 
-  it('defaults legacy and unsupported provider values to OpenAI', async () => {
-    await SecureStore.setItemAsync('byokApiKey', 'legacy-key');
-    await SecureStore.setItemAsync('byokProvider', 'unsupported');
+  it('uses SecureStore-safe scoped keys when no BYOK config exists', async () => {
+    jest.mocked(SecureStore.getItemAsync).mockClear();
 
+    await expect(getByokConfig()).resolves.toBeNull();
+
+    const requestedKeys = jest
+      .mocked(SecureStore.getItemAsync)
+      .mock.calls.map(([key]) => key);
+    expect(requestedKeys).toEqual(
+      expect.arrayContaining([
+        `byok.${scopeA}.apiKey`,
+        `byok.${scopeA}.provider`,
+      ])
+    );
+    expect(requestedKeys.every((key) => /^[\w.-]+$/.test(key))).toBe(true);
+  });
+
+  it('does not expose one scope key to another scope', async () => {
+    await setByokConfig({ provider: 'gemini', apiKey: 'scope-a-key' });
+    setActiveDatabaseForTests(database, scopeB);
+
+    await expect(getByokConfig()).resolves.toBeNull();
+    await setByokConfig({ provider: 'openai', apiKey: 'scope-b-key' });
+    setActiveDatabaseForTests(database, scopeA);
     await expect(getByokConfig()).resolves.toEqual({
-      provider: 'openai',
-      apiKey: 'legacy-key',
+      provider: 'gemini',
+      apiKey: 'scope-a-key',
     });
+  });
+
+  it('never falls back to legacy device-wide keys', async () => {
+    await SecureStore.deleteItemAsync('scopedByokCleanupV1');
+    await SecureStore.setItemAsync('byokApiKey', 'legacy-key');
+    await SecureStore.setItemAsync('byokProvider', 'openai');
+    jest.mocked(SecureStore.deleteItemAsync).mockClear();
+
+    await expect(getByokConfig()).resolves.toBeNull();
+    expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('byokApiKey');
+    expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('byokProvider');
+    await expect(SecureStore.getItemAsync('byokApiKey')).resolves.toBeNull();
+    await expect(SecureStore.getItemAsync('byokProvider')).resolves.toBeNull();
   });
 });

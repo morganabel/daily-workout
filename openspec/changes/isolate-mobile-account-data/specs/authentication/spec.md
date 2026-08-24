@@ -4,7 +4,7 @@
 
 The mobile app MUST resolve backend auth capability, session validity, and local data ownership explicitly. Capability state MUST distinguish `unknown`, `disabled`, and `enabled`. Session state MUST distinguish Better Auth validation from `not-required` auth-disabled mode, and repository access MUST be gated by explicit principal resolution rather than session state alone. The client MUST validate `/api/meta` with the shared response schema; timeout, transport failure, 5xx, backend auth initialization failure, or malformed payload MUST remain `unknown` and MUST NOT be treated as auth-disabled. `/api/ready` MUST NOT replace capability discovery. When auth is enabled, stored credentials MUST be validated with the backend session endpoint before the app reports an authenticated session or derives a principal.
 
-The resolved mobile principal MUST combine the canonical backend identity with a stable account `userId` from the verified Better Auth session, regardless of deployment mode. Self-hosted auth-disabled stub mode MUST instead combine that backend identity with a stable per-install ID; hosted mode MUST NOT use stub ownership. Cookies, bearer tokens, rotating session `principalId`, deployment mode, and edition MUST NOT be used as local data ownership identifiers.
+The resolved mobile principal MUST bind the canonical backend identity and verified Better Auth `userId` to an opaque install-local storage scope, regardless of deployment mode. Self-hosted auth-disabled stub mode MUST instead bind that backend identity and a stable per-install ID; hosted mode MUST NOT use stub ownership. Cookies, bearer tokens, rotating session `principalId`, deployment mode, and edition MUST NOT be used as local data ownership identifiers.
 
 Canonical backend identity MUST include normalized scheme, lowercase host, effective port, and normalized base path. It MUST ignore query, fragment, and trailing slash differences while keeping HTTP/HTTPS and distinct base paths separate.
 
@@ -40,11 +40,17 @@ Canonical backend identity MUST include normalized scheme, lowercase host, effec
 - **WHEN** auth resolution completes
 - **THEN** the app uses that `userId` exactly as hosted Better Auth would and does not include deployment mode in the data scope
 
-#### Scenario: Anonymous account upgrades to email
+#### Scenario: Anonymous account transitions to email
 
 - **GIVEN** a verified Better Auth anonymous account already owns a mobile data scope
-- **WHEN** the account is upgraded to email credentials while preserving its `userId`
-- **THEN** the app preserves the same data scope and does not remount or reset local data
+- **WHEN** Better Auth transitions anonymous A to authenticated B and the B-authenticated server endpoint proves that exact transition completed
+- **THEN** the app atomically replaces A's binding with B's binding to the same opaque scope and does not copy or reset local data
+
+#### Scenario: Sequential sign-in has no transition proof
+
+- **GIVEN** anonymous A owns a mobile data scope
+- **WHEN** authenticated B becomes current without a matching completed A-to-B server transition
+- **THEN** B does not inherit A's scope and resolves its own opaque storage binding
 
 #### Scenario: Equivalent backend URLs are canonicalized
 

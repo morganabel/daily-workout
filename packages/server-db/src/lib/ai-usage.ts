@@ -7,6 +7,7 @@ import { and, desc, eq, gte, lt } from 'drizzle-orm';
 import { createHash } from 'node:crypto';
 
 import type { Database } from './client.js';
+import { assertAccountAcceptsWrites } from './auth-identity.js';
 import { aiModelCall, aiUsageEvent } from './schema.js';
 
 type UsageTotals = {
@@ -103,6 +104,7 @@ export class PostgresMeteringSink implements MeteringSink {
     const modelCalls = event.modelCalls;
     const storageId = usageEventStorageId(event);
     await this.db.transaction(async (transaction) => {
+      await assertAccountAcceptsWrites(transaction, event.userId);
       const inserted = await transaction
         .insert(aiUsageEvent)
         .values({

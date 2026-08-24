@@ -1,8 +1,11 @@
-import { workoutRepository } from './WorkoutRepository';
-import { database } from '../index';
+import { WorkoutRepository } from './WorkoutRepository';
+import { getActiveDatabase } from '../activeDatabase';
 import { createTodayPlanFixture } from '@workout-agent/shared/testing';
 import type { CoachProgramAttribution } from '@workout-agent/shared';
 import { Q } from '@nozbe/watermelondb';
+
+const database = getActiveDatabase();
+const workoutRepository = new WorkoutRepository(database);
 
 // Helper to get timestamp from WatermelonDB date field (can be Date object or number)
 const getTimestamp = (value: number | Date | undefined | null): number => {

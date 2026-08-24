@@ -1,9 +1,9 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { mkdir } from 'node:fs/promises';
 import { spawnSync } from 'node:child_process';
-import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { v7 as uuidv7 } from 'uuid';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -125,7 +125,7 @@ export default class WorkoutGenerationEvaluationProvider {
       [
         Date.now(),
         process.pid,
-        randomUUID(),
+        uuidv7(),
         sanitizeSegment(vars.scenarioId),
         sanitizeSegment(vars.provider),
         vars.runIndex,

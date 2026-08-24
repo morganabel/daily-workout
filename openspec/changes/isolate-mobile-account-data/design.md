@@ -72,10 +72,10 @@ type ResolvedMobilePrincipal = {
 - One validated backend descriptor produces the normalized request base URL, `backendId`, and Better Auth `storagePrefix`. It normalizes scheme, lowercase host, effective port, and base path while ignoring query, fragment, and trailing slash differences. Default and explicit default ports are equivalent; HTTP/HTTPS and distinct base paths never collide. Non-HTTP(S), invalid, or userinfo-bearing URLs are rejected.
 - Better Auth in either deployment mode uses verified `session.user.id`, corresponding to server `AuthResult.userId`, as `subjectId`; it never uses session-scoped `AuthResult.principalId`.
 - Auth-disabled stub mode is limited to self-hosted deployment and uses a stable random install ID as `subjectId`; hosted mode must resolve Better Auth or fail at server boot.
-- `dataScopeId` is a deterministic filesystem-safe digest of backend ID, auth mode, and subject ID.
+- `dataScopeId` is an opaque UUIDv7-based install-local identifier stored in a durable backend/subject binding registry. A new subject receives a fresh scope; it is not derived from the subject ID.
 - Cookies, bearer tokens, deployment/edition labels, and server `principalId` session identifiers are not used as ownership keys.
 
-The raw subject, credential material, and data-scope derivation input must not be logged. Better Auth anonymous-to-email account upgrade preserves `userId`, so it preserves the same mobile data scope rather than remounting local state under a new identity.
+The raw subject, credential material, and storage binding must not be logged. Better Auth 1.7 transitions anonymous A to authenticated B. Mobile records A and scope S before auth, then rebinds S from A to B only after a B-authenticated server endpoint proves the matching transition completed. Sequential sign-in without that proof receives B's own scope.
 
 ### 5. SQLite Is Partitioned Per Principal
 

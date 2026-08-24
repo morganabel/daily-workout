@@ -10,7 +10,7 @@
  */
 
 import { getBillingProvider, getDeploymentMode } from './deployment';
-import { resolveAuthMode, validateAuthConfig } from './auth-context';
+import { resolveAuthMode, validateAuthConfig } from './auth-config';
 import { getBillingConfig } from './billing-config';
 
 const hasEnvValue = (key: string): boolean => Boolean(process.env[key]?.trim());

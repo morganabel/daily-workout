@@ -16,8 +16,8 @@ type GoogleSignInButtonProps = {
 
 /**
  * Google OAuth entry point shared by onboarding, sign-in, and account settings.
- * It stays hidden until /api/meta confirms that the server has both Google
- * credentials configured.
+ * Availability follows the validated live/last-known capability response, or
+ * the app's bundled managed-service defaults during an offline cold start.
  */
 export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
   onSuccess,

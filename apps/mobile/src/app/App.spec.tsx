@@ -72,18 +72,18 @@ jest.mock('@react-navigation/native-stack', () => {
     })),
   };
 });
-jest.mock('./db/repositories/WorkoutRepository', () => ({
-  workoutRepository: {
-    completeWorkoutById: jest.fn(),
-    archiveWorkoutById: jest.fn(),
-    deleteWorkoutById: jest.fn(),
-  },
-}));
-jest.mock('./db/repositories/UserRepository', () => ({
-  userRepository: {
-    hasConfiguredProfile: jest.fn().mockResolvedValue(false),
-    hasCompletedOrSkippedOnboarding: jest.fn().mockResolvedValue(false),
-  },
+jest.mock('./db/activeDatabase', () => ({
+  getActiveRepositories: () => ({
+    workout: {
+      completeWorkoutById: jest.fn(),
+      archiveWorkoutById: jest.fn(),
+      deleteWorkoutById: jest.fn(),
+    },
+    user: {
+      hasConfiguredProfile: jest.fn().mockResolvedValue(false),
+      hasCompletedOrSkippedOnboarding: jest.fn().mockResolvedValue(false),
+    },
+  }),
 }));
 jest.mock('./services/api', () => ({
   generateWorkout: jest.fn(),

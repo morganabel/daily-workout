@@ -2,7 +2,11 @@ import React from 'react';
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import { createAdaptiveTrainingPlanFromTemplate } from '@workout-agent/shared';
 import { SettingsScreen } from './SettingsScreen';
-import { userRepository } from './db/repositories/UserRepository';
+
+const mockUserRepository = {
+  getPreferences: jest.fn(),
+  updatePreferences: jest.fn().mockResolvedValue(undefined),
+};
 
 jest.mock('./components/BottomNavigation', () => ({
   BottomNavigation: () => null,
@@ -28,14 +32,9 @@ jest.mock('./services/auth-client', () => ({
   useSession: () => ({ data: null }),
 }));
 
-jest.mock('./db/repositories/UserRepository', () => ({
-  userRepository: {
-    getPreferences: jest.fn(),
-    updatePreferences: jest.fn().mockResolvedValue(undefined),
-  },
+jest.mock('./db/activeDatabase', () => ({
+  getActiveRepositories: () => ({ user: mockUserRepository }),
 }));
-
-const mockUserRepository = userRepository as jest.Mocked<typeof userRepository>;
 
 describe('SettingsScreen profile summary', () => {
   beforeEach(() => {

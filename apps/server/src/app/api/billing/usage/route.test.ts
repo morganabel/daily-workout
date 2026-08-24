@@ -23,7 +23,6 @@ const mockedGetAuthContext = getAuthContext as jest.Mock;
 const mockedGetBillingProvider = getBillingProvider as jest.Mock;
 const mockedGetBillingServices = getRevenueCatBillingServices as jest.Mock;
 const mockedGetEntitlements = jest.fn();
-const mockedBootstrap = jest.fn();
 
 describe('GET /api/billing/usage', () => {
   beforeEach(() => {
@@ -41,7 +40,6 @@ describe('GET /api/billing/usage', () => {
       },
     });
     mockedGetBillingServices.mockResolvedValue({
-      repository: { bootstrapAuthenticatedCustomer: mockedBootstrap },
       getEntitlements: mockedGetEntitlements,
     });
     mockedGetAiUsageSummary.mockResolvedValue({
@@ -79,7 +77,13 @@ describe('GET /api/billing/usage', () => {
   });
 
   it('returns the authenticated user usage window', async () => {
-    const response = await GET(new Request('http://localhost/api/billing/usage'));
+    const response = await GET(
+      new Request('http://localhost/api/billing/usage', {
+        headers: {
+          'x-revenuecat-app-user-id': '$RCAnonymousID:attacker-chosen',
+        },
+      })
+    );
 
     expect(response.status).toBe(200);
     expect(mockedGetAiUsageSummary).toHaveBeenCalledWith(
@@ -93,5 +97,6 @@ describe('GET /api/billing/usage', () => {
         totals: expect.objectContaining({ requestCount: 1 }),
       })
     );
+    expect(mockedGetEntitlements).toHaveBeenCalledWith('u1');
   });
 });

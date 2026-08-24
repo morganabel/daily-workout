@@ -8,7 +8,10 @@ import {
   resolveBillingCapabilities,
 } from '@workout-agent/shared';
 import { fetchServerCapabilities, authClient } from '../services/auth-client';
-import { fetchBillingEntitlements } from '../services/api';
+import {
+  fetchBillingEntitlements,
+  fetchBillingIdentity,
+} from '../services/api';
 import {
   createBillingClient,
   type BillingClient,
@@ -17,39 +20,28 @@ import type { ApiError } from '../services/api';
 
 const REVENUECAT_API_KEY = process.env.EXPO_PUBLIC_REVENUECAT_API_KEY ?? '';
 const BILLING_INIT_DEBOUNCE_MS = 150;
-const SESSION_ID_INITIAL_RETRY_MS = [0, 250, 750] as const;
-const SESSION_ID_FOLLOW_UP_RETRY_MS = [1000, 2000] as const;
+const SESSION_ID_RETRY_MS = [0, 250, 750, 1000, 2000] as const;
 
 const sleep = (ms: number): Promise<void> =>
   new Promise((resolve) => setTimeout(resolve, ms));
 
-const resolveSessionUserIdWithRetry = async (
-  retryDelaysMs: readonly number[]
-): Promise<string | undefined> => {
-  for (const delayMs of retryDelaysMs) {
-    if (delayMs > 0) {
-      await sleep(delayMs);
-    }
-
+const waitForAuthenticatedSession = async (): Promise<boolean> => {
+  for (const delayMs of SESSION_ID_RETRY_MS) {
+    if (delayMs > 0) await sleep(delayMs);
     try {
       const session = await authClient.getSession();
-      const appUserId = session.data?.user.id?.trim();
-      if (appUserId) {
-        return appUserId;
-      }
+      if (session.data?.user.id?.trim()) return true;
     } catch {
       // Session hydration can briefly fail during app start; retry below.
     }
   }
-
-  return undefined;
+  return false;
 };
 
 const getApiError = (error: unknown): ApiError | null => {
   if (typeof error !== 'object' || error === null || !('code' in error)) {
     return null;
   }
-
   const apiError = error as ApiError;
   return typeof apiError.code === 'string' ? apiError : null;
 };
@@ -72,9 +64,11 @@ const getBillingLoadErrorMessage = (error: unknown): string => {
   }
 
   if (error instanceof Error && error.message.trim()) {
+    if (error.message === 'revenuecat_identity_verification_failed') {
+      return 'Preparing your purchase account failed. Please try again.';
+    }
     return error.message;
   }
-
   return 'We could not load your plan right now.';
 };
 
@@ -100,7 +94,6 @@ export function useBillingState(): UseBillingStateResult {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [clientReady, setClientReady] = useState(false);
-  const [billingAppUserId, setBillingAppUserId] = useState<string | null>(null);
 
   const client = useMemo(
     () => createBillingClient(capabilities),
@@ -108,7 +101,7 @@ export function useBillingState(): UseBillingStateResult {
   );
 
   const refreshEntitlements = useCallback(async () => {
-    if (!capabilities.enabled) {
+    if (!capabilities.enabled || !clientReady) {
       setEntitlements(null);
       return null;
     }
@@ -123,109 +116,27 @@ export function useBillingState(): UseBillingStateResult {
     } finally {
       setRefreshing(false);
     }
-  }, [capabilities.enabled]);
-
-  const retryEntitlementsAfterSessionHydration = useCallback(async () => {
-    const appUserId = await resolveSessionUserIdWithRetry(
-      SESSION_ID_FOLLOW_UP_RETRY_MS
-    );
-
-    if (!appUserId) {
-      return null;
-    }
-
-    return refreshEntitlements();
-  }, [refreshEntitlements]);
+  }, [capabilities.enabled, clientReady]);
 
   useEffect(() => {
     let active = true;
-
     void (async () => {
       setLoading(true);
       setError(null);
-
       try {
         const meta = await fetchServerCapabilities();
-        if (!active) {
-          return;
-        }
-
-        const nextCapabilities = resolveBillingCapabilities(meta?.billing);
-        setCapabilities(nextCapabilities);
-
-        if (nextCapabilities.enabled) {
-          // Wait for the auth session to hydrate before making the
-          // authenticated entitlements request.  Without this gate the
-          // fetch can race ahead of cookie/token availability → 401.
-          const appUserId = await resolveSessionUserIdWithRetry(
-            SESSION_ID_INITIAL_RETRY_MS
-          );
-          setBillingAppUserId(appUserId ?? null);
-          if (!active) {
-            return;
-          }
-
-          try {
-            const latest = await fetchBillingEntitlements();
-            if (!active) {
-              return;
-            }
-            setEntitlements(latest);
-          } catch (entitlementsError) {
-            if (getApiError(entitlementsError)?.code === 'UNAUTHORIZED') {
-              setEntitlements(null);
-              setError(null);
-              void retryEntitlementsAfterSessionHydration();
-              return;
-            }
-
-            throw entitlementsError;
-          }
-        } else {
-          setEntitlements(null);
-          setBillingAppUserId(null);
-        }
+        if (!active) return;
+        setCapabilities(resolveBillingCapabilities(meta?.billing));
       } catch (loadError) {
-        if (!active) {
-          return;
-        }
-        setError(getBillingLoadErrorMessage(loadError));
+        if (active) setError(getBillingLoadErrorMessage(loadError));
       } finally {
-        if (active) {
-          setLoading(false);
-        }
+        if (active) setLoading(false);
       }
     })();
-
     return () => {
       active = false;
     };
-  }, [retryEntitlementsAfterSessionHydration]);
-
-  useEffect(() => {
-    if (!capabilities.enabled) {
-      setBillingAppUserId(null);
-      return;
-    }
-
-    let active = true;
-
-    const refreshSessionUser = async () => {
-      const appUserId = await resolveSessionUserIdWithRetry([0]);
-      if (!active) {
-        return;
-      }
-      setBillingAppUserId(appUserId ?? null);
-    };
-
-    void refreshSessionUser();
-    const interval = setInterval(refreshSessionUser, 5_000);
-
-    return () => {
-      active = false;
-      clearInterval(interval);
-    };
-  }, [capabilities.enabled]);
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -235,6 +146,7 @@ export function useBillingState(): UseBillingStateResult {
     const initializeBilling = async () => {
       if (client.type !== 'revenuecat') {
         if (active) {
+          setEntitlements(null);
           setClientReady(true);
         }
         return;
@@ -245,40 +157,35 @@ export function useBillingState(): UseBillingStateResult {
           setError(
             'RevenueCat is enabled but EXPO_PUBLIC_REVENUECAT_API_KEY is missing.'
           );
-          setClientReady(false);
-        }
-        return;
-      }
-
-      if (!billingAppUserId) {
-        if (active) {
-          setError(
-            'Preparing your account for purchases. Please try again in a moment.'
-          );
-          setClientReady(false);
         }
         return;
       }
 
       try {
+        if (!(await waitForAuthenticatedSession())) {
+          throw new Error(
+            'Preparing your account for purchases. Please try again in a moment.'
+          );
+        }
+
+        const identity = await fetchBillingIdentity();
         await client.initialize({
           apiKey: REVENUECAT_API_KEY,
-          appUserId: billingAppUserId,
+          appUserId: identity.appUserId,
         });
+        const latest = await fetchBillingEntitlements();
 
         if (active) {
+          setEntitlements(latest);
           setError(null);
           setClientReady(true);
         }
       } catch (initError) {
-        if (!active) {
-          return;
+        if (active) {
+          setEntitlements(null);
+          setClientReady(false);
+          setError(getBillingLoadErrorMessage(initError));
         }
-        setError(
-          initError instanceof Error
-            ? initError.message
-            : 'Failed to initialize billing client'
-        );
       }
     };
 
@@ -288,11 +195,9 @@ export function useBillingState(): UseBillingStateResult {
 
     return () => {
       active = false;
-      if (initTimer) {
-        clearTimeout(initTimer);
-      }
+      if (initTimer) clearTimeout(initTimer);
     };
-  }, [billingAppUserId, client]);
+  }, [client]);
 
   return {
     capabilities,

@@ -15,6 +15,8 @@ export const authCapabilitiesSchema = z.object({
   emailAvailable: z.boolean(),
   /** Optional provider capability so older servers remain parseable. */
   googleAvailable: z.boolean().default(false),
+  /** Default-off rollout control for anonymous A-to-B ownership transition. */
+  accountTransitionAvailable: z.boolean().default(false),
 });
 
 export type AuthCapabilities = z.infer<typeof authCapabilitiesSchema>;
@@ -63,6 +65,7 @@ export function createStubMetaResponse(protocolVersion: string): MetaResponse {
       anonymousAvailable: false,
       emailAvailable: false,
       googleAvailable: false,
+      accountTransitionAvailable: false,
     },
     edition: 'CE',
     billing: createBillingCapabilities(),
@@ -86,6 +89,7 @@ export function createBetterAuthMetaResponse(
       anonymousAvailable: true,
       emailAvailable: true,
       googleAvailable,
+      accountTransitionAvailable: true,
     },
     edition,
     billing,

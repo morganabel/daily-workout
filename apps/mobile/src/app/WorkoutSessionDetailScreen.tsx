@@ -14,7 +14,7 @@ import type {
   WorkoutSessionDetail,
   WorkoutSetLog,
 } from '@workout-agent/shared';
-import { workoutRepository } from './db/repositories/WorkoutRepository';
+import { getActiveRepositories } from './db/activeDatabase';
 import type { RootStackParamList } from './navigation';
 import { SetRow } from './components/SetRow';
 import { palette, typography, layout } from './theme';
@@ -28,6 +28,7 @@ type SessionDetailNav = NativeStackNavigationProp<
 >;
 
 export const WorkoutSessionDetailScreen = () => {
+  const repositories = getActiveRepositories();
   const route = useRoute<SessionDetailRoute>();
   const navigation = useNavigation<SessionDetailNav>();
   const { workoutId } = route.params;
@@ -38,7 +39,7 @@ export const WorkoutSessionDetailScreen = () => {
   const [isEditing, setIsEditing] = useState(false);
 
   const refreshSession = async () => {
-    const detail = await workoutRepository.getSessionDetailById(workoutId);
+    const detail = await repositories.workout.getSessionDetailById(workoutId);
     setSessionDetail(detail);
   };
 
@@ -46,7 +47,9 @@ export const WorkoutSessionDetailScreen = () => {
     let cancelled = false;
     const loadSession = async () => {
       try {
-        const detail = await workoutRepository.getSessionDetailById(workoutId);
+        const detail = await repositories.workout.getSessionDetailById(
+          workoutId
+        );
         if (!cancelled) {
           setSessionDetail(detail);
         }
@@ -64,7 +67,7 @@ export const WorkoutSessionDetailScreen = () => {
     return () => {
       cancelled = true;
     };
-  }, [workoutId]);
+  }, [repositories.workout, workoutId]);
 
   const handleSetUpdate = async (
     setId: string,
@@ -76,17 +79,17 @@ export const WorkoutSessionDetailScreen = () => {
       completed?: boolean;
     }
   ) => {
-    await workoutRepository.updateSetById(setId, updates);
+    await repositories.workout.updateSetById(setId, updates);
     await refreshSession();
   };
 
   const handleAddSet = async (exerciseId: string) => {
-    await workoutRepository.addSetForExercise(exerciseId);
+    await repositories.workout.addSetForExercise(exerciseId);
     await refreshSession();
   };
 
   const handleRemoveSet = async (setId: string) => {
-    await workoutRepository.removeSetById(setId);
+    await repositories.workout.removeSetById(setId);
     await refreshSession();
   };
 
@@ -133,7 +136,10 @@ export const WorkoutSessionDetailScreen = () => {
         </Pressable>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
         <Text style={styles.metaText}>
           {new Date(sessionDetail.completedAt).toLocaleDateString()} •{' '}
           {sessionDetail.durationMinutes} min

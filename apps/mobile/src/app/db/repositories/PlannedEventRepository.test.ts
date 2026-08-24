@@ -1,7 +1,10 @@
 import type { UpcomingEventContext } from '@workout-agent/shared';
-import { database } from '../index';
-import { plannedEventRepository } from './PlannedEventRepository';
+import { getActiveDatabase } from '../activeDatabase';
+import { PlannedEventRepository } from './PlannedEventRepository';
 import { formatLocalDate } from '../../utils/date';
+
+const database = getActiveDatabase();
+const plannedEventRepository = new PlannedEventRepository(database);
 
 const clearPlannedEvents = async () => {
   await database.write(async () => {

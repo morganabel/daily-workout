@@ -1,3 +1,5 @@
+import { v7 as uuidv7 } from 'uuid';
+
 import type {
   AuthProvider,
   GenerationState,
@@ -685,7 +687,7 @@ export function createGenerateHandler(deps: GenerateHandlerDeps) {
     const credentialSource: ModelCredentialSource | undefined =
       credential.source === 'none' ? undefined : credential.source;
     const hasProviderCredential = credential.source !== 'none';
-    const operationId = globalThis.crypto.randomUUID();
+    const operationId = uuidv7();
     const modelCalls: ModelCallUsage[] = [];
     const allowUnconfiguredProvider = Boolean(
       deps.config.allowUnconfiguredProvider

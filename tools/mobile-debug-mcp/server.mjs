@@ -1,9 +1,8 @@
 #!/usr/bin/env node
 
-import { randomUUID } from 'node:crypto';
-
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import { v7 as uuidv7 } from 'uuid';
 import { WebSocketServer } from 'ws';
 import { z } from 'zod';
 import {
@@ -101,7 +100,7 @@ function resolveSession(sessionId) {
 function callAppTool(tool, args) {
   const { sessionId, input } = args ?? {};
   const session = resolveSession(sessionId);
-  const id = randomUUID();
+  const id = uuidv7();
   const payload = JSON.stringify({ id, tool, input });
 
   return new Promise((resolve, reject) => {

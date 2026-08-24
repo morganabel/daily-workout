@@ -3,6 +3,17 @@ jest.mock('better-auth/plugins', () => ({
   bearer: () => ({ id: 'bearer' }),
 }));
 
+jest.mock('better-auth', () => ({
+  APIError: class APIError extends Error {
+    constructor(
+      readonly status: string,
+      readonly body: { code?: string; message?: string }
+    ) {
+      super(body.message);
+    }
+  },
+}));
+
 jest.mock('@better-auth/expo', () => ({
   expo: () => ({ id: 'expo' }),
 }));
@@ -59,106 +70,81 @@ describe('Better Auth options', () => {
     ).toBeUndefined();
   });
 
-  it('moves a fresh account upgrade onto the anonymous user id', async () => {
-    const promoteAnonymousUser = jest.fn().mockResolvedValue({
-      id: 'anonymous-user',
-      email: 'new@example.com',
-      name: 'New User',
-      emailVerified: true,
-      image: null,
-      isAnonymous: false,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    });
+  it.each([
+    ['/sign-up/email', 'email'],
+    ['/sign-in/email', 'email'],
+    ['/callback/google', 'google'],
+  ] as const)(
+    'delegates %s to application account transition as %s',
+    async (path, method) => {
+      const transitionAnonymousAccount = jest.fn().mockResolvedValue(undefined);
+      const options = createBetterAuthOptions({
+        secret: 'secret',
+        transitionAnonymousAccount,
+      });
+      const anonymousPlugin = options.plugins?.find(
+        (plugin) => plugin.id === 'anonymous'
+      ) as unknown as {
+        options: {
+          disableDeleteAnonymousUser?: boolean;
+          onLinkAccount: (input: unknown) => Promise<void>;
+        };
+      };
+
+      await anonymousPlugin.options.onLinkAccount({
+        anonymousUser: { user: { id: 'anonymous-user' }, session: {} },
+        newUser: { user: { id: 'authenticated-user' }, session: {} },
+        ctx: { path },
+      });
+
+      expect(transitionAnonymousAccount).toHaveBeenCalledWith({
+        sourceUserId: 'anonymous-user',
+        targetUserId: 'authenticated-user',
+        method,
+      });
+      expect(
+        anonymousPlugin.options.disableDeleteAnonymousUser
+      ).toBeUndefined();
+    }
+  );
+
+  it('keeps schema-generation options side-effect free', () => {
+    const options = createBetterAuthOptions({ secret: 'secret' });
+    const anonymousPlugin = options.plugins?.find(
+      (plugin) => plugin.id === 'anonymous'
+    ) as unknown as { options: { onLinkAccount?: unknown } };
+
+    expect(anonymousPlugin.options.onLinkAccount).toBeUndefined();
+    expect(options.databaseHooks).toBeUndefined();
+  });
+
+  it('exposes only stable transition failures to the mobile client', async () => {
+    const transitionAnonymousAccount = jest
+      .fn()
+      .mockRejectedValue({ code: 'target_has_application_state' });
     const options = createBetterAuthOptions({
       secret: 'secret',
-      promoteAnonymousUser,
+      transitionAnonymousAccount,
     });
-    const setNewSession = jest.fn();
     const anonymousPlugin = options.plugins?.find(
       (plugin) => plugin.id === 'anonymous'
     ) as unknown as {
-      options: {
-        onLinkAccount: (input: unknown) => Promise<void>;
-      };
+      options: { onLinkAccount: (input: unknown) => Promise<void> };
     };
 
-    await anonymousPlugin.options.onLinkAccount({
-      anonymousUser: { user: { id: 'anonymous-user' }, session: {} },
-      newUser: {
-        user: {
-          id: 'fresh-user',
-          email: 'new@example.com',
-          name: 'New User',
-          emailVerified: true,
-        },
-        session: { token: 'session-token', userId: 'fresh-user' },
-      },
-      ctx: {
-        path: '/sign-up/email',
-        context: {
-          setNewSession,
-        },
-      },
-    });
-
-    expect(promoteAnonymousUser).toHaveBeenCalledWith({
-      anonymousUserId: 'anonymous-user',
-      temporaryUserId: 'fresh-user',
-      email: 'new@example.com',
-      name: 'New User',
-      emailVerified: true,
-    });
-    expect(setNewSession).toHaveBeenCalledWith(
+    await expect(
+      anonymousPlugin.options.onLinkAccount({
+        anonymousUser: { user: { id: 'anonymous-user' }, session: {} },
+        newUser: { user: { id: 'authenticated-user' }, session: {} },
+        ctx: { path: '/sign-in/email' },
+      })
+    ).rejects.toEqual(
       expect.objectContaining({
-        session: expect.objectContaining({ userId: 'anonymous-user' }),
+        status: 'CONFLICT',
+        body: expect.objectContaining({
+          code: 'target_has_application_state',
+        }),
       })
     );
-  });
-
-  it('persists the verified Google profile when link-social promotes an anonymous user', async () => {
-    const clientId = 'client-id.apps.googleusercontent.com';
-    const payload = Buffer.from(
-      JSON.stringify({
-        iss: 'https://accounts.google.com',
-        aud: clientId,
-        sub: 'google-account-id',
-        exp: Math.floor(Date.now() / 1000) + 300,
-        email: 'person@example.com',
-        email_verified: true,
-        name: 'Google Person',
-        picture: 'https://example.com/person.jpg',
-      })
-    ).toString('base64url');
-    const options = createBetterAuthOptions({
-      secret: 'secret',
-      google: { clientId, clientSecret: 'client-secret' },
-    });
-    const accountCreateAfter = options.databaseHooks?.account?.create?.after;
-    const updateUser = jest.fn().mockResolvedValue(undefined);
-    const adapter = {
-      findUserById: jest
-        .fn()
-        .mockResolvedValue({ id: 'anonymous-user', isAnonymous: true }),
-      updateUser,
-    };
-
-    await accountCreateAfter?.(
-      {
-        providerId: 'google',
-        userId: 'anonymous-user',
-        accountId: 'google-account-id',
-        idToken: `header.${payload}.signature`,
-      } as never,
-      { context: { internalAdapter: adapter } } as never
-    );
-
-    expect(updateUser).toHaveBeenCalledWith('anonymous-user', {
-      email: 'person@example.com',
-      emailVerified: true,
-      name: 'Google Person',
-      image: 'https://example.com/person.jpg',
-      isAnonymous: false,
-    });
   });
 });

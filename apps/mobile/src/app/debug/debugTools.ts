@@ -15,10 +15,7 @@ import {
   mobileDebugSetProfilePreferencesInputSchema,
   redactSecret,
 } from '@workout-agent/shared';
-import { database } from '../db';
-import { plannedEventRepository } from '../db/repositories/PlannedEventRepository';
-import { userRepository } from '../db/repositories/UserRepository';
-import { workoutRepository } from '../db/repositories/WorkoutRepository';
+import { getActiveDatabase, getActiveRepositories } from '../db/activeDatabase';
 import { getDeviceToken } from '../storage/deviceToken';
 import { getByokConfig } from '../storage/byokKey';
 import { getLaunchCompleted } from '../storage/launchState';
@@ -28,6 +25,7 @@ import {
   getSessionToken,
   isAuthEnabled,
 } from '../services/auth-client';
+import { backendDescriptor } from '../services/backendDescriptor';
 import {
   buildGenerationContext,
   generateWorkout,
@@ -42,17 +40,20 @@ import { registerDebugTool } from './debugToolRegistry';
 let registered = false;
 
 const countCollection = async (name: string): Promise<number> => {
+  const database = getActiveDatabase();
   const records = await database.collections.get(name).query().fetch();
   return records.length;
 };
 
-const getDatabaseCounts = async () => ({
-  users: await countCollection('users'),
-  workouts: await countCollection('workouts'),
-  plannedEvents: await countCollection('planned_events'),
-  exercises: await countCollection('exercises'),
-  sets: await countCollection('sets'),
-});
+const getDatabaseCounts = async () => {
+  return {
+    users: await countCollection('users'),
+    workouts: await countCollection('workouts'),
+    plannedEvents: await countCollection('planned_events'),
+    exercises: await countCollection('exercises'),
+    sets: await countCollection('sets'),
+  };
+};
 
 const getDebugPlatform = () => {
   switch (Platform.OS) {
@@ -69,16 +70,22 @@ const getDebugPlatform = () => {
 
 const getAppState = async () => {
   const debugState = getDebugStateSnapshot();
-  const [network, capabilities, authEnabled, launchCompleted, byok, deviceToken] =
-    await Promise.all([
-      NetInfo.fetch(),
-      fetchServerCapabilities(),
-      isAuthEnabled(),
-      getLaunchCompleted(),
-      getByokConfig(),
-      getDeviceToken(),
-    ]);
-  const sessionCookie = getSessionCookie();
+  const [
+    network,
+    capabilities,
+    authEnabled,
+    launchCompleted,
+    byok,
+    deviceToken,
+  ] = await Promise.all([
+    NetInfo.fetch(),
+    fetchServerCapabilities(),
+    isAuthEnabled(),
+    getLaunchCompleted(),
+    getByokConfig(),
+    getDeviceToken(),
+  ]);
+  const sessionCookie = await getSessionCookie();
   const sessionToken = await getSessionToken();
 
   return mobileDebugAppStateSchema.parse({
@@ -90,7 +97,7 @@ const getAppState = async () => {
         }
       : undefined,
     route: debugState.route,
-    backendUrl: process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:3000',
+    backendUrl: backendDescriptor.baseURL,
     bridge: {
       enabled: debugState.bridge.enabled,
       connected: debugState.bridge.connected,
@@ -122,17 +129,20 @@ const getAppState = async () => {
 };
 
 const getHomeState = async () => {
+  const repositories = getActiveRepositories();
   const debugState = getDebugStateSnapshot();
-  const workout = await workoutRepository.getTodayWorkout();
-  const plan = workout ? await workoutRepository.mapWorkoutToPlan(workout) : null;
-  const versions = await workoutRepository.listPlannedWorkoutVersionsForDate(
-    Date.now(),
+  const workout = await repositories.workout.getTodayWorkout();
+  const plan = workout
+    ? await repositories.workout.mapWorkoutToPlan(workout)
+    : null;
+  const versions = await repositories.workout.listPlannedWorkoutVersionsForDate(
+    Date.now()
   );
   const planVersions = await Promise.all(
-    versions.map((item) => workoutRepository.mapWorkoutToPlan(item)),
+    versions.map((item) => repositories.workout.mapWorkoutToPlan(item))
   );
-  const recentSessions = (await workoutRepository.listRecentSessions(3)).map(
-    (item) => workoutRepository.toSessionSummary(item),
+  const recentSessions = (await repositories.workout.listRecentSessions(3)).map(
+    (item) => repositories.workout.toSessionSummary(item)
   );
 
   return {
@@ -148,33 +158,42 @@ const getHomeState = async () => {
 };
 
 const listHistory = async (input: unknown) => {
+  const repositories = getActiveRepositories();
   const query = mobileDebugHistoryQuerySchema.parse(input ?? {});
   const workouts =
     query.start && query.end
-      ? await workoutRepository.listCompletedSessionsByDateRange(
+      ? await repositories.workout.listCompletedSessionsByDateRange(
           query.start,
           query.end,
-          { includeArchived: query.includeArchived },
+          { includeArchived: query.includeArchived }
         )
-      : await workoutRepository.listRecentSessions(query.limit ?? 50, {
+      : await repositories.workout.listRecentSessions(query.limit ?? 50, {
           includeArchived: query.includeArchived,
         });
 
   return {
-    sessions: workouts.map((workout) => workoutRepository.toSessionSummary(workout)),
+    sessions: workouts.map((workout) =>
+      repositories.workout.toSessionSummary(workout)
+    ),
   };
 };
 
 const listCalendar = async (input: unknown) => {
+  const repositories = getActiveRepositories();
   const query = mobileDebugCalendarQuerySchema.parse(input);
   const [events, workouts] = await Promise.all([
-    plannedEventRepository.listEventsByDateRange(query.start, query.end),
-    workoutRepository.listCompletedSessionsByDateRange(query.start, query.end),
+    repositories.plannedEvent.listEventsByDateRange(query.start, query.end),
+    repositories.workout.listCompletedSessionsByDateRange(
+      query.start,
+      query.end
+    ),
   ]);
 
   return {
     events,
-    sessions: workouts.map((workout) => workoutRepository.toSessionSummary(workout)),
+    sessions: workouts.map((workout) =>
+      repositories.workout.toSessionSummary(workout)
+    ),
   };
 };
 
@@ -203,11 +222,12 @@ const getGenerationContext = async (input: unknown) => {
 };
 
 const generateWorkoutTool = async (input: unknown) => {
+  const repositories = getActiveRepositories();
   const parsed = mobileDebugGenerationInputSchema.parse(input);
   const plan = await generateWorkout(parsed.request, {
     scheduledDate: parsed.scheduledDate,
   });
-  const savedWorkout = await workoutRepository.getWorkoutByPlanId(plan.id);
+  const savedWorkout = await repositories.workout.getWorkoutByPlanId(plan.id);
 
   return {
     plan,
@@ -217,15 +237,18 @@ const generateWorkoutTool = async (input: unknown) => {
 };
 
 const regenerateWorkoutTool = async (input: unknown) => {
+  const repositories = getActiveRepositories();
   const parsed = mobileDebugRegenerationInputSchema.parse(input);
-  const baselineWorkout = await workoutRepository.getWorkoutByPlanId(
-    parsed.workoutId,
+  const baselineWorkout = await repositories.workout.getWorkoutByPlanId(
+    parsed.workoutId
   );
   if (!baselineWorkout) {
     throw new Error(`No workout found for '${parsed.workoutId}'`);
   }
 
-  const baselinePlan = await workoutRepository.mapWorkoutToPlan(baselineWorkout);
+  const baselinePlan = await repositories.workout.mapWorkoutToPlan(
+    baselineWorkout
+  );
   const request = {
     ...parsed.request,
     previousResponseId:
@@ -235,11 +258,11 @@ const regenerateWorkoutTool = async (input: unknown) => {
   const plan = await generateWorkout(request, {
     scheduledDate: parsed.scheduledDate,
   });
-  const versions = await workoutRepository.listPlannedWorkoutVersionsForDate(
-    parsed.scheduledDate ?? Date.now(),
+  const versions = await repositories.workout.listPlannedWorkoutVersionsForDate(
+    parsed.scheduledDate ?? Date.now()
   );
   const planVersions = await Promise.all(
-    versions.map((item) => workoutRepository.mapWorkoutToPlan(item)),
+    versions.map((item) => repositories.workout.mapWorkoutToPlan(item))
   );
 
   return {
@@ -254,22 +277,24 @@ const getLastGenerationTrace = () => ({
 });
 
 const setProfilePreferences = async (input: unknown) => {
+  const repositories = getActiveRepositories();
   const parsed = mobileDebugSetProfilePreferencesInputSchema.parse(input);
-  await userRepository.updatePreferences(parsed.preferences);
+  await repositories.user.updatePreferences(parsed.preferences);
 
   return {
-    preferences: await userRepository.getPreferences(),
+    preferences: await repositories.user.getPreferences(),
   };
 };
 
 const assertDebugWorkoutsPersisted = async (
   createdIds: string[]
 ): Promise<void> => {
+  const repositories = getActiveRepositories();
   if (!createdIds.length) {
     return;
   }
 
-  const recentWorkouts = await workoutRepository.listRecentSessions(
+  const recentWorkouts = await repositories.workout.listRecentSessions(
     Math.max(createdIds.length, 50),
     { includeArchived: true }
   );
@@ -278,18 +303,21 @@ const assertDebugWorkoutsPersisted = async (
 
   if (missingIds.length) {
     throw new Error(
-      `Debug history mutation did not persist workouts: ${missingIds.join(', ')}`
+      `Debug history mutation did not persist workouts: ${missingIds.join(
+        ', '
+      )}`
     );
   }
 };
 
 const seedHistory = async (input: unknown) => {
+  const repositories = getActiveRepositories();
   const parsed = mobileDebugSeedHistoryInputSchema.parse(input);
   const sessions = [];
 
   for (const session of parsed.sessions) {
-    const workout = await workoutRepository.quickLogManualSession(session);
-    sessions.push(workoutRepository.toSessionSummary(workout));
+    const workout = await repositories.workout.quickLogManualSession(session);
+    sessions.push(repositories.workout.toSessionSummary(workout));
   }
 
   await assertDebugWorkoutsPersisted(sessions.map((session) => session.id));
@@ -301,11 +329,12 @@ const seedHistory = async (input: unknown) => {
 };
 
 const seedPlannedEvents = async (input: unknown) => {
+  const repositories = getActiveRepositories();
   const parsed = mobileDebugSeedPlannedEventsInputSchema.parse(input);
   const events = [];
 
   for (const event of parsed.events) {
-    events.push(await plannedEventRepository.createPlannedEvent(event));
+    events.push(await repositories.plannedEvent.createPlannedEvent(event));
   }
 
   return { events };
@@ -323,18 +352,20 @@ const quickLogWorkoutTool = async (input: unknown) => {
 };
 
 const completeWorkout = async (input: unknown) => {
+  const repositories = getActiveRepositories();
   const parsed = mobileDebugCompleteWorkoutInputSchema.parse(input);
-  await workoutRepository.completeWorkoutById(
+  await repositories.workout.completeWorkoutById(
     parsed.workoutId,
-    parsed.durationSeconds,
+    parsed.durationSeconds
   );
 
   return {
-    session: await workoutRepository.getSessionDetailById(parsed.workoutId),
+    session: await repositories.workout.getSessionDetailById(parsed.workoutId),
   };
 };
 
 const resetCollection = async (name: string): Promise<number> => {
+  const database = getActiveDatabase();
   const collection = database.collections.get(name);
   const records = await collection.query().fetch();
 
@@ -347,6 +378,7 @@ const resetCollection = async (name: string): Promise<number> => {
 
 const resetDebugData = async (input: unknown) => {
   mobileDebugResetInputSchema.parse(input);
+  const database = getActiveDatabase();
 
   const removed = await database.write(async () => ({
     sets: await resetCollection('sets'),
@@ -372,13 +404,14 @@ const openKnownRoute = (route: 'Home' | 'History' | 'Settings') => {
 };
 
 const resolveSelectedPlan = async () => {
+  const repositories = getActiveRepositories();
   const debugPlan = getDebugStateSnapshot().selectedPlan;
   if (debugPlan) {
     return debugPlan;
   }
 
-  const workout = await workoutRepository.getTodayWorkout();
-  return workout ? workoutRepository.mapWorkoutToPlan(workout) : null;
+  const workout = await repositories.workout.getTodayWorkout();
+  return workout ? repositories.workout.mapWorkoutToPlan(workout) : null;
 };
 
 const openCurrentWorkoutPreview = async () => {

@@ -9,9 +9,9 @@
  * - Only create an anonymous account/session when the user explicitly chooses "Explore".
  */
 
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import * as SplashScreen from 'expo-splash-screen';
 import {
-  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -38,34 +38,17 @@ import {
 } from './storage/byokKey';
 import { getLaunchCompleted, setLaunchCompleted } from './storage/launchState';
 import {
-  authClient,
-  fetchServerCapabilities,
-  getSessionCookie,
+  activateCurrentAuthenticatedDataScope,
+  activateStubDataScope,
+  resumePendingAccountTransition,
   signInAnonymously,
 } from './services/auth-client';
+import {
+  BUNDLED_SERVER_CAPABILITIES,
+  resolveStartupServerCapabilities,
+} from './services/server-capabilities';
 import { palette, typography, layout } from './theme';
 import { Button, Card } from './components/DesignSystem';
-
-const AUTH_ENABLED_DEFAULT =
-  (process.env.EXPO_PUBLIC_AUTH_ENABLED ?? 'true').toLowerCase() !== 'false';
-
-function withTimeout<T>(
-  promise: Promise<T>,
-  timeoutMs: number
-): Promise<T | null> {
-  return new Promise((resolve) => {
-    const timeoutId = setTimeout(() => resolve(null), timeoutMs);
-    promise
-      .then((value) => {
-        clearTimeout(timeoutId);
-        resolve(value);
-      })
-      .catch(() => {
-        clearTimeout(timeoutId);
-        resolve(null);
-      });
-  });
-}
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 type LaunchRoute = RouteProp<RootStackParamList, 'Launch'>;
@@ -89,8 +72,8 @@ export const LaunchScreen: React.FC = () => {
   const [state, setState] = useState<LaunchState>({
     phase: 'checking',
     launchCompleted: false,
-    auth: { enabled: AUTH_ENABLED_DEFAULT, known: false },
-    hasSession: Boolean(getSessionCookie()),
+    auth: { enabled: false, known: false },
+    hasSession: false,
     byok: null,
   });
 
@@ -106,6 +89,7 @@ export const LaunchScreen: React.FC = () => {
       index: 0,
       routes: [{ name: 'Home' }],
     });
+    void SplashScreen.hideAsync().catch(() => undefined);
   }, [navigation]);
 
   const shouldShowAccountActions = useMemo(() => {
@@ -117,13 +101,34 @@ export const LaunchScreen: React.FC = () => {
   const bootstrap = useCallback(async () => {
     setError(null);
 
-    const cookie = getSessionCookie();
-    const hasSessionCookie = Boolean(cookie);
+    const launchCompleted = await getLaunchCompleted();
+    try {
+      await resumePendingAccountTransition();
+    } catch {
+      // Keep the pending record for a later retry; ordinary launch still works.
+    }
 
-    const [launchCompleted, byok] = await Promise.all([
-      getLaunchCompleted(),
-      getByokConfig(),
-    ]);
+    const meta = await resolveStartupServerCapabilities();
+    if (forceByokSetup) setShowAdvanced(true);
+    setState((prev) => ({
+      ...prev,
+      phase: 'showing',
+      launchCompleted,
+      auth: { enabled: meta.auth.enabled, known: true },
+    }));
+
+    let hasVerifiedPrincipal = false;
+    let hasSession = false;
+
+    if (meta?.auth.enabled) {
+      hasSession = await activateCurrentAuthenticatedDataScope();
+      hasVerifiedPrincipal = hasSession;
+    } else if (meta && !meta.auth.enabled && launchCompleted) {
+      await activateStubDataScope();
+      hasVerifiedPrincipal = true;
+    }
+
+    const byok = hasVerifiedPrincipal ? await getByokConfig() : null;
 
     if (byok?.apiKey) {
       setProvider(byok.provider);
@@ -131,89 +136,45 @@ export const LaunchScreen: React.FC = () => {
     }
 
     if (forceByokSetup) {
-      setShowAdvanced(true);
       setState((prev) => ({
         ...prev,
-        phase: 'showing',
-        launchCompleted,
         byok,
-        hasSession: hasSessionCookie,
+        hasSession,
       }));
       return;
     }
 
-    // Decide whether to show Launch immediately based on local state only.
-    // We don't want /api/meta slowness to block the UI.
-    if (hasSessionCookie) {
+    if (hasVerifiedPrincipal) {
       void setLaunchCompleted(true);
       goHome();
       return;
     }
 
-    // Returning users should never see Launch unless we can quickly confirm
-    // that auth is enabled and a session is required.
-    if (launchCompleted) {
-      // Respect build-time override first.
-      if (!AUTH_ENABLED_DEFAULT) {
-        goHome();
-        return;
-      }
-
-      const metaQuick = await withTimeout(fetchServerCapabilities(), 300);
-      if (!metaQuick || !metaQuick.auth.enabled) {
-        goHome();
-        return;
-      }
-
-      // Auth is enabled: show launch so the user can choose Explore / Sign up / Sign in.
-      setState((prev) => ({
-        ...prev,
-        phase: 'showing',
-        launchCompleted,
-        byok,
-        hasSession: hasSessionCookie,
-        auth: { enabled: true, known: true },
-      }));
-      return;
-    }
-
-    // New users: show Launch immediately (even if /api/meta is slow).
     setState((prev) => ({
       ...prev,
-      phase: 'showing',
-      launchCompleted,
       byok,
-      hasSession: hasSessionCookie,
+      hasSession,
     }));
-
-    // Fetch meta in the background (non-blocking).
-    void (async () => {
-      const meta = await fetchServerCapabilities();
-      if (!meta) return;
-
-      setState((prev) => ({
-        ...prev,
-        auth: { enabled: meta.auth.enabled, known: true },
-      }));
-
-      if (meta.auth.enabled) {
-        try {
-          const session = await authClient.getSession();
-          const hasSession = Boolean(session.data?.session);
-          if (hasSession) {
-            await setLaunchCompleted(true);
-            goHome();
-          }
-        } catch {
-          // Ignore; user can still choose "Explore" or sign in.
-        }
-      }
-    })();
   }, [forceByokSetup, goHome]);
+
+  useEffect(() => {
+    if (state.phase === 'showing') {
+      void SplashScreen.hideAsync().catch(() => undefined);
+    }
+  }, [state.phase]);
 
   useFocusEffect(
     useCallback(() => {
-      void bootstrap();
+      void bootstrap().catch(() => {
+        setState((prev) => ({
+          ...prev,
+          phase: 'showing',
+          auth: {
+            enabled: BUNDLED_SERVER_CAPABILITIES.auth.enabled,
+            known: true,
+          },
+        }));
+      });
     }, [bootstrap])
   );
 
@@ -221,18 +182,25 @@ export const LaunchScreen: React.FC = () => {
     setError(null);
     setIsExploring(true);
     try {
+      if (!state.auth.known) {
+        setError('Still connecting to the server. Please try again.');
+        return;
+      }
       // Only create an anonymous session when the user explicitly chooses to explore.
       if (state.auth.enabled) {
         const ok = await signInAnonymously();
         if (!ok) {
-          if (state.auth.known) {
-            setError(
-              'Could not start a session. Please try again, or sign in with email.'
-            );
-            return;
-          }
-          // Auth might not actually be enabled; allow the user to proceed.
+          setError(
+            'Could not start a session. Please try again, or sign in with email.'
+          );
+          return;
         }
+        if (!(await activateCurrentAuthenticatedDataScope())) {
+          setError('Could not verify your session. Please try again.');
+          return;
+        }
+      } else {
+        await activateStubDataScope();
       }
 
       await setLaunchCompleted(true);

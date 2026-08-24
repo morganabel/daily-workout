@@ -12,14 +12,30 @@ import {
   unarchiveWorkoutSession,
   quickLogWorkout,
 } from './api';
-import { workoutRepository } from '../db/repositories/WorkoutRepository';
-import { userRepository } from '../db/repositories/UserRepository';
-import { plannedEventRepository } from '../db/repositories/PlannedEventRepository';
 import {
   getDebugStateSnapshot,
   setDebugLastGenerationTrace,
 } from '../debug/debugState';
 import { getByokConfig } from '../storage/byokKey';
+
+const mockWorkoutRepository = {
+  listRecentSessions: jest.fn(),
+  toSessionSummary: jest.fn(),
+  toGenerationContextSession: jest.fn(),
+  saveGeneratedPlan: jest.fn(),
+  pruneRejectedWorkoutVersions: jest.fn(),
+  getWorkoutByPlanId: jest.fn(),
+  archiveWorkoutById: jest.fn(),
+  unarchiveWorkoutById: jest.fn(),
+  deleteWorkoutById: jest.fn(),
+  quickLogManualSession: jest.fn(),
+};
+const mockUserRepository = {
+  getPreferences: jest.fn(),
+};
+const mockPlannedEventRepository = {
+  listUpcomingEventContext: jest.fn(),
+};
 
 // Mock auth-client to avoid ESM import issues (jest.mock is hoisted)
 jest.mock('./auth-client', () => ({
@@ -33,44 +49,16 @@ jest.mock('../storage/deviceToken', () => ({
 }));
 
 jest.mock('../storage/byokKey', () => ({
-  getByokApiKey: jest.fn().mockResolvedValue(null),
   getByokConfig: jest.fn().mockResolvedValue(null),
 }));
 
-jest.mock('../db/repositories/WorkoutRepository', () => ({
-  workoutRepository: {
-    listRecentSessions: jest.fn(),
-    toSessionSummary: jest.fn(),
-    toGenerationContextSession: jest.fn(),
-    saveGeneratedPlan: jest.fn(),
-    pruneRejectedWorkoutVersions: jest.fn(),
-    getWorkoutByPlanId: jest.fn(),
-    archiveWorkoutById: jest.fn(),
-    unarchiveWorkoutById: jest.fn(),
-    deleteWorkoutById: jest.fn(),
-    quickLogManualSession: jest.fn(),
-  },
+jest.mock('../db/activeDatabase', () => ({
+  getActiveRepositories: () => ({
+    plannedEvent: mockPlannedEventRepository,
+    user: mockUserRepository,
+    workout: mockWorkoutRepository,
+  }),
 }));
-
-jest.mock('../db/repositories/UserRepository', () => ({
-  userRepository: {
-    getPreferences: jest.fn(),
-  },
-}));
-
-jest.mock('../db/repositories/PlannedEventRepository', () => ({
-  plannedEventRepository: {
-    listUpcomingEventContext: jest.fn(),
-  },
-}));
-
-const mockWorkoutRepository = workoutRepository as jest.Mocked<
-  typeof workoutRepository
->;
-const mockUserRepository = userRepository as jest.Mocked<typeof userRepository>;
-const mockPlannedEventRepository = plannedEventRepository as jest.Mocked<
-  typeof plannedEventRepository
->;
 
 describe('buildGenerationContext', () => {
   beforeEach(() => {
@@ -114,7 +102,7 @@ describe('buildGenerationContext', () => {
     mockWorkoutRepository.listRecentSessions.mockResolvedValue([
       { id: 'workout-1' },
       { id: 'workout-2' },
-    ] as Awaited<ReturnType<typeof workoutRepository.listRecentSessions>>);
+    ] as Awaited<ReturnType<typeof mockWorkoutRepository.listRecentSessions>>);
     mockWorkoutRepository.toGenerationContextSession
       .mockResolvedValueOnce(session1)
       .mockResolvedValueOnce(session2);
@@ -146,7 +134,7 @@ describe('buildGenerationContext', () => {
 
     mockWorkoutRepository.listRecentSessions.mockResolvedValue([
       { id: 'workout-rich' },
-    ] as Awaited<ReturnType<typeof workoutRepository.listRecentSessions>>);
+    ] as Awaited<ReturnType<typeof mockWorkoutRepository.listRecentSessions>>);
     mockWorkoutRepository.toGenerationContextSession.mockResolvedValue(session);
 
     const context = await buildGenerationContext({

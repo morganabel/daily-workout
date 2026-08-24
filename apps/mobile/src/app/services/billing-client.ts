@@ -36,7 +36,6 @@ const purchaseMethodUsesRevenueCat = (
 
 let revenueCatConfigurePromise: Promise<void> | null = null;
 let revenueCatConfiguredApiKey: string | null = null;
-let revenueCatLoggedInAppUserId: string | null = null;
 
 const ensureRevenueCatConfigured = async (apiKey: string): Promise<void> => {
   if (revenueCatConfiguredApiKey) {
@@ -64,7 +63,6 @@ const ensureRevenueCatConfigured = async (apiKey: string): Promise<void> => {
 
 const resetRevenueCatLogin = async (): Promise<void> => {
   await Purchases.logOut();
-  revenueCatLoggedInAppUserId = null;
 };
 
 const redactPurchaseSecrets = (input: string): string =>
@@ -137,17 +135,10 @@ class RevenueCatBillingClient implements BillingClient {
     apiKey: string;
     appUserId?: string;
   }): Promise<void> {
-    await ensureRevenueCatConfigured(args.apiKey);
-    if (!args.appUserId) {
-      // appUserId can be transiently unavailable while auth session is hydrating.
-      // Avoid forcing logout in that case; sign-out flow resets RevenueCat explicitly.
-      return;
+    if (!args.appUserId?.trim()) {
+      throw new Error('revenuecat_identity_missing');
     }
-
-    if (args.appUserId !== revenueCatLoggedInAppUserId) {
-      await Purchases.logIn(args.appUserId);
-      revenueCatLoggedInAppUserId = args.appUserId;
-    }
+    await reconcileRevenueCatIdentity(args.apiKey, args.appUserId);
   }
 
   async getAvailablePackages(): Promise<BillingPackageSummary[]> {
@@ -230,6 +221,30 @@ export const createBillingClient = (
 
   return new RevenueCatBillingClient();
 };
+
+export async function reconcileRevenueCatIdentity(
+  apiKey: string,
+  expectedAppUserId: string
+): Promise<CustomerInfo> {
+  const expected = expectedAppUserId.trim();
+  if (!expected) {
+    throw new Error('revenuecat_identity_missing');
+  }
+  await ensureRevenueCatConfigured(apiKey);
+  let customerInfo: CustomerInfo | null = null;
+  const current = await Purchases.getAppUserID();
+  if (current !== expected) {
+    const result = await Purchases.logIn(expected);
+    customerInfo = result.customerInfo;
+  }
+
+  const verified = await Purchases.getAppUserID();
+  if (verified !== expected) {
+    throw new Error('revenuecat_identity_verification_failed');
+  }
+
+  return customerInfo ?? Purchases.getCustomerInfo();
+}
 
 export { resetRevenueCatLogin };
 export type { BillingPackageSummary };
