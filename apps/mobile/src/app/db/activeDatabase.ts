@@ -1,4 +1,4 @@
-import type { Database } from '@nozbe/watermelondb';
+import type { Database } from 'nitromelondb';
 import { createDatabase } from './index';
 import {
   createRepositoryContainer,

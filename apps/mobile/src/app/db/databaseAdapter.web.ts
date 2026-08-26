@@ -1,4 +1,4 @@
-import LokiJSAdapter from '@nozbe/watermelondb/adapters/lokijs';
+import LokiJSAdapter from 'nitromelondb/adapters/lokijs';
 
 import { migrations } from './migrations';
 import { schema } from './schema';

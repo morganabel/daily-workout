@@ -1,10 +1,10 @@
-import { Model, Relation } from '@nozbe/watermelondb';
+import { Model, Relation } from 'nitromelondb';
 import {
   field,
   date,
   relation,
   readonly,
-} from '@nozbe/watermelondb/decorators';
+} from 'nitromelondb/decorators';
 import type { WeightUnit } from '@workout-agent/shared';
 import Exercise from './Exercise';
 

@@ -1,4 +1,4 @@
-import { appSchema, tableSchema } from '@nozbe/watermelondb';
+import { appSchema, tableSchema } from 'nitromelondb';
 
 export const schema = appSchema({
   version: 11,

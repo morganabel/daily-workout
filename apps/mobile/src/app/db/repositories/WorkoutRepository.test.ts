@@ -2,7 +2,7 @@ import { WorkoutRepository } from './WorkoutRepository';
 import { getActiveDatabase } from '../activeDatabase';
 import { createTodayPlanFixture } from '@workout-agent/shared/testing';
 import type { CoachProgramAttribution } from '@workout-agent/shared';
-import { Q } from '@nozbe/watermelondb';
+import { Q } from 'nitromelondb';
 
 const database = getActiveDatabase();
 const workoutRepository = new WorkoutRepository(database);

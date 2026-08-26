@@ -1,4 +1,4 @@
-import SQLiteAdapter from '@nozbe/watermelondb/adapters/sqlite';
+import SQLiteAdapter from 'nitromelondb/adapters/sqlite';
 
 import { migrations } from './migrations';
 import { schema } from './schema';

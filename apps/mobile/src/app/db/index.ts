@@ -1,5 +1,5 @@
-import { Database } from '@nozbe/watermelondb';
-import { setGenerator } from '@nozbe/watermelondb/utils/common/randomId';
+import { Database } from 'nitromelondb';
+import { setGenerator } from 'nitromelondb/utils/common/randomId';
 import { v7 as uuidv7 } from 'uuid';
 
 import { createDatabaseAdapter } from './databaseAdapter';

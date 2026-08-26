@@ -5,12 +5,11 @@
   "projectType": "application",
   "targets": {
     "build": {
-      "executor": "@nx/expo:export",
+      "command": "expo export --platform all --output-dir dist",
       "dependsOn": ["sync-deps"],
       "outputs": ["{workspaceRoot}/apps/mobile/dist"],
       "options": {
-        "platform": "all",
-        "outputDir": "apps/mobile/dist"
+        "cwd": "apps/mobile"
       }
     }
   }

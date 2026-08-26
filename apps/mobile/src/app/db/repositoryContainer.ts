@@ -1,4 +1,4 @@
-import type { Database } from '@nozbe/watermelondb';
+import type { Database } from 'nitromelondb';
 import { CoachSessionActionRepository } from './repositories/CoachSessionActionRepository';
 import { PlannedEventRepository } from './repositories/PlannedEventRepository';
 import { UserRepository } from './repositories/UserRepository';

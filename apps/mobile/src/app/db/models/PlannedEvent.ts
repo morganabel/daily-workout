@@ -1,5 +1,5 @@
-import { Model } from '@nozbe/watermelondb';
-import { field, date, readonly } from '@nozbe/watermelondb/decorators';
+import { Model } from 'nitromelondb';
+import { field, date, readonly } from 'nitromelondb/decorators';
 
 export default class PlannedEvent extends Model {
   static override table = 'planned_events';
