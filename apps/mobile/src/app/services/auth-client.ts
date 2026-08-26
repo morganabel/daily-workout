@@ -17,17 +17,22 @@ import { resetRevenueCatLogin } from './billing-client';
 import { backendDescriptor } from './backendDescriptor';
 import { hasCompletedGoogleSignIn } from './google-auth-verification';
 import { fetchServerCapabilities } from './server-capabilities';
+import { retryExistingAccountSignIn } from './existingAccountSignIn';
 import {
   completePendingAccountTransition,
+  discardStorageScopeForUser,
   getOrCreateStorageScopeForUser,
   getOrCreateStubSubjectId,
   getPendingAccountTransition,
+  getStorageScopeForAuthenticatedUser,
   preparePendingAccountTransition,
 } from '../storage/accountTransition';
 import {
   activateMobileDataScope,
   deactivateMobileDataScope,
+  discardMobileDataScope,
 } from '../db/activeDatabase';
+import { removeByokConfigForStorageScope } from '../storage/byokKey';
 
 const API_BASE_URL = backendDescriptor.baseURL;
 
@@ -76,7 +81,40 @@ export type GoogleSignInResult =
       message: string;
     };
 
-type SessionUser = { id: string; isAnonymous?: boolean };
+export type SessionUser = { id: string; isAnonymous?: boolean };
+
+export async function discardAnonymousAccount(
+  anonymousUser: SessionUser,
+  anonymousCookie: string | null
+): Promise<void> {
+  if (!anonymousUser.isAnonymous || !anonymousCookie) {
+    throw new Error('anonymous_account_session_missing');
+  }
+  const deleted = await authClient.deleteAnonymousUser({
+    fetchOptions: {
+      headers: { Cookie: anonymousCookie },
+    },
+  });
+  if (deleted.error) {
+    throw new Error('anonymous_account_delete_failed');
+  }
+
+  const storageScopeId = await discardStorageScopeForUser(anonymousUser.id);
+  const cleanupTasks: Promise<unknown>[] = [resetRevenueCatLogin()];
+  if (storageScopeId) {
+    cleanupTasks.push(
+      removeByokConfigForStorageScope(storageScopeId),
+      discardMobileDataScope(storageScopeId)
+    );
+  } else {
+    deactivateMobileDataScope();
+  }
+
+  const cleanupResults = await Promise.allSettled(cleanupTasks);
+  if (cleanupResults.some((result) => result.status === 'rejected')) {
+    console.warn('[auth-client] Anonymous local cleanup was incomplete');
+  }
+}
 
 export function getAccountTransitionErrorMessage(
   error: {
@@ -178,17 +216,20 @@ export async function activateCurrentAuthenticatedDataScope(): Promise<boolean> 
   const session = await authClient.getSession({
     query: { disableCookieCache: true },
   });
-  const userId = session.data?.user.id?.trim();
+  const user = session.data?.user as SessionUser | undefined;
+  const userId = user?.id.trim();
   if (session.error || !userId) return false;
-  activateMobileDataScope(await getOrCreateStorageScopeForUser(userId));
+
+  const storageScopeId = await getStorageScopeForAuthenticatedUser(userId);
+  if (!storageScopeId) return resumePendingAccountTransition();
+
+  activateMobileDataScope(storageScopeId);
   return true;
 }
 
 export async function activateStubDataScope(): Promise<void> {
   const stubSubjectId = await getOrCreateStubSubjectId();
-  activateMobileDataScope(
-    await getOrCreateStorageScopeForUser(stubSubjectId)
-  );
+  activateMobileDataScope(await getOrCreateStorageScopeForUser(stubSubjectId));
 }
 
 export async function resumePendingAccountTransition(): Promise<boolean> {
@@ -218,11 +259,21 @@ export async function signInWithGoogle(): Promise<GoogleSignInResult> {
       };
     }
 
-    const previousUser = await prepareAuthAccountTransition('google');
-    const result = await authClient.signIn.social({
-      provider: 'google',
-      callbackURL: '/',
-    });
+    let previousUser = await prepareAuthAccountTransition('google');
+    const anonymousCookie = previousUser?.isAnonymous
+      ? await authClient.getCookie()
+      : null;
+    const attempted = await retryExistingAccountSignIn(
+      previousUser,
+      () =>
+        authClient.signIn.social({
+          provider: 'google',
+          callbackURL: '/',
+        }),
+      (user) => discardAnonymousAccount(user, anonymousCookie)
+    );
+    const result = attempted.result;
+    previousUser = attempted.previousUser;
 
     if (result.error) {
       const conflictMessage = getAccountTransitionErrorMessage(result.error);
@@ -274,7 +325,10 @@ export async function signInWithGoogle(): Promise<GoogleSignInResult> {
   }
 }
 
-export { fetchServerCapabilities } from './server-capabilities';
+export {
+  fetchServerCapabilities,
+  getCurrentServerCapabilities,
+} from './server-capabilities';
 
 /**
  * Check if the server supports Better Auth

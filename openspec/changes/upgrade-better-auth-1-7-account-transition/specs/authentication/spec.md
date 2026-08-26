@@ -34,12 +34,12 @@ Users MUST be able to register using email and password or Google OAuth when tha
 - **AND** A is not treated as successfully deleted or transitioned
 - **AND** the client reports a recoverable authentication failure
 
-#### Scenario: Existing account with state requires explicit choice
+#### Scenario: Existing account with state replaces anonymous use
 
 - **GIVEN** A is anonymous and credentialed B already owns Workout Agent application or billing state
 - **WHEN** A attempts to sign in to B
-- **THEN** automatic linking is rejected without changing either account
-- **AND** the client requires an explicit choice to keep A or discard A before signing in to B independently
+- **THEN** automatic linking does not merge A into B
+- **AND** the client discards A's anonymous state and signs in to B independently without additional recovery UI
 
 #### Scenario: Duplicate email rejected
 

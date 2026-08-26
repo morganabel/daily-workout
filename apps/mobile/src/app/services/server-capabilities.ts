@@ -144,57 +144,43 @@ export async function fetchServerCapabilities(): Promise<MetaResponse> {
   await hydrateCapabilities();
   const cached = cachedCapabilities;
 
-  if (cached && Date.now() - cached.fetchedAt < SERVER_CAPABILITIES_TTL_MS) {
-    return cached.data;
-  }
-  if (cached) {
+  if (!cached || Date.now() - cached.fetchedAt >= SERVER_CAPABILITIES_TTL_MS) {
     void refreshServerCapabilities();
-    return cached.data;
   }
 
-  return (await refreshServerCapabilities()) ?? BUNDLED_SERVER_CAPABILITIES;
+  return cached?.data ?? BUNDLED_SERVER_CAPABILITIES;
 }
 
 /**
- * Give a cold-start request a bounded opportunity to provide current values.
- * A timed-out request keeps running so it can refresh the persisted cache for
- * this launch and the next one.
+ * Synchronous snapshot for initial UI state. Before local storage hydration,
+ * the bundled managed-service defaults are the best-known capabilities.
+ */
+export function getCurrentServerCapabilities(): MetaResponse {
+  return cachedCapabilities?.data ?? BUNDLED_SERVER_CAPABILITIES;
+}
+
+/**
+ * Give local storage a bounded opportunity to hydrate the last-known value.
+ * Remote refresh never gates launch and is only used to update future reads.
  */
 export async function resolveStartupServerCapabilities(
   waitMs = STARTUP_CAPABILITIES_WAIT_MS
 ): Promise<MetaResponse> {
-  const cached = cachedCapabilities;
-  if (cached && Date.now() - cached.fetchedAt < SERVER_CAPABILITIES_TTL_MS) {
-    return cached.data;
-  }
-
-  const startedAt = Date.now();
   const hydration = hydrateCapabilities();
-  const refresh = refreshServerCapabilities();
-  let timeoutId: ReturnType<typeof setTimeout> | null = null;
-
-  const live = await Promise.race([
-    refresh,
-    new Promise<null>((resolve) => {
-      timeoutId = setTimeout(() => resolve(null), waitMs);
+  let hydrationTimeoutId: ReturnType<typeof setTimeout> | null = null;
+  await Promise.race([
+    hydration,
+    new Promise<void>((resolve) => {
+      hydrationTimeoutId = setTimeout(resolve, waitMs);
     }),
   ]);
-  if (timeoutId) clearTimeout(timeoutId);
-  if (live) return live;
+  if (hydrationTimeoutId) clearTimeout(hydrationTimeoutId);
 
-  const remainingMs = Math.max(0, waitMs - (Date.now() - startedAt));
-  if (remainingMs > 0) {
-    let hydrationTimeoutId: ReturnType<typeof setTimeout> | null = null;
-    await Promise.race([
-      hydration,
-      new Promise<void>((resolve) => {
-        hydrationTimeoutId = setTimeout(resolve, remainingMs);
-      }),
-    ]);
-    if (hydrationTimeoutId) clearTimeout(hydrationTimeoutId);
+  const cached = cachedCapabilities;
+  if (!cached || Date.now() - cached.fetchedAt >= SERVER_CAPABILITIES_TTL_MS) {
+    void refreshServerCapabilities();
   }
-
-  return cachedCapabilities?.data ?? BUNDLED_SERVER_CAPABILITIES;
+  return getCurrentServerCapabilities();
 }
 
 export function resetServerCapabilitiesCacheForTests(): void {

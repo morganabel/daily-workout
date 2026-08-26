@@ -1,7 +1,14 @@
 import React from 'react';
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
-import { createAdaptiveTrainingPlanFromTemplate } from '@workout-agent/shared';
+import {
+  createAdaptiveTrainingPlanFromTemplate,
+  type MetaResponse,
+} from '@workout-agent/shared';
 import { SettingsScreen } from './SettingsScreen';
+import {
+  fetchServerCapabilities,
+  getCurrentServerCapabilities,
+} from './services/auth-client';
 
 const mockUserRepository = {
   getPreferences: jest.fn(),
@@ -11,6 +18,15 @@ const mockUserRepository = {
 jest.mock('./components/BottomNavigation', () => ({
   BottomNavigation: () => null,
 }));
+
+jest.mock('./components/GoogleSignInButton', () => {
+  const ReactModule = require('react') as typeof React;
+  const { Text } = require('react-native') as typeof import('react-native');
+  return {
+    GoogleSignInButton: ({ label }: { label: string }) =>
+      ReactModule.createElement(Text, null, label),
+  };
+});
 
 jest.mock('@react-navigation/native', () => ({
   useNavigation: () => ({
@@ -26,7 +42,8 @@ jest.mock('./hooks/useBillingState', () => ({
 }));
 
 jest.mock('./services/auth-client', () => ({
-  fetchServerCapabilities: jest.fn().mockResolvedValue(null),
+  fetchServerCapabilities: jest.fn(),
+  getCurrentServerCapabilities: jest.fn(),
   signInWithGoogle: jest.fn(),
   signOut: jest.fn().mockResolvedValue({ error: null }),
   useSession: () => ({ data: null }),
@@ -36,9 +53,79 @@ jest.mock('./db/activeDatabase', () => ({
   getActiveRepositories: () => ({ user: mockUserRepository }),
 }));
 
+const mockFetchServerCapabilities =
+  fetchServerCapabilities as jest.MockedFunction<
+    typeof fetchServerCapabilities
+  >;
+const mockGetCurrentServerCapabilities =
+  getCurrentServerCapabilities as jest.MockedFunction<
+    typeof getCurrentServerCapabilities
+  >;
+
+const capabilities = (authEnabled: boolean): MetaResponse => ({
+  protocolVersion: '1.0.0',
+  edition: 'CE',
+  auth: {
+    enabled: authEnabled,
+    methods: authEnabled ? ['anonymous', 'email'] : [],
+    anonymousAvailable: authEnabled,
+    emailAvailable: authEnabled,
+    googleAvailable: authEnabled,
+    accountTransitionAvailable: authEnabled,
+  },
+  billing: {
+    enabled: false,
+    showUpgradeUi: false,
+    purchaseMethod: 'none',
+    allowByok: true,
+  },
+});
+
 describe('SettingsScreen profile summary', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockGetCurrentServerCapabilities.mockReturnValue(capabilities(true));
+    mockFetchServerCapabilities.mockResolvedValue(capabilities(true));
+  });
+
+  it('shows account actions while a capability refresh is pending', async () => {
+    mockFetchServerCapabilities.mockReturnValue(new Promise(() => undefined));
+    mockUserRepository.getPreferences.mockResolvedValue({
+      equipment: ['Bodyweight'],
+      injuries: [],
+      focusBias: [],
+      avoid: [],
+      aiFeaturesEnabled: true,
+    });
+
+    const screen = render(<SettingsScreen />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Create account')).toBeTruthy();
+      expect(screen.getByLabelText('Sign in')).toBeTruthy();
+    });
+  });
+
+  it('hides account actions when the server has auth disabled', async () => {
+    mockFetchServerCapabilities.mockResolvedValue(capabilities(false));
+    mockUserRepository.getPreferences.mockResolvedValue({
+      equipment: ['Bodyweight'],
+      injuries: [],
+      focusBias: [],
+      avoid: [],
+      aiFeaturesEnabled: true,
+    });
+
+    const screen = render(<SettingsScreen />);
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('Accounts aren’t enabled on this server.')
+      ).toBeTruthy();
+    });
+    expect(screen.queryByText('Continue with Google')).toBeNull();
+    expect(screen.queryByText('Create account')).toBeNull();
+    expect(screen.queryByLabelText('Sign in')).toBeNull();
   });
 
   it('summarizes the plan and saves edited weekly guidance from the focused editor', async () => {

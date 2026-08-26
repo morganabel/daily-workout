@@ -21,10 +21,12 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from './navigation';
 import {
   authClient,
+  discardAnonymousAccount,
   getAccountTransitionErrorMessage,
   prepareAuthAccountTransition,
   verifyAuthAccountTransition,
 } from './services/auth-client';
+import { retryExistingAccountSignIn } from './services/existingAccountSignIn';
 import { palette, typography } from './theme';
 import { Button } from './components/DesignSystem';
 import { GoogleSignInButton } from './components/GoogleSignInButton';
@@ -48,11 +50,21 @@ export const SignInScreen: React.FC = () => {
     setError(null);
 
     try {
-      const previousUser = await prepareAuthAccountTransition('credential');
-      const result = await authClient.signIn.email({
-        email: email.trim(),
-        password,
-      });
+      let previousUser = await prepareAuthAccountTransition('credential');
+      const anonymousCookie = previousUser?.isAnonymous
+        ? await authClient.getCookie()
+        : null;
+      const attempted = await retryExistingAccountSignIn(
+        previousUser,
+        () =>
+          authClient.signIn.email({
+            email: email.trim(),
+            password,
+          }),
+        (user) => discardAnonymousAccount(user, anonymousCookie)
+      );
+      const result = attempted.result;
+      previousUser = attempted.previousUser;
 
       if (result.error) {
         const transitionMessage = getAccountTransitionErrorMessage(

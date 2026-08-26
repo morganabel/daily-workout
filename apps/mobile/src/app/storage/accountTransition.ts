@@ -42,16 +42,18 @@ async function mutateRegistry<T>(
     resolveResult = resolve;
     rejectResult = reject;
   });
-  mutationQueue = mutationQueue.catch(() => undefined).then(async () => {
-    try {
-      const registry = await readRegistry();
-      const value = await mutation(registry);
-      await SecureStore.setItemAsync(REGISTRY_KEY, JSON.stringify(registry));
-      resolveResult(value);
-    } catch (error) {
-      rejectResult(error);
-    }
-  });
+  mutationQueue = mutationQueue
+    .catch(() => undefined)
+    .then(async () => {
+      try {
+        const registry = await readRegistry();
+        const value = await mutation(registry);
+        await SecureStore.setItemAsync(REGISTRY_KEY, JSON.stringify(registry));
+        resolveResult(value);
+      } catch (error) {
+        rejectResult(error);
+      }
+    });
   await mutationQueue;
   return result;
 }
@@ -79,6 +81,22 @@ export async function getOrCreateStorageScopeForUser(
 ): Promise<string> {
   if (!userId.trim()) throw new Error('account_transition_subject_missing');
   return mutateRegistry((registry) => {
+    const existing = registry.bindings[userId];
+    if (existing) return existing;
+    const storageScopeId = `scope_${uuidv7()}`;
+    registry.bindings[userId] = storageScopeId;
+    return storageScopeId;
+  });
+}
+
+export async function getStorageScopeForAuthenticatedUser(
+  userId: string
+): Promise<string | null> {
+  if (!userId.trim()) throw new Error('account_transition_subject_missing');
+  return mutateRegistry((registry) => {
+    if (registry.pending && registry.pending.sourceUserId !== userId) {
+      return null;
+    }
     const existing = registry.bindings[userId];
     if (existing) return existing;
     const storageScopeId = `scope_${uuidv7()}`;
@@ -131,4 +149,18 @@ export async function getStorageScopeForUser(
   userId: string
 ): Promise<string | null> {
   return (await readRegistry()).bindings[userId] ?? null;
+}
+
+export async function discardStorageScopeForUser(
+  userId: string
+): Promise<string | null> {
+  if (!userId.trim()) throw new Error('account_transition_subject_missing');
+  return mutateRegistry((registry) => {
+    const storageScopeId = registry.bindings[userId] ?? null;
+    delete registry.bindings[userId];
+    if (registry.pending?.sourceUserId === userId) {
+      delete registry.pending;
+    }
+    return storageScopeId;
+  });
 }

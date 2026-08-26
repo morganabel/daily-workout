@@ -72,31 +72,17 @@ The mobile app MUST namespace BYOK provider selection and API keys by `dataScope
 - **WHEN** the user resets Account A's local data
 - **THEN** Account A's database and secure settings are removed while Account B's remain unchanged
 
-### Requirement: Destructive Transition From Unscoped Storage
+### Requirement: Scoped Storage Has No Legacy Database Path
 
-The first release implementing principal-scoped storage MUST delete the existing unscoped mobile database and legacy unscoped BYOK entries, then create clean principal-owned storage. Database and SecureStore cleanup MUST use independent idempotent version markers so completion of either cleanup cannot suppress the other. The app MUST NOT migrate, backfill, quarantine, claim, dual-read, or preserve the prior unscoped data.
+The principal-scoped storage implementation MUST start directly with per-principal databases. It MUST NOT detect, open, migrate, quarantine, copy, or delete a legacy unscoped database, and it MUST NOT add a database cleanup marker or compatibility path.
 
-#### Scenario: Existing unscoped database is detected
+#### Scenario: Scoped database is opened
 
-- **GIVEN** the device contains the pre-change unscoped schema
-- **WHEN** scoped-storage bootstrap runs for the first time
-- **THEN** the legacy database is deleted and a clean database is created only after a principal resolves
+- **GIVEN** a principal resolves to storage scope S
+- **WHEN** scoped-storage bootstrap runs
+- **THEN** the app opens only S's database without inspecting any unscoped database
 
-#### Scenario: Legacy BYOK entries exist
+#### Scenario: No legacy database marker exists
 
-- **GIVEN** SecureStore contains the old device-wide BYOK keys
-- **AND** the legacy database reset marker is already complete
-- **WHEN** destructive bootstrap cleanup runs
-- **THEN** those entries are deleted and are never copied into a principal scope
-
-#### Scenario: SecureStore cleanup ran before database cleanup
-
-- **GIVEN** the legacy BYOK cleanup marker is complete but the unscoped database still exists
-- **WHEN** scoped database bootstrap runs
-- **THEN** the database cleanup still deletes the unscoped database and records its own marker
-
-#### Scenario: New scoped schema starts clean
-
-- **GIVEN** destructive cleanup has completed
-- **WHEN** the active principal's repository container mounts
-- **THEN** it contains no records from the old unscoped schema and requires no compatibility reader
+- **WHEN** the app initializes scoped database storage
+- **THEN** it does not read or write a marker for legacy database cleanup

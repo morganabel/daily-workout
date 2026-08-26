@@ -2,9 +2,11 @@ import * as SecureStore from 'expo-secure-store';
 import { v7 as uuidv7 } from 'uuid';
 import {
   completePendingAccountTransition,
+  discardStorageScopeForUser,
   getOrCreateStorageScopeForUser,
   getPendingAccountTransition,
   getStorageScopeForUser,
+  getStorageScopeForAuthenticatedUser,
   preparePendingAccountTransition,
 } from './accountTransition';
 
@@ -59,8 +61,9 @@ describe('account transition storage binding', () => {
       .mockReturnValueOnce('00000000-0000-7000-8000-000000000001')
       .mockReturnValueOnce('00000000-0000-7000-8000-000000000002');
     const sourceScope = await getOrCreateStorageScopeForUser('anonymous-a');
-    const unrelatedScope =
-      await getOrCreateStorageScopeForUser('authenticated-b');
+    const unrelatedScope = await getOrCreateStorageScopeForUser(
+      'authenticated-b'
+    );
 
     expect(unrelatedScope).not.toBe(sourceScope);
     await expect(getStorageScopeForUser('anonymous-a')).resolves.toBe(
@@ -83,6 +86,36 @@ describe('account transition storage binding', () => {
     ).rejects.toThrow('account_transition_target_scope_conflict');
     await expect(getPendingAccountTransition()).resolves.toEqual(
       expect.objectContaining({ sourceUserId: 'anonymous-a' })
+    );
+  });
+
+  it('does not create a target scope while a handoff is pending', async () => {
+    const pending = await preparePendingAccountTransition(
+      'anonymous-a',
+      'google'
+    );
+
+    await expect(
+      getStorageScopeForAuthenticatedUser('authenticated-b')
+    ).resolves.toBeNull();
+    await expect(getStorageScopeForUser('authenticated-b')).resolves.toBeNull();
+    await expect(
+      getStorageScopeForAuthenticatedUser('anonymous-a')
+    ).resolves.toBe(pending.storageScopeId);
+  });
+
+  it('discards only the anonymous source binding and its pending handoff', async () => {
+    const sourceScope = await getOrCreateStorageScopeForUser('anonymous-a');
+    const targetScope = await getOrCreateStorageScopeForUser('authenticated-b');
+    await preparePendingAccountTransition('anonymous-a', 'credential');
+
+    await expect(discardStorageScopeForUser('anonymous-a')).resolves.toBe(
+      sourceScope
+    );
+    await expect(getStorageScopeForUser('anonymous-a')).resolves.toBeNull();
+    await expect(getPendingAccountTransition()).resolves.toBeNull();
+    await expect(getStorageScopeForUser('authenticated-b')).resolves.toBe(
+      targetScope
     );
   });
 });

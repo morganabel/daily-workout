@@ -3,6 +3,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Button } from './DesignSystem';
 import {
   fetchServerCapabilities,
+  getCurrentServerCapabilities,
   signInWithGoogle,
 } from '../services/auth-client';
 import { palette } from '../theme';
@@ -25,7 +26,9 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
   disabled = false,
   label = 'Continue with Google',
 }) => {
-  const [isAvailable, setIsAvailable] = useState(false);
+  const [isAvailable, setIsAvailable] = useState(
+    () => getCurrentServerCapabilities().auth.googleAvailable
+  );
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {

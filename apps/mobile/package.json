@@ -39,7 +39,7 @@
     "jest-expo": "*",
     "metro-config": "*",
     "metro-resolver": "*",
-    "nitromelondb": "^0.30.0-beta.6",
+    "nitromelondb": "0.30.0-beta.6",
     "picocolors": "*",
     "react": "*",
     "react-native": "*",

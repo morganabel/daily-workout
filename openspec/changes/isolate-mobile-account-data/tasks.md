@@ -4,7 +4,7 @@
 
 - [ ] 0.1 Record origin's existing `nx sync:check` and affected lint/test/build workflow as the partial baseline; M1/M2 development may begin without waiting for another workflow.
 - [ ] 0.2 Merge package-and-CI PR 1 so npm 12 and explicit mobile typecheck are required before any mobile implementation PR merges.
-- [ ] 0.3 Confirm no task in this change adds legacy migration, quarantine, compatibility, feature-flag, shadow, or staged-rollout behavior.
+- [x] 0.3 Confirm no task in this change adds legacy migration, cleanup, quarantine, compatibility, feature-flag, shadow, or staged-rollout behavior for the old unscoped database.
 
 **Acceptance criteria:**
 
@@ -62,7 +62,7 @@
 - Equivalent backend URLs resolve the same backend ID, while HTTP/HTTPS, effective-port, and base-path differences resolve distinct IDs.
 - The same backend descriptor drives requests, ownership, and auth credential storage; default-port equivalents match, invalid/userinfo URLs fail, and no legacy session key is reused.
 - Cached-offline local access is explicit and never enables network actions or reports an unvalidated session as authenticated.
-- Auth-session cleanup has its own idempotent marker and cannot suppress or be suppressed by the database and BYOK cleanup markers in M3/M4.
+- Auth-session cleanup has its own idempotent marker and cannot suppress or be suppressed by BYOK cleanup in M4.
 - One or many concurrent protected `401`s cause one root transition to Launch and clear the active principal.
 - The same previously verified backend scope may open offline, but a never-verified scope cannot.
 
@@ -83,7 +83,6 @@
 - [x] 3.2 Change all repositories and repository-using services/hooks/debug tools to receive the scoped database or scoped repository container instead of importing global instances.
 - [ ] 3.3 Ensure user preferences, workouts, exercises, sets, planned events, coach session actions, generation context, and subscriptions read and write only the mounted partition.
 - [ ] 3.4 Dispose observations and in-flight local state when the principal changes, then remount consumers against the next scope without stale emissions.
-- [ ] 3.5 Implement the one-time destructive cleanup of the legacy unscoped database with a database-specific idempotent version marker; do not use that marker for SecureStore cleanup.
 - [ ] 3.6 Restrict debug inspection, seeding, and reset operations to the active scope and include the non-secret scope status in diagnostics without exposing subject identifiers.
 - [ ] 3.7 Rewrite repository/schema fixtures to seed an explicit test scope; add isolation tests for two accounts on one backend and one account name across two backends.
 
@@ -93,8 +92,8 @@
 - Account A cannot query, observe, mutate, or debug Account B's records.
 - Backend A and Backend B never share a database partition even when the user ID matches.
 - Switching scope removes old observer emissions before the new repository container is exposed.
-- An existing schema-v11 unscoped database is deleted and not migrated, queried, or quarantined.
-- Completing the database reset marker cannot suppress the separate legacy BYOK cleanup owned by M4.
+- A legacy unscoped database is not detected, opened, migrated, queried, quarantined, or deleted.
+- M3 adds no legacy database cleanup marker or compatibility path.
 
 **Verification commands:**
 
@@ -110,7 +109,7 @@
 **Dependencies:** M3 merged.
 
 - [x] 4.1 Replace device-wide BYOK key names with `dataScopeId`-qualified provider/key entries and require an active scope for every read, write, and delete.
-- [x] 4.2 Remove legacy BYOK fallback APIs and delete the old unscoped `byokApiKey` and `byokProvider` entries through a SecureStore-specific idempotent cleanup marker that runs even when M3's database reset is already complete.
+- [x] 4.2 Remove legacy BYOK fallback APIs and delete the old unscoped `byokApiKey` and `byokProvider` entries through a SecureStore-specific idempotent cleanup marker that is independent of SQLite state.
 - [ ] 4.3 Clear in-memory BYOK and generated-request credential state on scope transition before rendering the next account; retain encrypted values only for return to the same scope.
 - [ ] 4.4 Make active-scope reset unmount the scope, invalidate its cached verified-principal/offline eligibility, enter a per-backend `reset-held` state, remove only that scope's SQLite partition and SecureStore values, then return to Launch/onboarding. Auth-disabled stub mode may create a fresh scope only after explicit user re-entry clears the hold.
 - [ ] 4.5 Add end-to-end lifecycle tests covering Account A data/key, sign-out, Account B isolation, return to Account A, backend switch, offline reopening, and centralized `401` teardown.
@@ -144,6 +143,6 @@
 - [ ] 5.1 Trace every `WorkoutPreview` navigation entry point and confirm it supplies a local workout ID.
 - [ ] 5.2 Trace every database/repository and BYOK access path and confirm it originates from the active `MobileDataProvider` scope.
 - [ ] 5.3 Confirm there is one centralized protected-request `401` transition and no competing screen-level navigation policy.
-- [ ] 5.4 Confirm the implementation contains no legacy data migration, quarantine, compatibility reader, feature flag, dual read/write, or slow-rollout path.
-- [ ] 5.5 Run `nx test mobile`, `nx run mobile:typecheck`, `nx lint mobile`, and `nx build mobile` successfully.
-- [ ] 5.6 Run `npm run validate:openspec -- isolate-mobile-account-data` successfully using the repo-owned CLI from `harden-package-and-ci-integrity`.
+- [x] 5.4 Confirm the implementation contains no legacy database detection, cleanup, migration, quarantine, compatibility reader, feature flag, dual read/write, or slow-rollout path.
+- [x] 5.5 Run `nx test mobile`, `nx run mobile:typecheck`, `nx lint mobile`, and `nx build mobile` successfully.
+- [x] 5.6 Run `npm run validate:openspec -- isolate-mobile-account-data` successfully using the repo-owned CLI from `harden-package-and-ci-integrity`.

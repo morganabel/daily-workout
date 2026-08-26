@@ -36,7 +36,6 @@ jest.mock('./storage/launchState', () => ({
 jest.mock('./services/auth-client', () => ({
   activateCurrentAuthenticatedDataScope: jest.fn().mockResolvedValue(false),
   activateStubDataScope: jest.fn().mockResolvedValue(undefined),
-  resumePendingAccountTransition: jest.fn().mockResolvedValue(false),
   signInAnonymously: jest.fn().mockResolvedValue(true),
 }));
 
