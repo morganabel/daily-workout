@@ -3,7 +3,9 @@
 ## Purpose
 
 Define hosted billing capability discovery, account-scoped entitlement state, included-usage enforcement, purchase synchronization, and billing-neutral self-host defaults.
+
 ## Requirements
+
 ### Requirement: Hosted Entitlement State Endpoint
 
 Hosted deployments MUST expose an authenticated, account-scoped entitlement state backed by durable storage. The response MUST include plan/tier, entitlement identity, effective status, renewal state, current paid/grace boundaries, quota window, remaining included generations, and refresh time. Quota-window boundaries MUST be stable and account-anchored before the first managed reservation so earlier BYOK usage remains in the same reported window. Effective access MUST be computed from stored validity boundaries so a delayed expiration webhook cannot grant access indefinitely.
@@ -76,7 +78,7 @@ Hosted generation policy MUST reserve included usage atomically before invoking 
 
 Hosted billing MUST accept only authenticated, validated RevenueCat webhooks and MUST persist each normalized event before mutating entitlement state. Processing MUST be idempotent by RevenueCat event ID and order-aware by vendor event timestamp. Entitlements are account-bound and MUST NOT be granted from an unknown app, environment, product, entitlement, or unmapped RevenueCat identity.
 
-RevenueCat customer ownership MUST be established through an authenticated hosted billing bootstrap before purchase or restore. Webhook payloads MUST NOT create arbitrary account mappings. When a valid event was stored as unmapped before bootstrap completed, establishing the mapping MUST reconcile that event idempotently.
+RevenueCat customer ownership MUST be established through authenticated hosted billing bootstrap before purchase, restore, or Customer Center access. Bootstrap MUST accept no client-selected customer identity or owner; the server MUST create or return one opaque canonical identity C for the authenticated account. Mobile MUST reconcile the RevenueCat SDK to C and verify the exact SDK identity before exposing billing. When anonymous A transitions to credentialed B, application billing ownership MUST move to B transactionally while C remains unchanged. Entitlement and usage reads MUST NOT create customer mappings. Webhook payloads MUST NOT create arbitrary account ownership, but a webhook containing mapped C plus `app_user_id`, `original_app_user_id`, or `aliases` MUST bind all non-conflicting identities to C's owner idempotently.
 
 #### Scenario: Verified purchase grants entitlement once
 
@@ -108,11 +110,55 @@ RevenueCat customer ownership MUST be established through an authenticated hoste
 - **WHEN** the webhook is processed
 - **THEN** no entitlement is granted and the rejection/ignored outcome is recorded without creating an account mapping
 
-#### Scenario: Authenticated account establishes customer mapping
+#### Scenario: Authenticated account establishes canonical customer identity
 
-- **GIVEN** a hosted account has a valid authenticated session and no RevenueCat mapping
-- **WHEN** its billing bootstrap runs before purchase or restore
-- **THEN** the server creates or returns exactly one durable RevenueCat identity owned by that account
+- **GIVEN** anonymous Better Auth user A has a valid authenticated session
+- **WHEN** billing bootstrap runs before purchase, restore, or Customer Center access
+- **THEN** the server creates or returns one UUIDv7-based canonical identity C owned by A
+- **AND** the request cannot choose C or claim an externally supplied identity
+
+#### Scenario: Anonymous user purchases under C
+
+- **GIVEN** A has authenticated billing bootstrap for canonical C and the SDK verified C
+- **WHEN** A purchases, restores, or opens Customer Center
+- **THEN** RevenueCat performs the operation under C
+- **AND** the resulting entitlement is projected to A
+
+#### Scenario: Fresh transition preserves C
+
+- **GIVEN** anonymous A with canonical RevenueCat identity C successfully transitions to non-anonymous B
+- **AND** C's server-side ownership and entitlement state moved to B
+- **WHEN** mobile verifies the transition
+- **THEN** the SDK remains on C without calling `Purchases.logIn(B)`
+- **AND** B reads the moved entitlement state through authenticated account ownership
+
+#### Scenario: RevenueCat initialization retry preserves ownership
+
+- **GIVEN** SDK reconciliation to C was interrupted before billing became ready
+- **WHEN** mobile retries initialization
+- **THEN** it obtains the same C and verifies or retries that exact identity
+- **AND** no entitlement snapshot from a changed SDK identity can certify the retry
+
+#### Scenario: Existing target has an anonymous alias
+
+- **GIVEN** B already owns a RevenueCat mapping or billing state that may represent another anonymous alias
+- **WHEN** A attempts automatic account transition
+- **THEN** the server rejects the transition before A deletion and does not call RevenueCat
+- **AND** the client discards A's anonymous state and signs in to B independently through the ordinary sign-in path
+
+#### Scenario: SDK identity does not match bootstrap
+
+- **GIVEN** authenticated bootstrap returned canonical identity C
+- **WHEN** RevenueCat initialization or login completes but `getAppUserID()` is not C
+- **THEN** the client keeps purchase, restore, and Customer Center unavailable
+- **AND** it reports a retryable billing identity error without logging C
+
+#### Scenario: Alias webhook extends the mapping set
+
+- **GIVEN** C is mapped to B
+- **WHEN** a valid RevenueCat webhook contains C together with another alias
+- **THEN** all non-conflicting customer IDs in the event are mapped to B idempotently
+- **AND** any alias already owned by another account makes the event a conflict without mutating entitlement state
 
 #### Scenario: Account attempts to claim another mapping
 

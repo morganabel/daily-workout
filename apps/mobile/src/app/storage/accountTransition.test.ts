@@ -89,7 +89,7 @@ describe('account transition storage binding', () => {
     );
   });
 
-  it('does not create a target scope while a handoff is pending', async () => {
+  it('keeps A bound when authentication is cancelled before handoff', async () => {
     const pending = await preparePendingAccountTransition(
       'anonymous-a',
       'google'
@@ -102,6 +102,7 @@ describe('account transition storage binding', () => {
     await expect(
       getStorageScopeForAuthenticatedUser('anonymous-a')
     ).resolves.toBe(pending.storageScopeId);
+    await expect(getPendingAccountTransition()).resolves.toEqual(pending);
   });
 
   it('discards only the anonymous source binding and its pending handoff', async () => {

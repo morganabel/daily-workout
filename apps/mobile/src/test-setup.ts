@@ -70,9 +70,10 @@ jest.mock('react-native-purchases-ui', () => ({
 // Use LokiJS-based test database instead of native SQLite
 // This provides a real in-memory database without requiring native bindings
 jest.mock('./app/db/index', () => {
-  const { getTestDatabase } = require('./app/db/test-database');
+  const { getTestDatabaseForScope } = require('./app/db/test-database');
   return {
-    createDatabase: () => getTestDatabase(),
+    createDatabase: (dataScopeId: string) =>
+      getTestDatabaseForScope(dataScopeId),
   };
 });
 

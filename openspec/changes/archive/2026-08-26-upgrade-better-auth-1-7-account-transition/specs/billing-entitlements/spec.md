@@ -70,7 +70,7 @@ RevenueCat customer ownership MUST be established through authenticated hosted b
 - **GIVEN** B already owns a RevenueCat mapping or billing state that may represent another anonymous alias
 - **WHEN** A attempts automatic account transition
 - **THEN** the server rejects the transition before A deletion and does not call RevenueCat
-- **AND** the client requires an explicit non-merging account choice
+- **AND** the client discards A's anonymous state and signs in to B independently through the ordinary sign-in path
 
 #### Scenario: SDK identity does not match bootstrap
 

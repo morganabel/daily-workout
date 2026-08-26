@@ -35,6 +35,21 @@ export function createTestDatabase(): Database {
   });
 }
 
+const scopedTestDatabases = new Map<string, Database>();
+
+export function getTestDatabaseForScope(dataScopeId: string): Database {
+  let database = scopedTestDatabases.get(dataScopeId);
+  if (!database) {
+    database = createTestDatabase();
+    scopedTestDatabases.set(dataScopeId, database);
+  }
+  return database;
+}
+
+export function resetScopedTestDatabases(): void {
+  scopedTestDatabases.clear();
+}
+
 // Singleton test database for tests that need a shared instance
 let testDatabase: Database | null = null;
 
