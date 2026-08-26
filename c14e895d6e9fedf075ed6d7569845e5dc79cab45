@@ -1,0 +1,1 @@
+Address review and product decision: use last-known or bundled capabilities without blocking on /api/meta, and complete the existing-account path by discarding anonymous state before an independent retry.
