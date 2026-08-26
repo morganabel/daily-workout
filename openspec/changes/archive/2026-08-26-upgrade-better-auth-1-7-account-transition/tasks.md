@@ -46,11 +46,13 @@
 
 ## 6. Mobile Storage Ownership Handoff
 
+> Deferred at closeout: broader lifecycle coverage beyond the focused real-storage handoff test remains useful future work, but is not required to close this implementation.
+
 - [x] 6.1 Implement the per-backend principal-to-opaque-storage-scope registry and make scoped SQLite and BYOK storage consume `storageScopeId` rather than a deterministic `userId` digest.
 - [x] 6.2 Implement one atomic/idempotent binding replacement from A-to-S to B-to-S after verified transition, ensuring A is unbound before B mounts the scope.
 - [x] 6.3 Resume a pending handoff after process death by authenticating B and checking the server transition record; never infer ownership from sequential sessions.
 - [ ] 6.4 Add mobile lifecycle tests for successful handoff, repeated handoff, cancellation, process death at each phase, unrelated B sign-in, backend switch, sign-out, and `401` teardown.
-- [ ] 6.5 Verify local SQLite content and scoped BYOK values remain available to B after transition and inaccessible to A or any unrelated account without copying either resource.
+- [x] 6.5 Verify local SQLite content and scoped BYOK values remain available to B after transition and inaccessible to A or any unrelated account without copying either resource.
 
 ## 7. Stable Server-Owned RevenueCat Identity
 
@@ -63,6 +65,8 @@
 - [x] 7.7 Add server/mobile matrix tests for idempotent/concurrent bootstrap, arbitrary client identity rejection, anonymous purchase under C, A-to-B ownership movement, interrupted SDK reconciliation, exact-identity verification, alias webhooks, and CE/`BILLING_PROVIDER=none` neutrality.
 
 ## 8. End-To-End Verification And Rollout
+
+> Deferred at closeout: device E2E, deployment verification, operational dashboards, and rollback runbook work remain unchecked for a future release cycle.
 
 - [ ] 8.1 Run email transition end to end on PostgreSQL with an Expo development build, including callback failure, retry, concurrent generation, and app-restart recovery.
 - [ ] 8.2 Run Google transition end to end on iOS and Android development builds, including browser cancellation and callback-without-cookie/trusted-context regression cases.
