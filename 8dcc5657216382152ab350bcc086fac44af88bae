@@ -1,0 +1,1 @@
+fix on-device BYOK reads and writes by using SecureStore-safe scoped keys; make the test mock enforce Expo key validation
