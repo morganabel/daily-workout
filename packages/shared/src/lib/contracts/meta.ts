@@ -13,6 +13,8 @@ export const authCapabilitiesSchema = z.object({
   methods: z.array(z.enum(['anonymous', 'email'])),
   anonymousAvailable: z.boolean(),
   emailAvailable: z.boolean(),
+  /** Optional provider capability so older servers remain parseable. */
+  googleAvailable: z.boolean().default(false),
 });
 
 export type AuthCapabilities = z.infer<typeof authCapabilitiesSchema>;
@@ -60,6 +62,7 @@ export function createStubMetaResponse(protocolVersion: string): MetaResponse {
       methods: [],
       anonymousAvailable: false,
       emailAvailable: false,
+      googleAvailable: false,
     },
     edition: 'CE',
     billing: createBillingCapabilities(),
@@ -72,7 +75,8 @@ export function createStubMetaResponse(protocolVersion: string): MetaResponse {
 export function createBetterAuthMetaResponse(
   protocolVersion: string,
   edition: 'CE' | 'HOSTED' = 'CE',
-  billing: BillingCapabilities = createBillingCapabilities()
+  billing: BillingCapabilities = createBillingCapabilities(),
+  googleAvailable = false
 ): MetaResponse {
   return {
     protocolVersion,
@@ -81,6 +85,7 @@ export function createBetterAuthMetaResponse(
       methods: ['anonymous', 'email'],
       anonymousAvailable: true,
       emailAvailable: true,
+      googleAvailable,
     },
     edition,
     billing,

@@ -17,7 +17,10 @@ import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
-import { createBetterAuthOptions } from '@workout-agent-ce/server-auth';
+import {
+  createBetterAuthOptions,
+  getGoogleAuthConfig,
+} from '@workout-agent-ce/server-auth';
 
 // Provide sane defaults so the CLI can run without requiring a full env.
 // (Better Auth requires a 32+ char secret.)
@@ -31,6 +34,7 @@ const BETTER_AUTH_URL = process.env.BETTER_AUTH_URL ?? 'http://localhost:3000';
 
 const trustedOrigins =
   process.env.TRUSTED_ORIGINS?.split(',').map((s) => s.trim()) ?? [];
+const google = getGoogleAuthConfig();
 
 // Create a minimal Drizzle instance for the adapter (no query is executed during CLI generate).
 const pool = new Pool({ connectionString: DATABASE_URL, max: 1 });
@@ -42,8 +46,8 @@ export const auth = betterAuth({
     secret: BETTER_AUTH_SECRET,
     baseURL: BETTER_AUTH_URL,
     trustedOrigins,
+    google,
   }),
 });
 
 export default auth;
-

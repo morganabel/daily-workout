@@ -23,6 +23,10 @@ export {
 export * as schema from './lib/schema.js';
 export { PostgresMeteringSink, getAiUsageSummary } from './lib/ai-usage.js';
 export {
+  promoteAnonymousUserIdentity,
+  type PromoteAnonymousUserInput,
+} from './lib/auth-identity.js';
+export {
   PostgresBillingRepository,
   PostgresSpendCeilingPolicy,
   type BillingRepositoryOperation,

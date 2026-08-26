@@ -55,4 +55,19 @@ describe('meta contract billing compatibility', () => {
     expect(parsed.billing?.showUpgradeUi).toBe(true);
     expect(parsed.billing?.purchaseMethod).toBe('iap');
   });
+
+  it('defaults Google capability to unavailable for legacy responses', () => {
+    const response = createBetterAuthMetaResponse('1.0.0');
+
+    expect(response.auth.googleAvailable).toBe(false);
+    expect(
+      metaResponseSchema.parse({
+        ...response,
+        auth: {
+          ...response.auth,
+          googleAvailable: undefined,
+        },
+      }).auth.googleAvailable
+    ).toBe(false);
+  });
 });
