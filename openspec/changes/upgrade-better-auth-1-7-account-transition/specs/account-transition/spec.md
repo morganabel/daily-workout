@@ -117,16 +117,16 @@ Anonymous A MAY own a server-generated opaque canonical RevenueCat identity C, r
 - **THEN** the callback rejects the transition before A is deleted or either account is mutated
 - **AND** the system does not claim that RevenueCat merged or transferred purchases
 
-### Requirement: Existing Account Merge Safety
+### Requirement: Existing Account Sign-In Does Not Merge Anonymous State
 
-The first release MUST automatically transition A only when B owns no Workout Agent application or billing state. If B already owns state, the system MUST preserve both accounts and require an explicit user choice rather than automatically combining them.
+The first release MUST automatically transition A only when B owns no Workout Agent application or billing state. If B already owns state, the system MUST NOT combine A with B. It MUST discard A's anonymous server and local state and sign in to B independently through the ordinary sign-in path.
 
 #### Scenario: Existing target owns application state
 
 - **GIVEN** A is anonymous and credentialed B already owns application or billing records
 - **WHEN** the user attempts to sign in to B from A
-- **THEN** the transition fails before A is deleted or either account's records are changed
-- **AND** the client offers to keep A or explicitly discard A before signing in to B independently
+- **THEN** the transition does not merge A's records into B
+- **AND** A's anonymous state is discarded before the client signs in to B independently
 
 #### Scenario: Existing auth-only target is empty
 

@@ -66,6 +66,17 @@ async function authRequest(
   );
 }
 
+async function getSession(
+  auth: AuthInstance,
+  cookie: string
+): Promise<Response> {
+  return auth.handler(
+    new Request(`${baseURL}/api/auth/get-session`, {
+      headers: { cookie, origin: baseURL },
+    })
+  );
+}
+
 async function signInAnonymous(auth: AuthInstance): Promise<{
   userId: string;
   cookie: string;
@@ -380,6 +391,66 @@ describe('Better Auth 1.7 anonymous account transition contract', () => {
         attemptCount: 2,
       }),
     ]);
+  });
+
+  it('discards A and signs in independently when existing B owns state', async () => {
+    const auth = createTestAuth();
+    const existingResponse = await authRequest(auth, '/sign-up/email', {
+      name: 'Existing',
+      email: 'existing@example.test',
+      password: 'password123',
+    });
+    expect(existingResponse.status).toBe(200);
+    const existingBody = (await existingResponse.json()) as {
+      user: { id: string };
+    };
+    await seedUsage(existingBody.user.id);
+
+    const anonymous = await signInAnonymous(auth);
+    await seedUsage(anonymous.userId);
+    const conflict = await authRequest(
+      auth,
+      '/sign-in/email',
+      { email: 'existing@example.test', password: 'password123' },
+      anonymous.cookie
+    );
+    expect(conflict.status).toBe(409);
+    const conflictSession = await getSession(auth, cookieFrom(conflict));
+    await expect(conflictSession.json()).resolves.toEqual(
+      expect.objectContaining({
+        user: expect.objectContaining({ id: existingBody.user.id }),
+      })
+    );
+    await expect(conflict.json()).resolves.toEqual(
+      expect.objectContaining({ code: 'target_has_application_state' })
+    );
+
+    const discarded = await authRequest(
+      auth,
+      '/delete-anonymous-user',
+      {},
+      anonymous.cookie
+    );
+    expect(discarded.status).toBe(200);
+    await expect(
+      db.select().from(schema.user).where(eq(schema.user.id, anonymous.userId))
+    ).resolves.toHaveLength(0);
+    await expect(
+      db
+        .select({ userId: schema.aiUsageEvent.userId })
+        .from(schema.aiUsageEvent)
+    ).resolves.toEqual([{ userId: existingBody.user.id }]);
+
+    const signedIn = await authRequest(auth, '/sign-in/email', {
+      email: 'existing@example.test',
+      password: 'password123',
+    });
+    expect(signedIn.status).toBe(200);
+    await expect(signedIn.json()).resolves.toEqual(
+      expect.objectContaining({
+        user: expect.objectContaining({ id: existingBody.user.id }),
+      })
+    );
   });
 
   it('retries idempotently after migration committed but Better Auth cleanup failed', async () => {

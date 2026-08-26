@@ -40,7 +40,6 @@ import { getLaunchCompleted, setLaunchCompleted } from './storage/launchState';
 import {
   activateCurrentAuthenticatedDataScope,
   activateStubDataScope,
-  resumePendingAccountTransition,
   signInAnonymously,
 } from './services/auth-client';
 import {
@@ -102,12 +101,6 @@ export const LaunchScreen: React.FC = () => {
     setError(null);
 
     const launchCompleted = await getLaunchCompleted();
-    try {
-      await resumePendingAccountTransition();
-    } catch {
-      // Keep the pending record for a later retry; ordinary launch still works.
-    }
-
     const meta = await resolveStartupServerCapabilities();
     if (forceByokSetup) setShowAdvanced(true);
     setState((prev) => ({

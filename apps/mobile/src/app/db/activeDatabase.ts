@@ -27,6 +27,19 @@ export function deactivateMobileDataScope(): void {
   active = null;
 }
 
+export async function discardMobileDataScope(
+  dataScopeId: string
+): Promise<void> {
+  const database =
+    active?.dataScopeId === dataScopeId
+      ? active.database
+      : createDatabase(dataScopeId);
+  if (active?.dataScopeId === dataScopeId) {
+    active = null;
+  }
+  await database.write(() => database.unsafeResetDatabase());
+}
+
 export function getActiveStorageScopeId(): string {
   if (!active) throw new Error('mobile_data_scope_unavailable');
   return active.dataScopeId;

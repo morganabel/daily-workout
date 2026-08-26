@@ -60,6 +60,12 @@ export async function setByokConfig(config: ByokConfig): Promise<void> {
 
 export async function removeByokConfig(): Promise<void> {
   const dataScopeId = getActiveStorageScopeId();
+  await removeByokConfigForStorageScope(dataScopeId);
+}
+
+export async function removeByokConfigForStorageScope(
+  dataScopeId: string
+): Promise<void> {
   await ensureLegacyByokRemoved();
   const keys = scopedKeys(dataScopeId);
   try {

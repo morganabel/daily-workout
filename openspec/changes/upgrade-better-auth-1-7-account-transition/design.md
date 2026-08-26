@@ -100,11 +100,11 @@ The callback contains no network calls. Transaction rollback returns all applica
 
 Alternative considered: update foreign keys opportunistically without a ledger/write barrier. Rejected because concurrent generation or metering writes could land on A after migration and then be deleted by Better Auth.
 
-### 4. Existing-account sign-in is explicit, not an automatic data merge
+### 4. Existing-account sign-in discards anonymous state instead of merging it
 
 The lean first release automatically transitions only when B owns no Workout Agent application or billing state. That includes a newly created email/Google account and an existing auth identity that has never used application features.
 
-If B already owns application or billing state, `onLinkAccount` fails before moving A or allowing A to be deleted. Mobile explains that the existing account cannot be combined automatically and offers two explicit choices: keep using A, or discard A's anonymous local/server activity and sign in to B without linking. The discard path must separately confirm destructive loss, finish/delete A through supported Better Auth APIs, clear A's mobile scope, and then authenticate B.
+If B already owns application or billing state, `onLinkAccount` fails before moving A or allowing A to be deleted. Mobile then discards A's anonymous server and local state and signs in to B independently without linking or merging the accounts. This remains the ordinary sign-in path: no separate recovery screen or confirmation flow is required because signing in expresses the user's intent to use B's account and data.
 
 This avoids inventing collision semantics for quota windows, active reservations, usage idempotency keys, entitlement projections, and local databases. A later change may add a deterministic merge policy; it is not hidden inside this upgrade.
 
@@ -155,7 +155,7 @@ Server integration tests use PostgreSQL and inject failures before and after eac
 - [Better Auth 1.7 patch behavior changes] -> Pin one stable version and make source-level contract tests a release gate.
 - [Auth identity creation/deletion and application migration are not one transaction] -> Use a persistent transition ledger, write barrier, idempotent callback, and reconciliation diagnostics; never claim cross-system atomicity.
 - [Application migration commits but Better Auth fails to delete A] -> Completed state freezes A-owned writes, retry is a no-op, and operations diagnostics identify the stranded auth user for supported cleanup.
-- [An existing account cannot automatically absorb anonymous progress] -> Fail before data loss and offer an explicit keep-A or discard-A-and-sign-in choice; define merging in a separate product change.
+- [An existing account cannot automatically absorb anonymous progress] -> Fail the merge, discard A's anonymous state, and sign in to B independently; define merging in a separate product change.
 - [Mobile crashes between server transition and local binding handoff] -> Persist pending A/S state before auth and resume only after B-authenticated transition proof.
 - [A new user-owned table is forgotten] -> Centralize the migration manifest and require schema inventory assertions in PostgreSQL integration tests.
 - [RevenueCat B already owns billing state] -> Treat any existing B canonical identity, alias mapping, or projection as an automatic-transition conflict.

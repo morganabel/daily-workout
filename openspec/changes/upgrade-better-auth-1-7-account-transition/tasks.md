@@ -38,8 +38,8 @@
 
 ## 5. Existing-Account And Mobile Auth UX
 
-- [ ] 5.1 Detect the stable existing-target rejection and present the explicit keep-anonymous-data versus discard-and-sign-in choice without changing either account by default.
-- [ ] 5.2 Implement the destructive discard path with a separate confirmation, supported Better Auth anonymous deletion/sign-out APIs, source-scope deletion, and fresh sign-in to B without linking.
+- [x] 5.1 Detect the stable existing-target rejection, discard A through supported Better Auth APIs, delete A's source scope, and sign in to B independently without linking or merging.
+- [x] 5.2 Keep existing-account replacement in the ordinary sign-in path without adding a separate recovery or confirmation UI.
 - [x] 5.3 Persist a pending mobile transition before opening email/Google auth, including canonical backend ID, source A, and opaque storage scope S, without storing credentials or tokens in the record.
 - [x] 5.4 After auth returns, refresh the session and verify non-anonymous B, expected provider linkage when applicable, and a completed B-authorized A-to-B transition before returning success.
 - [x] 5.5 Treat browser cancellation, callback error, missing trusted context/cookie, stale A session, missing provider linkage, or absent transition record as incomplete auth and keep A's scope active.

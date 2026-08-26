@@ -1,6 +1,7 @@
 import { createTestDatabase } from './test-database';
 import {
   deactivateMobileDataScope,
+  discardMobileDataScope,
   getActiveDatabase,
   getActiveRepositories,
   setActiveDatabaseForTests,
@@ -49,5 +50,20 @@ describe('active mobile data scope', () => {
         id: userA.id,
       }
     );
+  });
+
+  it('clears and unmounts a discarded scope', async () => {
+    const database = createTestDatabase();
+    const scope = 'scope_cccccccc-cccc-7ccc-8ccc-cccccccccccc';
+    setActiveDatabaseForTests(database, scope);
+    await getActiveRepositories().user.getOrCreateUser();
+
+    await discardMobileDataScope(scope);
+
+    expect(() => getActiveRepositories()).toThrow(
+      'mobile_data_scope_unavailable'
+    );
+    setActiveDatabaseForTests(database, scope);
+    await expect(getActiveRepositories().user.getUser()).resolves.toBeNull();
   });
 });

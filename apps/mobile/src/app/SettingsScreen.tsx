@@ -16,7 +16,12 @@ import { GoogleSignInButton } from './components/GoogleSignInButton';
 import { getActiveRepositories } from './db/activeDatabase';
 import { useBillingState } from './hooks/useBillingState';
 import type { RootStackParamList } from './navigation';
-import { signOut, useSession } from './services/auth-client';
+import {
+  fetchServerCapabilities,
+  getCurrentServerCapabilities,
+  signOut,
+  useSession,
+} from './services/auth-client';
 import {
   ConstraintsEditor,
   EquipmentEditor,
@@ -60,6 +65,9 @@ export const SettingsScreen = () => {
   const [avoidInput, setAvoidInput] = useState('');
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [accountError, setAccountError] = useState<string | null>(null);
+  const [authEnabled, setAuthEnabled] = useState(
+    () => getCurrentServerCapabilities().auth.enabled
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -79,6 +87,18 @@ export const SettingsScreen = () => {
       cancelled = true;
     };
   }, [repositories.user]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    void fetchServerCapabilities().then((meta) => {
+      if (!cancelled) setAuthEnabled(meta.auth.enabled);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const updateField = useCallback(
     <K extends keyof UserPreferences>(key: K, value: UserPreferences[K]) => {
@@ -322,6 +342,10 @@ export const SettingsScreen = () => {
     : isAnonymous
     ? 'Anonymous account'
     : sessionUser.email;
+  const hasAuthenticatedAccount = Boolean(sessionUser && !isAnonymous);
+  const canShowAccountActions =
+    !hasAuthenticatedAccount && authEnabled === true;
+  const accountsDisabled = !hasAuthenticatedAccount && authEnabled === false;
 
   return (
     <View style={styles.screen}>
@@ -436,7 +460,7 @@ export const SettingsScreen = () => {
               <Text style={styles.summaryBody}>{accountError}</Text>
             ) : null}
 
-            {sessionUser && !isAnonymous ? (
+            {hasAuthenticatedAccount ? (
               <Pressable
                 style={styles.cardAction}
                 onPress={() => void handleSignOut()}
@@ -453,7 +477,9 @@ export const SettingsScreen = () => {
                   color={palette.primary}
                 />
               </Pressable>
-            ) : (
+            ) : null}
+
+            {canShowAccountActions ? (
               <View style={styles.summaryRows}>
                 <GoogleSignInButton
                   onSuccess={() => setAccountError(null)}
@@ -481,7 +507,13 @@ export const SettingsScreen = () => {
                   />
                 </Pressable>
               </View>
-            )}
+            ) : null}
+
+            {accountsDisabled ? (
+              <Text style={styles.summaryBody}>
+                Accounts aren’t enabled on this server.
+              </Text>
+            ) : null}
           </Card>
         ) : null}
         {renderEditorContent()}
