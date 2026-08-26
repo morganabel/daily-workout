@@ -1,0 +1,1 @@
+Make account transitions always-on and isolate startup auth validation from Node-only Cloud SQL dependencies.
