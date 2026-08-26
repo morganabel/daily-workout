@@ -1,10 +1,18 @@
+const jestExpoPreset = require('jest-expo/jest-preset');
+
 module.exports = {
+  ...jestExpoPreset,
   displayName: '@workout-agent-ce/mobile',
   // Full-screen render tests (App/Home/Onboarding) exceed jest's default 5s
   // per-test timeout on slower CI runners; give them headroom.
   testTimeout: 30000,
   resolver: require.resolve('./jest.resolver.js'),
-  preset: 'jest-expo',
+  setupFiles: [
+    jestExpoPreset.setupFiles[0],
+    '<rootDir>/jest-mocks/expo-runtime-globals.js',
+    ...jestExpoPreset.setupFiles.slice(1),
+    '<rootDir>/jest-mocks/expo-runtime-globals-after.js',
+  ],
   moduleFileExtensions: ['ts', 'js', 'html', 'tsx', 'jsx'],
   setupFilesAfterEnv: ['<rootDir>/src/test-setup.ts'],
   moduleNameMapper: {

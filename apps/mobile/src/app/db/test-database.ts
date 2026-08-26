@@ -1,8 +1,8 @@
 /**
  * Test database using LokiJS adapter (in-memory, no native bindings required)
  */
-import { Database } from '@nozbe/watermelondb';
-import LokiJSAdapter from '@nozbe/watermelondb/adapters/lokijs';
+import { Database } from 'nitromelondb';
+import LokiJSAdapter from 'nitromelondb/adapters/lokijs';
 
 import { schema } from './schema';
 import User from './models/User';

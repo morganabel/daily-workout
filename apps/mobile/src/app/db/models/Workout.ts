@@ -1,10 +1,10 @@
-import { Model, Query } from '@nozbe/watermelondb';
+import { Model, Query } from 'nitromelondb';
 import {
   field,
   date,
   children,
   readonly,
-} from '@nozbe/watermelondb/decorators';
+} from 'nitromelondb/decorators';
 import Exercise from './Exercise';
 
 export default class Workout extends Model {

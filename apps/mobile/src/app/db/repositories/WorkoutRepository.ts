@@ -1,5 +1,5 @@
-import { Q } from '@nozbe/watermelondb';
-import type { Database } from '@nozbe/watermelondb';
+import { Q } from 'nitromelondb';
+import type { Database } from 'nitromelondb';
 import type {
   CoachProgramAttribution,
   GenerationContext,

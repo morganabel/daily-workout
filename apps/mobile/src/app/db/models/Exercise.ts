@@ -1,11 +1,11 @@
-import { Model, Relation, Query } from '@nozbe/watermelondb';
+import { Model, Relation, Query } from 'nitromelondb';
 import {
   field,
   date,
   children,
   relation,
   readonly,
-} from '@nozbe/watermelondb/decorators';
+} from 'nitromelondb/decorators';
 import Workout from './Workout';
 import Set from './Set';
 
