@@ -49,6 +49,7 @@ export const account = pgTable(
   'account',
   {
     id: text('id').primaryKey(),
+    issuer: text('issuer').notNull(),
     accountId: text('account_id').notNull(),
     providerId: text('provider_id').notNull(),
     userId: text('user_id')
@@ -66,7 +67,13 @@ export const account = pgTable(
       .$onUpdate(() => /* @__PURE__ */ new Date())
       .notNull(),
   },
-  (table) => [index('account_userId_idx').on(table.userId)]
+  (table) => [
+    uniqueIndex('account_issuer_accountId_uidx').on(
+      table.issuer,
+      table.accountId
+    ),
+    index('account_userId_idx').on(table.userId),
+  ]
 );
 
 export const verification = pgTable(
@@ -201,6 +208,16 @@ export const billingCustomerMapping = pgTable(
   ]
 );
 
+export const billingAccountIdentity = pgTable('billing_account_identity', {
+  accountId: text('account_id')
+    .primaryKey()
+    .references(() => user.id, { onDelete: 'cascade' }),
+  externalCustomerId: text('external_customer_id').notNull().unique(),
+  createdAt: timestamp('created_at', { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+});
+
 export const billingEntitlementProjection = pgTable(
   'billing_entitlement_projection',
   {
@@ -308,6 +325,36 @@ export const aiModelCall = pgTable(
     errorCode: text('error_code'),
   },
   (table) => [index('ai_model_call_usage_event_idx').on(table.usageEventId)]
+);
+
+/**
+ * Durable application-ownership handoff from anonymous source A to account B.
+ * IDs intentionally are not foreign keys: Better Auth deletes A after the
+ * callback and this record must remain available for mobile resume/diagnostics.
+ */
+export const accountTransition = pgTable(
+  'account_transition',
+  {
+    sourceUserId: text('source_user_id').primaryKey(),
+    targetUserId: text('target_user_id').notNull(),
+    method: text('method').notNull(),
+    state: text('state').notNull(),
+    failureCode: text('failure_code'),
+    attemptCount: integer('attempt_count').default(1).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    completedAt: timestamp('completed_at', { withTimezone: true }),
+  },
+  (table) => [
+    index('account_transition_target_state_idx').on(
+      table.targetUserId,
+      table.state
+    ),
+  ]
 );
 
 export const userRelations = relations(user, ({ many }) => ({

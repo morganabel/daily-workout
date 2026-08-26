@@ -5,6 +5,7 @@
 import type {
   ApiError,
   BillingEntitlementsResponse,
+  BillingIdentityResponse,
   CoachProgramAttribution,
   TodayPlan,
   GenerationRequest,
@@ -19,10 +20,8 @@ import {
   resolveWorkoutCreationMode,
 } from '@workout-agent/shared';
 import { getDeviceToken } from '../storage/deviceToken';
-import { getByokApiKey, getByokConfig } from '../storage/byokKey';
-import { userRepository } from '../db/repositories/UserRepository';
-import { workoutRepository } from '../db/repositories/WorkoutRepository';
-import { plannedEventRepository } from '../db/repositories/PlannedEventRepository';
+import { getByokConfig } from '../storage/byokKey';
+import { getActiveRepositories } from '../db/activeDatabase';
 import { formatLocalDate, getLocalDateFromTimestamp } from '../utils/date';
 import {
   setDebugLastGenerationTrace,
@@ -33,9 +32,9 @@ import {
   getSessionToken,
   isAuthEnabled,
 } from './auth-client';
+import { backendDescriptor } from './backendDescriptor';
 
-const API_BASE_URL =
-  process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:3000';
+const API_BASE_URL = backendDescriptor.baseURL;
 
 export type { ApiError } from '@workout-agent/shared';
 
@@ -55,7 +54,7 @@ async function getAuthHeaders(): Promise<{
   credentials?: 'omit' | 'include' | 'same-origin';
 }> {
   // Prefer cookies (Better Auth default session transport).
-  const cookie = getSessionCookie();
+  const cookie = await getSessionCookie();
   if (cookie) {
     return {
       headers: {
@@ -124,12 +123,6 @@ async function apiRequest<T>(
     }
     // Also send generic header
     headers['x-ai-key'] = byokConfig.apiKey;
-  } else {
-    // Legacy: check for old format
-    const byokKey = await getByokApiKey();
-    if (byokKey) {
-      headers['x-openai-key'] = byokKey;
-    }
   }
 
   const requestInit: RequestInit = { ...options, headers };
@@ -180,6 +173,12 @@ export async function fetchBillingEntitlements(): Promise<BillingEntitlementsRes
   });
 }
 
+export async function fetchBillingIdentity(): Promise<BillingIdentityResponse> {
+  return apiRequest<BillingIdentityResponse>('/api/billing/identity', {
+    method: 'POST',
+  });
+}
+
 /**
  * Build a GenerationContext from user preferences and recent workout history.
  * This replaces the mock context with real user data.
@@ -188,16 +187,19 @@ export async function buildGenerationContext(
   request: GenerationRequest,
   loadedPreferences?: UserPreferences
 ): Promise<GenerationContext> {
+  const repositories = getActiveRepositories();
   // Get user preferences from local DB
   const prefs: UserPreferences =
-    loadedPreferences ?? (await userRepository.getPreferences());
+    loadedPreferences ?? (await repositories.user.getPreferences());
 
   // Get recent completed sessions (last 5), excluding archived
-  const recentWorkouts = await workoutRepository.listRecentSessions(5, {
+  const recentWorkouts = await repositories.workout.listRecentSessions(5, {
     includeArchived: false,
   });
   const recentSessions = await Promise.all(
-    recentWorkouts.map((w) => workoutRepository.toGenerationContextSession(w))
+    recentWorkouts.map((w) =>
+      repositories.workout.toGenerationContextSession(w)
+    )
   );
 
   // Determine equipment: quick action override > profile default > fallback
@@ -268,6 +270,7 @@ export async function generateWorkout(
   request: GenerationRequest,
   options?: { scheduledDate?: number }
 ): Promise<TodayPlan> {
+  const repositories = getActiveRepositories();
   const planningDateLocal =
     request.planningDateLocal ??
     (options?.scheduledDate
@@ -275,7 +278,7 @@ export async function generateWorkout(
       : formatLocalDate(new Date()));
   const upcomingEvents =
     request.upcomingEvents ??
-    (await plannedEventRepository.listUpcomingEventContext({
+    (await repositories.plannedEvent.listUpcomingEventContext({
       startLocalDate: planningDateLocal,
     }));
 
@@ -285,7 +288,7 @@ export async function generateWorkout(
   const requestWithPlanningDate = { ...requestWithEvents, planningDateLocal };
 
   const isRegeneration = Boolean(requestWithPlanningDate.previousResponseId);
-  const prefs = await userRepository.getPreferences();
+  const prefs = await repositories.user.getPreferences();
   const creationMode =
     requestWithPlanningDate.creationMode ?? resolveWorkoutCreationMode(prefs);
   const requestWithCreationMode = {
@@ -345,12 +348,12 @@ export async function generateWorkout(
       body: JSON.stringify(serverRequest),
     });
 
-    await workoutRepository.saveGeneratedPlan(plan, {
+    await repositories.workout.saveGeneratedPlan(plan, {
       scheduledDate: options?.scheduledDate,
       baselineWorkoutId: requestWithPlanningDate.baselineWorkout?.id,
       generationRequest: requestWithCreationMode,
     });
-    const savedWorkout = await workoutRepository.getWorkoutByPlanId(plan.id);
+    const savedWorkout = await repositories.workout.getWorkoutByPlanId(plan.id);
     setDebugLastGenerationTrace({
       ...traceBase,
       status: 'success',
@@ -365,7 +368,7 @@ export async function generateWorkout(
     });
 
     void Promise.resolve(
-      workoutRepository.pruneRejectedWorkoutVersions()
+      repositories.workout.pruneRejectedWorkoutVersions()
     ).catch((error) => {
       console.error('Failed to prune rejected workout versions', error);
     });
@@ -389,7 +392,8 @@ export async function generateWorkout(
  * Archive (soft delete) a workout session locally so it no longer appears in recency-based contexts.
  */
 export async function archiveWorkoutSession(workoutId: string): Promise<void> {
-  await workoutRepository.archiveWorkoutById(workoutId);
+  const repositories = getActiveRepositories();
+  await repositories.workout.archiveWorkoutById(workoutId);
 }
 
 /**
@@ -398,21 +402,24 @@ export async function archiveWorkoutSession(workoutId: string): Promise<void> {
 export async function unarchiveWorkoutSession(
   workoutId: string
 ): Promise<void> {
-  await workoutRepository.unarchiveWorkoutById(workoutId);
+  const repositories = getActiveRepositories();
+  await repositories.workout.unarchiveWorkoutById(workoutId);
 }
 
 /**
  * Toggle the favorite status of a workout session locally.
  */
 export async function toggleFavoriteWorkout(workoutId: string): Promise<void> {
-  await workoutRepository.toggleFavoriteWorkout(workoutId);
+  const repositories = getActiveRepositories();
+  await repositories.workout.toggleFavoriteWorkout(workoutId);
 }
 
 /**
  * Permanently delete a workout session and its related exercises/sets locally.
  */
 export async function deleteWorkoutSession(workoutId: string): Promise<void> {
-  await workoutRepository.deleteWorkoutById(workoutId);
+  const repositories = getActiveRepositories();
+  await repositories.workout.deleteWorkoutById(workoutId);
 }
 
 /**
@@ -428,6 +435,7 @@ export async function quickLogWorkout(params: {
   note?: string;
   coachProgramAttribution?: CoachProgramAttribution;
 }): Promise<WorkoutSessionSummary> {
-  const workout = await workoutRepository.quickLogManualSession(params);
-  return workoutRepository.toSessionSummary(workout);
+  const repositories = getActiveRepositories();
+  const workout = await repositories.workout.quickLogManualSession(params);
+  return repositories.workout.toSessionSummary(workout);
 }

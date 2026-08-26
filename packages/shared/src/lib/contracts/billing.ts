@@ -75,6 +75,16 @@ export type BillingEntitlementsResponse = z.infer<
   typeof billingEntitlementsResponseSchema
 >;
 
+export const billingIdentityResponseSchema = z
+  .object({
+    appUserId: z.string().min(16).max(128),
+  })
+  .strict();
+
+export type BillingIdentityResponse = z.infer<
+  typeof billingIdentityResponseSchema
+>;
+
 const nanoUsdSchema = z.string().regex(/^\d+$/);
 
 export const billingAiUsageTotalsSchema = z

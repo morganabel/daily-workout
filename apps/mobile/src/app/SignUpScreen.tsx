@@ -2,7 +2,7 @@
  * Sign Up Screen
  *
  * Registration form for users upgrading from anonymous accounts.
- * When upgrading, the existing userId is preserved for billing/metering continuity.
+ * Better Auth creates authenticated B; app ownership is handed off from anonymous A.
  */
 
 import React, { useState } from 'react';
@@ -19,7 +19,12 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from './navigation';
-import { authClient } from './services/auth-client';
+import {
+  authClient,
+  getAccountTransitionErrorMessage,
+  prepareAuthAccountTransition,
+  verifyAuthAccountTransition,
+} from './services/auth-client';
 import { palette, typography } from './theme';
 import { Button } from './components/DesignSystem';
 import { GoogleSignInButton } from './components/GoogleSignInButton';
@@ -68,6 +73,7 @@ export const SignUpScreen: React.FC = () => {
     try {
       const trimmedEmail = email.trim();
       const trimmedName = name.trim();
+      const previousUser = await prepareAuthAccountTransition('credential');
       const result = await authClient.signUp.email({
         email: trimmedEmail,
         password,
@@ -75,7 +81,12 @@ export const SignUpScreen: React.FC = () => {
       });
 
       if (result.error) {
-        if (result.error.message?.includes('already')) {
+        const transitionMessage = getAccountTransitionErrorMessage(
+          result.error
+        );
+        if (transitionMessage) {
+          setError(transitionMessage);
+        } else if (result.error.message?.includes('already')) {
           setError('An account with this email already exists');
         } else {
           setError('Registration failed. Please try again.');
@@ -83,8 +94,12 @@ export const SignUpScreen: React.FC = () => {
         return;
       }
 
-      // New accounts should choose or skip a starter plan before Home.
-      navigation.navigate('Onboarding');
+      if (!(await verifyAuthAccountTransition(previousUser, 'credential'))) {
+        setError('Registration was not completed. Please try again.');
+        return;
+      }
+
+      navigation.reset({ index: 0, routes: [{ name: 'Onboarding' }] });
     } catch {
       setError('Registration failed. Please try again.');
     } finally {
@@ -187,7 +202,9 @@ export const SignUpScreen: React.FC = () => {
 
           <GoogleSignInButton
             disabled={isLoading}
-            onSuccess={() => navigation.navigate('Onboarding')}
+            onSuccess={() =>
+              navigation.reset({ index: 0, routes: [{ name: 'Onboarding' }] })
+            }
             onError={setError}
           />
 

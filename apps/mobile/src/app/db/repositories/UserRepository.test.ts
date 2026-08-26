@@ -3,8 +3,11 @@ import {
   createAdaptiveTrainingPlanFromTemplate,
   createTrainingBlueprintFromOnboarding,
 } from '@workout-agent/shared';
-import { database } from '../index';
-import { userRepository } from './UserRepository';
+import { getActiveDatabase } from '../activeDatabase';
+import { UserRepository } from './UserRepository';
+
+const database = getActiveDatabase();
+const userRepository = new UserRepository(database);
 
 const clearUsers = async () => {
   await database.write(async () => {
@@ -62,7 +65,13 @@ describe('UserRepository blueprint preferences', () => {
     expect(
       preferences.adaptiveTrainingPlan?.blocks.map((block) => block.id)
     ).toEqual(
-      expect.arrayContaining(['push', 'pull', 'legs', 'upper-pump', 'lower-pump'])
+      expect.arrayContaining([
+        'push',
+        'pull',
+        'legs',
+        'upper-pump',
+        'lower-pump',
+      ])
     );
     await expect(
       userRepository.hasCompletedOrSkippedOnboarding()

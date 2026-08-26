@@ -2,7 +2,7 @@
 
 ### Requirement: Principal-Gated Mobile Data Scope
 
-The mobile app MUST expose local repositories only while a resolved mobile principal is active. The data scope MUST be derived deterministically from canonical backend identity, auth mode, and a stable subject ID. Canonical backend identity MUST contain normalized scheme, host, effective port, and base path while ignoring query, fragment, and trailing slash differences. Credential values, deployment mode, edition, and rotating session identifiers MUST NOT determine or reveal the scope.
+The mobile app MUST expose local repositories only while a resolved mobile principal is active. The data scope MUST be an opaque install-local identifier stored in a durable binding from canonical backend identity and stable subject ID. Canonical backend identity MUST contain normalized scheme, host, effective port, and base path while ignoring query, fragment, and trailing slash differences. Credential values, deployment mode, edition, rotating session identifiers, and raw subject IDs MUST NOT determine or reveal the scope identifier.
 
 #### Scenario: Principal has not resolved
 

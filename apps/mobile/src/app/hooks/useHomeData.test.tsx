@@ -11,83 +11,53 @@ import {
   createTodayPlanFixture,
 } from '@workout-agent/shared/testing';
 import { useHomeData } from './useHomeData';
-import { workoutRepository } from '../db/repositories/WorkoutRepository';
-import { coachSessionActionRepository } from '../db/repositories/CoachSessionActionRepository';
-import { plannedEventRepository } from '../db/repositories/PlannedEventRepository';
-import { userRepository } from '../db/repositories/UserRepository';
 import type Workout from '../db/models/Workout';
+
+const mockWorkoutRepository = {
+  observePlannedWorkoutVersionsForDate: jest.fn(),
+  observeRecentSessions: jest.fn(),
+  listPlannedWorkoutVersionsForLocalDate: jest.fn(),
+  listRecentSessions: jest.fn(),
+  mapWorkoutToPlan: jest.fn(),
+  toSessionSummary: jest.fn(),
+  selectWorkoutVersion: jest.fn(),
+  findPlannedWorkoutByCoachProjectionId: jest.fn(),
+  skipWorkoutById: jest.fn(),
+  archiveWorkoutById: jest.fn(),
+  unarchiveWorkoutById: jest.fn(),
+  deleteWorkoutById: jest.fn(),
+};
+const mockCoachSessionActionRepository = {
+  observeActionsForProgram: jest.fn(),
+  listActionsForProgram: jest.fn(),
+  recordSkipAction: jest.fn(),
+};
+const mockUserRepository = {
+  getOrCreateUser: jest.fn(),
+  getPreferences: jest.fn(),
+  observeUser: jest.fn(),
+  updateAdaptiveTrainingPlan: jest.fn(),
+};
+const mockPlannedEventRepository = {
+  observeEvents: jest.fn(),
+  observeEventsByLocalDate: jest.fn(),
+  observeUpcomingEventContext: jest.fn(),
+  listUpcomingEventContext: jest.fn(),
+  toPlannedEvent: jest.fn((record) => record),
+};
 
 jest.mock('@react-navigation/native', () => ({
   useFocusEffect: jest.fn((callback) => callback()),
 }));
 
-jest.mock('../db/repositories/WorkoutRepository', () => {
-  const observePlannedWorkoutVersionsForDate = jest.fn();
-  const observeRecentSessions = jest.fn();
-  const listPlannedWorkoutVersionsForLocalDate = jest.fn();
-  const listRecentSessions = jest.fn();
-  const mapWorkoutToPlan = jest.fn();
-  const toSessionSummary = jest.fn();
-  const selectWorkoutVersion = jest.fn();
-  const findPlannedWorkoutByCoachProjectionId = jest.fn();
-  const skipWorkoutById = jest.fn();
-
-  return {
-    workoutRepository: {
-      observePlannedWorkoutVersionsForDate,
-      observeRecentSessions,
-      listPlannedWorkoutVersionsForLocalDate,
-      listRecentSessions,
-      mapWorkoutToPlan,
-      toSessionSummary,
-      selectWorkoutVersion,
-      findPlannedWorkoutByCoachProjectionId,
-      skipWorkoutById,
-      archiveWorkoutById: jest.fn(),
-      unarchiveWorkoutById: jest.fn(),
-      deleteWorkoutById: jest.fn(),
-    },
-  };
-});
-
-jest.mock('../db/repositories/CoachSessionActionRepository', () => ({
-  coachSessionActionRepository: {
-    observeActionsForProgram: jest.fn(),
-    listActionsForProgram: jest.fn(),
-    recordSkipAction: jest.fn(),
-  },
+jest.mock('../db/activeDatabase', () => ({
+  getActiveRepositories: () => ({
+    coachSessionAction: mockCoachSessionActionRepository,
+    plannedEvent: mockPlannedEventRepository,
+    user: mockUserRepository,
+    workout: mockWorkoutRepository,
+  }),
 }));
-
-jest.mock('../db/repositories/UserRepository', () => ({
-  userRepository: {
-    getOrCreateUser: jest.fn(),
-    getPreferences: jest.fn(),
-    observeUser: jest.fn(),
-    updateAdaptiveTrainingPlan: jest.fn(),
-  },
-}));
-
-jest.mock('../db/repositories/PlannedEventRepository', () => ({
-  plannedEventRepository: {
-    observeEvents: jest.fn(),
-    observeEventsByLocalDate: jest.fn(),
-    observeUpcomingEventContext: jest.fn(),
-    listUpcomingEventContext: jest.fn(),
-    toPlannedEvent: jest.fn((record) => record),
-  },
-}));
-
-const mockWorkoutRepository = workoutRepository as jest.Mocked<
-  typeof workoutRepository
->;
-const mockCoachSessionActionRepository =
-  coachSessionActionRepository as jest.Mocked<
-    typeof coachSessionActionRepository
-  >;
-const mockUserRepository = userRepository as jest.Mocked<typeof userRepository>;
-const mockPlannedEventRepository = plannedEventRepository as jest.Mocked<
-  typeof plannedEventRepository
->;
 const mockNetInfo = NetInfo as unknown as {
   addEventListener: jest.Mock;
 };

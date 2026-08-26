@@ -1,4 +1,5 @@
 import { Q } from '@nozbe/watermelondb';
+import type { Database } from '@nozbe/watermelondb';
 import type {
   CoachProgramAttribution,
   GenerationContext,
@@ -17,7 +18,6 @@ import {
   workoutEnergySchema,
 } from '@workout-agent/shared';
 import { endOfDay, parseLocalDate, startOfDay } from '../../utils/date';
-import { database } from '../index';
 import Workout from '../models/Workout';
 import Exercise from '../models/Exercise';
 import Set from '../models/Set';
@@ -232,9 +232,15 @@ const buildExerciseLog = (
 });
 
 export class WorkoutRepository {
-  private workouts = database.collections.get<Workout>('workouts');
-  private exercises = database.collections.get<Exercise>('exercises');
-  private sets = database.collections.get<Set>('sets');
+  private readonly workouts;
+  private readonly exercises;
+  private readonly sets;
+
+  constructor(private readonly database: Database) {
+    this.workouts = database.collections.get<Workout>('workouts');
+    this.exercises = database.collections.get<Exercise>('exercises');
+    this.sets = database.collections.get<Set>('sets');
+  }
 
   private buildCompletedQuery(limit: number, includeArchived = false) {
     const conditions = [
@@ -467,7 +473,7 @@ export class WorkoutRepository {
     const requestedChanges = buildRequestedChanges(generationRequest);
     payload.workout.scheduledDate = scheduledDate;
 
-    await database.write(async () => {
+    await this.database.write(async () => {
       const { start, end } = getDayBounds(scheduledDate);
       const plannedForDay = await this.workouts
         .query(
@@ -607,7 +613,7 @@ export class WorkoutRepository {
       (workout) => !workout.isFavorite && !protectedParentIds.has(workout.id)
     );
 
-    await database.write(async () => {
+    await this.database.write(async () => {
       for (const workout of prunable) {
         await this.destroyWorkoutGraph(workout);
       }
@@ -629,7 +635,7 @@ export class WorkoutRepository {
       )
       .fetch();
 
-    await database.write(async () => {
+    await this.database.write(async () => {
       await Promise.all(
         versions
           .filter(
@@ -675,7 +681,7 @@ export class WorkoutRepository {
       .query(Q.where('workout_id', workoutId))
       .fetch();
 
-    await database.write(async () => {
+    await this.database.write(async () => {
       for (const exercise of exercises) {
         const existingSets = await this.sets
           .query(Q.where('exercise_id', exercise.id))
@@ -760,7 +766,7 @@ export class WorkoutRepository {
   ): Promise<WorkoutSetLog> {
     const set = await this.sets.find(setId);
 
-    await database.write(async () => {
+    await this.database.write(async () => {
       await set.update((record) => {
         if (updates.reps !== undefined) {
           record.reps = updates.reps ?? undefined;
@@ -793,7 +799,7 @@ export class WorkoutRepository {
       .fetch();
     const nextOrder = sets.length;
 
-    const newSet = await database.write(async () =>
+    const newSet = await this.database.write(async () =>
       this.sets.create((set) => {
         set.exercise.set(exercise);
         set.order = nextOrder;
@@ -808,7 +814,7 @@ export class WorkoutRepository {
     const set = await this.sets.find(setId);
     const exercise = await set.exercise.fetch();
 
-    await database.write(async () => {
+    await this.database.write(async () => {
       await set.destroyPermanently();
 
       const remainingSets = await this.sets
@@ -928,7 +934,7 @@ export class WorkoutRepository {
 
   async toggleFavoriteWorkout(workoutId: string) {
     const workout = await this.workouts.find(workoutId);
-    await database.write(async () => {
+    await this.database.write(async () => {
       await workout.update((w) => {
         w.isFavorite = !w.isFavorite;
       });
@@ -946,7 +952,7 @@ export class WorkoutRepository {
   }
 
   async completeWorkout(workout: Workout, durationSeconds?: number) {
-    await database.write(async () => {
+    await this.database.write(async () => {
       const now = Date.now();
       await workout.update((w) => {
         w.status = 'completed';
@@ -961,7 +967,7 @@ export class WorkoutRepository {
 
   async skipWorkoutById(workoutId: string) {
     const workout = await this.workouts.find(workoutId);
-    await database.write(async () => {
+    await this.database.write(async () => {
       await workout.update((w) => {
         w.status = 'skipped';
         w.archivedAt = undefined;
@@ -970,7 +976,7 @@ export class WorkoutRepository {
   }
 
   async discardPlannedWorkout() {
-    await database.write(async () => {
+    await this.database.write(async () => {
       const planned = await this.workouts
         .query(Q.where('status', 'planned'))
         .fetch();
@@ -980,7 +986,7 @@ export class WorkoutRepository {
 
   async archiveWorkoutById(workoutId: string) {
     const workout = await this.workouts.find(workoutId);
-    await database.write(async () => {
+    await this.database.write(async () => {
       await workout.update((w) => {
         w.archivedAt = Date.now();
       });
@@ -989,7 +995,7 @@ export class WorkoutRepository {
 
   async unarchiveWorkoutById(workoutId: string) {
     const workout = await this.workouts.find(workoutId);
-    await database.write(async () => {
+    await this.database.write(async () => {
       await workout.update((w) => {
         w.archivedAt = undefined;
       });
@@ -999,7 +1005,7 @@ export class WorkoutRepository {
   async deleteWorkoutById(workoutId: string) {
     try {
       const workout = await this.workouts.find(workoutId);
-      await database.write(async () => {
+      await this.database.write(async () => {
         await this.destroyWorkoutGraph(workout);
       });
     } catch (error) {
@@ -1027,7 +1033,7 @@ export class WorkoutRepository {
     // Calculate start time by subtracting duration from completion time
     const startTime = completedAt - durationSeconds * 1000;
 
-    return database.write(async () => {
+    return this.database.write(async () => {
       const workout = await this.workouts.create((w) => {
         w.name = params.name;
         w.status = 'completed';
@@ -1052,5 +1058,3 @@ export class WorkoutRepository {
     });
   }
 }
-
-export const workoutRepository = new WorkoutRepository();

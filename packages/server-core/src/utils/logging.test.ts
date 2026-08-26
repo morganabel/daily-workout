@@ -400,7 +400,8 @@ describe('createRequestContext', () => {
   it('generates requestId when no header is present', () => {
     const request = new Request('http://localhost:3000/api/test');
     const ctx = createRequestContext(request, 'test.route');
-    expect(ctx.requestId).toBeDefined();
-    expect(ctx.requestId.length).toBeGreaterThan(0);
+    expect(ctx.requestId).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
+    );
   });
 });

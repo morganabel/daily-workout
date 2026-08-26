@@ -17,7 +17,6 @@ const { getRevenueCatBillingServices } = jest.requireMock(
 ) as {
   getRevenueCatBillingServices: jest.Mock;
 };
-const bootstrapAuthenticatedCustomer = jest.fn();
 const getEntitlements = jest.fn();
 
 describe('GET /api/billing/entitlements', () => {
@@ -29,7 +28,6 @@ describe('GET /api/billing/entitlements', () => {
     process.env.DEPLOYMENT_MODE = 'hosted';
     process.env.BILLING_PROVIDER = 'revenuecat';
     getRevenueCatBillingServices.mockResolvedValue({
-      repository: { bootstrapAuthenticatedCustomer },
       getEntitlements,
     });
   });
@@ -80,7 +78,11 @@ describe('GET /api/billing/entitlements', () => {
     });
 
     const response = await GET(
-      new Request('http://localhost/api/billing/entitlements')
+      new Request('http://localhost/api/billing/entitlements', {
+        headers: {
+          'x-revenuecat-app-user-id': '$RCAnonymousID:abcdefghijklmnop',
+        },
+      })
     );
     const data = (await response.json()) as {
       planId: string;
@@ -92,10 +94,41 @@ describe('GET /api/billing/entitlements', () => {
     expect(data.planId).toBe('pro');
     expect(data.status).toBe('active');
     expect(data.quotaWindow.remaining).toBe(90);
-    expect(bootstrapAuthenticatedCustomer).toHaveBeenCalledWith({
-      accountId: 'user-123',
-      externalCustomerId: 'user-123',
+    expect(getEntitlements).toHaveBeenCalledWith('user-123');
+  });
+
+  it('ignores client-selected customer ids and remains read-only', async () => {
+    getAuthContext.mockReturnValue({
+      provider: {
+        authenticate: jest.fn().mockResolvedValue({ userId: 'user-123' }),
+      },
     });
+
+    const response = await GET(
+      new Request('http://localhost/api/billing/entitlements', {
+        headers: { 'x-revenuecat-app-user-id': 'other-user' },
+      })
+    );
+
+    getEntitlements.mockResolvedValue({
+      planId: 'free',
+      entitlementId: null,
+      status: 'inactive',
+      willRenew: false,
+      paidThrough: null,
+      graceThrough: null,
+      quotaWindow: {
+        startsAt: '2026-01-01T00:00:00.000Z',
+        endsAt: '2026-02-01T00:00:00.000Z',
+        limit: 10,
+        used: 0,
+        remaining: 10,
+      },
+      refreshedAt: '2026-01-10T00:00:00.000Z',
+    });
+
+    expect(response.status).toBe(200);
+    expect(getEntitlements).toHaveBeenCalledWith('user-123');
   });
 
   it('returns 503 when durable billing is unavailable', async () => {

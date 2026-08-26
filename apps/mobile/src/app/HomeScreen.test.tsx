@@ -3,7 +3,6 @@ import { Alert } from 'react-native';
 import { render, act, fireEvent } from '@testing-library/react-native';
 import { HomeScreen } from './HomeScreen';
 import { useHomeData } from './hooks/useHomeData';
-import { userRepository } from './db/repositories/UserRepository';
 import {
   createAdaptiveTrainingPlanFromTemplate,
   type AdaptivePlanRecommendation,
@@ -27,11 +26,22 @@ jest.mock('./services/api', () => ({
   quickLogWorkout: jest.fn(),
 }));
 jest.mock('./storage/byokKey', () => ({
-  getByokApiKey: jest.fn().mockResolvedValue(null),
-  setByokApiKey: jest.fn(),
-  removeByokApiKey: jest.fn(),
+  getByokConfig: jest.fn().mockResolvedValue(null),
+  setByokConfig: jest.fn(),
+  removeByokConfig: jest.fn(),
 }));
 const mockNavigate = jest.fn();
+const mockWorkoutRepository = {
+  completeWorkoutById: jest.fn(),
+  archiveWorkoutById: jest.fn(),
+  deleteWorkoutById: jest.fn(),
+  quickLogManualSession: jest.fn(),
+  discardPlannedWorkout: jest.fn(),
+};
+const mockUserRepository = {
+  hasConfiguredProfile: jest.fn().mockResolvedValue(false),
+  hasCompletedOrSkippedOnboarding: jest.fn().mockResolvedValue(false),
+};
 
 jest.mock('@react-navigation/native', () => {
   const actual = jest.requireActual('@react-navigation/native');
@@ -44,20 +54,11 @@ jest.mock('@react-navigation/native', () => {
     useRoute: () => ({ name: 'Home' }),
   };
 });
-jest.mock('./db/repositories/WorkoutRepository', () => ({
-  workoutRepository: {
-    completeWorkoutById: jest.fn(),
-    archiveWorkoutById: jest.fn(),
-    deleteWorkoutById: jest.fn(),
-    quickLogManualSession: jest.fn(),
-    discardPlannedWorkout: jest.fn(),
-  },
-}));
-jest.mock('./db/repositories/UserRepository', () => ({
-  userRepository: {
-    hasConfiguredProfile: jest.fn().mockResolvedValue(false),
-    hasCompletedOrSkippedOnboarding: jest.fn().mockResolvedValue(false),
-  },
+jest.mock('./db/activeDatabase', () => ({
+  getActiveRepositories: () => ({
+    workout: mockWorkoutRepository,
+    user: mockUserRepository,
+  }),
 }));
 // Mock vector icons locally to ensure it takes precedence
 jest.mock('@expo/vector-icons', () => ({
@@ -65,7 +66,6 @@ jest.mock('@expo/vector-icons', () => ({
 }));
 
 const mockUseHomeData = useHomeData as jest.MockedFunction<typeof useHomeData>;
-const mockUserRepository = userRepository as jest.Mocked<typeof userRepository>;
 
 const baseHookState = {
   status: 'ready' as const,

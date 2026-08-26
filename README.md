@@ -91,10 +91,17 @@ GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
 ```
 
+For the normal root-level Nx workflow, put real Google credentials in the
+ignored root `.env` alongside `.env.example`. Never put the client secret in an
+`EXPO_PUBLIC_` variable or the mobile env file. Project-level env files are also
+supported by Nx, but take precedence over the root `.env` and should not be
+created unless that override is intentional.
 Google sign-in is enabled only when both Google OAuth values are set. Register
 the Better Auth callback `http://localhost:3000/api/auth/callback/google` for
 local development (and the matching `/api/auth/callback/google` URL on the
 deployed API), then rebuild the native mobile app after configuring the server.
+Anonymous account transition is always active when the server uses Better Auth;
+auth-disabled stub deployments continue to advertise it as unavailable.
 
 - Server BYOK headers: `x-ai-provider`, `x-openai-key`, `x-gemini-key`, or `x-ai-key` (generic fallback). OpenRouter uses `x-ai-provider: openrouter` with `x-ai-key`. When using `x-ai-key`, always send `x-ai-provider` to specify which provider to route to.
 - If `DEPLOYMENT_MODE=hosted` and no key is available for the chosen provider, `/api/workouts/generate` responds with `{ code: 'BYOK_REQUIRED' }` (HTTP 402).

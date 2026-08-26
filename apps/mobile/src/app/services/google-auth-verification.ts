@@ -13,15 +13,11 @@ export interface LinkedAccountState {
  * may have been cancelled or may have returned without a session cookie.
  */
 export function hasCompletedGoogleSignIn(
-  previousUser: AuthenticatedUserState | undefined,
+  previousUser: AuthenticatedUserState | null | undefined,
   currentUser: AuthenticatedUserState | undefined,
   accounts: LinkedAccountState[]
 ): boolean {
   if (!currentUser || currentUser.isAnonymous) {
-    return false;
-  }
-
-  if (previousUser?.isAnonymous && previousUser.id !== currentUser.id) {
     return false;
   }
 

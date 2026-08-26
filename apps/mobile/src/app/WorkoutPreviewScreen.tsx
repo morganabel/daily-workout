@@ -18,7 +18,7 @@ import type { TodayPlan, GenerationRequest } from '@workout-agent/shared';
 import { Ionicons } from '@expo/vector-icons';
 import { RootStackParamList } from './navigation';
 import { generateWorkout, type ApiError } from './services/api';
-import { workoutRepository } from './db/repositories/WorkoutRepository';
+import { getActiveRepositories } from './db/activeDatabase';
 import { CustomizeSheet } from './components/CustomizeSheet';
 import { palette, typography, layout } from './theme';
 import { Button, Card, Chip } from './components/DesignSystem';
@@ -31,6 +31,7 @@ type WorkoutPreviewNavigation = NativeStackNavigationProp<
 type WorkoutPreviewRoute = RouteProp<RootStackParamList, 'WorkoutPreview'>;
 
 export const WorkoutPreviewScreen = () => {
+  const repositories = getActiveRepositories();
   const navigation = useNavigation<WorkoutPreviewNavigation>();
   const route = useRoute<WorkoutPreviewRoute>();
   const [regenerating, setRegenerating] = useState(false);
@@ -44,9 +45,9 @@ export const WorkoutPreviewScreen = () => {
     useCallback(() => {
       const refreshPlan = async () => {
         try {
-          const workout = await workoutRepository.getTodayWorkout();
+          const workout = await repositories.workout.getTodayWorkout();
           if (workout) {
-            const latestPlan = await workoutRepository.mapWorkoutToPlan(
+            const latestPlan = await repositories.workout.mapWorkoutToPlan(
               workout
             );
             setPlan(latestPlan);
@@ -57,7 +58,7 @@ export const WorkoutPreviewScreen = () => {
         }
       };
       void refreshPlan();
-    }, [])
+    }, [repositories.workout])
   );
 
   if (!plan) {
@@ -105,7 +106,7 @@ export const WorkoutPreviewScreen = () => {
           text: 'Discard',
           style: 'destructive',
           onPress: async () => {
-            await workoutRepository.discardPlannedWorkout();
+            await repositories.workout.discardPlannedWorkout();
             navigation.navigate('Home');
           },
         },

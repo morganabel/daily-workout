@@ -11,7 +11,7 @@ No production users or durable mobile data need to be preserved. This change can
 - Replace the unscoped planned-workout discard operation with an ID-scoped graph deletion that removes exercises and sets, clears planned-event links, and preserves unrelated workouts.
 - Introduce explicit auth-capability and session states so an unavailable `/api/meta` response is never interpreted as auth-disabled and a stored cookie is never treated as a verified session.
 - Centralize `401 UNAUTHORIZED` recovery so protected API failures invalidate the active principal, unmount its data, and reset navigation to Launch.
-- Resolve a stable mobile principal from the canonical backend plus either verified Better Auth `userId` or the auth-disabled stub install ID; never derive data ownership from a cookie, bearer token, session-scoped `principalId`, deployment mode, or edition.
+- Resolve a stable mobile principal from the canonical backend plus either verified Better Auth `userId` or the auth-disabled stub install ID, then bind that subject to an opaque install-local storage scope; never derive data ownership from a cookie, bearer token, session-scoped `principalId`, deployment mode, or edition.
 - Mount a separate SQLite/WatermelonDB partition for each resolved principal and construct repositories from that scoped database rather than module-level global singletons.
 - Namespace BYOK credentials by the same data scope so keys cannot cross account or backend boundaries.
 - Destructively discard the existing unscoped schema and unscoped BYOK keys on upgrade.
@@ -33,7 +33,7 @@ No production users or durable mobile data need to be preserved. This change can
 - Affected app: `apps/mobile` navigation, launch/auth state, API client, local database bootstrap, repositories, SecureStore helpers, debug tooling, and tests.
 - Affected contracts: internal mobile route parameters, auth-resolution state, repository construction, and BYOK storage keys. No public server API change is required.
 - Auth-disabled impact: self-hosted stub backends use a stable per-install subject within the canonical backend scope; hosted mode remains fail-closed on Better Auth.
-- Better Auth impact: self-hosted or hosted Better Auth backends use the verified stable account `userId`. Session `principalId`, tokens, and cookies remain session/credential data, not ownership identifiers.
+- Better Auth impact: self-hosted or hosted Better Auth backends use the verified account `userId` as a binding subject. Better Auth 1.7 anonymous transition changes A to B, so a server-verified transition atomically reassigns A's opaque storage binding to B. Session `principalId`, tokens, and cookies remain session/credential data, not ownership identifiers.
 - Billing impact: no entitlement or quota semantics change; RevenueCat logout/reset hooks consume the same centralized principal lifecycle.
 - Data impact: the existing unscoped mobile database and legacy unscoped BYOK entries are deleted. This is intentional because there are no users to migrate.
-- Cross-change dependency: origin's workflow is an existing partial baseline. M1 and M2 may be developed now, but package-and-CI PR 1 must add npm 12 and explicit typecheck before mobile implementation PRs merge. Native ESM repair is not a prerequisite.
+- Cross-change dependency: origin's workflow is an existing partial baseline. M1 and M2 may be developed now, but package-and-CI PR 1 must add npm 12 and explicit typecheck before mobile implementation PRs merge. The Better Auth 1.7 account-transition change must land before M2 so principal resolution implements opaque A-to-B binding handoff instead of the superseded same-user assumption. Native ESM repair is not a prerequisite.

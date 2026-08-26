@@ -11,7 +11,7 @@ import {
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { WorkoutExerciseLog, WorkoutSetLog } from '@workout-agent/shared';
-import { workoutRepository } from './db/repositories/WorkoutRepository';
+import { getActiveRepositories } from './db/activeDatabase';
 import { RootStackParamList } from './navigation';
 import { SetRow } from './components/SetRow';
 import { palette, typography, layout } from './theme';
@@ -60,6 +60,7 @@ const formatLastPerformance = (
 };
 
 export const ActiveWorkoutScreen = () => {
+  const repositories = getActiveRepositories();
   const navigation = useNavigation<ActiveWorkoutNavigation>();
   const route = useRoute<ActiveWorkoutRoute>();
   const { plan } = route.params;
@@ -107,8 +108,8 @@ export const ActiveWorkoutScreen = () => {
       exerciseCount: exerciseLogs.length,
       setCount,
       completedSetCount,
-      expandedExerciseCount: Object.values(expandedExercises).filter(Boolean)
-        .length,
+      expandedExerciseCount:
+        Object.values(expandedExercises).filter(Boolean).length,
     });
   }, [
     durationSeconds,
@@ -130,7 +131,7 @@ export const ActiveWorkoutScreen = () => {
     let cancelled = false;
     const loadWorkout = async () => {
       try {
-        const workout = await workoutRepository.getWorkoutByPlanId(plan.id);
+        const workout = await repositories.workout.getWorkoutByPlanId(plan.id);
         if (!workout) {
           setLoading(false);
           return;
@@ -141,8 +142,8 @@ export const ActiveWorkoutScreen = () => {
         }
 
         setWorkoutId(workout.id);
-        await workoutRepository.ensureSetsForWorkout(workout.id);
-        const logs = await workoutRepository.listExerciseLogsByWorkoutId(
+        await repositories.workout.ensureSetsForWorkout(workout.id);
+        const logs = await repositories.workout.listExerciseLogsByWorkoutId(
           workout.id
         );
 
@@ -154,7 +155,7 @@ export const ActiveWorkoutScreen = () => {
         const performanceEntries = await Promise.all(
           logs.map(async (exercise) => {
             const performance =
-              await workoutRepository.getLastExercisePerformance(
+              await repositories.workout.getLastExercisePerformance(
                 exercise.name,
                 {
                   excludeWorkoutId: workout.id,
@@ -183,7 +184,7 @@ export const ActiveWorkoutScreen = () => {
     return () => {
       cancelled = true;
     };
-  }, [plan.id]);
+  }, [plan.id, repositories.workout]);
 
   useEffect(() => {
     const unsubscribe = navigation.addListener('beforeRemove', (e) => {
@@ -214,7 +215,9 @@ export const ActiveWorkoutScreen = () => {
     if (!workoutId) {
       return;
     }
-    const logs = await workoutRepository.listExerciseLogsByWorkoutId(workoutId);
+    const logs = await repositories.workout.listExerciseLogsByWorkoutId(
+      workoutId
+    );
     setExerciseLogs(logs);
   };
 
@@ -254,7 +257,7 @@ export const ActiveWorkoutScreen = () => {
 
     await Promise.all(
       exercise.sets.map((setLog) =>
-        workoutRepository.updateSetById(setLog.id, {
+        repositories.workout.updateSetById(setLog.id, {
           completed: shouldComplete,
         })
       )
@@ -293,16 +296,16 @@ export const ActiveWorkoutScreen = () => {
       }))
     );
 
-    await workoutRepository.updateSetById(setId, updates);
+    await repositories.workout.updateSetById(setId, updates);
   };
 
   const handleAddSet = async (exerciseId: string) => {
-    await workoutRepository.addSetForExercise(exerciseId);
+    await repositories.workout.addSetForExercise(exerciseId);
     await refreshExerciseLogs();
   };
 
   const handleRemoveSet = async (setId: string) => {
-    await workoutRepository.removeSetById(setId);
+    await repositories.workout.removeSetById(setId);
     await refreshExerciseLogs();
   };
 
@@ -344,7 +347,7 @@ export const ActiveWorkoutScreen = () => {
           try {
             isSubmittingRef.current = true;
             setIsSubmitting(true);
-            await workoutRepository.completeWorkoutById(
+            await repositories.workout.completeWorkoutById(
               workoutId,
               durationSeconds
             );

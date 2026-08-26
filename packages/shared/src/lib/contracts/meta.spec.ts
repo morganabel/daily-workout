@@ -70,4 +70,21 @@ describe('meta contract billing compatibility', () => {
       }).auth.googleAvailable
     ).toBe(false);
   });
+
+  it('always advertises account transition for Better Auth responses', () => {
+    expect(
+      createBetterAuthMetaResponse('1.0.0').auth.accountTransitionAvailable
+    ).toBe(true);
+    expect(
+      createBetterAuthMetaResponse(
+        '1.0.0',
+        'HOSTED',
+        createBillingCapabilities(),
+        true
+      ).auth.accountTransitionAvailable
+    ).toBe(true);
+    expect(
+      createStubMetaResponse('1.0.0').auth.accountTransitionAvailable
+    ).toBe(false);
+  });
 });

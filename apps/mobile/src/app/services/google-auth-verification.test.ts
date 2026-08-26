@@ -13,12 +13,12 @@ describe('Google OAuth completion verification', () => {
     expect(hasCompletedGoogleSignIn(undefined, undefined, [])).toBe(false);
   });
 
-  it('accepts a promoted anonymous session with its linked Google account', () => {
+  it('accepts an anonymous A to authenticated Google B session change', () => {
     expect(
       hasCompletedGoogleSignIn(
         { id: 'anonymous-user', isAnonymous: true },
-        { id: 'anonymous-user', isAnonymous: false },
-        [{ providerId: 'google', userId: 'anonymous-user' }]
+        { id: 'google-user', isAnonymous: false },
+        [{ providerId: 'google', userId: 'google-user' }]
       )
     ).toBe(true);
   });

@@ -24,10 +24,7 @@ import type {
   WorkoutSessionSummary,
 } from '@workout-agent/shared';
 import NetInfo from '@react-native-community/netinfo';
-import { workoutRepository } from '../db/repositories/WorkoutRepository';
-import { coachSessionActionRepository } from '../db/repositories/CoachSessionActionRepository';
-import { plannedEventRepository } from '../db/repositories/PlannedEventRepository';
-import { userRepository } from '../db/repositories/UserRepository';
+import { getActiveRepositories } from '../db/activeDatabase';
 import type Workout from '../db/models/Workout';
 import { formatLocalDate, parseLocalDate } from '../utils/date';
 import { resolveAdaptiveTrainingRecommendation } from '../services/adaptiveTrainingPlanResolver';
@@ -229,6 +226,7 @@ export function useHomeData(): HomeDataState & {
     }
   ) => GenerationRequest | null;
 } {
+  const repositories = getActiveRepositories();
   const initialStatus: GenerationStatus = {
     state: 'idle',
     submittedAt: null,
@@ -334,63 +332,67 @@ export function useHomeData(): HomeDataState & {
     return () => subscription.remove();
   }, [refreshPlanningDate]);
 
-  const hydrateWorkoutVersions = useCallback(async (workouts: Workout[]) => {
-    if (!isMountedRef.current) return;
-
-    const selectedWorkout =
-      workouts.find((workout) => workout.isSelected === true) ??
-      workouts.find((workout) => workout.isSelected !== false);
-    const selectedGroupId = selectedWorkout
-      ? selectedWorkout.generationGroupId || selectedWorkout.id
-      : undefined;
-
-    if (!selectedGroupId) {
-      setState((prev) => ({
-        ...prev,
-        status: 'ready',
-        plan: null,
-        planVersions: [],
-        error: null,
-      }));
-      return;
-    }
-
-    const versionWorkouts = workouts.filter(
-      (workout) => (workout.generationGroupId || workout.id) === selectedGroupId
-    );
-
-    try {
-      const plans = await Promise.all(
-        versionWorkouts.map((workout) =>
-          workoutRepository.mapWorkoutToPlan(workout)
-        )
-      );
-      const selectedIndex = Math.max(
-        0,
-        versionWorkouts.findIndex(
-          (workout) => workout.id === selectedWorkout?.id
-        )
-      );
-      const selectedPlan = plans[selectedIndex] ?? null;
-
+  const hydrateWorkoutVersions = useCallback(
+    async (workouts: Workout[]) => {
       if (!isMountedRef.current) return;
-      setState((prev) => ({
-        ...prev,
-        status: 'ready',
-        plan: selectedPlan,
-        planVersions: plans,
-        error: null,
-      }));
-    } catch (error) {
-      if (!isMountedRef.current) return;
-      console.error('Failed to hydrate workout versions', error);
-      setState((prev) => ({
-        ...prev,
-        status: 'error',
-        error,
-      }));
-    }
-  }, []);
+
+      const selectedWorkout =
+        workouts.find((workout) => workout.isSelected === true) ??
+        workouts.find((workout) => workout.isSelected !== false);
+      const selectedGroupId = selectedWorkout
+        ? selectedWorkout.generationGroupId || selectedWorkout.id
+        : undefined;
+
+      if (!selectedGroupId) {
+        setState((prev) => ({
+          ...prev,
+          status: 'ready',
+          plan: null,
+          planVersions: [],
+          error: null,
+        }));
+        return;
+      }
+
+      const versionWorkouts = workouts.filter(
+        (workout) =>
+          (workout.generationGroupId || workout.id) === selectedGroupId
+      );
+
+      try {
+        const plans = await Promise.all(
+          versionWorkouts.map((workout) =>
+            repositories.workout.mapWorkoutToPlan(workout)
+          )
+        );
+        const selectedIndex = Math.max(
+          0,
+          versionWorkouts.findIndex(
+            (workout) => workout.id === selectedWorkout?.id
+          )
+        );
+        const selectedPlan = plans[selectedIndex] ?? null;
+
+        if (!isMountedRef.current) return;
+        setState((prev) => ({
+          ...prev,
+          status: 'ready',
+          plan: selectedPlan,
+          planVersions: plans,
+          error: null,
+        }));
+      } catch (error) {
+        if (!isMountedRef.current) return;
+        console.error('Failed to hydrate workout versions', error);
+        setState((prev) => ({
+          ...prev,
+          status: 'error',
+          error,
+        }));
+      }
+    },
+    [repositories.workout]
+  );
 
   useEffect(() => {
     if (!optimisticPlan || !state.plan) return;
@@ -429,18 +431,18 @@ export function useHomeData(): HomeDataState & {
   // Observe planned workout versions for the active local date. The selected
   // workout and version list are derived from the same DB emission.
   useEffect(() => {
-    const versionSubscription = workoutRepository
+    const versionSubscription = repositories.workout
       .observePlannedWorkoutVersionsForDate(state.planningDateLocal)
       .subscribe((workouts) => {
         void hydrateWorkoutVersions(workouts);
       });
 
-    const recentSubscription = workoutRepository
+    const recentSubscription = repositories.workout
       .observeRecentSessions()
       .subscribe((recentWorkouts) => {
         if (!isMountedRef.current) return;
         const summaries = recentWorkouts.map((workout) =>
-          workoutRepository.toSessionSummary(workout)
+          repositories.workout.toSessionSummary(workout)
         );
         setState((prev) => ({
           ...prev,
@@ -452,7 +454,7 @@ export function useHomeData(): HomeDataState & {
       versionSubscription.unsubscribe();
       recentSubscription.unsubscribe();
     };
-  }, [hydrateWorkoutVersions, state.planningDateLocal]);
+  }, [hydrateWorkoutVersions, repositories.workout, state.planningDateLocal]);
 
   useEffect(() => {
     const adaptivePlan = state.adaptivePlan;
@@ -461,7 +463,7 @@ export function useHomeData(): HomeDataState & {
       return;
     }
 
-    const subscription = plannedEventRepository
+    const subscription = repositories.plannedEvent
       .observeUpcomingEventContext({
         startLocalDate: state.planningDateLocal,
         daysAhead: 14,
@@ -472,7 +474,7 @@ export function useHomeData(): HomeDataState & {
       });
 
     return () => subscription.unsubscribe();
-  }, [state.adaptivePlan, state.planningDateLocal]);
+  }, [repositories.plannedEvent, state.adaptivePlan, state.planningDateLocal]);
 
   useEffect(() => {
     const adaptivePlan = state.adaptivePlan;
@@ -481,7 +483,7 @@ export function useHomeData(): HomeDataState & {
       return;
     }
 
-    const subscription = coachSessionActionRepository
+    const subscription = repositories.coachSessionAction
       .observeActionsForProgram(adaptivePlan.id)
       .subscribe((actions) => {
         if (!isMountedRef.current) return;
@@ -489,7 +491,7 @@ export function useHomeData(): HomeDataState & {
       });
 
     return () => subscription.unsubscribe();
-  }, [state.adaptivePlan]);
+  }, [repositories.coachSessionAction, state.adaptivePlan]);
 
   // Offline detection
   useEffect(() => {
@@ -517,10 +519,10 @@ export function useHomeData(): HomeDataState & {
     let cancelled = false;
 
     const setup = async () => {
-      await userRepository.getOrCreateUser();
+      await repositories.user.getOrCreateUser();
       if (!isMountedRef.current || cancelled) return;
 
-      const initialPrefs = await userRepository.getPreferences();
+      const initialPrefs = await repositories.user.getPreferences();
       if (!isMountedRef.current || cancelled) return;
       setState((prev) => ({
         ...prev,
@@ -528,9 +530,9 @@ export function useHomeData(): HomeDataState & {
         adaptivePlan: initialPrefs.adaptiveTrainingPlan ?? null,
       }));
 
-      const sub = userRepository.observeUser().subscribe(() => {
+      const sub = repositories.user.observeUser().subscribe(() => {
         void (async () => {
-          const prefs = await userRepository.getPreferences();
+          const prefs = await repositories.user.getPreferences();
           if (!isMountedRef.current || cancelled) return;
           setState((prev) => ({
             ...prev,
@@ -552,7 +554,7 @@ export function useHomeData(): HomeDataState & {
       cancelled = true;
       subscription?.unsubscribe();
     };
-  }, []);
+  }, [repositories.user]);
 
   // Only the resolved time value feeds the resolvers, so depend on the
   // derived number instead of the raw staging state — staging focus,
@@ -623,7 +625,7 @@ export function useHomeData(): HomeDataState & {
     }));
     try {
       const versions =
-        await workoutRepository.listPlannedWorkoutVersionsForLocalDate(
+        await repositories.workout.listPlannedWorkoutVersionsForLocalDate(
           planningDateLocal
         );
       await hydrateWorkoutVersions(versions);
@@ -635,17 +637,23 @@ export function useHomeData(): HomeDataState & {
         error,
       }));
     }
-  }, [hydrateWorkoutVersions, refreshPlanningDate]);
+  }, [hydrateWorkoutVersions, refreshPlanningDate, repositories.workout]);
 
-  const selectWorkoutVersion = useCallback(async (workoutId: string) => {
-    await workoutRepository.selectWorkoutVersion(workoutId);
-  }, []);
+  const selectWorkoutVersion = useCallback(
+    async (workoutId: string) => {
+      await repositories.workout.selectWorkoutVersion(workoutId);
+    },
+    [repositories.workout]
+  );
 
-  const selectWorkoutVersionPlan = useCallback(async (version: TodayPlan) => {
-    setSelectedVersionPlan(version);
-    setOptimisticPlan(null);
-    await workoutRepository.selectWorkoutVersion(version.id);
-  }, []);
+  const selectWorkoutVersionPlan = useCallback(
+    async (version: TodayPlan) => {
+      setSelectedVersionPlan(version);
+      setOptimisticPlan(null);
+      await repositories.workout.selectWorkoutVersion(version.id);
+    },
+    [repositories.workout]
+  );
 
   const setOptimisticPlanForDate = useCallback(
     (plan: TodayPlan, localDate: string) => {
@@ -697,7 +705,7 @@ export function useHomeData(): HomeDataState & {
         note: 'Pinned from coach projection.',
       };
 
-      await userRepository.updateAdaptiveTrainingPlan({
+      await repositories.user.updateAdaptiveTrainingPlan({
         sessionPreferences: [
           ...adaptivePlan.sessionPreferences.filter(
             (preference) => preference.id !== pinId
@@ -706,7 +714,7 @@ export function useHomeData(): HomeDataState & {
         ],
       });
     },
-    [state.adaptivePlan]
+    [repositories.user, state.adaptivePlan]
   );
 
   const skipCoachProjectionSession = useCallback(
@@ -719,15 +727,15 @@ export function useHomeData(): HomeDataState & {
 
       const linkedWorkout = session.workoutId
         ? null
-        : await workoutRepository.findPlannedWorkoutByCoachProjectionId(
+        : await repositories.workout.findPlannedWorkoutByCoachProjectionId(
             session.id
           );
       const workoutId = session.workoutId ?? linkedWorkout?.id;
       if (workoutId) {
-        await workoutRepository.skipWorkoutById(workoutId);
+        await repositories.workout.skipWorkoutById(workoutId);
       }
 
-      await coachSessionActionRepository.recordSkipAction({
+      await repositories.coachSessionAction.recordSkipAction({
         programId: adaptivePlan.id,
         programVersion: adaptivePlan.programVersion ?? 1,
         strategy: adaptivePlan.scheduleStrategy ?? 'weekly-target-balance',
@@ -740,7 +748,13 @@ export function useHomeData(): HomeDataState & {
         workoutId,
       });
     },
-    [getProjectionSession, state.adaptivePlan, state.planningDateLocal]
+    [
+      getProjectionSession,
+      repositories.coachSessionAction,
+      repositories.workout,
+      state.adaptivePlan,
+      state.planningDateLocal,
+    ]
   );
 
   const pinCoachProjectionSession = useCallback(
@@ -765,13 +779,13 @@ export function useHomeData(): HomeDataState & {
 
       const pinId = getCoachPinId(session);
 
-      await userRepository.updateAdaptiveTrainingPlan({
+      await repositories.user.updateAdaptiveTrainingPlan({
         sessionPreferences: adaptivePlan.sessionPreferences.filter(
           (preference) => preference.id !== pinId
         ),
       });
     },
-    [getProjectionSession, state.adaptivePlan]
+    [getProjectionSession, repositories.user, state.adaptivePlan]
   );
 
   const moveCoachProjectionSession = useCallback(
@@ -815,11 +829,7 @@ export function useHomeData(): HomeDataState & {
         equipment: overrides?.equipment,
       });
     },
-    [
-      getProjectionSession,
-      state.adaptivePlan,
-      state.coachProjection,
-    ]
+    [getProjectionSession, state.adaptivePlan, state.coachProjection]
   );
 
   // UI-ready coach plan: the single next action plus a compact upcoming list,

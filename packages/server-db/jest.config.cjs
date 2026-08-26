@@ -14,6 +14,7 @@ module.exports = {
   transform: {
     '^.+\\.[tj]s$': ['@swc/jest', swcJestConfig],
   },
+  transformIgnorePatterns: ['node_modules/(?!uuid/)'],
   moduleFileExtensions: ['ts', 'js', 'html'],
   testPathIgnorePatterns: ['\\.integration\\.spec\\.ts$'],
   coverageDirectory: 'test-output/jest/coverage',

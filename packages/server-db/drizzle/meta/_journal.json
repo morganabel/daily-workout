@@ -22,6 +22,20 @@
       "when": 1785772115183,
       "tag": "0002_durable_billing",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1787530485426,
+      "tag": "0003_schema",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1787596350955,
+      "tag": "0004_schema",
+      "breakpoints": true
     }
   ]
 }

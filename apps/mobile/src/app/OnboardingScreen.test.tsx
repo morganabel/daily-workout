@@ -6,9 +6,12 @@ import {
   type RenderAPI,
 } from '@testing-library/react-native';
 import { OnboardingScreen } from './OnboardingScreen';
-import { userRepository } from './db/repositories/UserRepository';
 
 const mockReset = jest.fn();
+const mockUserRepository = {
+  saveTrainingBlueprint: jest.fn().mockResolvedValue(undefined),
+  skipTrainingBlueprintSetup: jest.fn().mockResolvedValue(undefined),
+};
 
 jest.mock('@react-navigation/native', () => ({
   useNavigation: () => ({
@@ -16,14 +19,9 @@ jest.mock('@react-navigation/native', () => ({
   }),
 }));
 
-jest.mock('./db/repositories/UserRepository', () => ({
-  userRepository: {
-    saveTrainingBlueprint: jest.fn().mockResolvedValue(undefined),
-    skipTrainingBlueprintSetup: jest.fn().mockResolvedValue(undefined),
-  },
+jest.mock('./db/activeDatabase', () => ({
+  getActiveRepositories: () => ({ user: mockUserRepository }),
 }));
-
-const mockUserRepository = userRepository as jest.Mocked<typeof userRepository>;
 
 type QueryResult = ReturnType<RenderAPI['getByText']>;
 

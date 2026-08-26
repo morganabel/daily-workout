@@ -12,7 +12,6 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -20,7 +19,12 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from './navigation';
-import { authClient } from './services/auth-client';
+import {
+  authClient,
+  getAccountTransitionErrorMessage,
+  prepareAuthAccountTransition,
+  verifyAuthAccountTransition,
+} from './services/auth-client';
 import { palette, typography } from './theme';
 import { Button } from './components/DesignSystem';
 import { GoogleSignInButton } from './components/GoogleSignInButton';
@@ -44,20 +48,28 @@ export const SignInScreen: React.FC = () => {
     setError(null);
 
     try {
+      const previousUser = await prepareAuthAccountTransition('credential');
       const result = await authClient.signIn.email({
         email: email.trim(),
         password,
       });
 
       if (result.error) {
+        const transitionMessage = getAccountTransitionErrorMessage(
+          result.error
+        );
         // Don't reveal which field was incorrect
-        setError('Invalid email or password');
+        setError(transitionMessage ?? 'Invalid email or password');
         return;
       }
 
-      // Navigate back to home on success
-      navigation.navigate('Home');
-    } catch (err) {
+      if (!(await verifyAuthAccountTransition(previousUser, 'credential'))) {
+        setError('Sign in was not completed. Please try again.');
+        return;
+      }
+
+      navigation.reset({ index: 0, routes: [{ name: 'Home' }] });
+    } catch {
       setError('Sign in failed. Please try again.');
     } finally {
       setIsLoading(false);
@@ -132,7 +144,9 @@ export const SignInScreen: React.FC = () => {
 
           <GoogleSignInButton
             disabled={isLoading}
-            onSuccess={() => navigation.navigate('Home')}
+            onSuccess={() =>
+              navigation.reset({ index: 0, routes: [{ name: 'Home' }] })
+            }
             onError={setError}
           />
 

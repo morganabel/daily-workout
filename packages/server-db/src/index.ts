@@ -23,8 +23,20 @@ export {
 export * as schema from './lib/schema.js';
 export { PostgresMeteringSink, getAiUsageSummary } from './lib/ai-usage.js';
 export {
-  promoteAnonymousUserIdentity,
-  type PromoteAnonymousUserInput,
+  AccountOwnershipTransitionError,
+  AccountTransitionError,
+  assertAccountAcceptsWrites,
+  getAccountTransitionDiagnostics,
+  getCompletedAccountTransitionForTarget,
+  transitionAnonymousAccount,
+  type AccountTransitionDiagnostics,
+  type AccountTransitionFailureCode,
+  type AccountTransitionHooks,
+  type AccountTransitionMethod,
+  type AccountTransitionPhase,
+  type AccountTransitionRecord,
+  type AccountTransitionState,
+  type TransitionAnonymousAccountInput,
 } from './lib/auth-identity.js';
 export {
   PostgresBillingRepository,

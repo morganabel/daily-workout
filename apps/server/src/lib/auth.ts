@@ -1,7 +1,7 @@
 /**
  * Better Auth instance (CLI-friendly)
  *
- * Better Auth's CLI (`npx @better-auth/cli ... --config <path>`) expects this file to export
+ * Better Auth's CLI (`npx auth ... --config <path>`) expects this file to export
  * an auth instance either as:
  * - a named export `auth`, or
  * - a default export

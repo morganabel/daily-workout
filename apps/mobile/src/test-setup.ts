@@ -32,11 +32,19 @@ jest.mock('react-native-purchases', () => ({
   default: {
     configure: jest.fn(),
     setLogLevel: jest.fn().mockResolvedValue(undefined),
-    logIn: jest.fn().mockResolvedValue({}),
+    logIn: jest.fn().mockResolvedValue({
+      customerInfo: { entitlements: { active: {} } },
+      created: false,
+    }),
     logOut: jest.fn().mockResolvedValue(undefined),
+    getAppUserID: jest
+      .fn()
+      .mockResolvedValue('$RCAnonymousID:abcdefghijklmnop'),
     getOfferings: jest.fn().mockResolvedValue({ current: null }),
     restorePurchases: jest.fn().mockResolvedValue(null),
-    getCustomerInfo: jest.fn().mockResolvedValue(null),
+    getCustomerInfo: jest
+      .fn()
+      .mockResolvedValue({ entitlements: { active: {} } }),
     LOG_LEVEL: { WARN: 'WARN' },
     PURCHASES_ERROR_CODE: { PURCHASE_CANCELLED_ERROR: '1' },
   },
@@ -64,9 +72,13 @@ jest.mock('react-native-purchases-ui', () => ({
 jest.mock('./app/db/index', () => {
   const { getTestDatabase } = require('./app/db/test-database');
   return {
-    database: getTestDatabase(),
+    createDatabase: () => getTestDatabase(),
   };
 });
+
+const { getTestDatabase } = require('./app/db/test-database');
+const { setActiveDatabaseForTests } = require('./app/db/activeDatabase');
+setActiveDatabaseForTests(getTestDatabase());
 
 // Mock global fetch if not available
 if (typeof global.fetch === 'undefined') {

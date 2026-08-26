@@ -13,92 +13,26 @@ import { createAuthClient } from 'better-auth/react';
 import { anonymousClient } from 'better-auth/client/plugins';
 import { expoClient } from '@better-auth/expo/client';
 import * as SecureStore from 'expo-secure-store';
-import type { MetaResponse } from '@workout-agent/shared';
 import { resetRevenueCatLogin } from './billing-client';
+import { backendDescriptor } from './backendDescriptor';
 import { hasCompletedGoogleSignIn } from './google-auth-verification';
+import { fetchServerCapabilities } from './server-capabilities';
+import {
+  completePendingAccountTransition,
+  getOrCreateStorageScopeForUser,
+  getOrCreateStubSubjectId,
+  getPendingAccountTransition,
+  preparePendingAccountTransition,
+} from '../storage/accountTransition';
+import {
+  activateMobileDataScope,
+  deactivateMobileDataScope,
+} from '../db/activeDatabase';
 
-const API_BASE_URL =
-  process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:3000';
-
-// `/api/meta` is stable; keep it fresh-ish but don't spam the server.
-// We use stale-while-revalidate: serve cached value immediately and refresh in background.
-const SERVER_CAPABILITIES_TTL_MS = 10 * 60_000; // 10 minutes
-const LOG_SERVER_CAPABILITIES_FAILURES =
-  process.env.EXPO_PUBLIC_LOG_SERVER_CAPABILITIES_FAILURES === 'true';
-
-let cachedServerCapabilities: {
-  data: MetaResponse | null;
-  fetchedAt: number;
-} | null = null;
-let inFlightServerCapabilities: Promise<MetaResponse | null> | null = null;
-
-async function refreshServerCapabilities(): Promise<MetaResponse | null> {
-  if (inFlightServerCapabilities) {
-    return inFlightServerCapabilities;
-  }
-
-  inFlightServerCapabilities = (async () => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/meta`);
-      if (!response.ok) {
-        if (LOG_SERVER_CAPABILITIES_FAILURES) {
-          console.warn(
-            `[auth-client] Failed to fetch server capabilities: ${response.status}`
-          );
-        }
-        // Keep the last known value, but bump timestamp so we don't thrash retries.
-        const data = cachedServerCapabilities?.data ?? null;
-        cachedServerCapabilities = { data, fetchedAt: Date.now() };
-        return data;
-      }
-
-      const data = (await response.json()) as MetaResponse;
-      cachedServerCapabilities = { data, fetchedAt: Date.now() };
-      return data;
-    } catch (error) {
-      if (LOG_SERVER_CAPABILITIES_FAILURES) {
-        console.warn(
-          '[auth-client] Error fetching server capabilities:',
-          error
-        );
-      }
-      // Keep the last known value, but bump timestamp so we don't thrash retries.
-      const data = cachedServerCapabilities?.data ?? null;
-      cachedServerCapabilities = { data, fetchedAt: Date.now() };
-      return data;
-    } finally {
-      inFlightServerCapabilities = null;
-    }
-  })();
-
-  return inFlightServerCapabilities;
-}
-
-/**
- * Derive a deterministic storage prefix from the backend URL.
- * This ensures sessions from different backends don't collide.
- */
-function createStoragePrefix(baseURL: string): string {
-  // Expo's built-in hashing (`expo-crypto`) is async; `storagePrefix` must be a sync string.
-  // So we derive a stable, readable prefix from the backend URL instead of hashing.
-  try {
-    const url = new URL(baseURL);
-    const host = url.hostname.replace(/[^a-z0-9]/gi, '_');
-    const port = url.port || (url.protocol === 'https:' ? '443' : '80');
-    return `auth_${host}_${port}`;
-  } catch {
-    const normalized = baseURL
-      .toLowerCase()
-      .replace(/\/$/, '')
-      .replace(/[^a-z0-9]+/gi, '_')
-      .replace(/^_+|_+$/g, '')
-      .slice(0, 32);
-    return `auth_${normalized || 'default'}`;
-  }
-}
+const API_BASE_URL = backendDescriptor.baseURL;
 
 const APP_SCHEME = 'workout-agent-ce-mobile';
-const STORAGE_PREFIX = createStoragePrefix(API_BASE_URL);
+const STORAGE_PREFIX = backendDescriptor.authStoragePrefix;
 
 /**
  * Create the Better Auth client
@@ -120,6 +54,9 @@ export const { useSession, signIn, signUp } = authClient;
 
 export const signOut: typeof authClient.signOut = async (...args) => {
   const result = await authClient.signOut(...args);
+  if (!('error' in result) || !result.error) {
+    deactivateMobileDataScope();
+  }
   try {
     await resetRevenueCatLogin();
   } catch (error) {
@@ -133,7 +70,135 @@ export const signOut: typeof authClient.signOut = async (...args) => {
 
 export type GoogleSignInResult =
   | { ok: true }
-  | { ok: false; reason: 'unavailable' | 'failed'; message: string };
+  | {
+      ok: false;
+      reason: 'unavailable' | 'conflict' | 'failed';
+      message: string;
+    };
+
+type SessionUser = { id: string; isAnonymous?: boolean };
+
+export function getAccountTransitionErrorMessage(
+  error: {
+    code?: string;
+  } | null
+): string | null {
+  if (
+    error?.code === 'target_has_application_state' ||
+    error?.code === 'source_target_conflict'
+  ) {
+    return 'This existing account already has data and cannot be combined automatically. Your anonymous data was kept unchanged.';
+  }
+  return null;
+}
+
+export async function prepareAuthAccountTransition(
+  provider: 'credential' | 'google'
+): Promise<SessionUser | null> {
+  const session = await authClient.getSession();
+  const user = session.data?.user as SessionUser | undefined;
+  if (!user) return null;
+  if (user.isAnonymous) {
+    await preparePendingAccountTransition(user.id, provider);
+  }
+  return user;
+}
+
+async function verifyServerAccountTransition(
+  sourceUserId: string,
+  targetUserId: string
+): Promise<boolean> {
+  const cookie = await authClient.getCookie();
+  const response = await fetch(
+    `${API_BASE_URL}/api/account-transition/status?sourceUserId=${encodeURIComponent(
+      sourceUserId
+    )}`,
+    {
+      headers: cookie ? { Cookie: cookie } : undefined,
+    }
+  );
+  if (!response.ok) return false;
+  const body = (await response.json()) as {
+    sourceUserId?: string;
+    targetUserId?: string;
+    state?: string;
+  };
+  return (
+    body.sourceUserId === sourceUserId &&
+    body.targetUserId === targetUserId &&
+    body.state === 'completed'
+  );
+}
+
+export async function verifyAuthAccountTransition(
+  previousUser: SessionUser | null,
+  expectedProvider: 'credential' | 'google'
+): Promise<boolean> {
+  const refreshed = await authClient.getSession({
+    query: { disableCookieCache: true },
+  });
+  const currentUser = refreshed.data?.user as SessionUser | undefined;
+  if (refreshed.error || !currentUser || currentUser.isAnonymous) return false;
+
+  const accounts = await authClient.listAccounts();
+  if (
+    accounts.error ||
+    !(accounts.data ?? []).some(
+      (account) =>
+        account.providerId === expectedProvider &&
+        account.userId === currentUser.id
+    )
+  ) {
+    return false;
+  }
+
+  if (previousUser?.isAnonymous) {
+    if (
+      !(await verifyServerAccountTransition(previousUser.id, currentUser.id))
+    ) {
+      return false;
+    }
+  }
+
+  if (previousUser?.isAnonymous) {
+    const storageScopeId = await completePendingAccountTransition(
+      previousUser.id,
+      currentUser.id
+    );
+    activateMobileDataScope(storageScopeId);
+  } else {
+    activateMobileDataScope(
+      await getOrCreateStorageScopeForUser(currentUser.id)
+    );
+  }
+  return true;
+}
+
+export async function activateCurrentAuthenticatedDataScope(): Promise<boolean> {
+  const session = await authClient.getSession({
+    query: { disableCookieCache: true },
+  });
+  const userId = session.data?.user.id?.trim();
+  if (session.error || !userId) return false;
+  activateMobileDataScope(await getOrCreateStorageScopeForUser(userId));
+  return true;
+}
+
+export async function activateStubDataScope(): Promise<void> {
+  const stubSubjectId = await getOrCreateStubSubjectId();
+  activateMobileDataScope(
+    await getOrCreateStorageScopeForUser(stubSubjectId)
+  );
+}
+
+export async function resumePendingAccountTransition(): Promise<boolean> {
+  const pending = await getPendingAccountTransition();
+  if (!pending) return false;
+  return verifyAuthAccountTransition(
+    { id: pending.sourceUserId, isAnonymous: true },
+    pending.provider
+  );
+}
 
 /**
  * Start Google OAuth through Better Auth's Expo browser flow.
@@ -153,33 +218,18 @@ export async function signInWithGoogle(): Promise<GoogleSignInResult> {
       };
     }
 
-    const session = await authClient.getSession();
-    if (session.error) {
-      return {
-        ok: false,
-        reason: 'failed',
-        message: 'Could not verify your current session. Please try again.',
-      };
-    }
-    const previousUser = session.data?.user as
-      | { id: string; isAnonymous?: boolean }
-      | undefined;
-    const isAnonymous = Boolean(previousUser?.isAnonymous);
-    const result = isAnonymous
-      ? await authClient.linkSocial({
-          provider: 'google',
-          callbackURL: '/',
-        })
-      : await authClient.signIn.social({
-          provider: 'google',
-          callbackURL: '/',
-        });
+    const previousUser = await prepareAuthAccountTransition('google');
+    const result = await authClient.signIn.social({
+      provider: 'google',
+      callbackURL: '/',
+    });
 
     if (result.error) {
+      const conflictMessage = getAccountTransitionErrorMessage(result.error);
       return {
         ok: false,
-        reason: 'failed',
-        message: 'Google sign-in failed. Please try again.',
+        reason: conflictMessage ? 'conflict' : 'failed',
+        message: conflictMessage ?? 'Google sign-in failed. Please try again.',
       };
     }
 
@@ -203,7 +253,8 @@ export async function signInWithGoogle(): Promise<GoogleSignInResult> {
     if (
       refreshedSession.error ||
       linkedAccounts.error ||
-      !hasCompletedGoogleSignIn(previousUser, currentUser, accounts)
+      !hasCompletedGoogleSignIn(previousUser, currentUser, accounts) ||
+      !(await verifyAuthAccountTransition(previousUser, 'google'))
     ) {
       return {
         ok: false,
@@ -223,27 +274,7 @@ export async function signInWithGoogle(): Promise<GoogleSignInResult> {
   }
 }
 
-/**
- * Fetch server capabilities from /api/meta
- */
-export async function fetchServerCapabilities(): Promise<MetaResponse | null> {
-  const now = Date.now();
-  const cached = cachedServerCapabilities;
-
-  // Fresh cache: return immediately.
-  if (cached && now - cached.fetchedAt < SERVER_CAPABILITIES_TTL_MS) {
-    return cached.data;
-  }
-
-  // Stale cache: return immediately (optimistic) and refresh in background.
-  if (cached) {
-    void refreshServerCapabilities();
-    return cached.data;
-  }
-
-  // No cache: we have to fetch (callers can decide whether to await).
-  return refreshServerCapabilities();
-}
+export { fetchServerCapabilities } from './server-capabilities';
 
 /**
  * Check if the server supports Better Auth
@@ -306,9 +337,9 @@ export async function getSessionToken(): Promise<string | null> {
  *
  * IMPORTANT: Never log the returned cookie string.
  */
-export function getSessionCookie(): string | null {
+export async function getSessionCookie(): Promise<string | null> {
   try {
-    const cookies = authClient.getCookie();
+    const cookies = await authClient.getCookie();
     if (!cookies) {
       return null;
     }

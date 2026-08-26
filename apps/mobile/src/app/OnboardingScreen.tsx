@@ -29,7 +29,7 @@ import {
 
 import type { RootStackParamList } from './navigation';
 import { Button, Chip } from './components/DesignSystem';
-import { userRepository } from './db/repositories/UserRepository';
+import { getActiveRepositories } from './db/activeDatabase';
 import { palette, typography, layout } from './theme';
 
 type NavigationProp = NativeStackNavigationProp<
@@ -339,6 +339,7 @@ const normalizeOnboardingSlots = (
 ): StarterWeekSlot[] => slots.map(normalizeOnboardingSlot);
 
 export const OnboardingScreen = () => {
+  const repositories = getActiveRepositories();
   const navigation = useNavigation<NavigationProp>();
   const [step, setStep] = useState(0);
   const [goal, setGoal] = useState<OnboardingGoal | null>(null);
@@ -381,8 +382,8 @@ export const OnboardingScreen = () => {
       draftSlots
         ? normalizeOnboardingSlots(draftSlots)
         : blueprint
-          ? normalizeOnboardingSlots(blueprint.slotSequence)
-          : undefined,
+        ? normalizeOnboardingSlots(blueprint.slotSequence)
+        : undefined,
     [blueprint, draftSlots]
   );
   const activeSlot =
@@ -411,7 +412,7 @@ export const OnboardingScreen = () => {
   };
 
   const handleSkip = async () => {
-    await userRepository.skipTrainingBlueprintSetup();
+    await repositories.user.skipTrainingBlueprintSetup();
     goHome();
   };
 
@@ -428,7 +429,7 @@ export const OnboardingScreen = () => {
           editStatus,
           updatedAt: new Date().toISOString(),
         });
-      await userRepository.saveTrainingBlueprint(nextBlueprint);
+      await repositories.user.saveTrainingBlueprint(nextBlueprint);
       goHome();
     } catch (error) {
       console.error('Failed to save onboarding plan', error);
@@ -575,10 +576,14 @@ export const OnboardingScreen = () => {
                 description={item.description}
                 icon={item.icon}
                 iconColor={
-                  experienceLevel === item.value ? item.color : palette.textSecondary
+                  experienceLevel === item.value
+                    ? item.color
+                    : palette.textSecondary
                 }
                 iconBackground={
-                  experienceLevel === item.value ? item.background : palette.cardSecondary
+                  experienceLevel === item.value
+                    ? item.background
+                    : palette.cardSecondary
                 }
                 selected={experienceLevel === item.value}
                 onPress={() => setExperienceLevel(item.value)}
@@ -657,7 +662,8 @@ export const OnboardingScreen = () => {
                 color={palette.textSecondary}
               />
               <Text style={styles.editNoteText}>
-                This is a starting plan. You can adjust days now and change it later.
+                This is a starting plan. You can adjust days now and change it
+                later.
               </Text>
             </View>
           </View>

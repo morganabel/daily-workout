@@ -1,10 +1,8 @@
 import { Database } from '@nozbe/watermelondb';
-import SQLiteAdapter from '@nozbe/watermelondb/adapters/sqlite';
 import { setGenerator } from '@nozbe/watermelondb/utils/common/randomId';
 import { v7 as uuidv7 } from 'uuid';
 
-import { schema } from './schema';
-import { migrations } from './migrations';
+import { createDatabaseAdapter } from './databaseAdapter';
 import User from './models/User';
 import Workout from './models/Workout';
 import PlannedEvent from './models/PlannedEvent';
@@ -15,24 +13,25 @@ import Set from './models/Set';
 // Ensure all new records use UUIDv7 ids (to match backend format)
 setGenerator(() => uuidv7());
 
-const adapter = new SQLiteAdapter({
-  schema,
-  migrations,
-  jsi: true /* Platform.OS === 'ios' */,
-  onSetUpError: (error) => {
-    // Database failed to load -- offer the user to reload the app or log out
-    console.error('Database failed to load', error);
-  },
-});
+const SCOPE_PATTERN =
+  /^scope_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-export const database = new Database({
-  adapter,
-  modelClasses: [
-    User,
-    Workout,
-    PlannedEvent,
-    CoachSessionAction,
-    Exercise,
-    Set,
-  ],
-});
+export function createDatabase(dataScopeId: string): Database {
+  if (!SCOPE_PATTERN.test(dataScopeId)) {
+    throw new Error('invalid_mobile_data_scope');
+  }
+
+  const adapter = createDatabaseAdapter(`workout_agent_${dataScopeId}`);
+
+  return new Database({
+    adapter,
+    modelClasses: [
+      User,
+      Workout,
+      PlannedEvent,
+      CoachSessionAction,
+      Exercise,
+      Set,
+    ],
+  });
+}

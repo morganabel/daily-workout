@@ -21,9 +21,11 @@ import {
   getGoogleAuthConfig,
   type Auth,
 } from '@workout-agent-ce/server-auth';
-import { isHostedMode } from './deployment';
-
-export type AuthMode = 'better-auth' | 'stub';
+import {
+  resolveAuthMode,
+  validateAuthConfig,
+  type AuthMode,
+} from './auth-config';
 
 export interface AuthContext {
   /**
@@ -53,46 +55,6 @@ export interface AuthContext {
 // Cached context (and in-flight initialization) to avoid re-initialization.
 let cachedContext: AuthContext | null = null;
 let contextPromise: Promise<AuthContext> | null = null;
-
-/**
- * Resolves the auth mode based on environment variables.
- *
- * Algorithm:
- * 1. If AUTH_MODE is explicitly set, use that
- * 2. If a database is configured (DATABASE_URL or the Cloud SQL Connector's
- *    INSTANCE_CONNECTION_NAME), use 'better-auth'
- * 3. Otherwise, use 'stub'
- */
-export function resolveAuthMode(): AuthMode {
-  const explicitMode = process.env.AUTH_MODE?.toLowerCase();
-  if (explicitMode === 'better-auth' || explicitMode === 'stub') {
-    return explicitMode;
-  }
-
-  // Fall back based on database configuration: a standard connection string
-  // (DATABASE_URL) or a Cloud SQL Connector instance (INSTANCE_CONNECTION_NAME).
-  return process.env.DATABASE_URL || process.env.INSTANCE_CONNECTION_NAME
-    ? 'better-auth'
-    : 'stub';
-}
-
-/**
- * Validates auth configuration for the current deployment mode.
- *
- * Fails fast if:
- * - Hosted mode but Better Auth is not configured (no DATABASE_URL)
- *
- * @throws Error if configuration is invalid
- */
-export function validateAuthConfig(mode: AuthMode): void {
-  if (isHostedMode() && mode !== 'better-auth') {
-    throw new Error(
-      'Hosted mode requires Better Auth (set DATABASE_URL or ' +
-        'INSTANCE_CONNECTION_NAME). Hosted mode cannot fall back to stub ' +
-        'authentication.'
-    );
-  }
-}
 
 /**
  * Gets the auth context, initializing it if needed.

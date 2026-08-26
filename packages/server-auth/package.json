@@ -16,7 +16,20 @@
     }
   },
   "nx": {
-    "name": "server-auth"
+    "name": "server-auth",
+    "targets": {
+      "integration": {
+        "executor": "nx:run-commands",
+        "dependsOn": [
+          "^build"
+        ],
+        "cache": false,
+        "options": {
+          "cwd": "packages/server-auth",
+          "command": "node --experimental-vm-modules ../../node_modules/jest/bin/jest.js --config jest.integration.config.cjs --runInBand"
+        }
+      }
+    }
   },
   "dependencies": {
     "@workout-agent-ce/server-core": "*",
@@ -24,5 +37,8 @@
     "better-auth": "*",
     "@better-auth/expo": "*",
     "tslib": "^2.3.0"
+  },
+  "devDependencies": {
+    "@testcontainers/postgresql": "^12.0.4"
   }
 }

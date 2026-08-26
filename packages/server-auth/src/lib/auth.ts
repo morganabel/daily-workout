@@ -8,7 +8,7 @@
 import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import {
-  promoteAnonymousUserIdentity,
+  transitionAnonymousAccount,
   type Database,
 } from '@workout-agent-ce/server-db';
 import {
@@ -47,18 +47,13 @@ export interface CreateAuthOptions {
 }
 
 /**
- * Type of the Better Auth instance - using ReturnType of betterAuth
- */
-export type Auth = ReturnType<typeof betterAuth>;
-
-/**
  * Creates a Better Auth instance configured for the workout app.
  *
  * Features:
  * - Anonymous sessions (default for first-run experience)
  * - Email/password and optional Google authentication (upgrade paths from anonymous)
  * - Cookie-based sessions (default) with bearer token fallback for clients that can't send cookies
- * - Account linking (anonymous → email preserves userId)
+ * - Supported anonymous account transition (Better Auth replaces A with B)
  *
  * @example
  * ```ts
@@ -69,7 +64,7 @@ export type Auth = ReturnType<typeof betterAuth>;
  * });
  * ```
  */
-export function createAuth(options: CreateAuthOptions): Auth {
+export function createAuth(options: CreateAuthOptions) {
   const { db, secret, baseURL, trustedOrigins = [], google } = options;
 
   return betterAuth({
@@ -81,7 +76,12 @@ export function createAuth(options: CreateAuthOptions): Auth {
       baseURL,
       trustedOrigins,
       google,
-      promoteAnonymousUser: (input) => promoteAnonymousUserIdentity(db, input),
+      transitionAnonymousAccount: async (input) => {
+        await transitionAnonymousAccount(db, input);
+      },
     }),
   });
 }
+
+/** Exact configured auth instance type, including the 1.7 plugin endpoints. */
+export type Auth = ReturnType<typeof createAuth>;

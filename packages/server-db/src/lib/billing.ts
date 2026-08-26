@@ -25,10 +25,13 @@ import {
   lte,
   sql,
 } from 'drizzle-orm';
+import { v7 as uuidv7 } from 'uuid';
 
 import type { Database } from './client.js';
+import { assertAccountAcceptsWrites } from './auth-identity.js';
 import {
   aiUsageEvent,
+  billingAccountIdentity,
   billingCustomerMapping,
   billingEntitlementProjection,
   billingWebhookEvent,
@@ -98,7 +101,7 @@ export interface IncludedGenerationUsageSnapshot {
 }
 
 function createId(kind: 'window' | 'reservation'): string {
-  return `${kind}_${globalThis.crypto.randomUUID()}`;
+  return `${kind}_${uuidv7()}`;
 }
 
 function asError(code: string): Error {
@@ -380,6 +383,7 @@ export class PostgresBillingRepository
     let mappingOutcome = 'existing';
     try {
       await runWriteTransaction(this.db, async (transaction) => {
+        await assertAccountAcceptsWrites(transaction, input.accountId);
         await lockCustomerAliases(transaction, 'revenuecat', [
           input.externalCustomerId,
         ]);
@@ -454,6 +458,104 @@ export class PostgresBillingRepository
       throw asError('billing_dependency_unavailable');
     }
     return input;
+  }
+
+  async getOrCreateCanonicalCustomerIdentity(
+    accountId: string
+  ): Promise<{ accountId: string; externalCustomerId: string }> {
+    const startedAt = Date.now();
+    let externalCustomerId = '';
+    let mappingOutcome = 'existing';
+
+    try {
+      await runWriteTransaction(this.db, async (transaction) => {
+        await assertAccountAcceptsWrites(transaction, accountId);
+
+        const [account] = await transaction
+          .select({ id: user.id })
+          .from(user)
+          .where(eq(user.id, accountId))
+          .limit(1);
+        if (!account) throw asError('billing_account_not_found');
+
+        const [existing] = await transaction
+          .select({
+            externalCustomerId: billingAccountIdentity.externalCustomerId,
+          })
+          .from(billingAccountIdentity)
+          .where(eq(billingAccountIdentity.accountId, accountId))
+          .limit(1);
+
+        externalCustomerId =
+          existing?.externalCustomerId ??
+          `wa_${uuidv7().replaceAll('-', '')}`;
+        await lockCustomerAliases(transaction, 'revenuecat', [
+          externalCustomerId,
+        ]);
+
+        if (!existing) {
+          await transaction.insert(billingAccountIdentity).values({
+            accountId,
+            externalCustomerId,
+          });
+          mappingOutcome = 'created';
+        }
+
+        await transaction
+          .insert(billingCustomerMapping)
+          .values({
+            source: 'revenuecat',
+            externalCustomerId,
+            accountId,
+          })
+          .onConflictDoNothing();
+
+        const [mapping] = await transaction
+          .select({ accountId: billingCustomerMapping.accountId })
+          .from(billingCustomerMapping)
+          .where(
+            and(
+              eq(billingCustomerMapping.source, 'revenuecat'),
+              eq(
+                billingCustomerMapping.externalCustomerId,
+                externalCustomerId
+              )
+            )
+          )
+          .limit(1);
+
+        if (!mapping || mapping.accountId !== accountId) {
+          throw asError('billing_customer_conflict');
+        }
+      });
+    } catch (error) {
+      const outcome =
+        error instanceof Error &&
+        (error.message === 'billing_account_not_found' ||
+          error.message === 'billing_customer_conflict' ||
+          error.message === 'account_ownership_transitioned')
+          ? error.message
+          : databaseFailureOutcome(error);
+      this.observe({
+        operation: 'mapping',
+        outcome,
+        accountId,
+        durationMs: Date.now() - startedAt,
+      });
+      throw outcome === 'billing_account_not_found' ||
+        outcome === 'billing_customer_conflict' ||
+        outcome === 'account_ownership_transitioned'
+        ? error
+        : asError('billing_dependency_unavailable');
+    }
+
+    this.observe({
+      operation: 'mapping',
+      outcome: mappingOutcome,
+      accountId,
+      durationMs: Date.now() - startedAt,
+    });
+    return { accountId, externalCustomerId };
   }
 
   async process(event: EntitlementLifecycleEvent): Promise<{
@@ -573,6 +675,7 @@ export class PostgresBillingRepository
     }
 
     const accountId = accountIds[0];
+    await assertAccountAcceptsWrites(transaction, accountId);
     await lockBillingAccount(transaction, accountId);
     await transaction
       .insert(billingCustomerMapping)
@@ -758,6 +861,7 @@ export class PostgresBillingRepository
     let window = await this.getActiveWindowSnapshot(accountId, now);
     if (!window) {
       await runWriteTransaction(this.db, async (transaction) => {
+        await assertAccountAcceptsWrites(transaction, accountId);
         await lockBillingAccount(transaction, accountId);
         const [account] = await transaction
           .select({ createdAt: user.createdAt })
@@ -827,6 +931,7 @@ export class PostgresBillingRepository
     try {
       const result = await runWriteTransaction(this.db, async (transaction) => {
         const now = this.now();
+        await assertAccountAcceptsWrites(transaction, request.accountId);
         await lockBillingAccount(transaction, request.accountId);
         const [account] = await transaction
           .select({ id: user.id, createdAt: user.createdAt })
@@ -957,6 +1062,7 @@ export class PostgresBillingRepository
     const startedAt = Date.now();
     const outcome = await runWriteTransaction(this.db, async (transaction) => {
       const now = this.now();
+      await assertAccountAcceptsWrites(transaction, reservation.accountId);
       const [stored] = await transaction
         .select()
         .from(includedGenerationReservation)
@@ -1008,6 +1114,7 @@ export class PostgresBillingRepository
   ): Promise<void> {
     const startedAt = Date.now();
     const outcome = await runWriteTransaction(this.db, async (transaction) => {
+      await assertAccountAcceptsWrites(transaction, reservation.accountId);
       const [stored] = await transaction
         .select()
         .from(includedGenerationReservation)

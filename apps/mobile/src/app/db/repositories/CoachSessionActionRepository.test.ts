@@ -1,5 +1,8 @@
-import { database } from '../index';
-import { coachSessionActionRepository } from './CoachSessionActionRepository';
+import { getActiveDatabase } from '../activeDatabase';
+import { CoachSessionActionRepository } from './CoachSessionActionRepository';
+
+const database = getActiveDatabase();
+const coachSessionActionRepository = new CoachSessionActionRepository(database);
 
 describe('CoachSessionActionRepository', () => {
   afterEach(async () => {

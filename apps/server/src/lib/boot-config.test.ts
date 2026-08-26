@@ -2,16 +2,6 @@
  * Tests for validateBootConfig (boot-time configuration validation).
  */
 
-// Mock external packages to avoid ESM import issues in Jest (mirrors auth-context.test.ts).
-jest.mock('@workout-agent-ce/server-db', () => ({
-  createDbFromEnv: jest.fn(),
-}));
-
-jest.mock('@workout-agent-ce/server-auth', () => ({
-  createAuth: jest.fn(),
-  BetterAuthProvider: jest.fn(),
-}));
-
 import { validateBootConfig } from './boot-config';
 
 describe('validateBootConfig', () => {
@@ -43,9 +33,7 @@ describe('validateBootConfig', () => {
     },
   });
 
-  const configureRevenueCat = (
-    document: unknown = billingDocument()
-  ): void => {
+  const configureRevenueCat = (document: unknown = billingDocument()): void => {
     process.env.DEPLOYMENT_MODE = 'hosted';
     process.env.DATABASE_URL = 'postgres://localhost/db';
     process.env.BETTER_AUTH_SECRET = 'secret';
@@ -187,7 +175,9 @@ describe('validateBootConfig', () => {
   it('rejects missing billing configuration instead of applying defaults', () => {
     configureRevenueCat();
     delete process.env.BILLING_CONFIG_JSON;
-    expect(() => validateBootConfig()).toThrow('BILLING_CONFIG_JSON is required');
+    expect(() => validateBootConfig()).toThrow(
+      'BILLING_CONFIG_JSON is required'
+    );
   });
 
   it('rejects malformed billing configuration JSON', () => {

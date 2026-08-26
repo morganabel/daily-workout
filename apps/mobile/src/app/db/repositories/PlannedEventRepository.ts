@@ -1,4 +1,5 @@
 import { Q } from '@nozbe/watermelondb';
+import type { Database } from '@nozbe/watermelondb';
 import type {
   PlannedEvent,
   PlannedEventInput,
@@ -6,7 +7,6 @@ import type {
   UpcomingEventContext,
 } from '@workout-agent/shared';
 import { MAX_UPCOMING_EVENTS } from '@workout-agent/shared';
-import { database } from '../index';
 import PlannedEventModel from '../models/PlannedEvent';
 import {
   formatLocalDate,
@@ -113,8 +113,12 @@ const filterUpcomingRecords = (
     .slice(0, limit);
 
 export class PlannedEventRepository {
-  private plannedEvents =
-    database.collections.get<PlannedEventModel>('planned_events');
+  private readonly plannedEvents;
+
+  constructor(private readonly database: Database) {
+    this.plannedEvents =
+      database.collections.get<PlannedEventModel>('planned_events');
+  }
 
   toPlannedEvent(record: PlannedEventModel): PlannedEvent {
     return buildPlannedEvent(record);
@@ -210,7 +214,7 @@ export class PlannedEventRepository {
   }
 
   async createPlannedEvent(input: PlannedEventInput): Promise<PlannedEvent> {
-    const event = await database.write(async () =>
+    const event = await this.database.write(async () =>
       this.plannedEvents.create((record) => {
         record.kind = input.kind;
         record.title = input.title;
@@ -237,7 +241,7 @@ export class PlannedEventRepository {
   async updatePlannedEvent(patch: PlannedEventPatch): Promise<PlannedEvent> {
     const event = await this.plannedEvents.find(patch.id);
 
-    const updated = await database.write(async () =>
+    const updated = await this.database.write(async () =>
       event.update((record) => {
         if ('kind' in patch) record.kind = patch.kind!;
         if ('title' in patch) record.title = patch.title!;
@@ -271,7 +275,7 @@ export class PlannedEventRepository {
 
   async archivePlannedEvent(eventId: string): Promise<void> {
     const event = await this.plannedEvents.find(eventId);
-    await database.write(async () => {
+    await this.database.write(async () => {
       await event.update((record) => {
         record.archivedAt = Date.now();
       });
@@ -312,5 +316,3 @@ export class PlannedEventRepository {
       .map(buildPlannedEvent);
   }
 }
-
-export const plannedEventRepository = new PlannedEventRepository();

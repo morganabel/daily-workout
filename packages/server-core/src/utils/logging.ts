@@ -4,6 +4,8 @@
  * Never log raw tokens, passwords, or Authorization headers.
  */
 
+import { v7 as uuidv7 } from 'uuid';
+
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error' | 'silent';
 
 const SECRET_KEY_PATTERNS = [
@@ -373,8 +375,11 @@ export function getOrCreateRequestId(request: Request): string {
     }
   }
 
-  const maybeUuid = globalThis.crypto?.randomUUID?.();
-  return maybeUuid ?? createFallbackRequestId();
+  try {
+    return uuidv7();
+  } catch {
+    return createFallbackRequestId();
+  }
 }
 
 export function attachRequestId(response: Response, requestId: string): Response {

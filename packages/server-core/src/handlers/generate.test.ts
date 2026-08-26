@@ -1011,6 +1011,9 @@ describe('createGenerateHandler', () => {
       accountId: 'user-123',
       operation: 'generate',
     });
+    expect(reserveRequest.operationId).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
+    );
     expect(reserveRequest.operationId).not.toBe('caller-correlation-id');
     expect(policy.commitGenerateReservation).toHaveBeenCalledWith(
       expect.objectContaining({

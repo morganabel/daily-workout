@@ -19,8 +19,7 @@ import type {
   WorkoutSessionSummary,
 } from '@workout-agent/shared';
 import { plannedSlotMetadataSchema } from '@workout-agent/shared';
-import { workoutRepository } from './db/repositories/WorkoutRepository';
-import { plannedEventRepository } from './db/repositories/PlannedEventRepository';
+import { getActiveRepositories } from './db/activeDatabase';
 import type Workout from './db/models/Workout';
 import { deriveDurationMinutes } from './db/mappers/workoutMapper';
 import { useNavigation } from '@react-navigation/native';
@@ -42,7 +41,12 @@ import { HistoryCalendar } from './components/HistoryCalendar';
 import { HistorySessionCard } from './components/HistorySessionCard';
 import { QuickLogSheet } from './components/QuickLogSheet';
 import { PlannedEventSheet } from './components/PlannedEventSheet';
-import { endOfDay, formatLocalDate, parseLocalDate, startOfDay } from './utils/date';
+import {
+  endOfDay,
+  formatLocalDate,
+  parseLocalDate,
+  startOfDay,
+} from './utils/date';
 import {
   type CalendarCell,
   type CalendarView,
@@ -58,6 +62,7 @@ type HistoryNav = NativeStackNavigationProp<RootStackParamList, 'History'>;
 type ViewMode = 'calendar' | 'list';
 
 export const HistoryScreen = () => {
+  const repositories = getActiveRepositories();
   const navigation = useNavigation<HistoryNav>();
   const [viewMode, setViewMode] = useState<ViewMode>('calendar');
   const [calendarView, setCalendarView] = useState<CalendarView>('week');
@@ -86,7 +91,9 @@ export const HistoryScreen = () => {
   const visibleRange = useMemo(() => {
     const cells =
       calendarView === 'week'
-        ? buildWeekCells(selectedDate ? parseLocalDate(selectedDate) : new Date())
+        ? buildWeekCells(
+            selectedDate ? parseLocalDate(selectedDate) : new Date()
+          )
         : buildCalendarCells(currentMonth);
     const first = cells[0];
     const last = cells[cells.length - 1];
@@ -99,7 +106,7 @@ export const HistoryScreen = () => {
   }, [calendarView, currentMonth, selectedDate]);
 
   useEffect(() => {
-    const subscription = workoutRepository
+    const subscription = repositories.workout
       .observeCompletedSessionsByDateRange(
         visibleRange.startTimestamp,
         visibleRange.endTimestamp,
@@ -107,16 +114,20 @@ export const HistoryScreen = () => {
       )
       .subscribe((workouts) => {
         const summaries = workouts.map((workout) =>
-          workoutRepository.toSessionSummary(workout)
+          repositories.workout.toSessionSummary(workout)
         );
         setMonthSessions(summaries);
       });
 
     return () => subscription.unsubscribe();
-  }, [visibleRange.endTimestamp, visibleRange.startTimestamp]);
+  }, [
+    repositories.workout,
+    visibleRange.endTimestamp,
+    visibleRange.startTimestamp,
+  ]);
 
   useEffect(() => {
-    const subscription = workoutRepository
+    const subscription = repositories.workout
       .observePlannedWorkoutsByDateRange(
         visibleRange.startTimestamp,
         visibleRange.endTimestamp,
@@ -127,45 +138,55 @@ export const HistoryScreen = () => {
       });
 
     return () => subscription.unsubscribe();
-  }, [visibleRange.endTimestamp, visibleRange.startTimestamp]);
+  }, [
+    repositories.workout,
+    visibleRange.endTimestamp,
+    visibleRange.startTimestamp,
+  ]);
 
   useEffect(() => {
-    const subscription = plannedEventRepository
+    const subscription = repositories.plannedEvent
       .observeEvents({ includeArchived: false })
       .subscribe((records) => {
         setPlannedEvents(
-          records.map((record) => plannedEventRepository.toPlannedEvent(record))
+          records.map((record) =>
+            repositories.plannedEvent.toPlannedEvent(record)
+          )
         );
       });
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [repositories.plannedEvent]);
 
   useEffect(() => {
-    const subscription = workoutRepository
+    const subscription = repositories.workout
       .observeRecentSessions(4, { includeArchived: false })
       .subscribe((workouts) => {
         setRecentSessions(
-          workouts.map((workout) => workoutRepository.toSessionSummary(workout))
+          workouts.map((workout) =>
+            repositories.workout.toSessionSummary(workout)
+          )
         );
       });
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [repositories.workout]);
 
   useEffect(() => {
     setLoadingHistory(true);
-    const subscription = workoutRepository
+    const subscription = repositories.workout
       .observeRecentSessions(50, { includeArchived })
       .subscribe((workouts) => {
         setHistory(
-          workouts.map((workout) => workoutRepository.toSessionSummary(workout))
+          workouts.map((workout) =>
+            repositories.workout.toSessionSummary(workout)
+          )
         );
         setLoadingHistory(false);
       });
 
     return () => subscription.unsubscribe();
-  }, [includeArchived]);
+  }, [includeArchived, repositories.workout]);
 
   useEffect(() => {
     if (!selectedDate) return;
@@ -419,7 +440,8 @@ export const HistoryScreen = () => {
 
   const handleOpenLinkedWorkout = async (event: PlannedEvent) => {
     const metadata = plannedSlotMetadataSchema.safeParse(event.metadata);
-    const linkedWorkoutId = event.linkedWorkoutId ??
+    const linkedWorkoutId =
+      event.linkedWorkoutId ??
       (metadata.success ? metadata.data.linkedWorkoutId : undefined);
 
     if (!linkedWorkoutId) {
@@ -427,24 +449,29 @@ export const HistoryScreen = () => {
       return;
     }
 
-    const workout = await workoutRepository.getWorkoutByPlanId(linkedWorkoutId);
+    const workout = await repositories.workout.getWorkoutByPlanId(
+      linkedWorkoutId
+    );
     if (!workout) {
-      Alert.alert('Workout not found', 'The linked workout is no longer available.');
+      Alert.alert(
+        'Workout not found',
+        'The linked workout is no longer available.'
+      );
       return;
     }
 
-    const plan = await workoutRepository.mapWorkoutToPlan(workout);
+    const plan = await repositories.workout.mapWorkoutToPlan(workout);
     navigation.navigate('WorkoutPreview', { plan });
   };
 
   const handleOpenPlannedWorkout = async (workoutId: string) => {
-    const workout = await workoutRepository.getWorkoutByPlanId(workoutId);
+    const workout = await repositories.workout.getWorkoutByPlanId(workoutId);
     if (!workout) {
       Alert.alert('Workout not found', 'This workout is no longer available.');
       return;
     }
 
-    const plan = await workoutRepository.mapWorkoutToPlan(workout);
+    const plan = await repositories.workout.mapWorkoutToPlan(workout);
     navigation.navigate('WorkoutPreview', { plan });
   };
 
@@ -462,13 +489,13 @@ export const HistoryScreen = () => {
     payload: PlannedEventInput | PlannedEventPatch
   ) => {
     if ('id' in payload) {
-      await plannedEventRepository.updatePlannedEvent(payload);
+      await repositories.plannedEvent.updatePlannedEvent(payload);
       Toast.show('Plan updated', {
         duration: Toast.durations.SHORT,
         position: Toast.positions.BOTTOM - 80,
       });
     } else {
-      await plannedEventRepository.createPlannedEvent(payload);
+      await repositories.plannedEvent.createPlannedEvent(payload);
       Toast.show('Plan added to calendar', {
         duration: Toast.durations.SHORT,
         position: Toast.positions.BOTTOM - 80,
@@ -477,7 +504,7 @@ export const HistoryScreen = () => {
   };
 
   const handlePlanDelete = async (eventId: string) => {
-    await plannedEventRepository.archivePlannedEvent(eventId);
+    await repositories.plannedEvent.archivePlannedEvent(eventId);
     Toast.show('Plan removed', {
       duration: Toast.durations.SHORT,
       position: Toast.positions.BOTTOM - 80,
@@ -495,7 +522,7 @@ export const HistoryScreen = () => {
     }
 
     const scheduledDate = baseDate.getTime();
-    const existingPlan = await workoutRepository.getPlannedWorkoutForDate(
+    const existingPlan = await repositories.workout.getPlannedWorkoutForDate(
       scheduledDate
     );
     const energy = event.intensity
@@ -528,7 +555,7 @@ export const HistoryScreen = () => {
               try {
                 setGeneratingEventId(event.id);
                 if (plannedSlot) {
-                  await plannedEventRepository.updatePlannedEvent({
+                  await repositories.plannedEvent.updatePlannedEvent({
                     id: event.id,
                     metadata: {
                       ...plannedSlot,
@@ -537,11 +564,11 @@ export const HistoryScreen = () => {
                   });
                 }
                 const plan = await generateWorkout(request, { scheduledDate });
-                const workout = await workoutRepository.getWorkoutByPlanId(
+                const workout = await repositories.workout.getWorkoutByPlanId(
                   plan.id
                 );
                 if (workout) {
-                  await plannedEventRepository.updatePlannedEvent({
+                  await repositories.plannedEvent.updatePlannedEvent({
                     id: event.id,
                     linkedWorkoutId: workout.id,
                     metadata: plannedSlot
@@ -560,7 +587,7 @@ export const HistoryScreen = () => {
               } catch (error) {
                 console.error('Failed to generate workout for plan', error);
                 if (plannedSlot) {
-                  await plannedEventRepository.updatePlannedEvent({
+                  await repositories.plannedEvent.updatePlannedEvent({
                     id: event.id,
                     metadata: {
                       ...plannedSlot,

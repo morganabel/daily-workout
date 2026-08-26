@@ -26,6 +26,7 @@
   },
   "dependencies": {
     "@workout-agent-ce/metering": "*",
-    "tslib": "^2.3.0"
+    "tslib": "^2.3.0",
+    "uuid": "*"
   }
 }

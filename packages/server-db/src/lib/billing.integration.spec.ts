@@ -29,6 +29,7 @@ import {
   PostgresSpendCeilingPolicy,
   type BillingRepositoryOutcome,
 } from './billing.js';
+import { transitionAnonymousAccount } from './auth-identity.js';
 import { getAiUsageSummary, PostgresMeteringSink } from './ai-usage.js';
 import * as schema from './schema.js';
 
@@ -172,6 +173,7 @@ beforeEach(async () => {
   await dbA.execute(sql`
     TRUNCATE TABLE
       ${schema.billingWebhookEvent},
+      ${schema.billingAccountIdentity},
       ${schema.billingCustomerMapping},
       ${schema.billingEntitlementProjection},
       ${schema.includedGenerationReservation},
@@ -196,6 +198,41 @@ describe('PostgreSQL billing repositories', () => {
       seedUser(dbA, 'other-user'),
     ]);
     await verifyEntitlementProcessorContract(() => repository(dbA, 10));
+  });
+
+  it('creates one canonical customer identity idempotently under concurrency', async () => {
+    await seedUser(dbA, 'canonical-user');
+
+    const [first, second] = await Promise.all([
+      repository(dbA, 10).getOrCreateCanonicalCustomerIdentity(
+        'canonical-user'
+      ),
+      repository(dbB, 10).getOrCreateCanonicalCustomerIdentity(
+        'canonical-user'
+      ),
+    ]);
+
+    expect(first).toEqual(second);
+    expect(first.externalCustomerId).toMatch(
+      /^wa_[a-f0-9]{12}7[a-f0-9]{19}$/
+    );
+    await expect(
+      dbA
+        .select()
+        .from(schema.billingAccountIdentity)
+        .where(eq(schema.billingAccountIdentity.accountId, 'canonical-user'))
+    ).resolves.toHaveLength(1);
+    await expect(
+      dbA
+        .select({ accountId: schema.billingCustomerMapping.accountId })
+        .from(schema.billingCustomerMapping)
+        .where(
+          eq(
+            schema.billingCustomerMapping.externalCustomerId,
+            first.externalCustomerId
+          )
+        )
+    ).resolves.toEqual([{ accountId: 'canonical-user' }]);
   });
 
   it('reconciles an unmapped event after authenticated bootstrap', async () => {
@@ -255,6 +292,164 @@ describe('PostgreSQL billing repositories', () => {
       .from(schema.billingWebhookEvent)
       .where(eq(schema.billingWebhookEvent.eventId, 'racing-event'));
     expect(stored?.outcome).toBe('applied');
+  });
+
+  it('binds RevenueCat app, original, and alias IDs to one owner idempotently', async () => {
+    await seedUser(dbA, 'authenticated-b');
+    const repo = repository(dbA, 10);
+    const anonymousId = '$RCAnonymousID:device1234';
+    await repo.bootstrapAuthenticatedCustomer({
+      accountId: 'authenticated-b',
+      externalCustomerId: anonymousId,
+    });
+
+    const aliases = [anonymousId, 'authenticated-b', 'install-alias'];
+    await expect(
+      repo.process(
+        event({
+          eventId: 'alias-event-1',
+          normalizedHash: 'alias-hash-1',
+          customerIds: aliases,
+        })
+      )
+    ).resolves.toMatchObject({
+      outcome: 'applied',
+      accountId: 'authenticated-b',
+    });
+    await expect(
+      repo.process(
+        event({
+          eventId: 'alias-event-2',
+          eventTimestamp: '2026-08-02T13:00:00.000Z',
+          normalizedHash: 'alias-hash-2',
+          customerIds: [...aliases].reverse(),
+        })
+      )
+    ).resolves.toMatchObject({ accountId: 'authenticated-b' });
+
+    await expect(
+      dbA
+        .select({
+          customerId: schema.billingCustomerMapping.externalCustomerId,
+          accountId: schema.billingCustomerMapping.accountId,
+        })
+        .from(schema.billingCustomerMapping)
+        .orderBy(schema.billingCustomerMapping.externalCustomerId)
+    ).resolves.toEqual([
+      { customerId: anonymousId, accountId: 'authenticated-b' },
+      { customerId: 'authenticated-b', accountId: 'authenticated-b' },
+      { customerId: 'install-alias', accountId: 'authenticated-b' },
+    ]);
+  });
+
+  it('preserves canonical billing identity C through a fresh A-to-B transition', async () => {
+    await dbA.insert(schema.user).values([
+      {
+        id: 'anonymous-a',
+        name: 'Anonymous',
+        email: 'anonymous-a@anonymous.workout-agent.local',
+        emailVerified: false,
+        isAnonymous: true,
+      },
+      {
+        id: 'authenticated-b',
+        name: 'Authenticated',
+        email: 'authenticated-b@example.test',
+        emailVerified: true,
+        isAnonymous: false,
+      },
+    ]);
+    const repo = repository(dbA, 10);
+    const { externalCustomerId } =
+      await repo.getOrCreateCanonicalCustomerIdentity('anonymous-a');
+    await expect(
+      repo.process(
+        event({
+          eventId: 'anonymous-purchase',
+          normalizedHash: 'anonymous-purchase-hash',
+          customerIds: [externalCustomerId],
+        })
+      )
+    ).resolves.toMatchObject({ outcome: 'applied', accountId: 'anonymous-a' });
+    await expect(repo.getProjection('anonymous-a')).resolves.toMatchObject({
+      planId: 'pro',
+      status: 'active',
+    });
+
+    await transitionAnonymousAccount(dbA, {
+      sourceUserId: 'anonymous-a',
+      targetUserId: 'authenticated-b',
+      method: 'google',
+    });
+
+    await expect(repo.getProjection('anonymous-a')).resolves.toBeNull();
+    await expect(repo.getProjection('authenticated-b')).resolves.toMatchObject({
+      planId: 'pro',
+      status: 'active',
+    });
+    await expect(
+      dbA
+        .select({ accountId: schema.billingCustomerMapping.accountId })
+        .from(schema.billingCustomerMapping)
+        .where(
+          eq(
+            schema.billingCustomerMapping.externalCustomerId,
+            externalCustomerId
+          )
+        )
+    ).resolves.toEqual([{ accountId: 'authenticated-b' }]);
+    await expect(
+      dbA
+        .select({
+          accountId: schema.billingAccountIdentity.accountId,
+          externalCustomerId: schema.billingAccountIdentity.externalCustomerId,
+        })
+        .from(schema.billingAccountIdentity)
+    ).resolves.toEqual([
+      { accountId: 'authenticated-b', externalCustomerId },
+    ]);
+  });
+
+  it('fails a RevenueCat alias webhook closed when any alias has another owner', async () => {
+    await Promise.all([
+      seedUser(dbA, 'authenticated-b'),
+      seedUser(dbA, 'unrelated-account'),
+    ]);
+    const repo = repository(dbA, 10);
+    await repo.bootstrapAuthenticatedCustomer({
+      accountId: 'authenticated-b',
+      externalCustomerId: '$RCAnonymousID:device1234',
+    });
+    await repo.bootstrapAuthenticatedCustomer({
+      accountId: 'unrelated-account',
+      externalCustomerId: 'conflicting-alias',
+    });
+
+    await expect(
+      repo.process(
+        event({
+          eventId: 'alias-conflict',
+          normalizedHash: 'alias-conflict-hash',
+          customerIds: [
+            '$RCAnonymousID:device1234',
+            'authenticated-b',
+            'conflicting-alias',
+          ],
+        })
+      )
+    ).resolves.toEqual({ outcome: 'conflict' });
+    await expect(repo.getProjection('authenticated-b')).resolves.toBeNull();
+    await expect(
+      dbA
+        .select({ accountId: schema.billingCustomerMapping.accountId })
+        .from(schema.billingCustomerMapping)
+        .where(
+          eq(
+            schema.billingCustomerMapping.externalCustomerId,
+            'authenticated-b'
+          )
+        )
+    ).resolves.toHaveLength(0);
   });
 
   it('persists stale events without regressing a newer projection', async () => {

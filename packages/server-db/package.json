@@ -24,7 +24,8 @@
     "@workout-agent-ce/quotas": "*",
     "drizzle-orm": "*",
     "pg": "^8.13.1",
-    "tslib": "^2.3.0"
+    "tslib": "^2.3.0",
+    "uuid": "*"
   },
   "devDependencies": {
     "@testcontainers/postgresql": "^12.0.4"
