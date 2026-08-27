@@ -5,7 +5,7 @@ import {
   planningNoveltyTargetSchema,
   planningStageOneConfidenceSchema,
   type StageOnePlannerArtifact,
-} from '@workout-agent/shared';
+} from '@leveza/shared';
 
 export const stageOnePlannerArtifactSchema = z.object({
   mode: z.literal('llm-assisted'),

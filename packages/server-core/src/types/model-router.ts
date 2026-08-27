@@ -3,8 +3,8 @@ import type {
   GenerationRequest,
   GenerationContext,
   TodayPlan,
-} from '@workout-agent/shared';
-import type { WorkoutCatalogMatch } from '@workout-agent-ce/server-exercise-library';
+} from '@leveza/shared';
+import type { WorkoutCatalogMatch } from '@leveza/server-exercise-library';
 import type { PlanningBrief, StageOnePlannerArtifact } from './planning';
 import type { ModelCallRecorder } from './metering';
 

@@ -1,23 +1,22 @@
 {
   "expo": {
-    "name": "Mobile",
-    "slug": "mobile",
-    "owner": "workout-agent-ce",
+    "name": "Leveza",
+    "slug": "leveza",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "workout-agent-ce-mobile",
+    "scheme": "leveza",
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.anonymous.-workout-agent-ce-mobile"
+      "bundleIdentifier": "com.openvibelabs.leveza"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.anonymous.workoutagentcemobile"
+      "package": "com.openvibelabs.leveza"
     },
     "web": {
       "bundler": "metro",

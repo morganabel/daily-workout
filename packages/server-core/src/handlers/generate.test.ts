@@ -3,21 +3,21 @@ import {
   type GenerationRequest,
   type GenerationRequestPayload,
   type TodayPlan,
-} from '@workout-agent/shared';
+} from '@leveza/shared';
 import {
   createGenerationContextFixture,
   createTodayPlanFixture,
-} from '@workout-agent/shared/testing';
+} from '@leveza/shared/testing';
 import type {
   ExerciseLibrary,
   WorkoutCatalogMatch,
-} from '@workout-agent-ce/server-exercise-library';
+} from '@leveza/server-exercise-library';
 import type {
   ProviderAdmissionPolicy,
   ProviderAdmissionResult,
   SpendCeilingDecision,
   SpendCeilingPolicy,
-} from '@workout-agent-ce/quotas';
+} from '@leveza/quotas';
 
 import { createGenerateHandler } from './generate';
 import type {

@@ -1,6 +1,6 @@
-# Workout Agent CE
+# Leveza
 
-Workout Agent CE is the open-source community edition of a daily workout planner. It ships with a Next.js backend and an Expo mobile app that calls AI providers (OpenAI, Gemini, or OpenRouter) to generate personalized plans.
+Leveza is an open-source daily workout planner. It ships with a Next.js backend and an Expo mobile app that calls AI providers (OpenAI, Gemini, or OpenRouter) to generate personalized plans.
 
 ## Tech stack
 
@@ -63,7 +63,7 @@ DEPLOYMENT_MODE=self-hosted
 BILLING_PROVIDER=none
 
 # Hosted billing (required only when BILLING_PROVIDER=revenuecat)
-# BILLING_CONFIG_JSON={"schemaVersion":1,"revenueCat":{"appIds":["app.test"],"environments":["SANDBOX"],"entitlementIds":["OpenLift Pro"],"productIds":["weekly","monthly","yearly"],"defaultOfferingId":"default"},"plans":{"freeGenerations":25,"proGenerations":1000,"windowDays":30},"guardrails":{"accountRequestsPerMinute":30,"accountMaxActiveGenerations":2,"accountDailySpendLimitNanoUsd":"5000000000","globalDailySpendLimitNanoUsd":"50000000000","pendingReservationTtlSeconds":300},"capabilities":{"showUpgradeUi":true}}
+# BILLING_CONFIG_JSON={"schemaVersion":1,"revenueCat":{"appIds":["app.test"],"environments":["SANDBOX"],"entitlementIds":["Leveza Pro"],"upgradeEntitlementId":"Leveza Pro","productIds":["weekly","monthly","yearly"],"defaultOfferingId":"default"},"plans":{"freeGenerations":25,"proGenerations":1000,"windowDays":30},"guardrails":{"accountRequestsPerMinute":30,"accountMaxActiveGenerations":2,"accountDailySpendLimitNanoUsd":"5000000000","globalDailySpendLimitNanoUsd":"50000000000","pendingReservationTtlSeconds":300},"capabilities":{"showUpgradeUi":true}}
 # REVENUECAT_WEBHOOK_SECRET=
 
 # Optional: use Vertex AI for Gemini
@@ -82,10 +82,10 @@ EXPO_PUBLIC_BACKEND_URL=http://localhost:3000
 EXPO_PUBLIC_REVENUECAT_API_KEY=
 
 # Better Auth (optional; enabled automatically when DATABASE_URL is set)
-DATABASE_URL=postgres://user:password@localhost:5432/workout_agent
+DATABASE_URL=postgres://user:password@localhost:5432/leveza
 BETTER_AUTH_SECRET=dev-secret-dev-secret-dev-secret-dev-secret
 BETTER_AUTH_URL=http://localhost:3000
-TRUSTED_ORIGINS=http://localhost:8081,workout-agent-ce-mobile://
+TRUSTED_ORIGINS=http://localhost:8081,leveza://
 # Optional Google OAuth for mobile sign-in
 GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
@@ -114,7 +114,7 @@ Use this command to boot the local server in hosted mode with billing and upgrad
 ```bash
 DEPLOYMENT_MODE=hosted \
 BILLING_PROVIDER=revenuecat \
-BILLING_CONFIG_JSON='{"schemaVersion":1,"revenueCat":{"appIds":["app.test"],"environments":["SANDBOX"],"entitlementIds":["OpenLift Pro"],"productIds":["weekly","monthly","yearly"]},"plans":{"freeGenerations":1,"proGenerations":1000,"windowDays":30},"guardrails":{"accountRequestsPerMinute":30,"accountMaxActiveGenerations":2,"accountDailySpendLimitNanoUsd":"5000000000","globalDailySpendLimitNanoUsd":"50000000000","pendingReservationTtlSeconds":300},"capabilities":{"showUpgradeUi":true}}' \
+BILLING_CONFIG_JSON='{"schemaVersion":1,"revenueCat":{"appIds":["app.test"],"environments":["SANDBOX"],"entitlementIds":["Leveza Pro"],"upgradeEntitlementId":"Leveza Pro","productIds":["weekly","monthly","yearly"]},"plans":{"freeGenerations":1,"proGenerations":1000,"windowDays":30},"guardrails":{"accountRequestsPerMinute":30,"accountMaxActiveGenerations":2,"accountDailySpendLimitNanoUsd":"5000000000","globalDailySpendLimitNanoUsd":"50000000000","pendingReservationTtlSeconds":300},"capabilities":{"showUpgradeUi":true}}' \
 REVENUECAT_WEBHOOK_SECRET=local-test-secret \
 OPENAI_API_KEY=sk-your-managed-test-key \
 EXPO_PUBLIC_BACKEND_URL=http://localhost:3000 \
@@ -125,13 +125,15 @@ BYOK requests bypass hosted quota because the user funds inference directly. To 
 
 Hosted RevenueCat mode uses the repository's PostgreSQL billing ledger, entitlement projection, included-generation reservations, metering data, and spend ceilings. The RevenueCat Test Store can be used for local purchase-flow testing; production builds must use platform store products and keys.
 
+The example configuration uses `Leveza Pro` as both the RevenueCat upgrade entitlement identifier and the customer-facing plan name.
+
 The public server owns and strictly validates billing configuration schema version 1; it does not compile any hosted deployment's catalog or policy values. Deployment owners should keep the structured source values in their deployment configuration, serialize them into `BILLING_CONFIG_JSON`, and manage `REVENUECAT_WEBHOOK_SECRET` separately. Self-hosted deployments with `BILLING_PROVIDER=none` do not parse or require either value. See [`billing-config.example.json`](./billing-config.example.json) for a formatted example.
 
 ## Running tests and lint checks
 
 Use Nx targets to keep the workspace healthy:
 
-- Unit tests for shared contracts: `npx nx test @workout-agent/shared`
+- Unit tests for shared contracts: `npx nx test @leveza/shared`
 - Lint the Next.js API: `npx nx lint server`
 - Lint the Expo app: `npx nx lint mobile`
 
@@ -191,7 +193,7 @@ When keys are available, use the HTML and JSON reports to compare hard-check del
 
 Copyright © 2024 OpenVibe Labs LLC. All rights reserved.
 
-This project (Workout Agent CE) is licensed under the [GNU Affero General Public License v3.0 (AGPLv3)](./LICENSE).
+Leveza is licensed under the [GNU Affero General Public License v3.0 (AGPLv3)](./LICENSE).
 
 **OpenVibe Labs LLC** retains the copyright to the source code. The Community Edition is open-source, but OpenVibe Labs LLC reserves the right to offer this software (and its extensions, such as billing, subscriptions, and metering) under other license terms, including proprietary commercial licenses.
 

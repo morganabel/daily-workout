@@ -8,7 +8,7 @@
  */
 
 import { NextResponse } from 'next/server';
-import { ping } from '@workout-agent-ce/server-db';
+import { ping } from '@leveza/server-db';
 import { getAuthContext } from '@/lib/auth-context';
 import { getRevenueCatBillingServices } from '@/lib/billing-services';
 import {

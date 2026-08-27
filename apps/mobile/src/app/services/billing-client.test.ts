@@ -16,10 +16,11 @@ describe('billing client adapter', () => {
       showUpgradeUi: false,
       purchaseMethod: 'none',
       allowByok: true,
+      upgradeEntitlementId: null,
     });
 
     expect(client.type).toBe('noop');
-    expect(await client.presentPaywall('OpenLift Pro')).toBe('not_presented');
+    expect(await client.presentPaywall('Leveza Pro')).toBe('not_presented');
   });
 
   it('selects RevenueCatBillingClient for iap billing capabilities', () => {
@@ -28,6 +29,7 @@ describe('billing client adapter', () => {
       showUpgradeUi: true,
       purchaseMethod: 'iap',
       allowByok: true,
+      upgradeEntitlementId: 'Leveza Pro',
     });
 
     expect(client.type).toBe('revenuecat');
@@ -39,11 +41,11 @@ describe('billing client adapter', () => {
         {
           entitlements: {
             active: {
-              'OpenLift Pro': {},
+              'Leveza Pro': {},
             },
           },
         } as never,
-        'OpenLift Pro'
+        'Leveza Pro'
       )
     ).toBe(true);
 
@@ -52,7 +54,7 @@ describe('billing client adapter', () => {
         {
           entitlements: { active: {} },
         } as never,
-        'OpenLift Pro'
+        'Leveza Pro'
       )
     ).toBe(false);
   });
@@ -63,7 +65,7 @@ describe('billing client adapter', () => {
       .mockResolvedValueOnce('wa_1234567890ab7def8abc1234567890ab');
     (Purchases.logIn as jest.Mock).mockResolvedValueOnce({
       customerInfo: {
-        entitlements: { active: { 'OpenLift Pro': {} } },
+        entitlements: { active: { 'Leveza Pro': {} } },
       },
       created: false,
     });
@@ -75,7 +77,7 @@ describe('billing client adapter', () => {
       )
     ).resolves.toEqual(
       expect.objectContaining({
-        entitlements: { active: { 'OpenLift Pro': {} } },
+        entitlements: { active: { 'Leveza Pro': {} } },
       })
     );
     expect(Purchases.logIn).toHaveBeenCalledWith(
@@ -89,7 +91,7 @@ describe('billing client adapter', () => {
       'wa_1234567890ab7def8abc1234567890ab'
     );
     (Purchases.getCustomerInfo as jest.Mock).mockResolvedValueOnce({
-      entitlements: { active: { 'OpenLift Pro': {} } },
+      entitlements: { active: { 'Leveza Pro': {} } },
     });
 
     await expect(
@@ -99,7 +101,7 @@ describe('billing client adapter', () => {
       )
     ).resolves.toEqual(
       expect.objectContaining({
-        entitlements: { active: { 'OpenLift Pro': {} } },
+        entitlements: { active: { 'Leveza Pro': {} } },
       })
     );
     expect(Purchases.logIn).not.toHaveBeenCalled();
@@ -131,7 +133,7 @@ describe('billing client adapter', () => {
       new Error('network unavailable')
     );
     (Purchases.getCustomerInfo as jest.Mock).mockResolvedValueOnce({
-      entitlements: { active: { 'OpenLift Pro': {} } },
+      entitlements: { active: { 'Leveza Pro': {} } },
     });
 
     await expect(
@@ -147,7 +149,7 @@ describe('billing client adapter', () => {
       )
     ).resolves.toEqual(
       expect.objectContaining({
-        entitlements: { active: { 'OpenLift Pro': {} } },
+        entitlements: { active: { 'Leveza Pro': {} } },
       })
     );
     expect(Purchases.logIn).toHaveBeenCalledTimes(1);

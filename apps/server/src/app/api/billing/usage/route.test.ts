@@ -1,4 +1,4 @@
-jest.mock('@workout-agent-ce/server-db', () => ({
+jest.mock('@leveza/server-db', () => ({
   getAiUsageSummary: jest.fn(),
 }));
 jest.mock('@/lib/auth-context', () => ({
@@ -11,7 +11,7 @@ jest.mock('@/lib/billing-services', () => ({
   getRevenueCatBillingServices: jest.fn(),
 }));
 
-import { getAiUsageSummary } from '@workout-agent-ce/server-db';
+import { getAiUsageSummary } from '@leveza/server-db';
 import { getAuthContext } from '@/lib/auth-context';
 import { getBillingProvider } from '@/lib/deployment';
 import { getRevenueCatBillingServices } from '@/lib/billing-services';

@@ -25,7 +25,7 @@ import {
   type QuickActionPreset,
   type WorkoutEnergy,
   normalizeEquipmentSelection,
-} from '@workout-agent/shared';
+} from '@leveza/shared';
 import { useHomeData } from './hooks/useHomeData';
 import { useBillingState } from './hooks/useBillingState';
 import { generateWorkout, type ApiError } from './services/api';

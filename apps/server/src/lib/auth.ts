@@ -7,7 +7,7 @@
  * - a default export
  *
  * IMPORTANT:
- * - Shared auth settings are imported from `@workout-agent-ce/server-auth` to prevent drift.
+ * - Shared auth settings are imported from `@leveza/server-auth` to prevent drift.
  * - If you run the Better Auth CLI directly, ensure `server-auth` is built first, or use:
  *   `npm run better-auth:generate`
  * - Runtime server wiring uses `auth-context.ts` for auth-mode selection and dependency injection.
@@ -20,13 +20,13 @@ import { Pool } from 'pg';
 import {
   createBetterAuthOptions,
   getGoogleAuthConfig,
-} from '@workout-agent-ce/server-auth';
+} from '@leveza/server-auth';
 
 // Provide sane defaults so the CLI can run without requiring a full env.
 // (Better Auth requires a 32+ char secret.)
 const DATABASE_URL =
   process.env.DATABASE_URL ??
-  'postgres://user:password@localhost:5432/workout_agent';
+  'postgres://user:password@localhost:5432/leveza';
 const BETTER_AUTH_SECRET =
   process.env.BETTER_AUTH_SECRET ??
   'dev-secret-dev-secret-dev-secret-dev-secret';

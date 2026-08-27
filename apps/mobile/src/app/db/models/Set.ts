@@ -5,7 +5,7 @@ import {
   relation,
   readonly,
 } from 'nitromelondb/decorators';
-import type { WeightUnit } from '@workout-agent/shared';
+import type { WeightUnit } from '@leveza/shared';
 import Exercise from './Exercise';
 
 export default class Set extends Model {

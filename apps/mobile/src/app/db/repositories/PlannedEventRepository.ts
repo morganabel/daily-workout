@@ -5,8 +5,8 @@ import type {
   PlannedEventInput,
   PlannedEventPatch,
   UpcomingEventContext,
-} from '@workout-agent/shared';
-import { MAX_UPCOMING_EVENTS } from '@workout-agent/shared';
+} from '@leveza/shared';
+import { MAX_UPCOMING_EVENTS } from '@leveza/shared';
 import PlannedEventModel from '../models/PlannedEvent';
 import {
   formatLocalDate,

@@ -10,7 +10,7 @@ import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import {
   transitionAnonymousAccount,
   type Database,
-} from '@workout-agent-ce/server-db';
+} from '@leveza/server-db';
 import {
   createBetterAuthOptions,
   type GoogleAuthConfig,

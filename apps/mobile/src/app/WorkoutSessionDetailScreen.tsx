@@ -13,7 +13,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type {
   WorkoutSessionDetail,
   WorkoutSetLog,
-} from '@workout-agent/shared';
+} from '@leveza/shared';
 import { getActiveRepositories } from './db/activeDatabase';
 import type { RootStackParamList } from './navigation';
 import { SetRow } from './components/SetRow';

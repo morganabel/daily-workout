@@ -21,7 +21,7 @@ export function createDatabase(dataScopeId: string): Database {
     throw new Error('invalid_mobile_data_scope');
   }
 
-  const adapter = createDatabaseAdapter(`workout_agent_${dataScopeId}`);
+  const adapter = createDatabaseAdapter(`leveza_${dataScopeId}`);
 
   return new Database({
     adapter,

@@ -36,7 +36,7 @@ Users MUST be able to register using email and password or Google OAuth when tha
 
 #### Scenario: Existing account with state replaces anonymous use
 
-- **GIVEN** A is anonymous and credentialed B already owns Workout Agent application or billing state
+- **GIVEN** A is anonymous and credentialed B already owns Leveza application or billing state
 - **WHEN** A attempts to sign in to B
 - **THEN** automatic linking does not merge A into B
 - **AND** the client discards A's anonymous state and signs in to B independently without additional recovery UI

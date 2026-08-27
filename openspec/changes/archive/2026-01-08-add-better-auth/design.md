@@ -56,9 +56,9 @@ This change builds on the `refactor-open-core-server` proposal which established
 **Pattern:**
 ```typescript
 // apps/server/src/lib/auth-context.ts
-import { BetterAuthProvider } from '@workout-agent-ce/server-auth';
-import { StubAuthProvider } from '@workout-agent-ce/server-core';
-import type { AuthProvider } from '@workout-agent-ce/server-core';
+import { BetterAuthProvider } from '@leveza/server-auth';
+import { StubAuthProvider } from '@leveza/server-core';
+import type { AuthProvider } from '@leveza/server-core';
 
 let cachedAuthProvider: AuthProvider | null = null;
 
@@ -213,7 +213,7 @@ if (env.EDITION === 'HOSTED' && AUTH_MODE !== 'better-auth') {
 
 ### Capabilities Discovery Endpoint (`/api/meta`)
 
-**Decision:** Add `/api/meta` endpoint returning auth capabilities, protocol version, and feature flags. Export the response schema from `@workout-agent-ce/shared`.
+**Decision:** Add `/api/meta` endpoint returning auth capabilities, protocol version, and feature flags. Export the response schema from `@leveza/shared`.
 
 **Response schema (in `packages/shared`):**
 ```typescript

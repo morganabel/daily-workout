@@ -1,9 +1,9 @@
 import type {
   ExerciseLibrary,
   ExerciseRecord,
-} from '@workout-agent-ce/server-exercise-library';
-import { openExerciseLibrary } from '@workout-agent-ce/server-exercise-library';
-import type { GenerationContext } from '@workout-agent/shared';
+} from '@leveza/server-exercise-library';
+import { openExerciseLibrary } from '@leveza/server-exercise-library';
+import type { GenerationContext } from '@leveza/shared';
 import type { PlanningBrief } from '../types/planning';
 import {
   buildExerciseCandidatePool,

@@ -15,8 +15,8 @@ import type {
   PlannedEvent,
   PlannedEventInput,
   PlannedEventPatch,
-} from '@workout-agent/shared';
-import { canonicalEventKinds } from '@workout-agent/shared';
+} from '@leveza/shared';
+import { canonicalEventKinds } from '@leveza/shared';
 import { Button, Chip } from './DesignSystem';
 import { palette, typography } from '../theme';
 import {

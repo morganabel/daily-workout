@@ -36,7 +36,7 @@ import { removeByokConfigForStorageScope } from '../storage/byokKey';
 
 const API_BASE_URL = backendDescriptor.baseURL;
 
-const APP_SCHEME = 'workout-agent-ce-mobile';
+const APP_SCHEME = 'leveza';
 const STORAGE_PREFIX = backendDescriptor.authStoragePrefix;
 
 /**
@@ -245,7 +245,7 @@ export async function resumePendingAccountTransition(): Promise<boolean> {
  * Start Google OAuth through Better Auth's Expo browser flow.
  *
  * The callback is intentionally relative: the Expo client converts it to the
- * app scheme (`workout-agent-ce-mobile://`) and the server validates it
+ * app scheme (`leveza://`) and the server validates it
  * against TRUSTED_ORIGINS.
  */
 export async function signInWithGoogle(): Promise<GoogleSignInResult> {

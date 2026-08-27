@@ -1,5 +1,5 @@
 import * as SecureStore from 'expo-secure-store';
-import { metaResponseSchema, type MetaResponse } from '@workout-agent/shared';
+import { metaResponseSchema, type MetaResponse } from '@leveza/shared';
 
 import { backendDescriptor } from './backendDescriptor';
 
@@ -25,6 +25,7 @@ export const BUNDLED_SERVER_CAPABILITIES: MetaResponse = {
     showUpgradeUi: false,
     purchaseMethod: 'none',
     allowByok: true,
+    upgradeEntitlementId: null,
   },
 };
 

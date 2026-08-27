@@ -10,9 +10,9 @@ import {
   type GenerationRequest,
   type QuickActionPreset,
   type TodayPlan,
-} from '@workout-agent/shared';
+} from '@leveza/shared';
 import type { HomeCoachPlanView } from './hooks/useHomeData';
-import { createTodayPlanFixture } from '@workout-agent/shared/testing';
+import { createTodayPlanFixture } from '@leveza/shared/testing';
 
 jest.mock('./hooks/useHomeData', () => ({
   useHomeData: jest.fn(),

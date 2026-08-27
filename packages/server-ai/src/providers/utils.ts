@@ -1,5 +1,5 @@
 import { v7 as uuidv7 } from 'uuid';
-import type { LlmTodayPlan, TodayPlan } from '@workout-agent/shared';
+import type { LlmTodayPlan, TodayPlan } from '@leveza/shared';
 
 export function attachGeneratedIds(plan: LlmTodayPlan): TodayPlan {
   return {

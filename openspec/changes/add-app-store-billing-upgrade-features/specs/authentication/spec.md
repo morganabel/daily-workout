@@ -2,7 +2,7 @@
 
 ### Requirement: Capabilities Discovery Endpoint
 
-The server MUST expose a `/api/meta` endpoint that returns auth capabilities, protocol version, and runtime feature flags including billing capability hints for upgrade UX gating. This endpoint MUST be accessible without authentication so clients can detect backend capabilities before attempting auth or rendering upgrade surfaces. The response schema (`MetaResponse`) MUST be exported from `@workout-agent-ce/shared` for type-safe client consumption, and billing fields MUST be optional so older servers and clients remain backward compatible.
+The server MUST expose a `/api/meta` endpoint that returns auth capabilities, protocol version, and runtime feature flags including billing capability hints for upgrade UX gating. This endpoint MUST be accessible without authentication so clients can detect backend capabilities before attempting auth or rendering upgrade surfaces. The response schema (`MetaResponse`) MUST be exported from `@leveza/shared` for type-safe client consumption, and billing fields MUST be optional so older servers and clients remain backward compatible.
 
 #### Scenario: Client discovers auth and billing capabilities
 
@@ -17,7 +17,7 @@ The server MUST expose a `/api/meta` endpoint that returns auth capabilities, pr
 
 #### Scenario: Response type is shared
 
-- **GIVEN** the mobile app imports `MetaResponse` from `@workout-agent-ce/shared`
+- **GIVEN** the mobile app imports `MetaResponse` from `@leveza/shared`
 - **WHEN** it fetches `/api/meta`
 - **THEN** the response can be type-safely consumed as `MetaResponse`, including optional billing fields
 

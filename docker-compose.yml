@@ -4,17 +4,17 @@ services:
     environment:
       POSTGRES_USER: user
       POSTGRES_PASSWORD: password
-      POSTGRES_DB: workout_agent
+      POSTGRES_DB: leveza
       PGDATA: /var/lib/postgresql/data
     ports:
       - '5432:5432'
     volumes:
-      - workout_agent_pgdata:/var/lib/postgresql/data
+      - leveza_pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U user -d workout_agent']
+      test: ['CMD-SHELL', 'pg_isready -U user -d leveza']
       interval: 2s
       timeout: 5s
       retries: 30
 
 volumes:
-  workout_agent_pgdata:
+  leveza_pgdata:

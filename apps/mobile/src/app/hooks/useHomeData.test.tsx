@@ -5,11 +5,11 @@ import {
   type CoachSessionAction,
   type QuickActionPreset,
   type TodayPlan,
-} from '@workout-agent/shared';
+} from '@leveza/shared';
 import {
   createSessionSummaryFixture,
   createTodayPlanFixture,
-} from '@workout-agent/shared/testing';
+} from '@leveza/shared/testing';
 import { useHomeData } from './useHomeData';
 import type Workout from '../db/models/Workout';
 

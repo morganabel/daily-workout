@@ -14,7 +14,7 @@ import type { Auth } from './auth.js';
  * @example
  * ```ts
  * // apps/server/src/app/api/auth/[...all]/route.ts
- * import { createAuthHandler } from '@workout-agent-ce/server-auth';
+ * import { createAuthHandler } from '@leveza/server-auth';
  * import { auth } from '@/lib/auth-context';
  *
  * const handler = createAuthHandler(auth);

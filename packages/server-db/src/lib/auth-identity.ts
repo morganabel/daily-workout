@@ -215,7 +215,7 @@ function classifyTransitionError(error: unknown): AccountTransitionFailureCode {
 }
 
 /**
- * Move Workout Agent-owned state from anonymous A to authenticated B.
+ * Move Leveza-owned state from anonymous A to authenticated B.
  * Better Auth remains solely responsible for auth users, accounts, sessions,
  * provider profiles, and deleting A after this callback commits.
  */

@@ -3,7 +3,7 @@ import {
   type MobileDebugToolResponse,
   mobileDebugToolRequestSchema,
   redactDebugValue,
-} from '@workout-agent/shared';
+} from '@leveza/shared';
 
 type DebugToolHandler = (input: unknown) => Promise<unknown> | unknown;
 type DebugToolError = Extract<

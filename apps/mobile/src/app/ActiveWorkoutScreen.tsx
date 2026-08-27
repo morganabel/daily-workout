@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import type { WorkoutExerciseLog, WorkoutSetLog } from '@workout-agent/shared';
+import type { WorkoutExerciseLog, WorkoutSetLog } from '@leveza/shared';
 import { getActiveRepositories } from './db/activeDatabase';
 import { RootStackParamList } from './navigation';
 import { SetRow } from './components/SetRow';

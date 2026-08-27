@@ -1,10 +1,10 @@
 ## Context
 
-Workout Agent began this change pinned to `better-auth`, `@better-auth/expo`, and `@better-auth/cli` at 1.4.10. The abandoned implementation worked around mobile OAuth linking by keeping anonymous user A as the permanent Better Auth user and manually moving credentials, sessions, and provider profile fields onto A. That approach crossed Better Auth's ownership boundary and required custom identity surgery.
+Leveza began this change pinned to `better-auth`, `@better-auth/expo`, and `@better-auth/cli` at 1.4.10. The abandoned implementation worked around mobile OAuth linking by keeping anonymous user A as the permanent Better Auth user and manually moving credentials, sessions, and provider profile fields onto A. That approach crossed Better Auth's ownership boundary and required custom identity surgery.
 
 Stable Better Auth 1.7 introduces trusted OAuth server context for anonymous linking in Expo and other in-app browsers. Its standard anonymous plugin flow creates or resolves credentialed user B, calls `onLinkAccount({ anonymousUser: A, newUser: B })`, and deletes A by default after linking. The relevant upstream references are the [1.7 upgrade guide](https://better-auth.com/docs/guides/1-7-upgrade-guide) and [anonymous link-account contract](https://better-auth.com/docs/plugins/anonymous#link-account).
 
-The identity change affects more than auth. PostgreSQL usage, quota, and billing rows use the Better Auth user ID as owner, the planned mobile data-isolation change derives its local scope from that ID, and the mobile billing client must not treat a client-reported RevenueCat identifier as authorization. The design must let Better Auth own auth identity, keep RevenueCat on a server-owned stable billing identity, and preserve Workout Agent-owned state without a cross-system transaction.
+The identity change affects more than auth. PostgreSQL usage, quota, and billing rows use the Better Auth user ID as owner, the planned mobile data-isolation change derives its local scope from that ID, and the mobile billing client must not treat a client-reported RevenueCat identifier as authorization. The design must let Better Auth own auth identity, keep RevenueCat on a server-owned stable billing identity, and preserve Leveza-owned state without a cross-system transaction.
 
 ## Goals / Non-Goals
 
@@ -70,7 +70,7 @@ Alternative considered: float Better Auth packages independently within `^1.7`. 
 
 ### 2. Better Auth owns A-to-B authentication lifecycle
 
-Email uses the standard `signUp.email`/`signIn.email` paths and Google uses `signIn.social`. When the current verified session belongs to anonymous A, the anonymous plugin's `onLinkAccount` callback receives A and B. Better Auth owns B's verified email, name, image, provider account, sessions, and deletion of A. Workout Agent does not parse Google identity tokens to patch user fields and does not call a custom credential-transfer endpoint.
+Email uses the standard `signUp.email`/`signIn.email` paths and Google uses `signIn.social`. When the current verified session belongs to anonymous A, the anonymous plugin's `onLinkAccount` callback receives A and B. Better Auth owns B's verified email, name, image, provider account, sessions, and deletion of A. Leveza does not parse Google identity tokens to patch user fields and does not call a custom credential-transfer endpoint.
 
 The implementation includes an upstream-contract integration suite against the exact pinned 1.7 version. Shipping account transition is blocked unless tests prove that:
 
@@ -82,7 +82,7 @@ The implementation includes an upstream-contract integration suite against the e
 
 Alternative considered: keep A and manually attach credentials. Rejected because it duplicates Better Auth internals and makes every auth schema change part of our maintenance surface.
 
-### 3. One application transaction moves only Workout Agent-owned rows
+### 3. One application transaction moves only Leveza-owned rows
 
 Add an application-owned `account_transition` ledger keyed by source user ID, with target user ID, method, state, timestamps, and a redacted failure classification. Its source and target identifiers are retained as values rather than cascading foreign keys so the record survives Better Auth's deletion of A.
 
@@ -102,7 +102,7 @@ Alternative considered: update foreign keys opportunistically without a ledger/w
 
 ### 4. Existing-account sign-in discards anonymous state instead of merging it
 
-The lean first release automatically transitions only when B owns no Workout Agent application or billing state. That includes a newly created email/Google account and an existing auth identity that has never used application features.
+The lean first release automatically transitions only when B owns no Leveza application or billing state. That includes a newly created email/Google account and an existing auth identity that has never used application features.
 
 If B already owns application or billing state, `onLinkAccount` fails before moving A or allowing A to be deleted. Mobile then discards A's anonymous server and local state and signs in to B independently without linking or merging the accounts. This remains the ordinary sign-in path: no separate recovery screen or confirmation flow is required because signing in expresses the user's intent to use B's account and data.
 
@@ -132,7 +132,7 @@ Alternative considered: rename/copy the SQLite file and every SecureStore key fr
 
 ### 6. A server-owned RevenueCat identity C remains stable across A-to-B
 
-Authenticated billing bootstrap accepts no client-selected customer ID. Under the account ownership write guard, the server creates or returns one UUIDv7-based opaque canonical RevenueCat App User ID C for the current Workout Agent account and stores it separately from webhook-observed aliases. The bootstrap response exposes C only so the authenticated mobile installation can configure the RevenueCat SDK; entitlements and usage reads never create mappings.
+Authenticated billing bootstrap accepts no client-selected customer ID. Under the account ownership write guard, the server creates or returns one UUIDv7-based opaque canonical RevenueCat App User ID C for the current Leveza account and stores it separately from webhook-observed aliases. The bootstrap response exposes C only so the authenticated mobile installation can configure the RevenueCat SDK; entitlements and usage reads never create mappings.
 
 Mobile configures RevenueCat, obtains C from bootstrap, and compares C with `Purchases.getAppUserID()`. If they differ it calls `Purchases.logIn(C)`, then reads the SDK identity again. Purchase, restore, and Customer Center remain unavailable until the exact identity matches. The operation is retryable because C is durable: after an ambiguous failure, a retry either observes C already active or logs in to the same C. It does not infer success from a mutable entitlement snapshot.
 

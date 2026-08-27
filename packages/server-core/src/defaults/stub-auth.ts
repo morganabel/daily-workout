@@ -8,7 +8,7 @@ import type { AuthProvider, AuthResult } from '../types';
  * there's no server-side session management. This allows development and
  * self-hosted deployments to work without database configuration.
  *
- * Production hosted deployments should use BetterAuthProvider from @workout-agent-ce/server-auth.
+ * Production hosted deployments should use BetterAuthProvider from @leveza/server-auth.
  */
 export class StubAuthProvider implements AuthProvider {
   async authenticate(request: Request): Promise<AuthResult | null> {

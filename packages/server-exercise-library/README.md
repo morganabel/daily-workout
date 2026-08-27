@@ -1,4 +1,4 @@
-# @workout-agent-ce/server-exercise-library
+# @leveza/server-exercise-library
 
 Server-only exercise library package for deterministic workout-generation candidate selection.
 

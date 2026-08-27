@@ -8,7 +8,7 @@ import {
   type MeteringSink,
   type ModelCallUsage,
   type UsageEvent,
-} from '@workout-agent-ce/metering';
+} from '@leveza/metering';
 import {
   InMemoryGenerationStore,
   StubAuthProvider,
@@ -21,12 +21,12 @@ import {
   type StageOnePlanner,
   type StageOnePlanningOptions,
   type StageOnePlannerArtifact,
-} from '@workout-agent-ce/server-core';
+} from '@leveza/server-core';
 import {
   DefaultModelRouter,
   DefaultStageOnePlanner,
-} from '@workout-agent-ce/server-ai';
-import type { ExerciseLibrary } from '@workout-agent-ce/server-exercise-library';
+} from '@leveza/server-ai';
+import type { ExerciseLibrary } from '@leveza/server-exercise-library';
 import {
   generationEvaluationReportSchema,
   type GenerationEvaluationAverageLatency,
@@ -43,8 +43,8 @@ import {
   type GenerationRequest,
   workoutGenerationEvaluationCorpus,
   workoutGenerationEvaluationScenarios,
-} from '@workout-agent/shared';
-import { createTodayPlanFixture } from '@workout-agent/shared/testing';
+} from '@leveza/shared';
+import { createTodayPlanFixture } from '@leveza/shared/testing';
 
 export type GenerationEvaluationRunOptions = {
   providers: GenerationEvaluationProvider[];
@@ -396,7 +396,7 @@ function createHandlerBundle(
           // Keep the SQLite-backed exercise library behind the same lazy
           // boundary used by normal server wiring.
           const { openExerciseLibrary } = await import(
-            '@workout-agent-ce/server-exercise-library'
+            '@leveza/server-exercise-library'
           );
           exerciseLibrary = openExerciseLibrary();
         }

@@ -1,5 +1,5 @@
 import * as SecureStore from 'expo-secure-store';
-import type { AiProvider } from '@workout-agent/shared';
+import type { AiProvider } from '@leveza/shared';
 import { getActiveStorageScopeId } from '../db/activeDatabase';
 
 const LEGACY_BYOK_KEY = 'byokApiKey';

@@ -8,7 +8,7 @@ import {
 const domainConfig: RevenueCatDomainConfig = {
   allowedAppIds: new Set(['app.test']),
   allowedEnvironments: new Set(['SANDBOX']),
-  allowedEntitlementIds: new Set(['OpenLift Pro']),
+  allowedEntitlementIds: new Set(['Leveza Pro']),
   allowedProductIds: new Set(['monthly']),
 };
 
@@ -19,7 +19,7 @@ const event = (overrides: Record<string, unknown> = {}) => ({
   app_id: 'app.test',
   environment: 'SANDBOX' as const,
   app_user_id: 'rc-user-1',
-  entitlement_ids: ['OpenLift Pro'],
+  entitlement_ids: ['Leveza Pro'],
   product_id: 'monthly',
   expiration_at_ms: Date.parse('2026-09-02T12:00:00.000Z'),
   ...overrides,
@@ -42,7 +42,7 @@ describe('RevenueCat normalization', () => {
       appId: 'app.test',
       environment: 'SANDBOX',
       customerIds: ['rc-user-1'],
-      entitlementIds: ['OpenLift Pro'],
+      entitlementIds: ['Leveza Pro'],
       productId: 'monthly',
       expiresAt: '2026-09-02T12:00:00.000Z',
       willRenew: true,

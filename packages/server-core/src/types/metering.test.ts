@@ -2,7 +2,7 @@ import {
   buildGenerationUsageSummary,
   estimateModelCallCost,
   type ModelCallUsage,
-} from '@workout-agent-ce/metering';
+} from '@leveza/metering';
 
 describe('model usage accounting', () => {
   it('prices cached and uncached OpenAI input separately', () => {

@@ -22,7 +22,7 @@ import type {
   UserPreferences,
   WorkoutEnergy,
   WorkoutSessionSummary,
-} from '@workout-agent/shared';
+} from '@leveza/shared';
 import NetInfo from '@react-native-community/netinfo';
 import { getActiveRepositories } from '../db/activeDatabase';
 import type Workout from '../db/models/Workout';

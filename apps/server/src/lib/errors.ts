@@ -6,9 +6,9 @@ import type {
   ApiError,
   ApiErrorCode,
   UpgradeMetadata,
-} from '@workout-agent/shared';
+} from '@leveza/shared';
 
-export type { ApiError, ApiErrorCode } from '@workout-agent/shared';
+export type { ApiError, ApiErrorCode } from '@leveza/shared';
 
 export function createErrorResponse(
   code: ApiErrorCode,

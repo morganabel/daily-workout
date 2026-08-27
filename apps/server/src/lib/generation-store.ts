@@ -1,8 +1,8 @@
 import type {
   GenerationStatus,
   TodayPlan,
-} from '@workout-agent/shared';
-import type { LlmSchemaVersion } from '@workout-agent-ce/server-ai';
+} from '@leveza/shared';
+import type { LlmSchemaVersion } from '@leveza/server-ai';
 
 export type GenerationState = {
   plan: TodayPlan | null;

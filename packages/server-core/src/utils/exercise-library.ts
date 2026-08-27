@@ -3,13 +3,13 @@ import type {
   CandidateResult,
   ExerciseLibrary,
   LoadLevel,
-} from '@workout-agent-ce/server-exercise-library';
+} from '@leveza/server-exercise-library';
 import {
   isAutoFocus,
   normalizeEquipmentSelection,
   type GenerationContext,
   type TodayPlan,
-} from '@workout-agent/shared';
+} from '@leveza/shared';
 import type { ExerciseCandidatePool } from '../types/model-router';
 import type { PlanningBrief, StageOnePlannerArtifact } from '../types/planning';
 import type { GenerationRequestWithContext } from './context';

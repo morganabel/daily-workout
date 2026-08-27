@@ -48,7 +48,7 @@ When a verified anonymous Better Auth user A registers or signs in with a suppor
 
 ### Requirement: Transactional Application Ownership Migration
 
-The server MUST migrate all eligible Workout Agent-owned PostgreSQL records from A to B in one transaction. The transaction MUST serialize with user-owned writes, MUST be idempotent for the same A/B pair, and MUST reject a conflicting target. It MUST move usage events, included-generation windows/reservations, RevenueCat customer mappings, attributed billing webhooks, and the entitlement projection together, preserve dependent model-call relationships, and MUST NOT perform external network calls.
+The server MUST migrate all eligible Leveza-owned PostgreSQL records from A to B in one transaction. The transaction MUST serialize with user-owned writes, MUST be idempotent for the same A/B pair, and MUST reject a conflicting target. It MUST move usage events, included-generation windows/reservations, RevenueCat customer mappings, attributed billing webhooks, and the entitlement projection together, preserve dependent model-call relationships, and MUST NOT perform external network calls.
 
 #### Scenario: Eligible state moves atomically
 
@@ -125,7 +125,7 @@ Anonymous A MAY own a server-generated opaque canonical RevenueCat identity C, r
 
 ### Requirement: Existing Account Sign-In Does Not Merge Anonymous State
 
-The first release MUST automatically transition A only when B owns no Workout Agent application or billing state. If B already owns state, the system MUST NOT combine A with B. It MUST discard A's anonymous server and local state and sign in to B independently through the ordinary sign-in path.
+The first release MUST automatically transition A only when B owns no Leveza application or billing state. If B already owns state, the system MUST NOT combine A with B. It MUST discard A's anonymous server and local state and sign in to B independently through the ordinary sign-in path.
 
 #### Scenario: Existing target owns application state
 
@@ -136,7 +136,7 @@ The first release MUST automatically transition A only when B owns no Workout Ag
 
 #### Scenario: Existing auth-only target is empty
 
-- **GIVEN** credentialed B exists but owns no Workout Agent application or billing state
+- **GIVEN** credentialed B exists but owns no Leveza application or billing state
 - **WHEN** A signs in to B and Better Auth invokes the transition callback
 - **THEN** A's eligible application state may transition to B under the same atomic rules as a fresh account
 

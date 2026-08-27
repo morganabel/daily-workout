@@ -37,10 +37,10 @@ Acceptance criteria:
 
 Verification:
 
-- [x] 1.9 Run `nx test @workout-agent-ce/server-core`.
-- [x] 1.10 Run `nx test @workout-agent-ce/server`.
-- [x] 1.11 Run `nx run @workout-agent-ce/server-core:typecheck` and `nx run @workout-agent-ce/server:typecheck`.
-- [x] 1.12 Run `nx build @workout-agent-ce/server`.
+- [x] 1.9 Run `nx test @leveza/server-core`.
+- [x] 1.10 Run `nx test @leveza/server`.
+- [x] 1.11 Run `nx run @leveza/server-core:typecheck` and `nx run @leveza/server:typecheck`.
+- [x] 1.12 Run `nx build @leveza/server`.
 
 ## G2 - Candidate Safety And Direct Semantic Enforcement
 
@@ -68,9 +68,9 @@ Acceptance criteria:
 Verification:
 
 - [ ] 2.14 Run `nx test server-exercise-library` and `nx run server-exercise-library:validate-library`.
-- [ ] 2.15 Run `nx test @workout-agent-ce/server-core` and `nx test @workout-agent-ce/server-ai`.
-- [ ] 2.16 Run `nx run server-exercise-library:typecheck`, `nx run @workout-agent-ce/server-core:typecheck`, and `nx run @workout-agent-ce/server-ai:typecheck`.
-- [ ] 2.17 Run `nx build @workout-agent-ce/server`.
+- [ ] 2.15 Run `nx test @leveza/server-core` and `nx test @leveza/server-ai`.
+- [ ] 2.16 Run `nx run server-exercise-library:typecheck`, `nx run @leveza/server-core:typecheck`, and `nx run @leveza/server-ai:typecheck`.
+- [ ] 2.17 Run `nx build @leveza/server`.
 
 ## G3 - Bounded Request And Prompt Inputs
 
@@ -94,10 +94,10 @@ Acceptance criteria:
 
 Verification:
 
-- [ ] 3.11 Run `nx test @workout-agent/shared` and `nx run @workout-agent/shared:typecheck`.
-- [ ] 3.12 Run `nx test @workout-agent-ce/server-core` and `nx run @workout-agent-ce/server-core:typecheck`.
-- [ ] 3.13 Run `nx test @workout-agent-ce/server-ai` and `nx run @workout-agent-ce/server-ai:typecheck`.
-- [ ] 3.14 Run `nx build @workout-agent-ce/server`.
+- [ ] 3.11 Run `nx test @leveza/shared` and `nx run @leveza/shared:typecheck`.
+- [ ] 3.12 Run `nx test @leveza/server-core` and `nx run @leveza/server-core:typecheck`.
+- [ ] 3.13 Run `nx test @leveza/server-ai` and `nx run @leveza/server-ai:typecheck`.
+- [ ] 3.14 Run `nx build @leveza/server`.
 
 ## G4 - Provider Deadlines, Cancellation, Retries, And Output Caps
 
@@ -121,9 +121,9 @@ Acceptance criteria:
 
 Verification:
 
-- [ ] 4.11 Run `nx test @workout-agent-ce/server-ai` and `nx test @workout-agent-ce/server-core`.
-- [ ] 4.12 Run `nx run @workout-agent-ce/server-ai:typecheck` and `nx run @workout-agent-ce/server-core:typecheck`.
-- [ ] 4.13 Run `nx test @workout-agent-ce/server` and `nx build @workout-agent-ce/server`.
+- [ ] 4.11 Run `nx test @leveza/server-ai` and `nx test @leveza/server-core`.
+- [ ] 4.12 Run `nx run @leveza/server-ai:typecheck` and `nx run @leveza/server-core:typecheck`.
+- [ ] 4.13 Run `nx test @leveza/server` and `nx build @leveza/server`.
 
 ## G5 - Attempt Lifecycle And Optional Idempotency
 
@@ -152,13 +152,13 @@ Acceptance criteria:
 
 Verification:
 
-- [ ] 5.13 Run `nx test @workout-agent-ce/server-core` and `nx run @workout-agent-ce/server-core:typecheck`.
-- [ ] 5.14 Run `nx test @workout-agent-ce/server` and `nx run @workout-agent-ce/server:typecheck`.
-- [ ] 5.15 Run `nx build @workout-agent-ce/server`.
+- [ ] 5.13 Run `nx test @leveza/server-core` and `nx run @leveza/server-core:typecheck`.
+- [ ] 5.14 Run `nx test @leveza/server` and `nx run @leveza/server:typecheck`.
+- [ ] 5.15 Run `nx build @leveza/server`.
 
 ## Final Change Verification
 
-- [ ] 6.1 Run `nx run-many -t lint,typecheck,test,build --projects=@workout-agent/shared,@workout-agent-ce/server-core,@workout-agent-ce/server-ai,server-exercise-library,@workout-agent-ce/server`.
+- [ ] 6.1 Run `nx run-many -t lint,typecheck,test,build --projects=@leveza/shared,@leveza/server-core,@leveza/server-ai,server-exercise-library,@leveza/server`.
 - [ ] 6.2 Run `nx run server-exercise-library:validate-library`.
 - [ ] 6.3 Run the native Node package-import smoke target introduced by `harden-package-and-ci-integrity` for `shared`, `server-core`, `server-ai`, and `server-exercise-library`.
 - [ ] 6.4 Verify the consolidated `apps/server` composition compiles in self-hosted and hosted deployment modes against credential provenance, execution-budget, canonical quota/metering, and attempt-store interfaces.

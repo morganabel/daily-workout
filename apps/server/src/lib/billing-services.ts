@@ -1,7 +1,4 @@
-import {
-  MODEL_PRICING,
-  type MeteringSink,
-} from '@workout-agent-ce/metering';
+import { MODEL_PRICING, type MeteringSink } from '@leveza/metering';
 import {
   InMemoryProviderAdmission,
   type EntitlementProjection,
@@ -9,13 +6,13 @@ import {
   type SpendCeilingPolicy,
   type UpgradeMetadata,
   type UsagePolicy,
-} from '@workout-agent-ce/quotas';
+} from '@leveza/quotas';
 import {
   PostgresBillingRepository,
   PostgresMeteringSink,
   PostgresSpendCeilingPolicy,
-} from '@workout-agent-ce/server-db';
-import type { BillingEntitlementsResponse } from '@workout-agent/shared';
+} from '@leveza/server-db';
+import type { BillingEntitlementsResponse } from '@leveza/shared';
 import { getAuthContext } from './auth-context';
 import {
   getBillingConfig,
@@ -105,19 +102,25 @@ export function configuredPricingAvailable(
 export function quotaUpgradeMetadata(
   config: Pick<
     RevenueCatBillingConfig,
-    'showUpgradeUi' | 'domainConfig' | 'defaultOfferingId'
+    | 'showUpgradeUi'
+    | 'domainConfig'
+    | 'upgradeEntitlementId'
+    | 'defaultOfferingId'
   >
 ): UpgradeMetadata {
   if (!config.showUpgradeUi) {
     return { showUpgradeUi: false, purchaseMethod: 'none' };
   }
-  return {
+  const upgrade: UpgradeMetadata = {
     showUpgradeUi: true,
     purchaseMethod: 'iap',
-    entitlementId: [...config.domainConfig.allowedEntitlementIds][0],
-    offeringId: config.defaultOfferingId,
+    entitlementId: config.upgradeEntitlementId,
     productIds: [...config.domainConfig.allowedProductIds],
   };
+  if (config.defaultOfferingId !== undefined) {
+    upgrade.offeringId = config.defaultOfferingId;
+  }
+  return upgrade;
 }
 
 async function createRevenueCatBillingServices(

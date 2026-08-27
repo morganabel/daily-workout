@@ -1,8 +1,8 @@
-# 🏋️‍♂️ Workout Agent — Vision
+# 🏋️‍♂️ Leveza — Vision
 
 ## Why We Exist
 
-**Workout Agent** is a minimalist, open-source workout companion that feels like a personal trainer with memory.
+**Leveza** is a minimalist, open-source workout companion that feels like a personal trainer with memory.
 Tap a few bubbles, get a workout that fits your time, equipment, and recent training — no friction, no homework.
 
 ---

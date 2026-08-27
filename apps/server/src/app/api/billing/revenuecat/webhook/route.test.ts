@@ -5,7 +5,7 @@ jest.mock('@/lib/billing-config', () => ({
     domainConfig: {
       allowedAppIds: new Set(['app.test']),
       allowedEnvironments: new Set(['SANDBOX', 'PRODUCTION']),
-      allowedEntitlementIds: new Set(['OpenLift Pro']),
+      allowedEntitlementIds: new Set(['Leveza Pro']),
       allowedProductIds: new Set(['monthly']),
     },
   })),
@@ -33,7 +33,7 @@ function event(overrides: Record<string, unknown> = {}) {
     environment: 'SANDBOX',
     app_user_id: 'rc-user-123',
     product_id: 'monthly',
-    entitlement_ids: ['OpenLift Pro'],
+    entitlement_ids: ['Leveza Pro'],
     expiration_at_ms: Date.parse('2026-09-02T12:00:00.000Z'),
     ...overrides,
   };

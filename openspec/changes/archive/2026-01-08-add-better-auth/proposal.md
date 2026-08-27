@@ -12,7 +12,7 @@ The current authentication uses a stub provider that accepts any bearer token. T
 - **Auth-mode selection algorithm:** Deterministic resolution of auth mode based on `AUTH_MODE` env var and `DATABASE_URL` presence, reusable by EE verbatim.
 - **Fail-closed hosted auth:** When `EDITION=HOSTED`, the server MUST crash at startup if Better Auth is not configured (no silent stub fallback).
 - **No identity from arbitrary headers:** In Better Auth mode, identity MUST come from validating the bearer session, not from `x-user-id` or similar headers.
-- **Add `/api/meta` endpoint:** Capabilities discovery endpoint returning auth methods available, protocol version, and feature flags. Enables clients to detect backend capabilities before auth. Response schema (`MetaResponse`) exported from `@workout-agent-ce/shared` for type-safe client consumption.
+- **Add `/api/meta` endpoint:** Capabilities discovery endpoint returning auth methods available, protocol version, and feature flags. Enables clients to detect backend capabilities before auth. Response schema (`MetaResponse`) exported from `@leveza/shared` for type-safe client consumption.
 - **Backward-compatible stub auth (CE/dev):** Preserve stub behavior for DB-less development/self-hosting.
 - **Add mobile auth client:** Integrate `@better-auth/expo` with SecureStore, using `storagePrefix` derived from canonical backend URL for per-backend session isolation.
 - **Anonymous-to-email linking:** When upgrading from anonymous to email/password, the system preserves the same `userId` for metering/billing continuity.

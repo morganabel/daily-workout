@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import type { CalendarItem } from '@workout-agent/shared';
+import type { CalendarItem } from '@leveza/shared';
 import { palette } from '../theme';
 import { endOfDay, formatLocalDate, parseLocalDate, startOfDay } from './date';
 

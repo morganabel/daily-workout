@@ -1,7 +1,7 @@
 import React from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import type { AdaptiveTargetRange, UserPreferences } from '@workout-agent/shared';
+import type { AdaptiveTargetRange, UserPreferences } from '@leveza/shared';
 import { Card } from '../components/DesignSystem';
 import { palette } from '../theme';
 import { styles } from './settingsStyles';

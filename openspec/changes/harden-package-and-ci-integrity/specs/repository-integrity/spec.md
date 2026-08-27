@@ -52,7 +52,7 @@ Every workspace package that advertises a built ESM export MUST be importable by
 #### Scenario: Plain Node imports all public package roots
 
 - **GIVEN** all workspace libraries have completed a clean build
-- **WHEN** a Node ESM process imports each package root and `@workout-agent/shared/testing`
+- **WHEN** a Node ESM process imports each package root and `@leveza/shared/testing`
 - **THEN** every import resolves from built output and completes without a module-resolution error
 
 #### Scenario: Invalid internal specifier is introduced

@@ -1,6 +1,6 @@
 import React from 'react';
 import { act, render, screen } from '@testing-library/react-native';
-import type { MetaResponse } from '@workout-agent/shared';
+import type { MetaResponse } from '@leveza/shared';
 
 import { LaunchScreen } from './LaunchScreen';
 import { resolveStartupServerCapabilities } from './services/server-capabilities';
@@ -79,6 +79,7 @@ const capabilities: MetaResponse = {
     showUpgradeUi: false,
     purchaseMethod: 'none',
     allowByok: true,
+    upgradeEntitlementId: null,
   },
 };
 
@@ -112,5 +113,6 @@ describe('LaunchScreen', () => {
     });
 
     expect(screen.getByText('Welcome')).toBeTruthy();
+    expect(screen.getByText('Leveza')).toBeTruthy();
   });
 });

@@ -1,7 +1,7 @@
 import React from 'react';
 import { render, fireEvent, act } from '@testing-library/react-native';
 import { ActiveWorkoutScreen } from './ActiveWorkoutScreen';
-import { createWorkoutExerciseLogFixture } from '@workout-agent/shared/testing';
+import { createWorkoutExerciseLogFixture } from '@leveza/shared/testing';
 import { Alert } from 'react-native';
 
 const mockReset = jest.fn();
@@ -24,7 +24,7 @@ const mockWorkoutRepository = {
 jest.mock('@react-navigation/native', () => {
   const actual = jest.requireActual('@react-navigation/native');
   const { createTodayPlanFixture: planMockFactory } = jest.requireActual(
-    '@workout-agent/shared/testing'
+    '@leveza/shared/testing'
   );
   return {
     ...actual,

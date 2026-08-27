@@ -13,8 +13,8 @@ import {
   AccountTransitionError,
   transitionAnonymousAccount,
   type Database,
-} from '@workout-agent-ce/server-db';
-import { schema } from '@workout-agent-ce/server-db';
+} from '@leveza/server-db';
+import { schema } from '@leveza/server-db';
 
 import { createBetterAuthOptions } from './better-auth-options.js';
 import { createAuth } from './auth.js';
@@ -237,7 +237,7 @@ async function seedUsage(userId: string): Promise<void> {
 
 beforeAll(async () => {
   container = await new PostgreSqlContainer('postgres:18-alpine')
-    .withDatabase('workout_agent_auth_contract_test')
+    .withDatabase('leveza_auth_contract_test')
     .withUsername('test')
     .withPassword('test')
     .start();

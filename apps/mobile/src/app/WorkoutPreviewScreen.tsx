@@ -14,7 +14,7 @@ import {
 } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
-import type { TodayPlan, GenerationRequest } from '@workout-agent/shared';
+import type { TodayPlan, GenerationRequest } from '@leveza/shared';
 import { Ionicons } from '@expo/vector-icons';
 import { RootStackParamList } from './navigation';
 import { generateWorkout, type ApiError } from './services/api';

@@ -14,7 +14,7 @@
 
 <!-- nx configuration end-->
 
-# Workout Agent CE - Agent Notes
+# Leveza - Agent Notes
 
 ## Quick Orientation
 
@@ -75,7 +75,7 @@
 ### Imports & Modules
 
 - Prefer absolute imports for server routes using `@/` alias.
-- Prefer package imports for shared contracts: `@workout-agent/shared`.
+- Prefer package imports for shared contracts: `@leveza/shared`.
 - Group imports: external, internal, local; keep type imports with their source.
 
 ### React / Expo

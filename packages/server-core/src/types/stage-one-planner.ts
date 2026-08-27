@@ -5,7 +5,7 @@ import type {
   AiProviderName,
   GenerationContext,
   GenerationRequest,
-} from '@workout-agent/shared';
+} from '@leveza/shared';
 
 export interface StageOnePlanningOptions {
   apiKey?: string;

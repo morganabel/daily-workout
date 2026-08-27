@@ -1,5 +1,5 @@
-import type { AiProviderName } from '@workout-agent/shared';
-import type { ModelCredentialSource } from '@workout-agent-ce/metering';
+import type { AiProviderName } from '@leveza/shared';
+import type { ModelCredentialSource } from '@leveza/metering';
 
 export type ProviderCredentialSource = ModelCredentialSource | 'none';
 

@@ -36,7 +36,7 @@ Non-Goals:
 
 ### Proposed shared contracts (draft)
 
-These are intended to live in `@workout-agent/shared` as Zod schemas + types.
+These are intended to live in `@leveza/shared` as Zod schemas + types.
 
 #### Canonical Event Kinds
 

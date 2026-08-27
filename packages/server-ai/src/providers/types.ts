@@ -4,14 +4,14 @@ import type {
   ModelPromptCapture,
   PlanningBrief,
   StageOnePlannerArtifact,
-} from '@workout-agent-ce/server-core';
+} from '@leveza/server-core';
 import type {
   GenerationRequest,
   GenerationContext,
   TodayPlan,
-} from '@workout-agent/shared';
+} from '@leveza/shared';
 import type { LlmSchemaVersion } from '../llm-transformer';
-import type { ModelCallRecorder } from '@workout-agent-ce/metering';
+import type { ModelCallRecorder } from '@leveza/metering';
 
 export type AiProviderName = 'openai' | 'gemini' | 'openrouter';
 

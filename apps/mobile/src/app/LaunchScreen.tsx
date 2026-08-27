@@ -28,7 +28,7 @@ import {
 } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
-import type { AiProvider } from '@workout-agent/shared';
+import type { AiProvider } from '@leveza/shared';
 
 import type { RootStackParamList } from './navigation';
 import {
@@ -256,7 +256,7 @@ export const LaunchScreen: React.FC = () => {
             </Text>
           </View>
 
-          <Text style={styles.title}>Workout Agent</Text>
+          <Text style={styles.title}>Leveza</Text>
 
           <Text style={styles.subtitle}>
             Create an account to sync across devices, or explore instantly with

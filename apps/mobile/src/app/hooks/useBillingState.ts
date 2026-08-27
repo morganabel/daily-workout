@@ -2,11 +2,11 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import type {
   BillingCapabilities,
   BillingEntitlementsResponse,
-} from '@workout-agent/shared';
+} from '@leveza/shared';
 import {
   createBillingCapabilities,
   resolveBillingCapabilities,
-} from '@workout-agent/shared';
+} from '@leveza/shared';
 import { fetchServerCapabilities, authClient } from '../services/auth-client';
 import {
   fetchBillingEntitlements,
@@ -144,7 +144,7 @@ export function useBillingState(): UseBillingStateResult {
     setClientReady(false);
 
     const initializeBilling = async () => {
-      if (client.type !== 'revenuecat') {
+      if (!capabilities.enabled) {
         if (active) {
           setEntitlements(null);
           setClientReady(true);
@@ -152,7 +152,7 @@ export function useBillingState(): UseBillingStateResult {
         return;
       }
 
-      if (!REVENUECAT_API_KEY) {
+      if (client.type === 'revenuecat' && !REVENUECAT_API_KEY) {
         if (active) {
           setError(
             'RevenueCat is enabled but EXPO_PUBLIC_REVENUECAT_API_KEY is missing.'
@@ -164,15 +164,17 @@ export function useBillingState(): UseBillingStateResult {
       try {
         if (!(await waitForAuthenticatedSession())) {
           throw new Error(
-            'Preparing your account for purchases. Please try again in a moment.'
+            'Preparing your account. Please try again in a moment.'
           );
         }
 
-        const identity = await fetchBillingIdentity();
-        await client.initialize({
-          apiKey: REVENUECAT_API_KEY,
-          appUserId: identity.appUserId,
-        });
+        if (client.type === 'revenuecat') {
+          const identity = await fetchBillingIdentity();
+          await client.initialize({
+            apiKey: REVENUECAT_API_KEY,
+            appUserId: identity.appUserId,
+          });
+        }
         const latest = await fetchBillingEntitlements();
 
         if (active) {
@@ -197,7 +199,7 @@ export function useBillingState(): UseBillingStateResult {
       active = false;
       if (initTimer) clearTimeout(initTimer);
     };
-  }, [client]);
+  }, [capabilities.enabled, client]);
 
   return {
     capabilities,
@@ -207,7 +209,10 @@ export function useBillingState(): UseBillingStateResult {
     error,
     client,
     clientReady,
-    showUpgradeUi: capabilities.enabled && capabilities.showUpgradeUi,
+    showUpgradeUi:
+      capabilities.enabled &&
+      capabilities.showUpgradeUi &&
+      capabilities.upgradeEntitlementId !== null,
     refreshEntitlements,
   };
 }

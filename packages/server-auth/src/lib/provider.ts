@@ -5,8 +5,8 @@
  * with userId (account-level) and principalId (device/session-scoped).
  */
 
-import type { AuthProvider, AuthResult } from '@workout-agent-ce/server-core';
-import { createLogger, redactSensitiveStrings } from '@workout-agent-ce/server-core';
+import type { AuthProvider, AuthResult } from '@leveza/server-core';
+import { createLogger, redactSensitiveStrings } from '@leveza/server-core';
 import type { Auth } from './auth.js';
 
 /**

@@ -9,6 +9,8 @@ export const billingCapabilitiesSchema = z
     showUpgradeUi: z.boolean(),
     purchaseMethod: billingPurchaseMethodSchema,
     allowByok: z.boolean(),
+    /** Public RevenueCat entitlement used to gate the upgrade paywall. */
+    upgradeEntitlementId: z.string().min(1).nullable().default(null),
   })
   .strict();
 
@@ -19,6 +21,7 @@ const BILLING_DEFAULTS: BillingCapabilities = {
   showUpgradeUi: false,
   purchaseMethod: 'none',
   allowByok: true,
+  upgradeEntitlementId: null,
 };
 
 export function createBillingCapabilities(

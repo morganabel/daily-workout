@@ -4,7 +4,7 @@ import {
   type AdaptiveTrainingBlock,
   type AdaptiveTrainingPlan,
   type UserPreferences,
-} from '@workout-agent/shared';
+} from '@leveza/shared';
 
 export const formatLabel = (value: string): string =>
   value

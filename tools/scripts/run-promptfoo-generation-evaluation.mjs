@@ -222,7 +222,7 @@ function loadBridgeData(options) {
   const code = `
     const options = JSON.parse(process.env.PROMPTFOO_GENERATION_OPTIONS_JSON);
     const availability = JSON.parse(process.env.PROMPTFOO_GENERATION_AVAILABILITY_JSON);
-    const bridge = await import('@workout-agent/shared');
+    const bridge = await import('@leveza/shared');
     const scenarios = bridge.selectPromptfooGenerationScenarios(options);
     const tests = bridge.buildPromptfooGenerationTestCases(options);
     const preflight = bridge.buildPromptfooGenerationPreflightSummary({
@@ -246,7 +246,7 @@ function loadBridgeData(options) {
   const result = spawnSync(
     process.execPath,
     [
-      '--conditions=@workout-agent-ce/source',
+      '--conditions=@leveza/source',
       '--loader',
       'ts-node/esm',
       '--experimental-specifier-resolution=node',

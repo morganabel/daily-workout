@@ -3,7 +3,7 @@ import type {
   TodayPlan,
   WorkoutBlock,
   WorkoutExercise,
-} from '@workout-agent/shared';
+} from '@leveza/shared';
 
 export type WorkoutRowLike = {
   id?: string | null;

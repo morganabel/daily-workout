@@ -2,8 +2,8 @@ import {
   createAdaptiveTrainingPlanFromTemplate,
   type AdaptiveTrainingPlan,
   type CoachSessionAction,
-} from '@workout-agent/shared';
-import { createSessionSummaryFixture } from '@workout-agent/shared/testing';
+} from '@leveza/shared';
+import { createSessionSummaryFixture } from '@leveza/shared/testing';
 import {
   deriveCoachProjection,
   deriveCoachProjectionCycleIndex,

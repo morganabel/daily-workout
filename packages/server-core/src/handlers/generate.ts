@@ -17,7 +17,7 @@ import type {
   ProviderAdmissionLease,
   ProviderAdmissionPolicy,
   SpendCeilingPolicy,
-} from '@workout-agent-ce/quotas';
+} from '@leveza/quotas';
 import { createErrorResponse } from '../utils/errors';
 import {
   loadGenerationContext,
@@ -36,13 +36,13 @@ import {
   type TodayPlan,
   type WorkoutCatalogProvenance,
   type WorkoutCreationMode,
-} from '@workout-agent/shared';
+} from '@leveza/shared';
 import type {
   ExerciseLibrary,
   WorkoutCatalogEnergy,
   WorkoutCatalogMatch,
   WorkoutCatalogQuery,
-} from '@workout-agent-ce/server-exercise-library';
+} from '@leveza/server-exercise-library';
 import {
   attachRequestId,
   createRequestContext,
@@ -53,7 +53,7 @@ import {
   buildGenerationUsageSummary,
   type ModelCallUsage,
   type ModelCredentialSource,
-} from '@workout-agent-ce/metering';
+} from '@leveza/metering';
 
 const DEFAULT_GENERATION_ETA_SECONDS = 18;
 const CATALOG_RECIPE_COOLDOWN_DAYS = 7;

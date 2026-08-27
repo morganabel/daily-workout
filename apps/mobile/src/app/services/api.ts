@@ -1,5 +1,5 @@
 /**
- * API client for workout agent backend
+ * API client for the Leveza backend
  */
 
 import type {
@@ -13,12 +13,12 @@ import type {
   WorkoutSessionSummary,
   GenerationContext,
   UserPreferences,
-} from '@workout-agent/shared';
+} from '@leveza/shared';
 import {
   apiErrorSchema,
   normalizeEquipmentSelection,
   resolveWorkoutCreationMode,
-} from '@workout-agent/shared';
+} from '@leveza/shared';
 import { getDeviceToken } from '../storage/deviceToken';
 import { getByokConfig } from '../storage/byokKey';
 import { getActiveRepositories } from '../db/activeDatabase';
@@ -36,7 +36,7 @@ import { backendDescriptor } from './backendDescriptor';
 
 const API_BASE_URL = backendDescriptor.baseURL;
 
-export type { ApiError } from '@workout-agent/shared';
+export type { ApiError } from '@leveza/shared';
 
 /**
  * Get the authentication headers for API requests.

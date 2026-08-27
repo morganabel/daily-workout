@@ -36,6 +36,7 @@ describe('meta contract billing compatibility', () => {
       showUpgradeUi: false,
       purchaseMethod: 'none',
       allowByok: true,
+      upgradeEntitlementId: null,
     });
   });
 
@@ -47,6 +48,7 @@ describe('meta contract billing compatibility', () => {
         enabled: true,
         showUpgradeUi: true,
         purchaseMethod: 'iap',
+        upgradeEntitlementId: 'Leveza Pro',
       })
     );
 
@@ -54,6 +56,7 @@ describe('meta contract billing compatibility', () => {
     expect(parsed.billing?.enabled).toBe(true);
     expect(parsed.billing?.showUpgradeUi).toBe(true);
     expect(parsed.billing?.purchaseMethod).toBe('iap');
+    expect(parsed.billing?.upgradeEntitlementId).toBe('Leveza Pro');
   });
 
   it('defaults Google capability to unavailable for legacy responses', () => {

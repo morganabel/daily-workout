@@ -1,12 +1,12 @@
 import type {
   ExerciseCandidatePool,
   StageOnePlannerArtifact,
-} from '@workout-agent-ce/server-core';
+} from '@leveza/server-core';
 import type {
   GenerationContext,
   GenerationRequest,
   LlmTodayPlan,
-} from '@workout-agent/shared';
+} from '@leveza/shared';
 import {
   getDefaultSchemaVersion,
   transformLlmResponse,
@@ -28,7 +28,7 @@ jest.mock('../llm-transformer', () => {
     getDefaultSchemaVersion: jest.fn(() => 'v1-current'),
     getSchemaForVersion: jest.fn(() => {
       const { llmTodayPlanSchema } = jest.requireActual(
-        '@workout-agent/shared'
+        '@leveza/shared'
       );
       return llmTodayPlanSchema;
     }),

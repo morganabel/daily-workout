@@ -7,7 +7,7 @@ const swcJestConfig = JSON.parse(readFileSync(swcConfigPath, 'utf-8'));
 swcJestConfig.swcrc = false;
 
 module.exports = {
-  displayName: '@workout-agent/shared',
+  displayName: '@leveza/shared',
   preset: '../../jest.preset.js',
   testEnvironment: 'node',
   transform: {

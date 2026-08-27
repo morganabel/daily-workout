@@ -2,17 +2,17 @@ import {
   buildGenerationUsageSummary,
   type ModelCallUsage,
   type UsageEvent,
-} from '@workout-agent-ce/metering';
-import { verifyMeteringSinkContract } from '@workout-agent-ce/metering/testing';
+} from '@leveza/metering';
+import { verifyMeteringSinkContract } from '@leveza/metering/testing';
 import {
   InMemoryProviderAdmission,
   type EntitlementLifecycleEvent,
-} from '@workout-agent-ce/quotas';
+} from '@leveza/quotas';
 import {
   verifyAdmissionAndSpendCeilingContract,
   verifyEntitlementProcessorContract,
   verifyUsagePolicyContract,
-} from '@workout-agent-ce/quotas/testing';
+} from '@leveza/quotas/testing';
 import {
   PostgreSqlContainer,
   type StartedPostgreSqlContainer,
@@ -147,7 +147,7 @@ async function settleFailedCost(
 
 beforeAll(async () => {
   container = await new PostgreSqlContainer('postgres:18-alpine')
-    .withDatabase('workout_agent_test')
+    .withDatabase('leveza_test')
     .withUsername('test')
     .withPassword('test')
     .start();
@@ -347,7 +347,7 @@ describe('PostgreSQL billing repositories', () => {
       {
         id: 'anonymous-a',
         name: 'Anonymous',
-        email: 'anonymous-a@anonymous.workout-agent.local',
+        email: 'anonymous-a@anonymous.leveza.local',
         emailVerified: false,
         isAnonymous: true,
       },

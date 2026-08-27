@@ -16,13 +16,13 @@ import {
   PROTOCOL_VERSION,
   attachRequestId,
   createRequestContext,
-} from '@workout-agent-ce/server-core';
+} from '@leveza/server-core';
 import {
   createBillingCapabilities,
   createStubMetaResponse,
   createBetterAuthMetaResponse,
   metaResponseSchema,
-} from '@workout-agent/shared';
+} from '@leveza/shared';
 import { getAuthContext } from '@/lib/auth-context';
 import { getBillingConfig } from '@/lib/billing-config';
 import { resolveEdition } from '@/lib/deployment';
@@ -41,8 +41,11 @@ export async function GET(request: Request): Promise<Response> {
       ? {
           enabled: true,
           showUpgradeUi: billingConfig.showUpgradeUi,
-          purchaseMethod: 'iap',
+          purchaseMethod: billingConfig.showUpgradeUi ? 'iap' : 'none',
           allowByok: true,
+          upgradeEntitlementId: billingConfig.showUpgradeUi
+            ? billingConfig.upgradeEntitlementId
+            : null,
         }
       : undefined
   );

@@ -11,7 +11,7 @@ import {
   llmTodayPlanFlatSchema,
   type LlmTodayPlan,
   type LlmTodayPlanFlat,
-} from '@workout-agent/shared';
+} from '@leveza/shared';
 import * as z from 'zod';
 
 const resolveJsonSchemaRef = (ref: string, root: unknown): unknown => {

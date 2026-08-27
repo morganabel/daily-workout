@@ -1,4 +1,4 @@
-package com.anonymous.workoutagentcemobile
+package com.openvibelabs.leveza
 
 import android.os.Build
 import android.os.Bundle

@@ -2,13 +2,13 @@
 
 ## Purpose
 
-Defines how Workout Agent authenticates API requests and manages sessions across server and mobile. It covers Better Auth (anonymous sessions with email/password and optional Google upgrades), deterministic auth-mode selection with a CE/dev stub fallback and fail-closed hosted mode, capability discovery via `/api/meta`, and the `userId` vs `principalId` identity model with strict token/credential secrecy.
+Defines how Leveza authenticates API requests and manages sessions across server and mobile. It covers Better Auth (anonymous sessions with email/password and optional Google upgrades), deterministic auth-mode selection with a CE/dev stub fallback and fail-closed hosted mode, capability discovery via `/api/meta`, and the `userId` vs `principalId` identity model with strict token/credential secrecy.
 
 ## Requirements
 
 ### Requirement: Capabilities Discovery Endpoint
 
-The server MUST expose a `/api/meta` endpoint that returns auth capabilities, protocol version, and feature flags. This endpoint MUST be accessible without authentication so clients can detect backend capabilities before attempting auth. The response schema (`MetaResponse`) MUST be exported from `@workout-agent-ce/shared` for type-safe client consumption.
+The server MUST expose a `/api/meta` endpoint that returns auth capabilities, protocol version, and feature flags. This endpoint MUST be accessible without authentication so clients can detect backend capabilities before attempting auth. The response schema (`MetaResponse`) MUST be exported from `@leveza/shared` for type-safe client consumption.
 
 #### Scenario: Client discovers auth capabilities
 
@@ -23,7 +23,7 @@ The server MUST expose a `/api/meta` endpoint that returns auth capabilities, pr
 
 #### Scenario: Response type is shared
 
-- **GIVEN** the mobile app imports `MetaResponse` from `@workout-agent-ce/shared`
+- **GIVEN** the mobile app imports `MetaResponse` from `@leveza/shared`
 - **WHEN** it fetches `/api/meta`
 - **THEN** the response can be type-safely consumed as `MetaResponse`
 
@@ -133,7 +133,7 @@ Users MUST be able to register using email and password or Google OAuth when tha
 
 #### Scenario: Existing account with state replaces anonymous use
 
-- **GIVEN** A is anonymous and credentialed B already owns Workout Agent application or billing state
+- **GIVEN** A is anonymous and credentialed B already owns Leveza application or billing state
 - **WHEN** A attempts to sign in to B
 - **THEN** automatic linking does not merge A into B
 - **AND** the client discards A's anonymous state and signs in to B independently without additional recovery UI
@@ -355,6 +355,6 @@ Auth-related packages (`packages/server-db`, `packages/server-auth`) MUST export
 
 #### Scenario: No side effects on import
 
-- **GIVEN** an EE app imports `@workout-agent-ce/server-db`
+- **GIVEN** an EE app imports `@leveza/server-db`
 - **WHEN** the import statement executes
 - **THEN** no database connections are opened until a factory function is called

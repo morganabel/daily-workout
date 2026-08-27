@@ -25,7 +25,7 @@ import {
   type StarterWeekSlotRole,
   type TrainingBlueprint,
   type TrainingEnvironment,
-} from '@workout-agent/shared';
+} from '@leveza/shared';
 
 import type { RootStackParamList } from './navigation';
 import { Button, Chip } from './components/DesignSystem';

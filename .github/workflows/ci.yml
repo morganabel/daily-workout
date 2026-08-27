@@ -75,7 +75,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Build server image
-        run: docker build -f docker/Dockerfile.server -t workout-agent-server:ci .
+        run: docker build -f docker/Dockerfile.server -t leveza-server:ci .
 
       - name: Build migrate image
-        run: docker build -f docker/Dockerfile.migrate -t workout-agent-migrate:ci .
+        run: docker build -f docker/Dockerfile.migrate -t leveza-migrate:ci .

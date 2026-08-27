@@ -1,5 +1,5 @@
 {
-  "name": "@workout-agent-ce/server-db",
+  "name": "@leveza/server-db",
   "version": "0.0.1",
   "private": true,
   "type": "module",
@@ -9,7 +9,7 @@
   "exports": {
     "./package.json": "./package.json",
     ".": {
-      "@workout-agent-ce/source": "./src/index.ts",
+      "@leveza/source": "./src/index.ts",
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
       "default": "./dist/index.js"
@@ -20,8 +20,8 @@
   },
   "dependencies": {
     "@google-cloud/cloud-sql-connector": "^1.4.2",
-    "@workout-agent-ce/metering": "*",
-    "@workout-agent-ce/quotas": "*",
+    "@leveza/metering": "*",
+    "@leveza/quotas": "*",
     "drizzle-orm": "*",
     "pg": "^8.13.1",
     "tslib": "^2.3.0",

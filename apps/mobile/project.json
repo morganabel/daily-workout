@@ -1,6 +1,6 @@
 {
   "$schema": "../../node_modules/nx/schemas/project-schema.json",
-  "name": "@workout-agent-ce/mobile",
+  "name": "@leveza/mobile",
   "sourceRoot": "apps/mobile/src",
   "projectType": "application",
   "targets": {

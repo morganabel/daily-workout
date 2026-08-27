@@ -1,8 +1,8 @@
-import { getCompletedAccountTransitionForTarget } from '@workout-agent-ce/server-db';
+import { getCompletedAccountTransitionForTarget } from '@leveza/server-db';
 import {
   attachRequestId,
   createRequestContext,
-} from '@workout-agent-ce/server-core';
+} from '@leveza/server-core';
 
 import { getAuthContext } from '@/lib/auth-context';
 import { createErrorResponse } from '@/lib/errors';

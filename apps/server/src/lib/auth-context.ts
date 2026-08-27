@@ -12,15 +12,15 @@
 import {
   StubAuthProvider,
   type AuthProvider,
-} from '@workout-agent-ce/server-core';
-import { createLogger } from '@workout-agent-ce/server-core';
-import { createDbFromEnv, type Database } from '@workout-agent-ce/server-db';
+} from '@leveza/server-core';
+import { createLogger } from '@leveza/server-core';
+import { createDbFromEnv, type Database } from '@leveza/server-db';
 import {
   createAuth,
   BetterAuthProvider,
   getGoogleAuthConfig,
   type Auth,
-} from '@workout-agent-ce/server-auth';
+} from '@leveza/server-auth';
 import {
   resolveAuthMode,
   validateAuthConfig,

@@ -1,5 +1,5 @@
 ---
-name: Workout Agent
+name: Leveza
 colors:
   surface: '#F8FAFC'
   surface-dim: '#E2E8F0'
@@ -120,7 +120,7 @@ spacing:
 
 ## Brand & Style
 
-Workout Agent is a minimalist, open-source workout companion that feels like a personal trainer with memory. The design system should feel **calm, tactile, and credible**: one or two taps should get a user to the next useful action without dense setup, over-explaining, or gym-bro intensity.
+Leveza is a minimalist, open-source workout companion that feels like a personal trainer with memory. The design system should feel **calm, tactile, and credible**: one or two taps should get a user to the next useful action without dense setup, over-explaining, or gym-bro intensity.
 
 The visual direction is "Quiet Coach". It borrows from iOS Human Interface Guidelines through large touch targets, clear hierarchy, safe-area-aware layouts, bottom navigation, and restrained motion. It also keeps the open-source product promise visible through clarity and trust: no dark patterns, no ad-like surfaces, no unnecessary social pressure.
 

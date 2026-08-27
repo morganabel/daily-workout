@@ -3,7 +3,7 @@ import {
   type BillingEnvironment,
   type EntitlementLifecycleEvent,
   type EntitlementLifecycleKind,
-} from '@workout-agent-ce/quotas';
+} from '@leveza/quotas';
 import { z } from 'zod';
 
 const MAX_ID_LENGTH = 160;

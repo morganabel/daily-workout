@@ -9,7 +9,7 @@ import {
   normalizeEquipmentSelection,
   type AdaptiveTargetRange,
   type UserPreferences,
-} from '@workout-agent/shared';
+} from '@leveza/shared';
 import { BottomNavigation } from './components/BottomNavigation';
 import { Button, Card } from './components/DesignSystem';
 import { GoogleSignInButton } from './components/GoogleSignInButton';
@@ -329,7 +329,7 @@ export const SettingsScreen = () => {
 
   const saveLabel = isSaving ? 'Saving...' : hasChanges ? 'Save' : 'Saved';
   const planLabel =
-    entitlements?.planId === 'pro' ? 'OpenLift Pro' : 'Free plan';
+    entitlements?.planId === 'pro' ? 'Leveza Pro' : 'Free plan';
   const quotaLabel = entitlements
     ? `${entitlements.quotaWindow.remaining}/${entitlements.quotaWindow.limit} generated workouts left this period.`
     : 'Upgrade options are available for this hosted server.';

@@ -5,7 +5,7 @@ import {
   type ModelCallUsage,
   type ModelProvider,
   type ModelTokenUsage,
-} from '@workout-agent-ce/metering';
+} from '@leveza/metering';
 import type { AiProviderOptions } from './types';
 
 type CallUsageParams = {

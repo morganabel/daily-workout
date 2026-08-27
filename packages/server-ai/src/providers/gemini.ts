@@ -4,11 +4,11 @@ import {
   todayPlanSchema,
   type GenerationRequest,
   type GenerationContext,
-} from '@workout-agent/shared';
+} from '@leveza/shared';
 import {
   createLogger,
   type StageOnePlannerArtifact,
-} from '@workout-agent-ce/server-core';
+} from '@leveza/server-core';
 import type { AiProvider, AiProviderOptions, GenerationResult } from './types';
 import { AiGenerationError } from './types';
 import {

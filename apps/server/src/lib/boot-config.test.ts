@@ -12,7 +12,8 @@ describe('validateBootConfig', () => {
     revenueCat: {
       appIds: ['app.test'],
       environments: ['SANDBOX', 'PRODUCTION'],
-      entitlementIds: ['OpenLift Pro'],
+      entitlementIds: ['Leveza Pro'],
+      upgradeEntitlementId: 'Leveza Pro',
       productIds: ['weekly', 'monthly', 'yearly'],
       defaultOfferingId: 'default',
     },
@@ -121,8 +122,8 @@ describe('validateBootConfig', () => {
   it('accepts Cloud SQL connector config in hosted mode', () => {
     process.env.DEPLOYMENT_MODE = 'hosted';
     process.env.INSTANCE_CONNECTION_NAME = 'project:region:instance';
-    process.env.DB_NAME = 'workout_agent';
-    process.env.DB_USER = 'workout_agent';
+    process.env.DB_NAME = 'leveza';
+    process.env.DB_USER = 'leveza';
     process.env.DB_PASSWORD = 'secret-password';
     process.env.BETTER_AUTH_SECRET = 'secret';
     expect(() => validateBootConfig()).not.toThrow();
@@ -140,8 +141,8 @@ describe('validateBootConfig', () => {
   it('throws for hosted Cloud SQL config with a blank instance name', () => {
     process.env.DEPLOYMENT_MODE = 'hosted';
     process.env.INSTANCE_CONNECTION_NAME = ' ';
-    process.env.DB_NAME = 'workout_agent';
-    process.env.DB_USER = 'workout_agent';
+    process.env.DB_NAME = 'leveza';
+    process.env.DB_USER = 'leveza';
     process.env.DB_PASSWORD = 'secret-password';
     process.env.BETTER_AUTH_SECRET = 'secret';
     expect(() => validateBootConfig()).toThrow(

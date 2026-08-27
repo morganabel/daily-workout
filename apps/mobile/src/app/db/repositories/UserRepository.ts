@@ -12,7 +12,7 @@ import {
   type TrainingBlueprint,
   type UserPreferences,
   userPreferencesSchema,
-} from '@workout-agent/shared';
+} from '@leveza/shared';
 import { formatLocalDate } from '../../utils/date';
 
 const DEFAULT_PREFERENCES: UserPreferences = {

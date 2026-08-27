@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, Pressable, TextInput } from 'react-native';
-import type { WorkoutSetLog } from '@workout-agent/shared';
+import type { WorkoutSetLog } from '@leveza/shared';
 import { palette, typography } from '../theme';
 
 /**

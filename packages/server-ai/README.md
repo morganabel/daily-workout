@@ -1,4 +1,4 @@
-# @workout-agent-ce/server-ai
+# @leveza/server-ai
 
 Shareable AI provider implementation for workout generation.
 
@@ -16,7 +16,7 @@ This package contains the LLM providers, prompts, and transformation logic share
 ## Usage
 
 ```typescript
-import { DefaultModelRouter } from '@workout-agent-ce/server-ai';
+import { DefaultModelRouter } from '@leveza/server-ai';
 
 const router = new DefaultModelRouter();
 
@@ -109,8 +109,8 @@ GOOGLE_CLOUD_LOCATION=us-central1
 For advanced use cases (caching, proxy routing, custom models), implement `ModelRouter`:
 
 ```typescript
-import type { ModelRouter } from '@workout-agent-ce/server-core';
-import { DefaultModelRouter } from '@workout-agent-ce/server-ai';
+import type { ModelRouter } from '@leveza/server-core';
+import { DefaultModelRouter } from '@leveza/server-ai';
 
 class CachedModelRouter implements ModelRouter {
   private upstream = new DefaultModelRouter();
