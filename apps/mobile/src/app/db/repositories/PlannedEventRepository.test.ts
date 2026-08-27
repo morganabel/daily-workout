@@ -1,4 +1,4 @@
-import type { UpcomingEventContext } from '@workout-agent/shared';
+import type { UpcomingEventContext } from '@leveza/shared';
 import { getActiveDatabase } from '../activeDatabase';
 import { PlannedEventRepository } from './PlannedEventRepository';
 import { formatLocalDate } from '../../utils/date';

@@ -5,7 +5,7 @@ import {
   type ExerciseSlotPolicy,
   type ExerciseSlotTemplate,
   type GenerationContext,
-} from '@workout-agent/shared';
+} from '@leveza/shared';
 import type { GenerationRequestWithContext } from './context';
 import type {
   PlanningBlockIntent,

@@ -1,11 +1,11 @@
 import {
   attachRequestId,
   createRequestContext,
-} from '@workout-agent-ce/server-core';
+} from '@leveza/server-core';
 import {
   billingEntitlementsResponseSchema,
   type BillingEntitlementsResponse,
-} from '@workout-agent/shared';
+} from '@leveza/shared';
 import { getAuthContext } from '@/lib/auth-context';
 import { getRevenueCatBillingServices } from '@/lib/billing-services';
 import { createErrorResponse } from '@/lib/errors';

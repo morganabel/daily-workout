@@ -2,8 +2,8 @@ import type {
   CoachProgramAttribution,
   GenerationContext,
   WorkoutSessionSummary,
-} from '@workout-agent/shared';
-import { createTodayPlanFixture } from '@workout-agent/shared/testing';
+} from '@leveza/shared';
+import { createTodayPlanFixture } from '@leveza/shared/testing';
 import {
   buildGenerationContext,
   generateWorkout,

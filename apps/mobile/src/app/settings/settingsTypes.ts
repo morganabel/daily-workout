@@ -1,4 +1,4 @@
-import type { ExperienceLevel, UserPreferences } from '@workout-agent/shared';
+import type { ExperienceLevel, UserPreferences } from '@leveza/shared';
 
 export type EditorKey =
   | 'profile'

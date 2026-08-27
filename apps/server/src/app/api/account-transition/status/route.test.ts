@@ -1,11 +1,11 @@
-jest.mock('@workout-agent-ce/server-db', () => ({
+jest.mock('@leveza/server-db', () => ({
   getCompletedAccountTransitionForTarget: jest.fn(),
 }));
 jest.mock('@/lib/auth-context', () => ({
   getAuthContext: jest.fn(),
 }));
 
-import { getCompletedAccountTransitionForTarget } from '@workout-agent-ce/server-db';
+import { getCompletedAccountTransitionForTarget } from '@leveza/server-db';
 import { getAuthContext } from '@/lib/auth-context';
 
 import { GET } from './route';

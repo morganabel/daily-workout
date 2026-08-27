@@ -62,7 +62,7 @@ describe('GET /api/billing/entitlements', () => {
 
     getEntitlements.mockResolvedValue({
       planId: 'pro',
-      entitlementId: 'OpenLift Pro',
+      entitlementId: 'Leveza Pro',
       status: 'active',
       willRenew: true,
       paidThrough: '2026-09-01T00:00:00.000Z',

@@ -1,8 +1,8 @@
 import * as React from 'react';
 import { render } from '@testing-library/react-native';
 import { useHomeData } from './hooks/useHomeData';
-import type { QuickActionPreset } from '@workout-agent/shared';
-import { createTodayPlanFixture } from '@workout-agent/shared/testing';
+import type { QuickActionPreset } from '@leveza/shared';
+import { createTodayPlanFixture } from '@leveza/shared/testing';
 import App from './App';
 
 jest.mock('./hooks/useHomeData', () => ({
@@ -15,6 +15,7 @@ jest.mock('./hooks/useBillingState', () => ({
       showUpgradeUi: false,
       purchaseMethod: 'none',
       allowByok: true,
+      upgradeEntitlementId: null,
     },
     entitlements: null,
     loading: false,

@@ -20,7 +20,7 @@ type PaywallNavigation = NativeStackNavigationProp<
   'Paywall'
 >;
 
-const REQUIRED_ENTITLEMENT = 'OpenLift Pro';
+const PRO_PLAN_NAME = 'Leveza Pro';
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -41,12 +41,13 @@ export const PaywallScreen = () => {
   const [processing, setProcessing] = useState<
     'purchase' | 'restore' | 'sync' | null
   >(null);
+  const requiredEntitlementId = capabilities.upgradeEntitlementId;
 
   const planLabel = useMemo(() => {
     if (!entitlements) {
       return 'Free';
     }
-    return entitlements.planId === 'pro' ? 'OpenLift Pro' : 'Free';
+    return entitlements.planId === 'pro' ? PRO_PLAN_NAME : 'Free';
   }, [entitlements]);
 
   const remainingLabel = useMemo(() => {
@@ -69,7 +70,7 @@ export const PaywallScreen = () => {
     }
 
     return capabilities.allowByok
-      ? 'Get more generated workouts with OpenLift Pro. If you prefer, you can still use your own AI key.'
+      ? `Get more generated workouts with ${PRO_PLAN_NAME}. If you prefer, you can still use your own AI key.`
       : 'Get more generated workouts with a plan that fits your routine.';
   }, [capabilities.allowByok, entitlements]);
 
@@ -92,7 +93,7 @@ export const PaywallScreen = () => {
     for (let attempt = 0; attempt < 3; attempt += 1) {
       const latest = await refreshEntitlements();
       if (latest?.status === 'active' && latest.planId === 'pro') {
-        Alert.alert('You are all set', 'OpenLift Pro is ready to use.');
+        Alert.alert('You are all set', `${PRO_PLAN_NAME} is ready to use.`);
         navigation.goBack();
         setProcessing(null);
         return;
@@ -109,7 +110,7 @@ export const PaywallScreen = () => {
   }, [navigation, refreshEntitlements]);
 
   const handlePurchase = useCallback(async () => {
-    if (!clientReady) {
+    if (!clientReady || !requiredEntitlementId) {
       Alert.alert(
         'Just a moment',
         'Plans are still loading. Please try again in a moment.'
@@ -119,7 +120,7 @@ export const PaywallScreen = () => {
 
     try {
       setProcessing('purchase');
-      const result = await client.presentPaywall(REQUIRED_ENTITLEMENT);
+      const result = await client.presentPaywall(requiredEntitlementId);
       if (result === 'purchased' || result === 'restored') {
         await handleSyncAfterPurchase();
         return;
@@ -143,10 +144,10 @@ export const PaywallScreen = () => {
     } finally {
       setProcessing(null);
     }
-  }, [client, clientReady, handleSyncAfterPurchase]);
+  }, [client, clientReady, handleSyncAfterPurchase, requiredEntitlementId]);
 
   const handleRestore = async () => {
-    if (!clientReady) {
+    if (!clientReady || !requiredEntitlementId) {
       return;
     }
 
@@ -154,11 +155,11 @@ export const PaywallScreen = () => {
       setProcessing('restore');
       const customerInfo = await client.restorePurchases();
       if (
-        !customerInfoHasActiveEntitlement(customerInfo, REQUIRED_ENTITLEMENT)
+        !customerInfoHasActiveEntitlement(customerInfo, requiredEntitlementId)
       ) {
         Alert.alert(
           'No active purchase found',
-          'We could not find an active OpenLift Pro purchase for this store account.'
+          `We could not find an active ${PRO_PLAN_NAME} purchase for this store account.`
         );
         return;
       }

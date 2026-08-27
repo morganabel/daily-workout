@@ -1,7 +1,7 @@
 import {
   attachRequestId,
   createRequestContext,
-} from '@workout-agent-ce/server-core';
+} from '@leveza/server-core';
 
 export async function GET(request: Request) {
   const { requestId, startedAt, log } = createRequestContext(request, 'api.hello');

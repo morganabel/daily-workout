@@ -1,20 +1,20 @@
-# @workout-agent/shared
+# @leveza/shared
 
-Shared contracts for the Workout Agent monorepo. The Zod schemas exported from this package are the single source of truth for workout plans, generation inputs, debug payloads, and local-first mobile data contracts.
+Shared contracts for the Leveza monorepo. The Zod schemas exported from this package are the single source of truth for workout plans, generation inputs, debug payloads, and local-first mobile data contracts.
 
 ## Usage
 
-- **Server** (`apps/server`): import from `@workout-agent/shared` inside API route handlers to validate request bodies (`generationRequestSchema`) and generated workout responses (`todayPlanSchema`).
+- **Server** (`apps/server`): import from `@leveza/shared` inside API route handlers to validate request bodies (`generationRequestSchema`) and generated workout responses (`todayPlanSchema`).
 - **Mobile** (`apps/mobile`): import the associated TypeScript types (e.g., `TodayPlan`, `QuickActionPreset`, `GenerationStatus`) to type hooks/components instead of duplicating interfaces.
 - Quick action flows can call `normalizeQuickActionValue` / `buildGenerationRequestFromQuickActions` to sanitize staged chip values before issuing a generation request, ensuring time/focus/equipment/energy inputs stay within supported bounds.
 
 ## Building
 
-Run `nx build @workout-agent/shared` to build the library.
+Run `nx build @leveza/shared` to build the library.
 
 ## Running unit tests
 
-Run `nx test @workout-agent/shared` to execute the unit tests via [Jest](https://jestjs.io).
+Run `nx test @leveza/shared` to execute the unit tests via [Jest](https://jestjs.io).
 
 ## Nx Targets
 

@@ -30,13 +30,13 @@
 
 ## 3. Better Auth Server Integration (`apps/server`)
 
-- [x] 3.1 Add `@workout-agent-ce/server-db` and `@workout-agent-ce/server-auth` dependencies
+- [x] 3.1 Add `@leveza/server-db` and `@leveza/server-auth` dependencies
 - [x] 3.2 Create `getAuthContext()` factory that initializes auth based on auth-mode
 - [x] 3.3 Create catch-all auth API route (`apps/server/src/app/api/auth/[...all]/route.ts`)
 - [x] 3.4 Implement auth-mode selection algorithm (AUTH_MODE ?? DATABASE_URL-based) in `getAuthContext()`
 - [x] 3.5 Fail fast at startup if `EDITION=HOSTED` but Better Auth not configured
 - [x] 3.6 Add `/api/meta` endpoint returning auth capabilities, protocol version, edition
-- [x] 3.7 Add `MetaResponse` type to `@workout-agent-ce/shared` package
+- [x] 3.7 Add `MetaResponse` type to `@leveza/shared` package
 - [x] 3.8 Add environment variables to `.env.example` (DATABASE_URL, BETTER_AUTH_SECRET, AUTH_MODE)
 
 ## 4. Auth Provider Integration (`packages/server-core`)

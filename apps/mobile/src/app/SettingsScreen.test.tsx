@@ -3,7 +3,7 @@ import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import {
   createAdaptiveTrainingPlanFromTemplate,
   type MetaResponse,
-} from '@workout-agent/shared';
+} from '@leveza/shared';
 import { SettingsScreen } from './SettingsScreen';
 import {
   fetchServerCapabilities,
@@ -78,6 +78,7 @@ const capabilities = (authEnabled: boolean): MetaResponse => ({
     showUpgradeUi: false,
     purchaseMethod: 'none',
     allowByok: true,
+    upgradeEntitlementId: null,
   },
 });
 

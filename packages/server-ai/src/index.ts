@@ -11,11 +11,11 @@ import type {
   ModelGenerationOptions,
   StageOnePlanner,
   StageOnePlanningOptions,
-} from '@workout-agent-ce/server-core';
+} from '@leveza/server-core';
 import type {
   GenerationRequest,
   GenerationContext,
-} from '@workout-agent/shared';
+} from '@leveza/shared';
 import {
   registerProvider,
   getProvider,

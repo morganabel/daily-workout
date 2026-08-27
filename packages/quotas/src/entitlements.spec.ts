@@ -18,7 +18,7 @@ function event(
     appId: 'app.test',
     environment: 'SANDBOX',
     customerIds: ['rc-user'],
-    entitlementIds: ['OpenLift Pro'],
+    entitlementIds: ['Leveza Pro'],
     productId: 'monthly',
     expiresAt: '2026-09-02T12:00:00.000Z',
     normalizedHash: 'hash-1',
@@ -29,7 +29,7 @@ function event(
 const current: EntitlementProjection = {
   accountId: 'user-1',
   planId: 'pro',
-  entitlementId: 'OpenLift Pro',
+  entitlementId: 'Leveza Pro',
   productId: 'monthly',
   status: 'active',
   willRenew: true,

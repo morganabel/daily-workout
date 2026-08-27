@@ -10,6 +10,31 @@ const { getAuthContext } = jest.requireMock('@/lib/auth-context') as {
 
 const mockGetAuthContext = getAuthContext;
 
+const billingConfigJson = (showUpgradeUi: boolean): string =>
+  JSON.stringify({
+    schemaVersion: 1,
+    revenueCat: {
+      appIds: ['app.test'],
+      environments: ['SANDBOX'],
+      entitlementIds: ['Leveza Pro'],
+      upgradeEntitlementId: 'Leveza Pro',
+      productIds: ['monthly'],
+    },
+    plans: {
+      freeGenerations: 25,
+      proGenerations: 1000,
+      windowDays: 30,
+    },
+    guardrails: {
+      accountRequestsPerMinute: 30,
+      accountMaxActiveGenerations: 2,
+      accountDailySpendLimitNanoUsd: '5000000000',
+      globalDailySpendLimitNanoUsd: '50000000000',
+      pendingReservationTtlSeconds: 300,
+    },
+    capabilities: { showUpgradeUi },
+  });
+
 describe('GET /api/meta', () => {
   const originalEnv = process.env;
 
@@ -50,28 +75,7 @@ describe('GET /api/meta', () => {
     process.env.DEPLOYMENT_MODE = 'hosted';
     process.env.BILLING_PROVIDER = 'revenuecat';
     process.env.REVENUECAT_WEBHOOK_SECRET = 'secret';
-    process.env.BILLING_CONFIG_JSON = JSON.stringify({
-      schemaVersion: 1,
-      revenueCat: {
-        appIds: ['app.test'],
-        environments: ['SANDBOX'],
-        entitlementIds: ['OpenLift Pro'],
-        productIds: ['monthly'],
-      },
-      plans: {
-        freeGenerations: 25,
-        proGenerations: 1000,
-        windowDays: 30,
-      },
-      guardrails: {
-        accountRequestsPerMinute: 30,
-        accountMaxActiveGenerations: 2,
-        accountDailySpendLimitNanoUsd: '5000000000',
-        globalDailySpendLimitNanoUsd: '50000000000',
-        pendingReservationTtlSeconds: 300,
-      },
-      capabilities: { showUpgradeUi: true },
-    });
+    process.env.BILLING_CONFIG_JSON = billingConfigJson(true);
 
     mockGetAuthContext.mockReturnValue({
       mode: 'better-auth',
@@ -91,7 +95,33 @@ describe('GET /api/meta', () => {
     expect(data.billing.showUpgradeUi).toBe(true);
     expect(data.billing.purchaseMethod).toBe('iap');
     expect(data.billing.allowByok).toBe(true);
+    expect(data.billing.upgradeEntitlementId).toBe('Leveza Pro');
     expect(data.auth.googleAvailable).toBe(true);
     expect(data.auth.accountTransitionAvailable).toBe(true);
+  });
+
+  it('keeps billing enabled without advertising purchases when upgrade UI is hidden', async () => {
+    process.env.DEPLOYMENT_MODE = 'hosted';
+    process.env.BILLING_PROVIDER = 'revenuecat';
+    process.env.REVENUECAT_WEBHOOK_SECRET = 'secret';
+    process.env.BILLING_CONFIG_JSON = billingConfigJson(false);
+
+    mockGetAuthContext.mockReturnValue({
+      mode: 'better-auth',
+      provider: { authenticate: jest.fn() },
+      auth: null,
+      db: null,
+      googleAvailable: true,
+    });
+
+    const request = new Request('http://localhost:3000/api/meta');
+    const response = await GET(request);
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data.billing.enabled).toBe(true);
+    expect(data.billing.showUpgradeUi).toBe(false);
+    expect(data.billing.purchaseMethod).toBe('none');
+    expect(data.billing.upgradeEntitlementId).toBeNull();
   });
 });

@@ -11,12 +11,12 @@ import type {
   WorkoutSessionSummary,
   WorkoutSetLog,
   WeightUnit,
-} from '@workout-agent/shared';
+} from '@leveza/shared';
 import {
   coachProgramAttributionSchema,
   selectCoachStrategyForTemplate,
   workoutEnergySchema,
-} from '@workout-agent/shared';
+} from '@leveza/shared';
 import { endOfDay, parseLocalDate, startOfDay } from '../../utils/date';
 import Workout from '../models/Workout';
 import Exercise from '../models/Exercise';

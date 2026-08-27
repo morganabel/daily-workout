@@ -19,7 +19,7 @@ describe('scoped database creation', () => {
     });
 
     expect(createDatabaseAdapter).toHaveBeenCalledWith(
-      'workout_agent_scope_aaaaaaaa-aaaa-7aaa-8aaa-aaaaaaaaaaaa'
+      'leveza_scope_aaaaaaaa-aaaa-7aaa-8aaa-aaaaaaaaaaaa'
     );
   });
 });

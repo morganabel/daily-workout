@@ -1,6 +1,6 @@
 {
   "$schema": "../../node_modules/nx/schemas/project-schema.json",
-  "name": "@workout-agent-ce/server-ai",
+  "name": "@leveza/server-ai",
   "targets": {
     "test": {
       "options": {

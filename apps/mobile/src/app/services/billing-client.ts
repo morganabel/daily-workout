@@ -3,7 +3,7 @@ import RevenueCatUI, { PAYWALL_RESULT } from 'react-native-purchases-ui';
 import type {
   BillingCapabilities,
   BillingPurchaseMethod,
-} from '@workout-agent/shared';
+} from '@leveza/shared';
 import type { CustomerInfo, PurchasesPackage } from 'react-native-purchases';
 
 type BillingPackageSummary = {

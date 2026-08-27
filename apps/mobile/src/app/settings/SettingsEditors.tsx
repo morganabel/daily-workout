@@ -4,7 +4,7 @@ import {
   EQUIPMENT_OPTIONS,
   type AdaptiveTargetRange,
   type UserPreferences,
-} from '@workout-agent/shared';
+} from '@leveza/shared';
 import { Button, Card, Chip } from '../components/DesignSystem';
 import { palette } from '../theme';
 import { styles } from './settingsStyles';

@@ -1,6 +1,6 @@
 import React from 'react';
 import { fireEvent, render } from '@testing-library/react-native';
-import type { CalendarItem, PlannedEvent } from '@workout-agent/shared';
+import type { CalendarItem, PlannedEvent } from '@leveza/shared';
 import { HistoryAgendaItem } from './HistoryAgendaItem';
 
 jest.mock('@expo/vector-icons', () => ({

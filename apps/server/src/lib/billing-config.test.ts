@@ -19,7 +19,8 @@ describe('getBillingConfig', () => {
       revenueCat: {
         appIds: ['app.ios', 'app.android'],
         environments: ['PRODUCTION'],
-        entitlementIds: ['OpenLift Pro'],
+        entitlementIds: ['Leveza Pro'],
+        upgradeEntitlementId: 'Leveza Pro',
         productIds: ['monthly', 'yearly'],
         defaultOfferingId: 'default',
       },
@@ -61,6 +62,7 @@ describe('getBillingConfig', () => {
       accountDailySpendLimitNanoUsd: '5000000000',
       globalDailySpendLimitNanoUsd: '50000000000',
       pendingReservationTtlMs: 300_000,
+      upgradeEntitlementId: 'Leveza Pro',
       defaultOfferingId: 'default',
       showUpgradeUi: true,
     });
@@ -79,5 +81,14 @@ describe('getBillingConfig', () => {
       'utf8'
     );
     expect(parseRevenueCatBillingConfigDocument(raw).schemaVersion).toBe(1);
+  });
+
+  it('requires the upgrade entitlement to be webhook-allowed', () => {
+    const document = JSON.parse(process.env.BILLING_CONFIG_JSON ?? '{}');
+    document.revenueCat.upgradeEntitlementId = 'other-entitlement';
+
+    expect(() =>
+      parseRevenueCatBillingConfigDocument(JSON.stringify(document))
+    ).toThrow('BILLING_CONFIG_JSON does not match billing configuration');
   });
 });

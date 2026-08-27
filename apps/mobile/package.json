@@ -1,5 +1,5 @@
 {
-  "name": "@workout-agent-ce/mobile",
+  "name": "@leveza/mobile",
   "version": "0.0.1",
   "private": true,
   "scripts": {
@@ -24,7 +24,7 @@
     "@react-navigation/native": "*",
     "@react-navigation/native-stack": "*",
     "@testing-library/react-native": "*",
-    "@workout-agent/shared": "*",
+    "@leveza/shared": "*",
     "better-auth": "*",
     "enhanced-resolve": "*",
     "expo": "*",

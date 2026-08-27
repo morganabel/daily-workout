@@ -2,18 +2,18 @@ const openExerciseLibrary = jest.fn();
 const createGenerateHandler = jest.fn();
 const getRevenueCatBillingServices = jest.fn();
 
-jest.mock('@workout-agent-ce/server-exercise-library', () => ({
+jest.mock('@leveza/server-exercise-library', () => ({
   openExerciseLibrary,
 }));
 
-jest.mock('@workout-agent-ce/server-core', () => ({
+jest.mock('@leveza/server-core', () => ({
   InMemoryGenerationStore: jest.fn(() => ({ name: 'store' })),
   NoOpUsagePolicy: jest.fn(() => ({ name: 'policy' })),
   NoOpMeteringSink: jest.fn(() => ({ name: 'metering' })),
   createGenerateHandler,
 }));
 
-jest.mock('@workout-agent-ce/server-ai', () => ({
+jest.mock('@leveza/server-ai', () => ({
   DefaultModelRouter: jest.fn(() => ({ name: 'router' })),
   DefaultStageOnePlanner: jest.fn(() => ({ name: 'planner' })),
 }));

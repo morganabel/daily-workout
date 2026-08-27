@@ -1,6 +1,6 @@
 ## Why
 
-Workout Agent can already constrain AI generation with a canonical exercise library, but every concrete workout still has to be composed by a model or mock path. A curated workout catalog gives the product a high-quality non-AI creation source, reduces unnecessary model use when a catalog workout is already an excellent fit, and sets up a server-owned catalog model that can later support community workouts.
+Leveza can already constrain AI generation with a canonical exercise library, but every concrete workout still has to be composed by a model or mock path. A curated workout catalog gives the product a high-quality non-AI creation source, reduces unnecessary model use when a catalog workout is already an excellent fit, and sets up a server-owned catalog model that can later support community workouts.
 
 ## What Changes
 

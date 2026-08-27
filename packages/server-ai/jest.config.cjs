@@ -7,7 +7,7 @@ const swcJestConfig = JSON.parse(readFileSync(swcConfigPath, 'utf-8'));
 swcJestConfig.swcrc = false;
 
 module.exports = {
-  displayName: '@workout-agent-ce/server-ai',
+  displayName: '@leveza/server-ai',
   preset: '../../jest.preset.js',
   testEnvironment: 'node',
   transform: {

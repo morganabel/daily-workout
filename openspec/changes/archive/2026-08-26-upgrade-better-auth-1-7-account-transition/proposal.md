@@ -1,16 +1,16 @@
 ## Why
 
-The current anonymous-account upgrade work preserves the anonymous Better Auth user ID through custom credential and session reassignment, duplicating identity behavior that stable Better Auth 1.7 now handles across mobile OAuth callbacks. We should adopt its standard anonymous account transition and make Workout Agent explicitly migrate application-owned state from the anonymous user to the canonical credentialed user.
+The current anonymous-account upgrade work preserves the anonymous Better Auth user ID through custom credential and session reassignment, duplicating identity behavior that stable Better Auth 1.7 now handles across mobile OAuth callbacks. We should adopt its standard anonymous account transition and make Leveza explicitly migrate application-owned state from the anonymous user to the canonical credentialed user.
 
 ## What Changes
 
 - Upgrade `better-auth`, `@better-auth/expo`, and the renamed `auth` CLI together to one exact stable Better Auth 1.7 patch, backfill the new issuer-scoped account identity, regenerate the auth schema, and review the generated database migration before deploying account transition.
 - Replace custom anonymous-user promotion and provider-profile persistence with Better Auth's supported anonymous plugin transition: Better Auth creates or resolves credentialed user B, invokes `onLinkAccount({ anonymousUser: A, newUser: B })`, and deletes A only after the callback succeeds.
-- **BREAKING** Stop promising that anonymous registration preserves `userId`. Treat A to B as an explicit ownership transition and migrate only Workout Agent-owned rows in an idempotent PostgreSQL transaction; Better Auth remains solely responsible for auth users, accounts, and sessions.
+- **BREAKING** Stop promising that anonymous registration preserves `userId`. Treat A to B as an explicit ownership transition and migrate only Leveza-owned rows in an idempotent PostgreSQL transaction; Better Auth remains solely responsible for auth users, accounts, and sessions.
 - Support fresh email registration and Google OAuth transition first. Define deterministic recovery for callback failure and retry. Signing in to an existing credentialed account does not merge or preserve the current anonymous account's data.
 - Verify mobile OAuth completion by refreshing the session and confirming the expected non-anonymous account before reporting success or handing off local data.
 - Add a durable, idempotent mobile data-scope handoff from A to B for the same backend and user-initiated transition. Never infer a handoff from two sequential sessions or expose A's local database/BYOK data during an unrelated sign-in.
-- Give every hosted Workout Agent account a server-generated opaque RevenueCat identity C. Mobile MUST obtain C from an authenticated bootstrap that accepts no client-selected owner or customer ID, reconcile the SDK to C before exposing billing, and keep C stable while application ownership moves from anonymous A to credentialed B without any RevenueCat call in the auth callback.
+- Give every hosted Leveza account a server-generated opaque RevenueCat identity C. Mobile MUST obtain C from an authenticated bootstrap that accepts no client-selected owner or customer ID, reconcile the SDK to C before exposing billing, and keep C stable while application ownership moves from anonymous A to credentialed B without any RevenueCat call in the auth callback.
 - Keep CE behavior billing-neutral: self-hosted Better Auth deployments may use the same transition behavior, while auth-disabled CE deployments have no account transition.
 - Treat account transition as an inherent Better Auth capability rather than an independently configurable feature; keep Google client credentials server-only in deployment or ignored local environment files.
 

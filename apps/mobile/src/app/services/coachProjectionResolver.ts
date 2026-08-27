@@ -9,13 +9,13 @@ import type {
   CoachSessionAction,
   UpcomingEventContext,
   WorkoutSessionSummary,
-} from '@workout-agent/shared';
+} from '@leveza/shared';
 import {
   addDaysToLocalDate,
   coachProjectionSchema,
   compareLocalDates,
   daysBetweenLocalDates,
-} from '@workout-agent/shared';
+} from '@leveza/shared';
 import { formatLocalDate } from '../utils/date';
 import {
   blockContributesToTarget,

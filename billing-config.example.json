@@ -3,7 +3,8 @@
   "revenueCat": {
     "appIds": ["app.test"],
     "environments": ["SANDBOX"],
-    "entitlementIds": ["OpenLift Pro"],
+    "entitlementIds": ["Leveza Pro"],
+    "upgradeEntitlementId": "Leveza Pro",
     "productIds": ["weekly", "monthly", "yearly"],
     "defaultOfferingId": "default"
   },

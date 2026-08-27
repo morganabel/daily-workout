@@ -232,7 +232,7 @@ wss.on('listening', () => {
 });
 
 const server = new McpServer({
-  name: 'workout-agent-mobile-debug',
+  name: 'leveza-mobile-debug',
   version: '0.1.0',
 });
 
@@ -258,7 +258,7 @@ toolNames.forEach((tool) => {
     tool,
     {
       title: tool,
-      description: `Relay ${tool} to a connected Workout Agent mobile debug build.`,
+      description: `Relay ${tool} to a connected Leveza mobile debug build.`,
       inputSchema: {
         sessionId: z.string().optional(),
         input: z.unknown().optional(),

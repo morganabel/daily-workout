@@ -11,7 +11,7 @@ This creates two forms of false confidence: application bundlers can hide invali
 - Audit npm 12's blocked dependency install scripts, commit narrowly version-pinned approvals or explicit denials, and make unreviewed scripts fail CI instead of silently producing incomplete native/tooling installs.
 - Pin the repository's OpenSpec CLI and expose one thin npm alias for focused or full strict validation so planning artifacts are verifiable without a custom wrapper or global executable.
 - Make every exported workspace package valid native Node ESM by using Node-targeted TypeScript resolution and explicit runtime import specifiers.
-- Add a mandatory post-build smoke target that imports all eight package roots plus `@workout-agent/shared/testing` in plain Node without custom conditions or experimental resolution flags.
+- Add a mandatory post-build smoke target that imports all eight package roots plus `@leveza/shared/testing` in plain Node without custom conditions or experimental resolution flags.
 - Ensure development and application build entry points cannot silently execute missing or stale package output.
 - Align Nx toolchain versions and remove false-positive test targets that pass without tests.
 - Replace example-only browser checks with a small set of deterministic critical-path E2E tests.

@@ -14,7 +14,7 @@ import {
   mobileDebugSeedPlannedEventsInputSchema,
   mobileDebugSetProfilePreferencesInputSchema,
   redactSecret,
-} from '@workout-agent/shared';
+} from '@leveza/shared';
 import { getActiveDatabase, getActiveRepositories } from '../db/activeDatabase';
 import { getDeviceToken } from '../storage/deviceToken';
 import { getByokConfig } from '../storage/byokKey';

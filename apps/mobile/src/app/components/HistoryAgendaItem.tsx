@@ -5,8 +5,8 @@ import type {
   CalendarItem,
   PlannedEvent,
   WorkoutSessionSummary,
-} from '@workout-agent/shared';
-import { plannedSlotMetadataSchema } from '@workout-agent/shared';
+} from '@leveza/shared';
+import { plannedSlotMetadataSchema } from '@leveza/shared';
 import { palette, typography } from '../theme';
 import { formatTime, getKindMeta } from '../utils/historyCalendar';
 

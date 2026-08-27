@@ -1,4 +1,4 @@
-import { createAdaptiveTrainingPlanFromTemplate } from '@workout-agent/shared';
+import { createAdaptiveTrainingPlanFromTemplate } from '@leveza/shared';
 import { deriveCoachProjection } from './coachProjectionResolver';
 import {
   buildCoachProjectionAdaptiveIntent,

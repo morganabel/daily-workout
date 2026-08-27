@@ -24,7 +24,7 @@ export default defineConfig({
   },
   /* Run your local dev server before starting the tests */
   webServer: {
-    command: 'npx nx run @workout-agent-ce/mobile:serve',
+    command: 'npx nx run @leveza/mobile:serve',
     url: 'http://localhost:8081',
     reuseExistingServer: true,
     timeout: 300_000,

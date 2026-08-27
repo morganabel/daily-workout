@@ -1,5 +1,5 @@
 import type { GenerationStore, GenerationState } from '../types';
-import type { GenerationStatus, TodayPlan } from '@workout-agent/shared';
+import type { GenerationStatus, TodayPlan } from '@leveza/shared';
 
 /**
  * In-memory generation store for OSS deployments.

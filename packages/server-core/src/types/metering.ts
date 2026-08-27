@@ -10,4 +10,4 @@ export type {
   ModelProvider,
   ModelTokenUsage,
   UsageEvent,
-} from '@workout-agent-ce/metering';
+} from '@leveza/metering';

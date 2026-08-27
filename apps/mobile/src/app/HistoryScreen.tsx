@@ -17,8 +17,8 @@ import type {
   PlannedEventInput,
   PlannedEventPatch,
   WorkoutSessionSummary,
-} from '@workout-agent/shared';
-import { plannedSlotMetadataSchema } from '@workout-agent/shared';
+} from '@leveza/shared';
+import { plannedSlotMetadataSchema } from '@leveza/shared';
 import { getActiveRepositories } from './db/activeDatabase';
 import type Workout from './db/models/Workout';
 import { deriveDurationMinutes } from './db/mappers/workoutMapper';

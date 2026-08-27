@@ -3,13 +3,13 @@ import {
   type GenerationContext,
   type GenerationRequest,
   type RegenerationFeedback,
-} from '@workout-agent/shared';
+} from '@leveza/shared';
 import type {
   CatalogSeed,
   ExerciseCandidatePool,
   PlanningBrief,
   StageOnePlannerArtifact,
-} from '@workout-agent-ce/server-core';
+} from '@leveza/server-core';
 
 export const SYSTEM_PROMPT =
   'You are a concise workout planner. Only reply with valid JSON that matches the schema and never include code fences, explanations, or markdown.';

@@ -1,5 +1,5 @@
 {
-  "name": "@workout-agent-ce/server-core",
+  "name": "@leveza/server-core",
   "version": "0.0.1",
   "private": true,
   "type": "module",
@@ -9,17 +9,17 @@
   "exports": {
     "./package.json": "./package.json",
     ".": {
-      "@workout-agent-ce/source": "./src/index.ts",
+      "@leveza/source": "./src/index.ts",
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
       "default": "./dist/index.js"
     }
   },
   "dependencies": {
-    "@workout-agent-ce/metering": "*",
-    "@workout-agent-ce/quotas": "*",
-    "@workout-agent-ce/server-exercise-library": "*",
-    "@workout-agent/shared": "*",
+    "@leveza/metering": "*",
+    "@leveza/quotas": "*",
+    "@leveza/server-exercise-library": "*",
+    "@leveza/shared": "*",
     "tslib": "^2.3.0",
     "uuid": "*",
     "zod": "^4.1.12"

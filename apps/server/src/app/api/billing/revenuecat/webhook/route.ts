@@ -1,8 +1,8 @@
 import {
   attachRequestId,
   createRequestContext,
-} from '@workout-agent-ce/server-core';
-import type { EntitlementProcessorOutcome } from '@workout-agent-ce/quotas';
+} from '@leveza/server-core';
+import type { EntitlementProcessorOutcome } from '@leveza/quotas';
 import { getBillingConfig } from '@/lib/billing-config';
 import { getRevenueCatBillingServices } from '@/lib/billing-services';
 import { getBillingProvider } from '@/lib/deployment';

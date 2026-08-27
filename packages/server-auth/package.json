@@ -1,5 +1,5 @@
 {
-  "name": "@workout-agent-ce/server-auth",
+  "name": "@leveza/server-auth",
   "version": "0.0.1",
   "private": true,
   "type": "module",
@@ -9,7 +9,7 @@
   "exports": {
     "./package.json": "./package.json",
     ".": {
-      "@workout-agent-ce/source": "./src/index.ts",
+      "@leveza/source": "./src/index.ts",
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
       "default": "./dist/index.js"
@@ -32,8 +32,8 @@
     }
   },
   "dependencies": {
-    "@workout-agent-ce/server-core": "*",
-    "@workout-agent-ce/server-db": "*",
+    "@leveza/server-core": "*",
+    "@leveza/server-db": "*",
     "better-auth": "*",
     "@better-auth/expo": "*",
     "tslib": "^2.3.0"

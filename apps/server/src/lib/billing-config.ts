@@ -44,10 +44,20 @@ export const revenueCatBillingConfigDocumentSchema = z
             message: 'Environments must be unique.',
           }),
         entitlementIds: uniqueIdentifierList(),
+        upgradeEntitlementId: identifierSchema,
         productIds: uniqueIdentifierList(),
         defaultOfferingId: identifierSchema.optional(),
       })
-      .strict(),
+      .strict()
+      .refine(
+        (config) =>
+          config.entitlementIds.includes(config.upgradeEntitlementId),
+        {
+          message:
+            'upgradeEntitlementId must also be included in entitlementIds.',
+          path: ['upgradeEntitlementId'],
+        }
+      ),
     plans: z
       .object({
         freeGenerations: z.number().int().min(0).max(1_000_000_000),
@@ -89,6 +99,7 @@ export interface RevenueCatBillingConfig {
   accountDailySpendLimitNanoUsd: string;
   globalDailySpendLimitNanoUsd: string;
   pendingReservationTtlMs: number;
+  upgradeEntitlementId: string;
   defaultOfferingId?: string;
   showUpgradeUi: boolean;
 }
@@ -193,6 +204,7 @@ export function getBillingConfig(): BillingConfig {
       document.guardrails.globalDailySpendLimitNanoUsd,
     pendingReservationTtlMs:
       document.guardrails.pendingReservationTtlSeconds * 1_000,
+    upgradeEntitlementId: document.revenueCat.upgradeEntitlementId,
     defaultOfferingId: document.revenueCat.defaultOfferingId,
     showUpgradeUi: document.capabilities.showUpgradeUi,
   };

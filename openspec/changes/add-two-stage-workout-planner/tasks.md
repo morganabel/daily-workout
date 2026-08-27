@@ -25,6 +25,6 @@
 
 ## 5. Rollout Validation
 
-- [x] 5.1 Run project tests and typechecks for `@workout-agent-ce/server-core`, `@workout-agent-ce/server-ai`, `@workout-agent/shared`, and `@workout-agent-ce/server`
+- [x] 5.1 Run project tests and typechecks for `@leveza/server-core`, `@leveza/server-ai`, `@leveza/shared`, and `@leveza/server`
 - [x] 5.2 Run the full live generation-evaluation corpus with prompt capture enabled and summarize staged-planner cost, latency, and hard-check deltas
 - [x] 5.3 Update docs or internal notes describing the ambiguous-only activation strategy, feature-flag fallback, and hosted cost considerations

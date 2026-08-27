@@ -2,7 +2,7 @@ import {
   assertUsageEvent,
   type MeteringSink,
   type UsageEvent,
-} from '@workout-agent-ce/metering';
+} from '@leveza/metering';
 import { and, desc, eq, gte, lt } from 'drizzle-orm';
 import { createHash } from 'node:crypto';
 

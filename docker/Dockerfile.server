@@ -1,4 +1,4 @@
-# Multi-stage build for the workout-agent server.
+# Multi-stage build for the Leveza server.
 # Build context is the daily-workout repo root (this repo builds standalone).
 FROM node:24.16.0-alpine3.24 AS base
 

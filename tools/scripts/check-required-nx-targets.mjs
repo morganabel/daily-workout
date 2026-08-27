@@ -6,14 +6,14 @@ const libraryTargets = ['build', 'lint', 'test', 'typecheck'];
 const buildOnlyLibraryTargets = ['build', 'lint', 'typecheck'];
 
 const requiredTargets = new Map([
-  ['@workout-agent-ce/mobile', applicationTargets],
-  ['@workout-agent-ce/mobile-e2e', e2eTargets],
-  ['@workout-agent-ce/server', applicationTargets],
-  ['@workout-agent-ce/server-ai', libraryTargets],
-  ['@workout-agent-ce/server-core', libraryTargets],
-  ['@workout-agent-ce/server-e2e', e2eTargets],
-  ['@workout-agent-ce/source', []],
-  ['@workout-agent/shared', libraryTargets],
+  ['@leveza/mobile', applicationTargets],
+  ['@leveza/mobile-e2e', e2eTargets],
+  ['@leveza/server', applicationTargets],
+  ['@leveza/server-ai', libraryTargets],
+  ['@leveza/server-core', libraryTargets],
+  ['@leveza/server-e2e', e2eTargets],
+  ['@leveza/source', []],
+  ['@leveza/shared', libraryTargets],
   ['metering', buildOnlyLibraryTargets],
   ['quotas', buildOnlyLibraryTargets],
   ['server-auth', libraryTargets],

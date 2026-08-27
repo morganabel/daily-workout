@@ -72,7 +72,7 @@ export interface CreateBetterAuthOptionsParams {
    */
   google?: GoogleAuthConfig;
 
-  /** Runtime-only migration of Workout Agent-owned rows from anonymous A to B. */
+  /** Runtime-only migration of Leveza-owned rows from anonymous A to B. */
   transitionAnonymousAccount?: (
     input: AnonymousAccountTransitionInput
   ) => Promise<void>;
@@ -159,7 +159,7 @@ export function createBetterAuthOptions(
       // or a raw session token (it will be signed internally).
       bearer(),
       anonymous({
-        emailDomainName: 'anonymous.workout-agent.local',
+        emailDomainName: 'anonymous.leveza.local',
         ...(transitionAnonymousAccount
           ? {
               onLinkAccount: async ({ anonymousUser, newUser, ctx }) => {

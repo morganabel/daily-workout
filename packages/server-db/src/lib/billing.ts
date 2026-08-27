@@ -12,7 +12,7 @@ import {
   type SpendCeilingDecision,
   type SpendCeilingPolicy,
   type UsagePolicy,
-} from '@workout-agent-ce/quotas';
+} from '@leveza/quotas';
 import {
   and,
   asc,

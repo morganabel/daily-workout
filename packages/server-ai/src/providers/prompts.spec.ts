@@ -12,11 +12,11 @@ import type {
   ExerciseCandidatePool,
   PlanningBrief,
   StageOnePlannerArtifact,
-} from '@workout-agent-ce/server-core';
+} from '@leveza/server-core';
 import type {
   GenerationRequest,
   RegenerationFeedback,
-} from '@workout-agent/shared';
+} from '@leveza/shared';
 
 describe('buildRegenerationMessage', () => {
   const baseRequest: GenerationRequest = {

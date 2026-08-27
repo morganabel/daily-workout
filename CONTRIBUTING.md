@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for your interest in improving Workout Agent CE! Before opening a pull request, please follow these steps to keep the workspace healthy and consistent.
+Thanks for your interest in improving Leveza! Before opening a pull request, please follow these steps to keep the workspace healthy and consistent.
 
 ## Local setup
 
@@ -49,8 +49,8 @@ npm run validate:openspec -- <change-name>
 Run the Docker image-build job locally with:
 
 ```bash
-docker build -f docker/Dockerfile.server -t workout-agent-server:ci .
-docker build -f docker/Dockerfile.migrate -t workout-agent-migrate:ci .
+docker build -f docker/Dockerfile.server -t leveza-server:ci .
+docker build -f docker/Dockerfile.migrate -t leveza-migrate:ci .
 ```
 
 ## Pull requests

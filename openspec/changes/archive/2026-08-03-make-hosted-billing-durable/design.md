@@ -159,7 +159,7 @@ RevenueCat mode uses these exact settings and ownership boundaries:
 - a `guardrails` section containing bounded per-account request-rate and maximum-active-generation values, decimal-string per-account/global daily nano-USD ceilings, and a bounded pending-reservation TTL;
 - a `capabilities` section containing the hosted upgrade-UI discovery setting.
 
-The webhook secret is intentionally excluded from the serialized document so deployment secret handling and rotation remain independent. `BILLING_PROVIDER=none` does not parse or require either RevenueCat setting. Self-hosters who enable RevenueCat use the same public schema with their own values; this repository ships documentation and validation tests, not OpenLift-specific profiles.
+The webhook secret is intentionally excluded from the serialized document so deployment secret handling and rotation remain independent. `BILLING_PROVIDER=none` does not parse or require either RevenueCat setting. Self-hosters who enable RevenueCat use the same public schema with their own values; this repository ships documentation and validation tests, not Leveza-specific profiles.
 
 The deprecated `EDITION`, `HOSTED_BILLING_ENABLED`, per-setting `HOSTED_*` and `BILLING_*` policy variables, `REVENUECAT_ALLOWED_*`, `REVENUECAT_ENTITLEMENT_IDS`, `REVENUECAT_PRODUCT_IDS`, `REVENUECAT_DEFAULT_OFFERING_ID`, `REVENUECAT_ALLOW_UNSIGNED_WEBHOOKS`, and `x-revenuecat-signature` forms are deleted directly. No aliases or fallback defaults are retained for hosted RevenueCat mode.
 

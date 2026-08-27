@@ -4,7 +4,7 @@ import type {
   ExerciseSlotPolicy,
   PlanningLoadCeiling,
   PlanningStageOneActivation,
-} from '@workout-agent/shared';
+} from '@leveza/shared';
 
 export type {
   PlanningCandidateSelectionIntent,
@@ -15,7 +15,7 @@ export type {
   PlanningStageOneMode,
   PlanningStageOneReason,
   StageOnePlannerArtifact,
-} from '@workout-agent/shared';
+} from '@leveza/shared';
 
 export type PlanningFocusMode =
   | 'explicit'

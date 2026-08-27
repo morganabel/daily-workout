@@ -1,7 +1,7 @@
 import type {
   ModelCredentialSource,
   ModelProvider,
-} from '@workout-agent-ce/metering';
+} from '@leveza/metering';
 
 export interface UpgradeMetadata {
   showUpgradeUi?: boolean;

@@ -1,5 +1,5 @@
-import { workoutGenerationEvaluationScenarios } from '@workout-agent/shared';
-import { createTodayPlanFixture } from '@workout-agent/shared/testing';
+import { workoutGenerationEvaluationScenarios } from '@leveza/shared';
+import { createTodayPlanFixture } from '@leveza/shared/testing';
 
 import { runHardChecksForScenario, summarizeHardFailures } from './hard-checks';
 

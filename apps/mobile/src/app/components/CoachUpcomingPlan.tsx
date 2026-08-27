@@ -15,7 +15,7 @@ import type {
   CoachProjectionActionType,
   CoachProjectionConflictWarning,
   CoachProjectionSessionStatus,
-} from '@workout-agent/shared';
+} from '@leveza/shared';
 import type { HomeCoachPlanView } from '../hooks/useHomeData';
 import { palette, typography } from '../theme';
 import { parseLocalDate } from '../utils/date';

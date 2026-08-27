@@ -17,17 +17,17 @@ import {
   type GenerateHandlerConfig,
   type MeteringSink,
   type UsagePolicy,
-} from '@workout-agent-ce/server-core';
+} from '@leveza/server-core';
 import {
   DefaultModelRouter,
   DefaultStageOnePlanner,
-} from '@workout-agent-ce/server-ai';
-import type { ExerciseLibrary } from '@workout-agent-ce/server-exercise-library';
+} from '@leveza/server-ai';
+import type { ExerciseLibrary } from '@leveza/server-exercise-library';
 import type {
   ProviderAdmissionPolicy,
   SpendCeilingPolicy,
-} from '@workout-agent-ce/quotas';
-import type { AiProviderName } from '@workout-agent/shared';
+} from '@leveza/quotas';
+import type { AiProviderName } from '@leveza/shared';
 import { getAuthContext } from './auth-context';
 import { getRevenueCatBillingServices } from './billing-services';
 import { getBillingProvider, resolveEdition } from './deployment';
@@ -44,7 +44,7 @@ const loadExerciseLibrary = async (): Promise<ExerciseLibrary | undefined> => {
 
   try {
     const { openExerciseLibrary } = await import(
-      '@workout-agent-ce/server-exercise-library'
+      '@leveza/server-exercise-library'
     );
     cachedExerciseLibrary = openExerciseLibrary();
   } catch (error) {

@@ -18,7 +18,7 @@ import {
   type RegenerationFeedback,
   type WorkoutEnergy,
   type QuickActionPreset,
-} from '@workout-agent/shared';
+} from '@leveza/shared';
 import { palette, typography } from '../theme';
 import { Button, Chip } from './DesignSystem';
 

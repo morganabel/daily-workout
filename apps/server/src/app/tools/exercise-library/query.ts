@@ -4,7 +4,7 @@ import type {
   ExperienceLevel,
   LoadLevel,
   MetadataCompleteness,
-} from '@workout-agent-ce/server-exercise-library';
+} from '@leveza/server-exercise-library';
 
 type SearchParamsRecord = Record<string, string | string[] | undefined>;
 

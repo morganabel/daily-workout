@@ -18,7 +18,7 @@ async function applySqlFile(pool: Pool, filename: string): Promise<void> {
 
 beforeAll(async () => {
   container = await new PostgreSqlContainer('postgres:18-alpine')
-    .withDatabase('workout_agent_upgrade_test')
+    .withDatabase('leveza_upgrade_test')
     .withUsername('test')
     .withPassword('test')
     .start();

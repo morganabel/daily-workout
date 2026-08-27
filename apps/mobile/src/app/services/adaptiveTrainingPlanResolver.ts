@@ -8,11 +8,11 @@ import type {
   CoachProgramAttribution,
   UpcomingEventContext,
   WorkoutSessionSummary,
-} from '@workout-agent/shared';
+} from '@leveza/shared';
 import {
   adaptivePlanRecommendationSchema,
   daysBetweenLocalDates,
-} from '@workout-agent/shared';
+} from '@leveza/shared';
 import { formatLocalDate, parseLocalDate } from '../utils/date';
 
 export type AdaptiveTrainingPlanResolverInput = {

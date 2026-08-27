@@ -1,6 +1,6 @@
 ## 1. Implementation
 
-- [x] 1.1 Add shared Zod schemas/types for `PlannedEvent`, `PlannedEventInput`, `PlannedEventPatch`, `CalendarItem`, and `UpcomingEventContext` (plus canonical event kinds) in `@workout-agent/shared`
+- [x] 1.1 Add shared Zod schemas/types for `PlannedEvent`, `PlannedEventInput`, `PlannedEventPatch`, `CalendarItem`, and `UpcomingEventContext` (plus canonical event kinds) in `@leveza/shared`
 - [x] 1.2 Add mobile local DB storage + repository APIs for planned events (create/update/delete/list by date range)
 - [x] 1.3 Update History UI to support a month calendar view with day markers and a day agenda
 - [x] 1.4 Add "Plan event" create/edit flow (bottom sheet) from the calendar with kind selection

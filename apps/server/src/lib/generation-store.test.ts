@@ -6,7 +6,7 @@ import {
   clearStoredPlan,
   resetGenerationStore,
 } from './generation-store';
-import { createTodayPlanFixture } from '@workout-agent/shared/testing';
+import { createTodayPlanFixture } from '@leveza/shared/testing';
 
 const DEVICE_TOKEN = 'device-test-token';
 

@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { Platform } from 'react-native';
-import { MOBILE_DEBUG_MCP_PROTOCOL_VERSION } from '@workout-agent/shared';
+import { MOBILE_DEBUG_MCP_PROTOCOL_VERSION } from '@leveza/shared';
 import {
   createDebugMcpSessionId,
   DEBUG_MCP_INITIAL_RECONNECT_DELAY_MS,
@@ -51,7 +51,7 @@ export const DebugMcpBridge = () => {
             session: {
               sessionId,
               protocolVersion: MOBILE_DEBUG_MCP_PROTOCOL_VERSION,
-              appName: 'Workout Agent Mobile',
+              appName: 'Leveza',
               platform: Platform.OS,
             },
           }),

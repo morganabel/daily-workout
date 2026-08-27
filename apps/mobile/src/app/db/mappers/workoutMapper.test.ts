@@ -1,4 +1,4 @@
-import { createTodayPlanFixture } from '@workout-agent/shared/testing';
+import { createTodayPlanFixture } from '@leveza/shared/testing';
 import { planToPersistence, rowsToPlan } from './workoutMapper';
 
 describe('workoutMapper', () => {

@@ -1,5 +1,5 @@
 import * as SecureStore from 'expo-secure-store';
-import type { MetaResponse } from '@workout-agent/shared';
+import type { MetaResponse } from '@leveza/shared';
 
 import { backendDescriptor } from './backendDescriptor';
 import {
@@ -28,6 +28,7 @@ const liveCapabilities: MetaResponse = {
     showUpgradeUi: false,
     purchaseMethod: 'none',
     allowByok: true,
+    upgradeEntitlementId: null,
   },
 };
 

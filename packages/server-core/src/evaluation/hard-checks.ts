@@ -5,7 +5,7 @@ import {
   type HardCheckName,
   type TodayPlan,
   todayPlanSchema,
-} from '@workout-agent/shared';
+} from '@leveza/shared';
 
 function normalize(value: string): string {
   return value.trim().toLowerCase();

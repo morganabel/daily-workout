@@ -1,7 +1,7 @@
 import { WorkoutRepository } from './WorkoutRepository';
 import { getActiveDatabase } from '../activeDatabase';
-import { createTodayPlanFixture } from '@workout-agent/shared/testing';
-import type { CoachProgramAttribution } from '@workout-agent/shared';
+import { createTodayPlanFixture } from '@leveza/shared/testing';
+import type { CoachProgramAttribution } from '@leveza/shared';
 import { Q } from 'nitromelondb';
 
 const database = getActiveDatabase();

@@ -23,7 +23,7 @@ let db: Database;
 
 beforeAll(async () => {
   container = await new PostgreSqlContainer('postgres:18-alpine')
-    .withDatabase('workout_agent_auth_test')
+    .withDatabase('leveza_auth_test')
     .withUsername('test')
     .withPassword('test')
     .start();
@@ -75,7 +75,7 @@ async function seedPrincipals(targetId = 'authenticated-user'): Promise<void> {
     {
       id: 'anonymous-user',
       name: 'Anonymous',
-      email: 'anonymous@anonymous.workout-agent.local',
+      email: 'anonymous@anonymous.leveza.local',
       emailVerified: false,
       isAnonymous: true,
     },
@@ -156,7 +156,7 @@ async function seedAnonymousApplicationState(): Promise<void> {
   await db.insert(schema.billingEntitlementProjection).values({
     accountId: 'anonymous-user',
     planId: 'pro',
-    entitlementId: 'OpenLift Pro',
+    entitlementId: 'Leveza Pro',
     productId: 'pro.monthly',
     status: 'active',
     willRenew: true,
@@ -174,7 +174,7 @@ async function seedAnonymousApplicationState(): Promise<void> {
     appId: 'app',
     environment: 'sandbox',
     customerIds: ['wa_1234567890ab7def8abc1234567890ab'],
-    entitlementIds: ['OpenLift Pro'],
+    entitlementIds: ['Leveza Pro'],
     outcome: 'applied',
     accountId: 'anonymous-user',
   });

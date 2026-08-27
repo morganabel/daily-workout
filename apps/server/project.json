@@ -1,6 +1,6 @@
 {
   "$schema": "../../node_modules/nx/schemas/project-schema.json",
-  "name": "@workout-agent-ce/server",
+  "name": "@leveza/server",
   "targets": {
     "typecheck": {
       "executor": "nx:run-commands",

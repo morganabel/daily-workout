@@ -1,7 +1,7 @@
 import type {
   IncludedGenerationReservation,
   UsagePolicy,
-} from '@workout-agent-ce/quotas';
+} from '@leveza/quotas';
 
 /** Billing-neutral policy for self-hosted deployments. */
 export class NoOpUsagePolicy implements UsagePolicy {

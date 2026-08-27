@@ -3,8 +3,8 @@ import type { Database } from 'nitromelondb';
 import type {
   CoachSessionAction as CoachSessionActionContract,
   CoachScheduleStrategy,
-} from '@workout-agent/shared';
-import { coachSessionActionSchema } from '@workout-agent/shared';
+} from '@leveza/shared';
+import { coachSessionActionSchema } from '@leveza/shared';
 import CoachSessionActionModel from '../models/CoachSessionAction';
 
 type RecordSkipActionInput = Omit<

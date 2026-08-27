@@ -4,7 +4,7 @@ import {
   type AdaptiveTrainingPlan,
   type TrainingTemplateId,
   type WorkoutSessionSummary,
-} from '@workout-agent/shared';
+} from '@leveza/shared';
 import {
   computeAdaptiveTargetProgress,
   getSessionBlockAttribution,

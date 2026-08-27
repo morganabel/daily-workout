@@ -22,6 +22,7 @@ const createBillingState = (overrides = {}) => ({
     showUpgradeUi: true,
     purchaseMethod: 'iap',
     allowByok: true,
+    upgradeEntitlementId: 'Leveza Pro',
   },
   client: {
     type: 'revenuecat',
@@ -47,6 +48,31 @@ const createBillingState = (overrides = {}) => ({
 describe('PaywallScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+  });
+
+  it('passes the server-configured entitlement to RevenueCat', async () => {
+    const presentPaywall = jest.fn().mockResolvedValue('cancelled');
+    mockUseBillingState.mockReturnValue(
+      createBillingState({
+        capabilities: {
+          ...createBillingState().capabilities,
+          upgradeEntitlementId: 'configured-pro',
+        },
+        client: {
+          ...createBillingState().client,
+          presentPaywall,
+        },
+      })
+    );
+
+    const screen = render(<PaywallScreen />);
+
+    await act(async () => {
+      fireEvent.press(screen.getByText('View plans'));
+      await Promise.resolve();
+    });
+
+    expect(presentPaywall).toHaveBeenCalledWith('configured-pro');
   });
 
   it('does not poll backend when restore finds no active entitlement', async () => {
@@ -77,14 +103,14 @@ describe('PaywallScreen', () => {
     expect(refreshEntitlements).not.toHaveBeenCalled();
     expect(alertSpy).toHaveBeenCalledWith(
       'No active purchase found',
-      'We could not find an active OpenLift Pro purchase for this store account.'
+      'We could not find an active Leveza Pro purchase for this store account.'
     );
   });
 
   it('refreshes backend entitlements after an active restore', async () => {
     const refreshEntitlements = jest.fn().mockResolvedValue({
       planId: 'pro',
-      entitlementId: 'OpenLift Pro',
+      entitlementId: 'Leveza Pro',
       status: 'active',
       willRenew: true,
       paidThrough: '2026-09-01T00:00:00.000Z',
@@ -101,7 +127,7 @@ describe('PaywallScreen', () => {
     const restorePurchases = jest.fn().mockResolvedValue({
       entitlements: {
         active: {
-          'OpenLift Pro': {},
+          'Leveza Pro': {},
         },
       },
     });

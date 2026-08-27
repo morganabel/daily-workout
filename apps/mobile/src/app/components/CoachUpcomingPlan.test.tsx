@@ -3,7 +3,7 @@ import { fireEvent, render } from '@testing-library/react-native';
 import type {
   CoachProjectedSession,
   CoachProjectionConflictWarning,
-} from '@workout-agent/shared';
+} from '@leveza/shared';
 import { CoachUpcomingPlan } from './CoachUpcomingPlan';
 import type { HomeCoachPlanView } from '../hooks/useHomeData';
 

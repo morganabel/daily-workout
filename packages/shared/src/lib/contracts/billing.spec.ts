@@ -13,6 +13,7 @@ describe('billing contracts', () => {
       showUpgradeUi: false,
       purchaseMethod: 'none',
       allowByok: true,
+      upgradeEntitlementId: null,
     });
   });
 
@@ -24,7 +25,7 @@ describe('billing contracts', () => {
   it('parses hosted entitlement payload shape', () => {
     const parsed = billingEntitlementsResponseSchema.parse({
       planId: 'pro',
-      entitlementId: 'OpenLift Pro',
+      entitlementId: 'Leveza Pro',
       status: 'active',
       willRenew: true,
       paidThrough: '2026-09-01T00:00:00.000Z',
@@ -58,7 +59,7 @@ describe('billing contracts', () => {
       upgrade: {
         showUpgradeUi: true,
         purchaseMethod: 'iap',
-        entitlementId: 'OpenLift Pro',
+        entitlementId: 'Leveza Pro',
         productIds: ['weekly', 'monthly', 'yearly'],
       },
     });

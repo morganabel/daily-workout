@@ -3,12 +3,12 @@ import OpenAI from 'openai';
 import type {
   CatalogSeed,
   ExerciseCandidatePool,
-} from '@workout-agent-ce/server-core';
+} from '@leveza/server-core';
 import {
   type GenerationRequest,
   type GenerationContext,
   type LlmTodayPlan,
-} from '@workout-agent/shared';
+} from '@leveza/shared';
 import { AiGenerationError } from './types';
 
 jest.mock('openai');
@@ -33,7 +33,7 @@ jest.mock('../llm-transformer', () => {
     getDefaultSchemaVersion: jest.fn(() => 'v1-current'),
     getSchemaForVersion: jest.fn((version: string) => {
       const { llmTodayPlanSchema } = jest.requireActual(
-        '@workout-agent/shared'
+        '@leveza/shared'
       );
       return llmTodayPlanSchema;
     }),

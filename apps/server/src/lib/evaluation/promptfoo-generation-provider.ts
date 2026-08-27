@@ -2,7 +2,7 @@ import type {
   GenerationEvaluationHardCheckResult,
   GenerationEvaluationProvider,
   GenerationEvaluationReportEntry,
-} from '@workout-agent/shared';
+} from '@leveza/shared';
 
 export type PromptfooGenerationProviderVars = {
   scenarioId: string;

@@ -17,8 +17,8 @@ import { getAuthContext } from '@/lib/auth-context';
 import {
   attachRequestId,
   createRequestContext,
-} from '@workout-agent-ce/server-core';
-import { createAuthHandler } from '@workout-agent-ce/server-auth';
+} from '@leveza/server-core';
+import { createAuthHandler } from '@leveza/server-auth';
 
 /**
  * Handler that delegates to Better Auth or returns 404 for stub mode

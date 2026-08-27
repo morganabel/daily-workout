@@ -1,6 +1,6 @@
 ## Context
 
-Workspace package exports expose a custom `@workout-agent-ce/source` condition followed by `types`, `import`, and `default` entries. TypeScript asserts the source condition and checks `src` files. Next and Metro select built output but resolve and bundle extensionless or directory imports before Node executes them. Jest also transforms modules through its own resolver, and the server test configuration maps selected packages to source.
+Workspace package exports expose a custom `@leveza/source` condition followed by `types`, `import`, and `default` entries. TypeScript asserts the source condition and checks `src` files. Next and Metro select built output but resolve and bundle extensionless or directory imports before Node executes them. Jest also transforms modules through its own resolver, and the server test configuration maps selected packages to source.
 
 Plain Node selects `dist/index.js` and applies strict ESM resolution. It does not append `.js` or resolve a directory to `index.js`, so imports currently fail in `shared`, `server-core`, `server-ai`, and transitively dependent packages. This is not a current Next or Expo outage, but it violates the packages' advertised runtime contract and leaves clean/stale `dist` behavior under-tested.
 
@@ -42,15 +42,15 @@ The global TypeScript configuration remains on bundler resolution because Next a
 
 **Decision:** Add one Nx-owned post-build smoke target that starts a clean Node child process with no custom export condition, loader, transpiler, or experimental resolution flag. It imports:
 
-- `@workout-agent/shared`
-- `@workout-agent/shared/testing`
-- `@workout-agent-ce/server-core`
-- `@workout-agent-ce/server-ai`
-- `@workout-agent-ce/server-auth`
-- `@workout-agent-ce/server-db`
-- `@workout-agent-ce/server-exercise-library`
-- `@workout-agent-ce/metering`
-- `@workout-agent-ce/quotas`
+- `@leveza/shared`
+- `@leveza/shared/testing`
+- `@leveza/server-core`
+- `@leveza/server-ai`
+- `@leveza/server-auth`
+- `@leveza/server-db`
+- `@leveza/server-exercise-library`
+- `@leveza/metering`
+- `@leveza/quotas`
 
 The target depends on package builds and lands atomically with the ESM corrections so the default branch is never left with a permanently red expected-failure check.
 

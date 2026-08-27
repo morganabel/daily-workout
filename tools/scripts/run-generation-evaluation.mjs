@@ -237,7 +237,7 @@ function main() {
   const args = [
     'nx',
     'test',
-    '@workout-agent-ce/server',
+    '@leveza/server',
     '--testPathPatterns=src/lib/evaluation/run-generation-evaluation.spec.ts',
     '--runInBand',
     '--skipNxCache',

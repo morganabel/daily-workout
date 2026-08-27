@@ -1,9 +1,9 @@
-import { getAiUsageSummary } from '@workout-agent-ce/server-db';
-import { billingAiUsageResponseSchema } from '@workout-agent/shared';
+import { getAiUsageSummary } from '@leveza/server-db';
+import { billingAiUsageResponseSchema } from '@leveza/shared';
 import {
   attachRequestId,
   createRequestContext,
-} from '@workout-agent-ce/server-core';
+} from '@leveza/server-core';
 
 import { getAuthContext } from '@/lib/auth-context';
 import { getRevenueCatBillingServices } from '@/lib/billing-services';

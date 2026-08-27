@@ -1,4 +1,4 @@
-import type { GenerationEvaluationReportEntry } from '@workout-agent/shared';
+import type { GenerationEvaluationReportEntry } from '@leveza/shared';
 
 import {
   buildPromptfooGenerationProviderOutput,

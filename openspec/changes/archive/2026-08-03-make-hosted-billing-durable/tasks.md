@@ -65,11 +65,11 @@ git diff --name-only origin/main...HEAD
 ### Verification Commands
 
 ```bash
-nx test @workout-agent/shared
-nx test @workout-agent-ce/server-core
+nx test @leveza/shared
+nx test @leveza/server-core
 nx test quotas
 nx test metering
-nx run-many -t typecheck,lint,build --projects=@workout-agent/shared,@workout-agent-ce/server-core,quotas,metering
+nx run-many -t typecheck,lint,build --projects=@leveza/shared,@leveza/server-core,quotas,metering
 ```
 
 ## PR B2 - PostgreSQL Billing Schema And Repositories
@@ -140,13 +140,13 @@ nx run server-db:integration
 ### Verification Commands
 
 ```bash
-nx test @workout-agent-ce/server
-nx run @workout-agent-ce/server:typecheck
-nx lint @workout-agent-ce/server
-nx build @workout-agent-ce/server
-nx run @workout-agent-ce/server-e2e:e2e
-docker build -f docker/Dockerfile.server -t workout-agent-server:billing .
-docker build -f docker/Dockerfile.migrate -t workout-agent-migrate:billing .
+nx test @leveza/server
+nx run @leveza/server:typecheck
+nx lint @leveza/server
+nx build @leveza/server
+nx run @leveza/server-e2e:e2e
+docker build -f docker/Dockerfile.server -t leveza-server:billing .
+docker build -f docker/Dockerfile.migrate -t leveza-migrate:billing .
 ```
 
 ## Deferred Until Launch Scale Justifies It

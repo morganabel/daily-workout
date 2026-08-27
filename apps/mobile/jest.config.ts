@@ -2,7 +2,7 @@ const jestExpoPreset = require('jest-expo/jest-preset');
 
 module.exports = {
   ...jestExpoPreset,
-  displayName: '@workout-agent-ce/mobile',
+  displayName: '@leveza/mobile',
   // Full-screen render tests (App/Home/Onboarding) exceed jest's default 5s
   // per-test timeout on slower CI runners; give them headroom.
   testTimeout: 30000,

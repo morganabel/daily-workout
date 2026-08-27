@@ -3,7 +3,7 @@ import {
   isAutoFocus,
   type GenerationContext,
   type GenerationRequestPayload,
-} from '@workout-agent/shared';
+} from '@leveza/shared';
 import { createLogger } from './logging';
 
 export type GenerationRequestWithContext = GenerationRequestPayload;

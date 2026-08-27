@@ -2,7 +2,7 @@ jest.mock('./auth-context', () => ({
   getAuthContext: jest.fn(),
 }));
 
-import type { EntitlementProjection } from '@workout-agent-ce/quotas';
+import type { EntitlementProjection } from '@leveza/quotas';
 
 import {
   configuredPricingAvailable,
@@ -20,7 +20,7 @@ const entitlement = (
 ): EntitlementProjection => ({
   accountId: 'account-1',
   planId: 'pro',
-  entitlementId: 'OpenLift Pro',
+  entitlementId: 'Leveza Pro',
   productId: 'monthly',
   status,
   willRenew: status !== 'inactive',
@@ -67,6 +67,7 @@ describe('included generation limits', () => {
     expect(
       quotaUpgradeMetadata({
         showUpgradeUi: false,
+        upgradeEntitlementId: 'pro',
         domainConfig: {
           allowedAppIds: new Set(['app.test']),
           allowedEnvironments: new Set(['SANDBOX']),
@@ -74,6 +75,48 @@ describe('included generation limits', () => {
           allowedProductIds: new Set(['monthly']),
         },
       })
-    ).toEqual({ showUpgradeUi: false, purchaseMethod: 'none' });
+    ).toStrictEqual({ showUpgradeUi: false, purchaseMethod: 'none' });
+  });
+
+  it('uses the explicitly configured entitlement in upgrade metadata', () => {
+    expect(
+      quotaUpgradeMetadata({
+        showUpgradeUi: true,
+        upgradeEntitlementId: 'pro',
+        domainConfig: {
+          allowedAppIds: new Set(['app.test']),
+          allowedEnvironments: new Set(['SANDBOX']),
+          allowedEntitlementIds: new Set(['legacy', 'pro']),
+          allowedProductIds: new Set(['monthly']),
+        },
+      })
+    ).toStrictEqual({
+      showUpgradeUi: true,
+      purchaseMethod: 'iap',
+      entitlementId: 'pro',
+      productIds: ['monthly'],
+    });
+  });
+
+  it('includes a configured offering in upgrade metadata', () => {
+    expect(
+      quotaUpgradeMetadata({
+        showUpgradeUi: true,
+        upgradeEntitlementId: 'pro',
+        defaultOfferingId: 'default',
+        domainConfig: {
+          allowedAppIds: new Set(['app.test']),
+          allowedEnvironments: new Set(['SANDBOX']),
+          allowedEntitlementIds: new Set(['pro']),
+          allowedProductIds: new Set(['monthly']),
+        },
+      })
+    ).toStrictEqual({
+      showUpgradeUi: true,
+      purchaseMethod: 'iap',
+      entitlementId: 'pro',
+      offeringId: 'default',
+      productIds: ['monthly'],
+    });
   });
 });

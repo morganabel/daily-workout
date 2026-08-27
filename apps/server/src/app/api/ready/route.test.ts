@@ -2,7 +2,7 @@ jest.mock('@/lib/auth-context', () => ({
   getAuthContext: jest.fn(),
 }));
 
-jest.mock('@workout-agent-ce/server-db', () => ({
+jest.mock('@leveza/server-db', () => ({
   ping: jest.fn(),
 }));
 
@@ -15,7 +15,7 @@ import { GET } from './route';
 const { getAuthContext } = jest.requireMock('@/lib/auth-context') as {
   getAuthContext: jest.Mock;
 };
-const { ping } = jest.requireMock('@workout-agent-ce/server-db') as {
+const { ping } = jest.requireMock('@leveza/server-db') as {
   ping: jest.Mock;
 };
 const { getRevenueCatBillingServices } = jest.requireMock(

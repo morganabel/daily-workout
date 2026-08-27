@@ -26,7 +26,7 @@ const swcJestConfig = {
 };
 
 module.exports = {
-  displayName: '@workout-agent-ce/server',
+  displayName: '@leveza/server',
   preset: '../../jest.preset.js',
   transform: {
     '^.+\\.[tj]sx?$': ['@swc/jest', swcJestConfig],
@@ -35,12 +35,12 @@ module.exports = {
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx'],
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
-    '^@workout-agent/shared$': '<rootDir>/../../packages/shared/src/index.ts',
+    '^@leveza/shared$': '<rootDir>/../../packages/shared/src/index.ts',
     '^uuid$': '<rootDir>/jest-mocks/uuid.ts',
     '^uuid/(.*)$': '<rootDir>/jest-mocks/uuid.ts',
   },
   transformIgnorePatterns: [
-    'node_modules/(?!(uuid|@workout-agent|@openrouter/sdk)/)',
+    'node_modules/(?!(uuid|@leveza|@openrouter/sdk)/)',
   ],
   coverageDirectory: '../../coverage/apps/server',
   testEnvironment: 'node',

@@ -1,5 +1,5 @@
 import { createNavigationContainerRef } from '@react-navigation/native';
-import type { TodayPlan } from '@workout-agent/shared';
+import type { TodayPlan } from '@leveza/shared';
 
 export type RootStackParamList = {
   Launch: { openByok?: boolean } | undefined;

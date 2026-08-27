@@ -1,10 +1,10 @@
-# @workout-agent-ce/server-core
+# @leveza/server-core
 
-Core dependency-injected handlers and interfaces for the Workout Agent server.
+Core dependency-injected handlers and interfaces for the Leveza server.
 
 ## Purpose
 
-This package provides the framework-agnostic business logic for the Workout Agent API. It exports:
+This package provides the framework-agnostic business logic for the Leveza API. It exports:
 
 - **Handler Factories**: Create `Request → Response` handlers for API routes
 - **Dependency Interfaces**: `AuthProvider`, `GenerationStore`, and `ModelRouter`, plus the canonical `UsagePolicy` and `MeteringSink` contracts from the `quotas` and `metering` packages
@@ -14,8 +14,8 @@ This package provides the framework-agnostic business logic for the Workout Agen
 ## Usage in Community Edition
 
 ```typescript
-import { StubAuthProvider, InMemoryGenerationStore, NoOpUsagePolicy, NoOpMeteringSink, createGenerateHandler } from '@workout-agent-ce/server-core';
-import { DefaultModelRouter } from '@workout-agent-ce/server-ai';
+import { StubAuthProvider, InMemoryGenerationStore, NoOpUsagePolicy, NoOpMeteringSink, createGenerateHandler } from '@leveza/server-core';
+import { DefaultModelRouter } from '@leveza/server-ai';
 
 // Instantiate CE defaults
 const auth = new StubAuthProvider();
@@ -49,7 +49,7 @@ export async function POST(request: Request) {
 
 ## Usage in Hosted Deployments
 
-The consolidated server owns hosted composition in `apps/server/src/lib/wiring.ts`. Its adapters implement the canonical contracts from `@workout-agent-ce/quotas` and `@workout-agent-ce/metering`; hosted deployments do not fork `server-core` or define app-local quota and metering interfaces.
+The consolidated server owns hosted composition in `apps/server/src/lib/wiring.ts`. Its adapters implement the canonical contracts from `@leveza/quotas` and `@leveza/metering`; hosted deployments do not fork `server-core` or define app-local quota and metering interfaces.
 
 ## BYOK Safety
 
@@ -102,7 +102,7 @@ interface UsagePolicy {
 }
 ```
 
-`UsagePolicy` is defined by `@workout-agent-ce/quotas`; `MeteringSink` is defined by `@workout-agent-ce/metering`. `server-core` consumes and re-exports those contracts rather than defining competing shapes.
+`UsagePolicy` is defined by `@leveza/quotas`; `MeteringSink` is defined by `@leveza/metering`. `server-core` consumes and re-exports those contracts rather than defining competing shapes.
 
 ### `MeteringSink`
 
@@ -115,7 +115,7 @@ interface MeteringSink {
 ## Protocol Version
 
 ```typescript
-import { PROTOCOL_VERSION } from '@workout-agent-ce/server-core';
+import { PROTOCOL_VERSION } from '@leveza/server-core';
 
 // For future /meta endpoint
 console.log(PROTOCOL_VERSION); // "1.0.0"

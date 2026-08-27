@@ -127,8 +127,8 @@ Use local Promptfoo reports by default. Promptfoo sharing or cloud upload featur
 Useful validation commands:
 
 ```sh
-nx test @workout-agent/shared --testPathPatterns=src/lib/evaluation/promptfoo-generation-bridge.spec.ts
-nx test @workout-agent-ce/server --testPathPatterns=src/lib/evaluation/promptfoo-generation-provider.spec.ts
+nx test @leveza/shared --testPathPatterns=src/lib/evaluation/promptfoo-generation-bridge.spec.ts
+nx test @leveza/server --testPathPatterns=src/lib/evaluation/promptfoo-generation-provider.spec.ts
 npm run promptfoo:generation -- --provider fixture --limit 1 --config-only
 npm run promptfoo:generation:redteam -- --config-only
 openspec validate add-promptfoo-generation-evaluation-harness --strict

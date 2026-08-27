@@ -1,7 +1,7 @@
 ## ADDED Requirements
 
 ### Requirement: Capabilities Discovery Endpoint
-The server MUST expose a `/api/meta` endpoint that returns auth capabilities, protocol version, and feature flags. This endpoint MUST be accessible without authentication so clients can detect backend capabilities before attempting auth. The response schema (`MetaResponse`) MUST be exported from `@workout-agent-ce/shared` for type-safe client consumption.
+The server MUST expose a `/api/meta` endpoint that returns auth capabilities, protocol version, and feature flags. This endpoint MUST be accessible without authentication so clients can detect backend capabilities before attempting auth. The response schema (`MetaResponse`) MUST be exported from `@leveza/shared` for type-safe client consumption.
 
 #### Scenario: Client discovers auth capabilities
 - **WHEN** a client sends a GET request to `/api/meta`
@@ -13,7 +13,7 @@ The server MUST expose a `/api/meta` endpoint that returns auth capabilities, pr
 - **THEN** it returns the capabilities response (no 401)
 
 #### Scenario: Response type is shared
-- **GIVEN** the mobile app imports `MetaResponse` from `@workout-agent-ce/shared`
+- **GIVEN** the mobile app imports `MetaResponse` from `@leveza/shared`
 - **WHEN** it fetches `/api/meta`
 - **THEN** the response can be type-safely consumed as `MetaResponse`
 
@@ -252,6 +252,6 @@ DB-backed session validation and quota lookup MUST NOT be performed in Next.js E
 Auth-related packages (`packages/server-db`, `packages/server-auth`) MUST export factory functions and MUST NOT have side effects at import time. This enables EE to initialize DB/auth at runtime.
 
 #### Scenario: No side effects on import
-- **GIVEN** an EE app imports `@workout-agent-ce/server-db`
+- **GIVEN** an EE app imports `@leveza/server-db`
 - **WHEN** the import statement executes
 - **THEN** no database connections are opened until a factory function is called

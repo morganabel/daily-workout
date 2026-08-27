@@ -2,7 +2,7 @@ import {
   type AdaptiveTargetRange,
   createAdaptiveTrainingPlanFromTemplate,
   createTrainingBlueprintFromOnboarding,
-} from '@workout-agent/shared';
+} from '@leveza/shared';
 import { getActiveDatabase } from '../activeDatabase';
 import { UserRepository } from './UserRepository';
 

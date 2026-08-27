@@ -4,7 +4,7 @@ import type {
   GenerationStatus,
   QuickActionPreset,
   TodayPlan,
-} from '@workout-agent/shared';
+} from '@leveza/shared';
 
 export type DebugBridgeState = {
   enabled: boolean;

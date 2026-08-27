@@ -8,7 +8,7 @@
 - [ ] 1.4 Audit `npm install-scripts ls`, commit version-pinned `allowScripts` approvals only for required dependency lifecycle scripts, record explicit denials where appropriate, and enable `strict-allow-scripts=true` without a blanket allow-all escape hatch.
 - [ ] 1.5 Update the existing GitHub Actions workflow to install and verify Node `24.16.0` and npm `12.0.1` before dependency installation; preserve `nx sync:check` and both Docker image jobs.
 - [ ] 1.6 Pin Node `24.16.0` and install npm `12.0.1` in the shared Docker build stages before either Dockerfile runs `npm ci`.
-- [ ] 1.7 Add an explicit `@workout-agent-ce/server:typecheck` target and audit every required project for target coverage; run dependency-aware Nx `lint`, `typecheck`, `test`, and `build` targets for affected projects on pull requests without silently omitting a missing required target.
+- [ ] 1.7 Add an explicit `@leveza/server:typecheck` target and audit every required project for target coverage; run dependency-aware Nx `lint`, `typecheck`, `test`, and `build` targets for affected projects on pull requests without silently omitting a missing required target.
 - [ ] 1.8 Run the complete applicable Nx target set on the default branch so graph or workflow changes cannot hide behind affected calculation.
 - [ ] 1.9 Preserve current lint warnings as visible output without combining warning cleanup into this PR.
 - [ ] 1.10 Pin the project-standard OpenSpec CLI and expose one thin `validate:openspec` npm alias that forwards a change name or `--all` directly to strict CLI validation without a custom wrapper.
@@ -18,7 +18,7 @@
 
 - A pull request changing one project runs that project and all dependency-required work.
 - A failure in lint, typecheck, test, or build blocks the workflow.
-- The server exposes and directly passes `@workout-agent-ce/server:typecheck`; CI asserts required-target coverage instead of treating absence as success.
+- The server exposes and directly passes `@leveza/server:typecheck`; CI asserts required-target coverage instead of treating absence as success.
 - The main-branch job exercises all projects with applicable targets.
 - Local development requires Node `24.16.0` and accepts npm `>=12 <13`; CI, Docker, lockfile changes, and exact local CI reproduction use npm `12.0.1`. The root engine contract rejects npm 11, npm 13, and incompatible Node 24 patch releases.
 - The npm 12-generated lockfile remains reproducible under `npm ci` without uncommitted changes.
@@ -38,11 +38,11 @@ npm ci
 npm install-scripts ls
 nx sync:check
 nx report
-nx run @workout-agent-ce/server:typecheck
+nx run @leveza/server:typecheck
 nx affected -t lint,typecheck,test,build --base=origin/main --head=HEAD
 nx run-many -t lint,typecheck,test,build
-docker build -f docker/Dockerfile.server -t workout-agent-server:ci .
-docker build -f docker/Dockerfile.migrate -t workout-agent-migrate:ci .
+docker build -f docker/Dockerfile.server -t leveza-server:ci .
+docker build -f docker/Dockerfile.migrate -t leveza-migrate:ci .
 npm run validate:openspec -- --all
 npm run validate:openspec -- harden-package-and-ci-integrity
 ```
@@ -53,7 +53,7 @@ npm run validate:openspec -- harden-package-and-ci-integrity
 
 - [ ] 2.1 Set `module` and `moduleResolution` to `NodeNext` in the eight emitted library configurations without changing the global Next/Expo bundler configuration.
 - [ ] 2.2 Add `.js` to production relative imports/exports and replace directory specifiers with explicit `index.js` paths.
-- [ ] 2.3 Verify package export maps expose existing public roots and `@workout-agent/shared/testing` from built output.
+- [ ] 2.3 Verify package export maps expose existing public roots and `@leveza/shared/testing` from built output.
 - [ ] 2.4 Add a root `workspace-integrity` Nx project with a `package-imports` target that depends on clean package builds and imports every exported root in plain Node.
 - [ ] 2.5 Preserve the dependency-aware server and Docker build graph; fix mobile and any remaining direct development/start entry points that can rely on missing or stale `dist` output.
 - [ ] 2.6 Keep barrel splitting, API redesign, and unrelated dependency cleanup outside this PR.
@@ -68,10 +68,10 @@ npm run validate:openspec -- harden-package-and-ci-integrity
 ### Verification
 
 ```bash
-nx run-many -t build --projects=@workout-agent/shared,@workout-agent-ce/server-core,@workout-agent-ce/server-ai,server-auth,server-db,server-exercise-library,metering,quotas
+nx run-many -t build --projects=@leveza/shared,@leveza/server-core,@leveza/server-ai,server-auth,server-db,server-exercise-library,metering,quotas
 nx run workspace-integrity:package-imports
-nx build @workout-agent-ce/server
-nx build @workout-agent-ce/mobile
+nx build @leveza/server
+nx build @leveza/mobile
 ```
 
 ## 3. PR 3 - Repair Required Test Signals
@@ -113,8 +113,8 @@ nx run-many -t lint,typecheck,test,build
 ### Verification
 
 ```bash
-nx run @workout-agent-ce/server-e2e:e2e
-nx run @workout-agent-ce/mobile-e2e:e2e
+nx run @leveza/server-e2e:e2e
+nx run @leveza/mobile-e2e:e2e
 nx run-many -t lint,typecheck,test,build
 ```
 

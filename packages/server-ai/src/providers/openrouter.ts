@@ -4,11 +4,11 @@ import {
   todayPlanSchema,
   type GenerationRequest,
   type GenerationContext,
-} from '@workout-agent/shared';
+} from '@leveza/shared';
 import {
   createLogger,
   type StageOnePlannerArtifact,
-} from '@workout-agent-ce/server-core';
+} from '@leveza/server-core';
 import type { AiProvider, AiProviderOptions, GenerationResult } from './types';
 import { AiGenerationError } from './types';
 import {
@@ -60,7 +60,7 @@ async function getClient(
   return new OpenRouter({
     apiKey: options.apiKey,
     serverURL: options.apiBaseUrl ?? DEFAULT_API_BASE,
-    appTitle: 'Workout Agent CE',
+    appTitle: 'Leveza',
     timeoutMs: DEFAULT_REQUEST_TIMEOUT_MS,
   });
 }

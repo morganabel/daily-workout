@@ -1,5 +1,5 @@
 import { attachGeneratedIds } from './utils';
-import type { LlmTodayPlan } from '@workout-agent/shared';
+import type { LlmTodayPlan } from '@leveza/shared';
 
 jest.mock('uuid', () => {
   let call = 0;

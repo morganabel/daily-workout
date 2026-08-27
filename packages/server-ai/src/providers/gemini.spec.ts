@@ -3,12 +3,12 @@ import { GoogleGenAI } from '@google/genai';
 import type {
   CatalogSeed,
   ExerciseCandidatePool,
-} from '@workout-agent-ce/server-core';
+} from '@leveza/server-core';
 import type {
   GenerationRequest,
   GenerationContext,
   LlmTodayPlan,
-} from '@workout-agent/shared';
+} from '@leveza/shared';
 import { AiGenerationError } from './types';
 import {
   transformLlmResponse,
@@ -27,7 +27,7 @@ jest.mock('../llm-transformer', () => {
     getDefaultSchemaVersion: jest.fn(() => 'v1-current'),
     getSchemaForVersion: jest.fn((version: string) => {
       const { llmTodayPlanSchema } = jest.requireActual(
-        '@workout-agent/shared'
+        '@leveza/shared'
       );
       return llmTodayPlanSchema;
     }),

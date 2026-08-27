@@ -23,7 +23,7 @@ import type {
   CoachSessionDisposition,
   GenerationRequest,
   WorkoutEnergy,
-} from '@workout-agent/shared';
+} from '@leveza/shared';
 
 const DEFAULT_DURATION_MINUTES = 30;
 

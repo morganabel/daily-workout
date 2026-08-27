@@ -11,8 +11,8 @@ jest.mock('@/lib/wiring');
 
 import { POST } from './route';
 import { generateHandler } from '@/lib/wiring';
-import { todayPlanSchema } from '@workout-agent/shared';
-import { createTodayPlanFixture } from '@workout-agent/shared/testing';
+import { todayPlanSchema } from '@leveza/shared';
+import { createTodayPlanFixture } from '@leveza/shared/testing';
 
 const mockGenerateHandler = generateHandler as jest.MockedFunction<
   typeof generateHandler

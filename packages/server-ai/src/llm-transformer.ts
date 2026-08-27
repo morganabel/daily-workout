@@ -1,11 +1,11 @@
-import type { TodayPlan } from '@workout-agent/shared';
+import type { TodayPlan } from '@leveza/shared';
 import {
   llmTodayPlanSchema,
   llmTodayPlanFlatSchema,
   todayPlanSchema,
   type LlmTodayPlanFlat,
-} from '@workout-agent/shared';
-import { createLogger } from '@workout-agent-ce/server-core';
+} from '@leveza/shared';
+import { createLogger } from '@leveza/server-core';
 import { attachGeneratedIds } from './providers/utils';
 
 /**
