@@ -1,0 +1,1 @@
+Address Copilot review: omit unset offering metadata and decouple hidden purchase UI from server entitlement loading so RevenueCat stays uninitialized while plan data remains available.
