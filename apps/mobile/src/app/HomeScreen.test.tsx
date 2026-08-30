@@ -244,7 +244,7 @@ const createProjectedSessionFixture = (
 
 describe('HomeScreen', () => {
   beforeEach(() => {
-    jest.useFakeTimers();
+    jest.useFakeTimers({ legacyFakeTimers: true });
     jest.clearAllMocks();
     mockUseBillingState.mockReturnValue({
       showUpgradeUi: false,
@@ -253,6 +253,7 @@ describe('HomeScreen', () => {
   });
 
   afterEach(() => {
+    jest.runOnlyPendingTimers();
     jest.useRealTimers();
   });
 
